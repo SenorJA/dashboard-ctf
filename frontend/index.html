@@ -45,40 +45,114 @@
             </div>
 
             <!-- ARSENAL DE HERRAMIENTAS -->
-            <div class="p-4">
-                <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+            <div class="p-4 space-y-4">
+
+                <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
                     <span class="text-emerald-500">⚔</span> Arsenal
                 </h2>
 
-                <div class="space-y-2">
+                <!-- ── Web Recon ── -->
+                <div>
+                    <p class="text-[10px] font-semibold text-slate-600 uppercase tracking-wider mb-1.5">Web Recon</p>
+                    <div class="space-y-1.5">
 
-                    <!-- Gobuster -->
-                    <button onclick="launchTool('gobuster')"
-                        class="w-full bg-slate-700/50 hover:bg-slate-700 text-left px-3 py-2.5 rounded text-sm font-mono transition-all duration-150 border border-slate-600 hover:border-emerald-500/60 group">
-                        <span class="text-emerald-400 group-hover:text-emerald-300 font-semibold">#</span>
-                        <span class="text-slate-200 group-hover:text-white">Gobuster</span>
-                        <span class="block text-[11px] text-slate-500 group-hover:text-slate-400 mt-0.5">
-                            Directorios web (dirb common.txt)
-                        </span>
-                    </button>
+                        <button onclick="launchTool('gobuster')"
+                            class="w-full bg-slate-700/50 hover:bg-slate-700 text-left px-3 py-2 rounded text-xs font-mono transition-all duration-150 border border-slate-600 hover:border-emerald-500/60 group">
+                            <span class="text-emerald-400 group-hover:text-emerald-300 font-semibold">#</span>
+                            <span class="text-slate-200 group-hover:text-white">Gobuster</span>
+                            <span class="block text-[10px] text-slate-500 group-hover:text-slate-400 mt-0.5">
+                                Directorios web (common.txt)
+                            </span>
+                        </button>
 
-                    <!-- Nmap -->
-                    <button onclick="launchTool('nmap')"
-                        class="w-full bg-slate-700/50 hover:bg-slate-700 text-left px-3 py-2.5 rounded text-sm font-mono transition-all duration-150 border border-slate-600 hover:border-emerald-500/60 group">
-                        <span class="text-emerald-400 group-hover:text-emerald-300 font-semibold">#</span>
-                        <span class="text-slate-200 group-hover:text-white">Nmap</span>
-                        <span class="block text-[11px] text-slate-500 group-hover:text-slate-400 mt-0.5">
-                            Escaneo agresivo (-p- -sV -sC -O -A)
-                        </span>
-                    </button>
+                        <button onclick="launchTool('dirb')"
+                            class="w-full bg-slate-700/50 hover:bg-slate-700 text-left px-3 py-2 rounded text-xs font-mono transition-all duration-150 border border-slate-600 hover:border-emerald-500/60 group">
+                            <span class="text-emerald-400 group-hover:text-emerald-300 font-semibold">#</span>
+                            <span class="text-slate-200 group-hover:text-white">Dirb</span>
+                            <span class="block text-[10px] text-slate-500 group-hover:text-slate-400 mt-0.5">
+                                Fuerza bruta directorios
+                            </span>
+                        </button>
 
+                        <button onclick="launchTool('wfuzz')"
+                            class="w-full bg-slate-700/50 hover:bg-slate-700 text-left px-3 py-2 rounded text-xs font-mono transition-all duration-150 border border-slate-600 hover:border-emerald-500/60 group">
+                            <span class="text-emerald-400 group-hover:text-emerald-300 font-semibold">#</span>
+                            <span class="text-slate-200 group-hover:text-white">Wfuzz</span>
+                            <span class="block text-[10px] text-slate-500 group-hover:text-slate-400 mt-0.5">
+                                Fuzzing web (FUZZ)
+                            </span>
+                        </button>
+
+                        <button onclick="launchTool('nikto')"
+                            class="w-full bg-slate-700/50 hover:bg-slate-700 text-left px-3 py-2 rounded text-xs font-mono transition-all duration-150 border border-slate-600 hover:border-emerald-500/60 group">
+                            <span class="text-emerald-400 group-hover:text-emerald-300 font-semibold">#</span>
+                            <span class="text-slate-200 group-hover:text-white">Nikto</span>
+                            <span class="block text-[10px] text-slate-500 group-hover:text-slate-400 mt-0.5">
+                                Escáner de vulnerabilidades web
+                            </span>
+                        </button>
+
+                        <button onclick="launchTool('whatweb')"
+                            class="w-full bg-slate-700/50 hover:bg-slate-700 text-left px-3 py-2 rounded text-xs font-mono transition-all duration-150 border border-slate-600 hover:border-emerald-500/60 group">
+                            <span class="text-emerald-400 group-hover:text-emerald-300 font-semibold">#</span>
+                            <span class="text-slate-200 group-hover:text-white">WhatWeb</span>
+                            <span class="block text-[10px] text-slate-500 group-hover:text-slate-400 mt-0.5">
+                                Fingerprinting tecnologías web
+                            </span>
+                        </button>
+
+                    </div>
                 </div>
+
+                <!-- ── Network ── -->
+                <div>
+                    <p class="text-[10px] font-semibold text-slate-600 uppercase tracking-wider mb-1.5">Network</p>
+                    <div class="space-y-1.5">
+
+                        <button onclick="launchTool('nmap')"
+                            class="w-full bg-slate-700/50 hover:bg-slate-700 text-left px-3 py-2 rounded text-xs font-mono transition-all duration-150 border border-slate-600 hover:border-emerald-500/60 group">
+                            <span class="text-emerald-400 group-hover:text-emerald-300 font-semibold">#</span>
+                            <span class="text-slate-200 group-hover:text-white">Nmap</span>
+                            <span class="block text-[10px] text-slate-500 group-hover:text-slate-400 mt-0.5">
+                                Escaneo agresivo (-p- -sV -sC -O -A)
+                            </span>
+                        </button>
+
+                    </div>
+                </div>
+
+                <!-- ── Exploitation ── -->
+                <div>
+                    <p class="text-[10px] font-semibold text-slate-600 uppercase tracking-wider mb-1.5">Exploitation</p>
+                    <div class="space-y-1.5">
+
+                        <button onclick="launchTool('hydra')"
+                            class="w-full bg-slate-700/50 hover:bg-slate-700 text-left px-3 py-2 rounded text-xs font-mono transition-all duration-150 border border-slate-600 hover:border-emerald-500/60 group">
+                            <span class="text-emerald-400 group-hover:text-emerald-300 font-semibold">#</span>
+                            <span class="text-slate-200 group-hover:text-white">Hydra</span>
+                            <span class="block text-[10px] text-slate-500 group-hover:text-slate-400 mt-0.5">
+                                Fuerza bruta SSH (rockyou)
+                            </span>
+                        </button>
+
+                        <button onclick="launchTool('sqlmap')"
+                            class="w-full bg-slate-700/50 hover:bg-slate-700 text-left px-3 py-2 rounded text-xs font-mono transition-all duration-150 border border-slate-600 hover:border-emerald-500/60 group">
+                            <span class="text-emerald-400 group-hover:text-emerald-300 font-semibold">#</span>
+                            <span class="text-slate-200 group-hover:text-white">Sqlmap</span>
+                            <span class="block text-[10px] text-slate-500 group-hover:text-slate-400 mt-0.5">
+                                Detección automática SQLi
+                            </span>
+                        </button>
+
+                    </div>
+                </div>
+
             </div>
 
-            <!-- SEPARADOR + FUTUROS MÓDULOS -->
+            <!-- SEPARADOR INFERIOR -->
             <div class="mt-auto p-4 border-t border-slate-700">
                 <p class="text-[11px] text-slate-600 italic flex items-center gap-1">
-                    <span class="text-slate-700">◆</span> Más módulos próximamente...
+                    <span class="text-slate-700">◆</span> <span id="tool-count">8</span> módulos cargados
                 </p>
             </div>
         </aside>

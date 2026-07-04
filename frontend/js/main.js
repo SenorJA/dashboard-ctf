@@ -124,14 +124,47 @@ document.addEventListener('DOMContentLoaded', () => {
         let description = '';
 
         switch (tool) {
+            // ── Web Recon ──
             case 'gobuster':
                 command = `gobuster dir -u http://${target} -w /usr/share/wordlists/dirb/common.txt -t 50 -q`;
                 description = 'Gobuster — Directorios web';
                 break;
 
+            case 'dirb':
+                command = `dirb http://${target} /usr/share/wordlists/dirb/common.txt`;
+                description = 'Dirb — Fuerza bruta de directorios';
+                break;
+
+            case 'wfuzz':
+                command = `wfuzz -c -w /usr/share/wordlists/dirb/common.txt --hc 404 http://${target}/FUZZ`;
+                description = 'Wfuzz — Fuzzing web parametrizado';
+                break;
+
+            case 'nikto':
+                command = `nikto -h http://${target}`;
+                description = 'Nikto — Escáner de vulnerabilidades web';
+                break;
+
+            case 'whatweb':
+                command = `whatweb ${target}`;
+                description = 'WhatWeb — Fingerprinting de tecnologías';
+                break;
+
+            // ── Network ──
             case 'nmap':
                 command = `nmap -p- -sV -sC -O -A --min-rate=1000 -T4 ${target}`;
                 description = 'Nmap — Escaneo agresivo completo';
+                break;
+
+            // ── Exploitation ──
+            case 'hydra':
+                command = `hydra -l root -P /usr/share/wordlists/rockyou.txt ssh://${target} -t 4`;
+                description = 'Hydra — Fuerza bruta SSH (rockyou)';
+                break;
+
+            case 'sqlmap':
+                command = `sqlmap -u http://${target} --batch --random-agent`;
+                description = 'Sqlmap — Detección automática SQLi';
                 break;
 
             default:
