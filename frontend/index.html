@@ -4,289 +4,481 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CTF Dashboard — Red Team Arsenal</title>
+    <title>VulnForge — Red Team Dashboard</title>
 
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@400;600&display=swap"
-        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        neon: { DEFAULT: '#00ff41', dark: '#00cc33' },
+                        cyber: { DEFAULT: '#00d4ff', dark: '#0099cc' },
+                        deep: '#0a0a0f',
+                        void: '#0d1117',
+                        blood: '#ff0040'
+                    }
+                }
+            }
+        }
+    </script>
 
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 
-<body class="bg-slate-900 text-slate-200 h-screen flex flex-col overflow-hidden">
+<body class="bg-deep text-gray-300 h-screen flex flex-col overflow-hidden font-mono">
+
+    <!-- ===== MATRIX BG LAYER ===== -->
+    <div class="matrix-bg"></div>
 
     <!-- ===== HEADER ===== -->
-    <header class="bg-slate-800 border-b border-slate-700 px-6 py-3 flex justify-between items-center shadow-lg flex-shrink-0 z-10">
-        <h1 class="text-xl font-bold tracking-wider text-slate-100">
-            <span class="text-emerald-500">CTF</span><span class="text-slate-400">_</span>DASHBOARD
+    <header class="bg-void border-b border-[#1a1a2e] px-5 py-2.5 flex justify-between items-center flex-shrink-0 z-20 relative">
+        <h1 class="text-lg font-bold tracking-[0.2em]">
+            <span class="glitch-text text-neon">VULNFORGE</span>
+            <span class="text-xs text-gray-600 ml-2 font-light tracking-wider">v1.0</span>
         </h1>
-        <div class="flex items-center space-x-2">
-            <div id="status-indicator" class="w-3 h-3 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]">
+        <div class="flex items-center space-x-4">
+            <span class="text-[10px] text-gray-600 tracking-widest uppercase">/* Red Team Framework */</span>
+            <div class="flex items-center space-x-2">
+                <div id="status-indicator" class="w-2.5 h-2.5 rounded-full bg-blood shadow-[0_0_8px_rgba(255,0,64,0.6)]">
+                </div>
+                <span id="status-text" class="text-xs font-semibold text-gray-500 tracking-wider">OFFLINE</span>
             </div>
-            <span id="status-text" class="text-sm font-semibold text-slate-400">Desconectado</span>
         </div>
     </header>
 
-    <!-- ===== LAYOUT PRINCIPAL: SIDEBAR + CONTENIDO ===== -->
-    <div class="flex flex-1 overflow-hidden">
+    <!-- ===== LAYOUT PRINCIPAL ===== -->
+    <div class="flex flex-1 overflow-hidden relative z-10">
 
-        <!-- ===== SIDEBAR / ARSENAL ===== -->
-        <aside class="w-72 bg-slate-800 border-r border-slate-700 flex flex-col flex-shrink-0 overflow-y-auto">
+        <!-- ============================================================
+             SIDEBAR
+             ============================================================ -->
+        <aside id="sidebar" class="w-72 bg-void border-r border-[#1a1a2e] flex flex-col flex-shrink-0 overflow-y-auto">
 
-            <!-- INPUT GLOBAL DE OBJETIVO -->
-            <div class="p-4 border-b border-slate-700">
-                <label for="target-ip" class="text-xs font-semibold text-slate-400 uppercase tracking-widest">
-                    🎯 Objetivo CTF
+            <!-- ── TARGET INPUT ── -->
+            <div class="p-3 border-b border-[#1a1a2e]">
+                <label for="target-ip" class="text-[9px] font-semibold text-gray-600 uppercase tracking-[0.15em]">
+                    &gt;&gt; Target_
                 </label>
                 <input type="text" id="target-ip"
-                    placeholder="10.10.10.5 o dominio.com"
-                    class="mt-1.5 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/50 font-mono transition-colors">
-                <p class="mt-1 text-[10px] text-slate-600 italic">IP o dominio del objetivo CTF</p>
+                    placeholder="10.10.10.5 | dominio.htb"
+                    class="mt-1 w-full bg-deep border border-gray-800 rounded px-2.5 py-1.5 text-xs text-neon placeholder-gray-700 focus:outline-none focus:border-neon/50 focus:ring-0 font-mono transition-colors tracking-wider">
             </div>
 
-            <!-- ARSENAL DE HERRAMIENTAS -->
-            <div class="p-4 space-y-4">
+            <!-- ── CONNECTION MANAGER ── -->
+            <div class="p-3 border-b border-[#1a1a2e]">
+                <p class="text-[9px] font-semibold text-gray-600 uppercase tracking-[0.15em] mb-2 flex items-center justify-between">
+                    <span>&gt;&gt; Connections_</span>
+                    <button onclick="showAddConnection()" class="text-neon/60 hover:text-neon text-[10px]">+ New</button>
+                </p>
 
-                <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                    <span class="text-emerald-500">⚔</span> Arsenal
-                    <span class="ml-auto text-[10px] text-slate-600 font-mono">17</span>
+                <!-- Connection selector -->
+                <select id="conn-selector"
+                    class="w-full bg-deep border border-gray-800 rounded px-2 py-1.5 text-xs text-gray-300 focus:outline-none focus:border-neon/50 font-mono mb-2">
+                    <option value="">-- Select target --</option>
+                </select>
+
+                <!-- Active connection display -->
+                <div id="active-conn-display" class="hidden flex items-center gap-2 bg-deep rounded px-2.5 py-1.5 border border-gray-800/50">
+                    <span class="conn-dot offline" id="conn-dot"></span>
+                    <span id="conn-label" class="text-xs text-gray-400 truncate flex-1">—</span>
+                    <button onclick="disconnectConn()" class="text-blood/60 hover:text-blood text-[10px]">✕</button>
+                </div>
+
+                <!-- Hidden add-connection form (toggle) -->
+                <div id="add-conn-form" class="hidden mt-2 space-y-1.5 p-2 bg-deep rounded border border-gray-800/50">
+                    <input type="text" id="new-conn-name" placeholder="Alias (ej: Kali-VPN)"
+                        class="w-full bg-void border border-gray-800 rounded px-2 py-1 text-[11px] text-gray-300 placeholder-gray-700 focus:outline-none focus:border-neon/50 font-mono">
+                    <input type="text" id="new-conn-ip" placeholder="IP: 192.168.1.x"
+                        class="w-full bg-void border border-gray-800 rounded px-2 py-1 text-[11px] text-gray-300 placeholder-gray-700 focus:outline-none focus:border-neon/50 font-mono">
+                    <div class="flex gap-1.5">
+                        <input type="text" id="new-conn-user" placeholder="User"
+                            class="flex-1 bg-void border border-gray-800 rounded px-2 py-1 text-[11px] text-gray-300 placeholder-gray-700 focus:outline-none focus:border-neon/50 font-mono">
+                        <input type="password" id="new-conn-pass" placeholder="Pass"
+                            class="flex-1 bg-void border border-gray-800 rounded px-2 py-1 text-[11px] text-gray-300 placeholder-gray-700 focus:outline-none focus:border-neon/50 font-mono">
+                    </div>
+                    <div class="flex gap-1.5 pt-1">
+                        <button onclick="saveConnection()"
+                            class="flex-1 bg-neon/10 hover:bg-neon/20 text-neon text-[10px] py-1 rounded border border-neon/30 transition-colors">
+                            ✓ Save
+                        </button>
+                        <button onclick="toggleAddConnection()"
+                            class="flex-1 bg-gray-800/50 hover:bg-gray-800 text-gray-500 text-[10px] py-1 rounded transition-colors">
+                            ✕ Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── ARSENAL ── -->
+            <div class="p-3 space-y-3 flex-1">
+
+                <h2 class="text-[9px] font-semibold text-gray-600 uppercase tracking-[0.15em] flex items-center gap-1.5">
+                    <span class="text-neon">⚔</span> Arsenal
+                    <span class="ml-auto text-[9px] text-gray-700 font-mono">[24]</span>
                 </h2>
 
-                <!-- ── Web Recon ── -->
+                <!-- ══════ Web Recon ══════ -->
                 <div>
-                    <p class="text-[10px] font-semibold text-slate-600 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                        <span class="text-sky-400">◈</span> Web Recon
+                    <p class="cat-header text-[9px] font-semibold text-gray-600 uppercase tracking-wider mb-1 flex items-center gap-1"
+                        onclick="toggleCategory(this)">
+                        <span class="text-cyan-400">▶</span> Web Recon
+                        <span class="ml-auto text-[8px] text-gray-700">7</span>
                     </p>
-                    <div class="space-y-1">
+                    <div class="cat-body space-y-0.5">
 
                         <button onclick="launchTool('gobuster')"
-                            class="w-full bg-slate-700/50 hover:bg-slate-700 text-left px-3 py-1.5 rounded text-xs font-mono transition-all duration-150 border border-slate-600 hover:border-emerald-500/60 group">
-                            <span class="text-emerald-400 group-hover:text-emerald-300 font-semibold">#</span>
-                            <span class="text-slate-200 group-hover:text-white">Gobuster</span>
-                            <span class="block text-[9px] text-slate-500 group-hover:text-slate-400 mt-0.5 leading-tight">
-                                Directorios web (common.txt)
+                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
+                            <span class="text-neon/70 group-hover:text-neon">#</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">Gobuster</span>
+                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
+                                directorios web (common.txt)
                             </span>
                         </button>
 
                         <button onclick="launchTool('dirb')"
-                            class="w-full bg-slate-700/50 hover:bg-slate-700 text-left px-3 py-1.5 rounded text-xs font-mono transition-all duration-150 border border-slate-600 hover:border-emerald-500/60 group">
-                            <span class="text-emerald-400 group-hover:text-emerald-300 font-semibold">#</span>
-                            <span class="text-slate-200 group-hover:text-white">Dirb</span>
-                            <span class="block text-[9px] text-slate-500 group-hover:text-slate-400 mt-0.5 leading-tight">
-                                Fuerza bruta directorios
+                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
+                            <span class="text-neon/70 group-hover:text-neon">#</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">Dirb</span>
+                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
+                                fuerza bruta directorios
                             </span>
                         </button>
 
                         <button onclick="launchTool('wfuzz')"
-                            class="w-full bg-slate-700/50 hover:bg-slate-700 text-left px-3 py-1.5 rounded text-xs font-mono transition-all duration-150 border border-slate-600 hover:border-emerald-500/60 group">
-                            <span class="text-emerald-400 group-hover:text-emerald-300 font-semibold">#</span>
-                            <span class="text-slate-200 group-hover:text-white">Wfuzz</span>
-                            <span class="block text-[9px] text-slate-500 group-hover:text-slate-400 mt-0.5 leading-tight">
-                                Fuzzing web (FUZZ param)
+                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
+                            <span class="text-neon/70 group-hover:text-neon">#</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">Wfuzz</span>
+                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
+                                fuzzing (FUZZ param)
                             </span>
                         </button>
 
                         <button onclick="launchTool('ffuf')"
-                            class="w-full bg-slate-700/50 hover:bg-slate-700 text-left px-3 py-1.5 rounded text-xs font-mono transition-all duration-150 border border-slate-600 hover:border-emerald-500/60 group">
-                            <span class="text-emerald-400 group-hover:text-emerald-300 font-semibold">#</span>
-                            <span class="text-slate-200 group-hover:text-white">Ffuf</span>
-                            <span class="block text-[9px] text-slate-500 group-hover:text-slate-400 mt-0.5 leading-tight">
-                                Fuzzer web ultrarrápido
+                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
+                            <span class="text-neon/70 group-hover:text-neon">#</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">Ffuf</span>
+                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
+                                fuzzer ultrarrápido
                             </span>
                         </button>
 
                         <button onclick="launchTool('nikto')"
-                            class="w-full bg-slate-700/50 hover:bg-slate-700 text-left px-3 py-1.5 rounded text-xs font-mono transition-all duration-150 border border-slate-600 hover:border-emerald-500/60 group">
-                            <span class="text-emerald-400 group-hover:text-emerald-300 font-semibold">#</span>
-                            <span class="text-slate-200 group-hover:text-white">Nikto</span>
-                            <span class="block text-[9px] text-slate-500 group-hover:text-slate-400 mt-0.5 leading-tight">
-                                Escáner de vulnerabilidades web
+                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
+                            <span class="text-neon/70 group-hover:text-neon">#</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">Nikto</span>
+                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
+                                escáner vulnerabilidades web
                             </span>
                         </button>
 
                         <button onclick="launchTool('whatweb')"
-                            class="w-full bg-slate-700/50 hover:bg-slate-700 text-left px-3 py-1.5 rounded text-xs font-mono transition-all duration-150 border border-slate-600 hover:border-emerald-500/60 group">
-                            <span class="text-emerald-400 group-hover:text-emerald-300 font-semibold">#</span>
-                            <span class="text-slate-200 group-hover:text-white">WhatWeb</span>
-                            <span class="block text-[9px] text-slate-500 group-hover:text-slate-400 mt-0.5 leading-tight">
-                                Fingerprinting tecnologías web
+                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
+                            <span class="text-neon/70 group-hover:text-neon">#</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">WhatWeb</span>
+                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
+                                fingerprint tecnologías
                             </span>
                         </button>
 
                         <button onclick="launchTool('wpscan')"
-                            class="w-full bg-slate-700/50 hover:bg-slate-700 text-left px-3 py-1.5 rounded text-xs font-mono transition-all duration-150 border border-slate-600 hover:border-emerald-500/60 group">
-                            <span class="text-emerald-400 group-hover:text-emerald-300 font-semibold">#</span>
-                            <span class="text-slate-200 group-hover:text-white">Wpscan</span>
-                            <span class="block text-[9px] text-slate-500 group-hover:text-slate-400 mt-0.5 leading-tight">
-                                Escáner WordPress
+                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
+                            <span class="text-neon/70 group-hover:text-neon">#</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">Wpscan</span>
+                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
+                                escáner WordPress
                             </span>
                         </button>
 
                     </div>
                 </div>
 
-                <!-- ── Network / Port Scan ── -->
+                <!-- ══════ Network ══════ -->
                 <div>
-                    <p class="text-[10px] font-semibold text-slate-600 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                        <span class="text-violet-400">◈</span> Network
+                    <p class="cat-header text-[9px] font-semibold text-gray-600 uppercase tracking-wider mb-1 flex items-center gap-1"
+                        onclick="toggleCategory(this)">
+                        <span class="text-violet-400">▶</span> Network
+                        <span class="ml-auto text-[8px] text-gray-700">4</span>
                     </p>
-                    <div class="space-y-1">
+                    <div class="cat-body space-y-0.5">
 
                         <button onclick="launchTool('nmap')"
-                            class="w-full bg-slate-700/50 hover:bg-slate-700 text-left px-3 py-1.5 rounded text-xs font-mono transition-all duration-150 border border-slate-600 hover:border-emerald-500/60 group">
-                            <span class="text-emerald-400 group-hover:text-emerald-300 font-semibold">#</span>
-                            <span class="text-slate-200 group-hover:text-white">Nmap</span>
-                            <span class="block text-[9px] text-slate-500 group-hover:text-slate-400 mt-0.5 leading-tight">
-                                Escaneo agresivo (-p- -sV -sC -O -A)
+                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
+                            <span class="text-neon/70 group-hover:text-neon">#</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">Nmap</span>
+                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
+                                agresivo (-p- -sV -sC -O -A)
                             </span>
                         </button>
 
                         <button onclick="launchTool('masscan')"
-                            class="w-full bg-slate-700/50 hover:bg-slate-700 text-left px-3 py-1.5 rounded text-xs font-mono transition-all duration-150 border border-slate-600 hover:border-emerald-500/60 group">
-                            <span class="text-emerald-400 group-hover:text-emerald-300 font-semibold">#</span>
-                            <span class="text-slate-200 group-hover:text-white">Masscan</span>
-                            <span class="block text-[9px] text-slate-500 group-hover:text-slate-400 mt-0.5 leading-tight">
-                                Escaneo masivo de puertos (65535)
+                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
+                            <span class="text-neon/70 group-hover:text-neon">#</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">Masscan</span>
+                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
+                                escaneo masivo 65535 puertos
                             </span>
                         </button>
 
                         <button onclick="launchTool('netcat')"
-                            class="w-full bg-slate-700/50 hover:bg-slate-700 text-left px-3 py-1.5 rounded text-xs font-mono transition-all duration-150 border border-slate-600 hover:border-emerald-500/60 group">
-                            <span class="text-emerald-400 group-hover:text-emerald-300 font-semibold">#</span>
-                            <span class="text-slate-200 group-hover:text-white">Netcat</span>
-                            <span class="block text-[9px] text-slate-500 group-hover:text-slate-400 mt-0.5 leading-tight">
-                                Escaneo TCP rápido (1000 puertos)
+                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
+                            <span class="text-neon/70 group-hover:text-neon">#</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">Netcat</span>
+                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
+                                escaneo TCP rápido 24 puertos
                             </span>
                         </button>
 
                         <button onclick="launchTool('dnsrecon')"
-                            class="w-full bg-slate-700/50 hover:bg-slate-700 text-left px-3 py-1.5 rounded text-xs font-mono transition-all duration-150 border border-slate-600 hover:border-emerald-500/60 group">
-                            <span class="text-emerald-400 group-hover:text-emerald-300 font-semibold">#</span>
-                            <span class="text-slate-200 group-hover:text-white">Dnsrecon</span>
-                            <span class="block text-[9px] text-slate-500 group-hover:text-slate-400 mt-0.5 leading-tight">
-                                Enumeración DNS
+                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
+                            <span class="text-neon/70 group-hover:text-neon">#</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">Dnsrecon</span>
+                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
+                                enumeración DNS
                             </span>
                         </button>
 
                     </div>
                 </div>
 
-                <!-- ── SMB / Windows Recon ── -->
+                <!-- ══════ SMB / Windows ══════ -->
                 <div>
-                    <p class="text-[10px] font-semibold text-slate-600 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                        <span class="text-amber-400">◈</span> SMB / Windows
+                    <p class="cat-header text-[9px] font-semibold text-gray-600 uppercase tracking-wider mb-1 flex items-center gap-1"
+                        onclick="toggleCategory(this)">
+                        <span class="text-amber-400">▶</span> SMB / Windows
+                        <span class="ml-auto text-[8px] text-gray-700">2</span>
                     </p>
-                    <div class="space-y-1">
+                    <div class="cat-body space-y-0.5">
 
                         <button onclick="launchTool('enum4linux')"
-                            class="w-full bg-slate-700/50 hover:bg-slate-700 text-left px-3 py-1.5 rounded text-xs font-mono transition-all duration-150 border border-slate-600 hover:border-emerald-500/60 group">
-                            <span class="text-emerald-400 group-hover:text-emerald-300 font-semibold">#</span>
-                            <span class="text-slate-200 group-hover:text-white">Enum4linux</span>
-                            <span class="block text-[9px] text-slate-500 group-hover:text-slate-400 mt-0.5 leading-tight">
-                                Enumeración SMB completa
+                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
+                            <span class="text-neon/70 group-hover:text-neon">#</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">Enum4linux</span>
+                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
+                                enumeración SMB completa
                             </span>
                         </button>
 
                         <button onclick="launchTool('smbclient')"
-                            class="w-full bg-slate-700/50 hover:bg-slate-700 text-left px-3 py-1.5 rounded text-xs font-mono transition-all duration-150 border border-slate-600 hover:border-emerald-500/60 group">
-                            <span class="text-emerald-400 group-hover:text-emerald-300 font-semibold">#</span>
-                            <span class="text-slate-200 group-hover:text-white">Smbclient</span>
-                            <span class="block text-[9px] text-slate-500 group-hover:text-slate-400 mt-0.5 leading-tight">
-                                Listar shares SMB (null session)
+                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
+                            <span class="text-neon/70 group-hover:text-neon">#</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">Smbclient</span>
+                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
+                                listar shares (null session)
                             </span>
                         </button>
 
                     </div>
                 </div>
 
-                <!-- ── Exploitation / Brute Force ── -->
+                <!-- ══════ Pivoting / Tunnels ══════ -->
                 <div>
-                    <p class="text-[10px] font-semibold text-slate-600 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                        <span class="text-red-400">◈</span> Exploitation
+                    <p class="cat-header text-[9px] font-semibold text-gray-600 uppercase tracking-wider mb-1 flex items-center gap-1"
+                        onclick="toggleCategory(this)">
+                        <span class="text-fuchsia-400">▶</span> Pivoting
+                        <span class="ml-auto text-[8px] text-gray-700">2</span>
                     </p>
-                    <div class="space-y-1">
+                    <div class="cat-body space-y-0.5">
+
+                        <button onclick="launchTool('ligolo')"
+                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
+                            <span class="text-neon/70 group-hover:text-neon">#</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">Ligolo-ng</span>
+                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
+                                túnel reverse / agente pivoting
+                            </span>
+                        </button>
+
+                        <button onclick="launchTool('nc-listener')"
+                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
+                            <span class="text-neon/70 group-hover:text-neon">#</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">NC Listener</span>
+                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
+                                listener reverse shell (LPORT)
+                            </span>
+                        </button>
+
+                    </div>
+                </div>
+
+                <!-- ══════ Crypto / Decode ══════ -->
+                <div>
+                    <p class="cat-header text-[9px] font-semibold text-gray-600 uppercase tracking-wider mb-1 flex items-center gap-1"
+                        onclick="toggleCategory(this)">
+                        <span class="text-yellow-400">▶</span> Crypto / Decode
+                        <span class="ml-auto text-[8px] text-gray-700">4</span>
+                    </p>
+                    <div class="cat-body space-y-0.5">
+
+                        <button onclick="launchTool('jwt-decode')"
+                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
+                            <span class="text-neon/70 group-hover:text-neon">#</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">JWT Decode</span>
+                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
+                                decodificar JWT tokens online
+                            </span>
+                        </button>
+
+                        <button onclick="launchTool('b64-encode')"
+                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
+                            <span class="text-neon/70 group-hover:text-neon">#</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">Base64 Encode</span>
+                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
+                                texto → base64
+                            </span>
+                        </button>
+
+                        <button onclick="launchTool('b64-decode')"
+                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
+                            <span class="text-neon/70 group-hover:text-neon">#</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">Base64 Decode</span>
+                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
+                                base64 → texto
+                            </span>
+                        </button>
+
+                        <button onclick="launchTool('john')"
+                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
+                            <span class="text-neon/70 group-hover:text-neon">#</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">John</span>
+                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
+                                crack de hashes (rockyou)
+                            </span>
+                        </button>
+
+                        <button onclick="launchTool('hashcat')"
+                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
+                            <span class="text-neon/70 group-hover:text-neon">#</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">Hashcat</span>
+                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
+                                GPU hash cracking (mode 0)
+                            </span>
+                        </button>
+
+                    </div>
+                </div>
+
+                <!-- ══════ Exploitation ══════ -->
+                <div>
+                    <p class="cat-header text-[9px] font-semibold text-gray-600 uppercase tracking-wider mb-1 flex items-center gap-1"
+                        onclick="toggleCategory(this)">
+                        <span class="text-red-400">▶</span> Exploitation
+                        <span class="ml-auto text-[8px] text-gray-700">4</span>
+                    </p>
+                    <div class="cat-body space-y-0.5">
 
                         <button onclick="launchTool('hydra-ssh')"
-                            class="w-full bg-slate-700/50 hover:bg-slate-700 text-left px-3 py-1.5 rounded text-xs font-mono transition-all duration-150 border border-slate-600 hover:border-emerald-500/60 group">
-                            <span class="text-emerald-400 group-hover:text-emerald-300 font-semibold">#</span>
-                            <span class="text-slate-200 group-hover:text-white">Hydra SSH</span>
-                            <span class="block text-[9px] text-slate-500 group-hover:text-slate-400 mt-0.5 leading-tight">
-                                Fuerza bruta SSH (rockyou)
+                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
+                            <span class="text-neon/70 group-hover:text-neon">#</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">Hydra SSH</span>
+                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
+                                fuerza bruta SSH (rockyou)
                             </span>
                         </button>
 
                         <button onclick="launchTool('hydra-ftp')"
-                            class="w-full bg-slate-700/50 hover:bg-slate-700 text-left px-3 py-1.5 rounded text-xs font-mono transition-all duration-150 border border-slate-600 hover:border-emerald-500/60 group">
-                            <span class="text-emerald-400 group-hover:text-emerald-300 font-semibold">#</span>
-                            <span class="text-slate-200 group-hover:text-white">Hydra FTP</span>
-                            <span class="block text-[9px] text-slate-500 group-hover:text-slate-400 mt-0.5 leading-tight">
-                                Fuerza bruta FTP (rockyou)
+                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
+                            <span class="text-neon/70 group-hover:text-neon">#</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">Hydra FTP</span>
+                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
+                                fuerza bruta FTP (rockyou)
                             </span>
                         </button>
 
                         <button onclick="launchTool('sqlmap')"
-                            class="w-full bg-slate-700/50 hover:bg-slate-700 text-left px-3 py-1.5 rounded text-xs font-mono transition-all duration-150 border border-slate-600 hover:border-emerald-500/60 group">
-                            <span class="text-emerald-400 group-hover:text-emerald-300 font-semibold">#</span>
-                            <span class="text-slate-200 group-hover:text-white">Sqlmap</span>
-                            <span class="block text-[9px] text-slate-500 group-hover:text-slate-400 mt-0.5 leading-tight">
-                                Detección automática SQLi
+                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
+                            <span class="text-neon/70 group-hover:text-neon">#</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">Sqlmap</span>
+                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
+                                detección automática SQLi
                             </span>
                         </button>
 
                         <button onclick="launchTool('searchsploit')"
-                            class="w-full bg-slate-700/50 hover:bg-slate-700 text-left px-3 py-1.5 rounded text-xs font-mono transition-all duration-150 border border-slate-600 hover:border-emerald-500/60 group">
-                            <span class="text-emerald-400 group-hover:text-emerald-300 font-semibold">#</span>
-                            <span class="text-slate-200 group-hover:text-white">Searchsploit</span>
-                            <span class="block text-[9px] text-slate-500 group-hover:text-slate-400 mt-0.5 leading-tight">
-                                Buscar exploits por nombre/servicio
+                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
+                            <span class="text-neon/70 group-hover:text-neon">#</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">Searchsploit</span>
+                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
+                                buscar exploits por nombre/servicio
                             </span>
                         </button>
 
                     </div>
                 </div>
 
+                <!-- ══════ Utilities ══════ -->
+                <div>
+                    <p class="cat-header text-[9px] font-semibold text-gray-600 uppercase tracking-wider mb-1 flex items-center gap-1"
+                        onclick="toggleCategory(this)">
+                        <span class="text-gray-500">▶</span> Utilities
+                        <span class="ml-auto text-[8px] text-gray-700">1</span>
+                    </p>
+                    <div class="cat-body space-y-0.5">
+
+                        <a href="https://gchq.github.io/CyberChef/" target="_blank" rel="noopener"
+                            class="tool-btn flex items-center gap-2 w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-cyber/40 group">
+                            <span class="text-cyber/70 group-hover:text-cyber">🔗</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">CyberChef</span>
+                            <span class="ml-auto text-[8px] text-gray-700">↗</span>
+                        </a>
+
+                    </div>
+                </div>
+
             </div>
 
-            <!-- SEPARADOR INFERIOR -->
-            <div class="mt-auto p-4 border-t border-slate-700">
-                <p class="text-[11px] text-slate-600 italic flex items-center gap-1">
-                    <span class="text-slate-700">◆</span> <span id="tool-count">17</span> módulos cargados
+            <!-- ── SIDEBAR FOOTER ── -->
+            <div class="mt-auto p-3 border-t border-[#1a1a2e]">
+                <p class="text-[9px] text-gray-700 flex items-center gap-1">
+                    <span class="text-neon/50">◆</span> <span id="tool-count">24</span> modules loaded
+                    <span class="ml-auto text-[8px] text-gray-800">root@vulnforge</span>
                 </p>
             </div>
         </aside>
 
-        <!-- ===== CONTENIDO PRINCIPAL ===== -->
-        <main class="flex-1 p-6 flex flex-col space-y-4 overflow-hidden">
+        <!-- ============================================================
+             MAIN CONTENT
+             ============================================================ -->
+        <main class="flex-1 p-4 flex flex-col space-y-3 overflow-hidden relative">
 
-            <!-- CONTROLES DE CONEXIÓN Y COMANDOS -->
-            <div class="flex space-x-4 flex-shrink-0">
+            <!-- ── CONTROLS BAR ── -->
+            <div class="flex space-x-3 flex-shrink-0">
                 <button id="btn-connect"
-                    class="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2 rounded-md font-semibold transition-colors duration-200 shadow-md text-sm">
-                    Conectar a Kali
+                    class="bg-neon/10 hover:bg-neon/20 text-neon border border-neon/30 px-4 py-1.5 rounded text-[11px] font-semibold transition-all duration-200 hover:shadow-[0_0_12px_rgba(0,255,65,0.15)]">
+                    &gt; Connect
                 </button>
                 <button id="btn-disconnect"
-                    class="bg-red-600 hover:bg-red-500 text-white px-6 py-2 rounded-md font-semibold transition-colors duration-200 shadow-md text-sm">
-                    Desconectar
+                    class="bg-blood/10 hover:bg-blood/20 text-blood border border-blood/30 px-4 py-1.5 rounded text-[11px] font-semibold transition-all duration-200">
+                    &gt; Disconnect
                 </button>
                 <div class="flex-1 flex">
                     <input type="text" id="cmd-input"
-                        placeholder="Introduce un comando (ej: ifconfig, ls -la)..."
-                        class="terminal flex-1 bg-slate-800 border border-slate-600 rounded-l-md px-4 focus:outline-none focus:border-emerald-500 text-slate-200 text-sm placeholder-slate-500">
+                        placeholder="$  enter command..."
+                        class="terminal flex-1 bg-void border border-gray-800 rounded-l px-3 py-1.5 text-xs text-neon placeholder-gray-700 focus:outline-none focus:border-neon/50 tracking-wider">
                     <button id="btn-send"
-                        class="bg-slate-700 hover:bg-slate-600 border border-slate-600 border-l-0 rounded-r-md px-6 font-semibold transition-colors text-sm">
-                        Ejecutar
+                        class="bg-void border border-gray-800 border-l-0 rounded-r px-4 text-[11px] text-gray-500 hover:text-neon hover:border-neon/30 transition-all font-semibold">
+                        ⏎
                     </button>
                 </div>
             </div>
 
-            <!-- TERMINAL SSH -->
-            <div class="flex-1 bg-[#0f172a] rounded-lg border border-slate-700 shadow-inner relative flex flex-col overflow-hidden">
-                <div class="absolute top-0 left-0 w-full h-8 bg-slate-800 rounded-t-lg border-b border-slate-700 flex items-center px-4 flex-shrink-0 z-10">
-                    <span class="text-xs text-slate-400 font-semibold tracking-widest">javi@kali (SSH)</span>
+            <!-- ── TERMINAL OUTPUT ── -->
+            <div class="flex-1 bg-deep rounded-lg border border-gray-800 terminal-glow relative flex flex-col overflow-hidden">
+                <div class="flex items-center gap-2 px-3 py-1.5 bg-void border-b border-gray-800 flex-shrink-0 z-10">
+                    <span class="w-2 h-2 rounded-full bg-blood/50"></span>
+                    <span class="w-2 h-2 rounded-full bg-yellow-500/50"></span>
+                    <span class="w-2 h-2 rounded-full bg-neon/50"></span>
+                    <span id="terminal-title" class="text-[10px] text-gray-700 tracking-wider ml-2 font-mono">
+                        ─╼ root@vulnforge ╾─────────────────────────────────────
+                    </span>
+                    <span id="conn-badge" class="ml-auto text-[9px] text-gray-700">disconnected</span>
                 </div>
                 <pre id="terminal-output"
-                    class="terminal mt-8 flex-1 overflow-y-auto text-sm text-slate-300 whitespace-pre-wrap leading-relaxed px-4 pb-4"></pre>
+                    class="terminal flex-1 overflow-y-auto text-xs text-neon/90 whitespace-pre-wrap leading-relaxed px-3 py-2 cursor-blink"></pre>
             </div>
+
         </main>
     </div>
 
