@@ -1,28 +1,32 @@
-document.addEventListener('DOMContentLoaded', () => {
-    let ws;
+// Hacemos que ws sea global para poder llamarlo desde el HTML (onclick)
+let ws;
 
-    // Referencias a los elementos del DOM
+document.addEventListener('DOMContentLoaded', () => {
+
+    // Referencias al DOM
     const output = document.getElementById('terminal-output');
     const statusIndicator = document.getElementById('status-indicator');
     const statusText = document.getElementById('status-text');
     const cmdInput = document.getElementById('cmd-input');
     const btnConnect = document.getElementById('btn-connect');
+    const btnDisconnect = document.getElementById('btn-disconnect');
     const btnSend = document.getElementById('btn-send');
 
-    // Función para añadir texto a la consola
-    function appendOutput(text) {
+    // Función mejorada para el output con scroll perfecto
+    window.appendOutput = function (text) {
         output.textContent += text + (text.endsWith('\n') ? '' : '\n');
-        output.scrollTop = output.scrollHeight;
+        requestAnimationFrame(() => {
+            output.scrollTop = output.scrollHeight;
+        });
     }
 
-    // Lógica de conexión WebSocket
     function connectWS() {
         if (ws && ws.readyState === WebSocket.OPEN) {
             appendOutput("[!] Ya estás conectado.");
             return;
         }
 
-        appendOutput("[*] Iniciando conexión WebSocket con el backend...");
+        appendOutput("[*] Iniciando conexión...");
         ws = new WebSocket("ws://localhost:8000/ws");
 
         ws.onopen = () => {
@@ -41,14 +45,23 @@ document.addEventListener('DOMContentLoaded', () => {
             statusIndicator.classList.replace('shadow-[0_0_8px_rgba(16,185,129,0.6)]', 'shadow-[0_0_8px_rgba(239,68,68,0.6)]');
             statusText.textContent = "Desconectado";
             statusText.classList.replace('text-emerald-400', 'text-slate-400');
-            appendOutput("\n[!] Conexión cerrada.");
+            appendOutput("\n[!] Conexión SSH cerrada.");
+            ws = null;
         };
     }
 
-    // Lógica para enviar comandos
-    function sendCommand() {
+    function disconnectWS() {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            appendOutput("[*] Forzando cierre de conexión...");
+            ws.close();
+        } else {
+            appendOutput("[!] No hay ninguna conexión activa.");
+        }
+    }
+
+    window.sendCommand = function () {
         if (!ws || ws.readyState !== WebSocket.OPEN) {
-            appendOutput("[!] Error: No estás conectado a Kali. Pulsa 'Conectar' primero.");
+            appendOutput("[!] Error: Conecta a Kali primero.");
             return;
         }
         const cmd = cmdInput.value;
@@ -58,37 +71,24 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Event Listeners
-    btnConnect.addEventListener('click', connectWS);
-    btnSend.addEventListener('click', sendCommand);
+    // Función para los botones del Sidebar
+    window.sendPredefinedCmd = function (cmd) {
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+            appendOutput("[!] Error: Conecta a Kali primero antes de lanzar módulos.");
+            return;
+        }
+        appendOutput(`\n[*] Lanzando módulo automático: ${cmd}`);
+        ws.send(cmd);
+    }
 
-    // Soporte para tecla "Enter" en el input
+    // Listeners
+    btnConnect.addEventListener('click', connectWS);
+    btnDisconnect.addEventListener('click', disconnectWS);
+    btnSend.addEventListener('click', window.sendCommand);
+
     cmdInput.addEventListener('keypress', (event) => {
         if (event.key === 'Enter') {
-            sendCommand();
+            window.sendCommand();
         }
     });
-
-    // Función para desconectar
-    function disconnectWS() {
-        if (ws && ws.readyState === WebSocket.OPEN) {
-            appendOutput("[*] Cerrando conexión con Kali...");
-            ws.close();
-        } else {
-            appendOutput("[!] No hay ninguna conexión activa.");
-        }
-    }
-
-    // Añade el listener a los otros que ya tienes abajo
-    const btnDisconnect = document.getElementById('btn-disconnect');
-    btnDisconnect.addEventListener('click', disconnectWS);
-
-    function appendOutput(text) {
-        output.textContent += text + (text.endsWith('\n') ? '' : '\n');
-        // Usamos requestAnimationFrame para asegurar que el navegador ha pintado el texto antes de hacer scroll
-        requestAnimationFrame(() => {
-            output.scrollTop = output.scrollHeight;
-        });
-    }
-
 });
