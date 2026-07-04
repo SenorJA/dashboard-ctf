@@ -20,7 +20,7 @@ async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     
     # Credenciales de tu Kali
-    KALI_IP = "192.168.1.138"
+    KALI_IP = "192.168.214.142"
     KALI_USER = "javi"
     KALI_PASS = "javi" 
 

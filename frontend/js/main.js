@@ -68,4 +68,27 @@ document.addEventListener('DOMContentLoaded', () => {
             sendCommand();
         }
     });
+
+    // Función para desconectar
+    function disconnectWS() {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            appendOutput("[*] Cerrando conexión con Kali...");
+            ws.close();
+        } else {
+            appendOutput("[!] No hay ninguna conexión activa.");
+        }
+    }
+
+    // Añade el listener a los otros que ya tienes abajo
+    const btnDisconnect = document.getElementById('btn-disconnect');
+    btnDisconnect.addEventListener('click', disconnectWS);
+
+    function appendOutput(text) {
+        output.textContent += text + (text.endsWith('\n') ? '' : '\n');
+        // Usamos requestAnimationFrame para asegurar que el navegador ha pintado el texto antes de hacer scroll
+        requestAnimationFrame(() => {
+            output.scrollTop = output.scrollHeight;
+        });
+    }
+
 });
