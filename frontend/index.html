@@ -441,42 +441,137 @@
         <!-- ============================================================
              MAIN CONTENT
              ============================================================ -->
-        <main class="flex-1 p-4 flex flex-col space-y-3 overflow-hidden relative">
+        <main class="flex-1 flex flex-col overflow-hidden relative">
 
-            <!-- ── CONTROLS BAR ── -->
-            <div class="flex space-x-3 flex-shrink-0">
-                <button id="btn-connect"
-                    class="bg-neon/10 hover:bg-neon/20 text-neon border border-neon/30 px-4 py-1.5 rounded text-[11px] font-semibold transition-all duration-200 hover:shadow-[0_0_12px_rgba(0,255,65,0.15)]">
-                    &gt; Connect
+            <!-- ── TABS BAR ── -->
+            <div class="tabs-bar px-4">
+                <button class="tab-btn active" onclick="switchTab('terminal')">
+                    ⌨ Terminal
                 </button>
-                <button id="btn-disconnect"
-                    class="bg-blood/10 hover:bg-blood/20 text-blood border border-blood/30 px-4 py-1.5 rounded text-[11px] font-semibold transition-all duration-200">
-                    &gt; Disconnect
+                <button class="tab-btn" onclick="switchTab('reports')">
+                    📊 Reports <span id="report-count" class="text-[9px] text-gray-700 ml-1">(0)</span>
                 </button>
-                <div class="flex-1 flex">
-                    <input type="text" id="cmd-input"
-                        placeholder="$  enter command..."
-                        class="terminal flex-1 bg-void border border-gray-800 rounded-l px-3 py-1.5 text-xs text-neon placeholder-gray-700 focus:outline-none focus:border-neon/50 tracking-wider">
-                    <button id="btn-send"
-                        class="bg-void border border-gray-800 border-l-0 rounded-r px-4 text-[11px] text-gray-500 hover:text-neon hover:border-neon/30 transition-all font-semibold">
-                        ⏎
+                <button class="tab-btn" onclick="switchTab('scripts')">
+                    ⚡ Scripts
+                </button>
+            </div>
+
+            <!-- ════════════════════════════════════════════════════════
+                 TAB: TERMINAL
+                 ════════════════════════════════════════════════════════ -->
+            <div id="tab-terminal" class="tab-pane active p-4 pt-3 space-y-3">
+                <div class="flex space-x-3 flex-shrink-0">
+                    <button id="btn-connect"
+                        class="bg-neon/10 hover:bg-neon/20 text-neon border border-neon/30 px-4 py-1.5 rounded text-[11px] font-semibold transition-all duration-200 hover:shadow-[0_0_12px_rgba(0,255,65,0.15)]">
+                        &gt; Connect
                     </button>
+                    <button id="btn-disconnect"
+                        class="bg-blood/10 hover:bg-blood/20 text-blood border border-blood/30 px-4 py-1.5 rounded text-[11px] font-semibold transition-all duration-200">
+                        &gt; Disconnect
+                    </button>
+                    <div class="flex-1 flex">
+                        <input type="text" id="cmd-input"
+                            placeholder="$  enter command..."
+                            class="terminal flex-1 bg-void border border-gray-800 rounded-l px-3 py-1.5 text-xs text-neon placeholder-gray-700 focus:outline-none focus:border-neon/50 tracking-wider">
+                        <button id="btn-send"
+                            class="bg-void border border-gray-800 border-l-0 rounded-r px-4 text-[11px] text-gray-500 hover:text-neon hover:border-neon/30 transition-all font-semibold">
+                            ⏎
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex-1 bg-deep rounded-lg border border-gray-800 terminal-glow relative flex flex-col overflow-hidden">
+                    <div class="flex items-center gap-2 px-3 py-1.5 bg-void border-b border-gray-800 flex-shrink-0 z-10">
+                        <span class="w-2 h-2 rounded-full bg-blood/50"></span>
+                        <span class="w-2 h-2 rounded-full bg-yellow-500/50"></span>
+                        <span class="w-2 h-2 rounded-full bg-neon/50"></span>
+                        <span id="terminal-title" class="text-[10px] text-gray-700 tracking-wider ml-2 font-mono">
+                            ─╼ root@vulnforge ╾─────────────────────────────────────
+                        </span>
+                        <span id="conn-badge" class="ml-auto text-[9px] text-gray-700">disconnected</span>
+                    </div>
+                    <pre id="terminal-output"
+                        class="terminal flex-1 overflow-y-auto text-xs text-neon/90 whitespace-pre-wrap leading-relaxed px-3 py-2 cursor-blink"></pre>
                 </div>
             </div>
 
-            <!-- ── TERMINAL OUTPUT ── -->
-            <div class="flex-1 bg-deep rounded-lg border border-gray-800 terminal-glow relative flex flex-col overflow-hidden">
-                <div class="flex items-center gap-2 px-3 py-1.5 bg-void border-b border-gray-800 flex-shrink-0 z-10">
-                    <span class="w-2 h-2 rounded-full bg-blood/50"></span>
-                    <span class="w-2 h-2 rounded-full bg-yellow-500/50"></span>
-                    <span class="w-2 h-2 rounded-full bg-neon/50"></span>
-                    <span id="terminal-title" class="text-[10px] text-gray-700 tracking-wider ml-2 font-mono">
-                        ─╼ root@vulnforge ╾─────────────────────────────────────
-                    </span>
-                    <span id="conn-badge" class="ml-auto text-[9px] text-gray-700">disconnected</span>
+            <!-- ════════════════════════════════════════════════════════
+                 TAB: REPORTS
+                 ════════════════════════════════════════════════════════ -->
+            <div id="tab-reports" class="tab-pane p-4 pt-3 overflow-y-auto">
+                <div class="flex items-center justify-between mb-3 flex-shrink-0">
+                    <h3 class="text-xs text-neon font-semibold tracking-wider">
+                        📊 Scan Reports
+                    </h3>
+                    <button onclick="clearReports()"
+                        class="text-[10px] text-gray-600 hover:text-blood transition-colors">
+                        ✕ clear all
+                    </button>
                 </div>
-                <pre id="terminal-output"
-                    class="terminal flex-1 overflow-y-auto text-xs text-neon/90 whitespace-pre-wrap leading-relaxed px-3 py-2 cursor-blink"></pre>
+                <div id="reports-container" class="space-y-2 flex-1">
+                    <div class="report-empty">
+                        <div class="icon">📂</div>
+                        <div>No reports yet</div>
+                        <div class="text-[10px] mt-1 text-gray-700">Run a scan from the Arsenal to see results here</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ════════════════════════════════════════════════════════
+                 TAB: SCRIPTS (RCE Builder)
+                 ════════════════════════════════════════════════════════ -->
+            <div id="tab-scripts" class="tab-pane p-4 pt-3 flex flex-col overflow-hidden space-y-3">
+
+                <!-- Template selector -->
+                <div class="flex-shrink-0">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="text-[9px] text-gray-600 uppercase tracking-wider font-semibold">Templates</span>
+                        <span class="text-[9px] text-gray-800">|</span>
+                        <button class="script-template-btn active" onclick="selectScriptTemplate('blank')">📄 Blank</button>
+                        <button class="script-template-btn" onclick="selectScriptTemplate('bash-rev')">🐚 Bash Rev</button>
+                        <button class="script-template-btn" onclick="selectScriptTemplate('python-rev')">🐍 Python Rev</button>
+                        <button class="script-template-btn" onclick="selectScriptTemplate('php-webshell')">🐘 PHP Web</button>
+                        <button class="script-template-btn" onclick="selectScriptTemplate('powershell-rev')">🪟 PS Rev</button>
+                        <button class="script-template-btn" onclick="selectScriptTemplate('msfvenom')">💉 Msfvenom</button>
+                    </div>
+                </div>
+
+                <!-- Script name + actions -->
+                <div class="flex items-center gap-2 flex-shrink-0">
+                    <input type="text" id="script-name"
+                        placeholder="script-name.sh"
+                        class="bg-void border border-gray-800 rounded px-2.5 py-1 text-[11px] text-gray-300 placeholder-gray-700 focus:outline-none focus:border-neon/50 font-mono w-48">
+                    <button onclick="deployScript()"
+                        class="bg-neon/10 hover:bg-neon/20 text-neon border border-neon/30 px-3 py-1 rounded text-[10px] font-semibold transition-all duration-200 hover:shadow-[0_0_8px_rgba(0,255,65,0.15)]">
+                        ⬆ Deploy & Run
+                    </button>
+                    <button onclick="saveScript()"
+                        class="bg-cyber/10 hover:bg-cyber/20 text-cyber border border-cyber/30 px-3 py-1 rounded text-[10px] transition-all">
+                        💾 Save
+                    </button>
+                    <button onclick="loadScript()"
+                        class="bg-gray-800/50 hover:bg-gray-800 text-gray-500 border border-gray-800 px-3 py-1 rounded text-[10px] transition-all">
+                        📂 Load
+                    </button>
+                    <span id="script-status" class="text-[10px] text-gray-700 ml-auto"></span>
+                </div>
+
+                <!-- Code editor -->
+                <div class="flex-1 flex flex-col overflow-hidden bg-deep rounded-lg border border-gray-800">
+                    <div class="flex items-center gap-2 px-3 py-1 bg-void border-b border-gray-800 flex-shrink-0">
+                        <span class="text-[9px] text-gray-600">EDITOR</span>
+                        <span class="text-[9px] text-gray-800">|</span>
+                        <span id="script-lang" class="text-[9px] text-gray-700">bash</span>
+                        <span class="ml-auto text-[9px] text-gray-800" id="script-line-count">0 lines</span>
+                    </div>
+                    <textarea id="script-editor" class="script-editor flex-1"
+                        placeholder="# Write your payload here..."></textarea>
+                </div>
+
+                <!-- Deploy log -->
+                <div id="deploy-log" class="hidden flex-shrink-0 bg-deep border border-gray-800 rounded p-2 max-h-16 overflow-y-auto">
+                    <pre id="deploy-log-text" class="text-[10px] text-neon/70 font-mono"></pre>
+                </div>
             </div>
 
         </main>
