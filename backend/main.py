@@ -6,7 +6,8 @@ FastAPI + WebSocket + Paramiko (Dynamic SSH)
 import json
 import os
 import asyncio
-import httpx
+import urllib.request
+import urllib.error
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
@@ -28,39 +29,49 @@ class N8nTriggerRequest(BaseModel):
     scan_type: str = "full"
     n8n_url: str = "http://localhost:5678"
 
+def _http_post_json(url: str, data: dict, timeout: int = 120):
+    """Synchronous HTTP POST with JSON body (runs in thread via asyncio)."""
+    body = json.dumps(data).encode("utf-8")
+    req = urllib.request.Request(url, data=body, method="POST")
+    req.add_header("Content-Type", "application/json")
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return resp.status, resp.read().decode("utf-8", errors="replace")
+    except urllib.error.HTTPError as e:
+        return e.code, e.read().decode("utf-8", errors="replace")[:2000]
+    except urllib.error.URLError as e:
+        raise ConnectionError(f"n8n unreachable: {e.reason}")
+
+def _http_get(url: str, timeout: int = 5):
+    """Synchronous HTTP GET (runs in thread via asyncio)."""
+    try:
+        with urllib.request.urlopen(url, timeout=timeout) as resp:
+            return resp.status
+    except urllib.error.URLError:
+        return 0
+
 @app.post("/api/n8n/trigger")
 async def trigger_n8n_workflow(req: N8nTriggerRequest):
     """Proxy a trigger request to the n8n webhook."""
     webhook_url = f"{req.n8n_url.rstrip('/')}/webhook/attack-surface-scan"
     payload = {"target": req.target, "scan_type": req.scan_type}
     try:
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            resp = await client.post(webhook_url, json=payload)
+        status, text = await asyncio.to_thread(_http_post_json, webhook_url, payload, 120)
         return JSONResponse(
-            content={
-                "status": resp.status_code,
-                "ok": resp.is_success,
-                "data": resp.text[:2000] if resp.text else ""
-            }
+            content={"status": status, "ok": 200 <= status < 300, "data": text[:2000]}
         )
-    except httpx.RequestError as e:
+    except ConnectionError as e:
         return JSONResponse(
             status_code=502,
-            content={"status": 502, "ok": False, "error": f"n8n unreachable: {str(e)}"}
+            content={"status": 502, "ok": False, "error": str(e)}
         )
 
 @app.get("/api/n8n/status")
 async def check_n8n_status(n8n_url: str = "http://localhost:5678"):
     """Health-check that n8n is reachable."""
     health_url = f"{n8n_url.rstrip('/')}/healthz"
-    try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            resp = await client.get(health_url)
-        return JSONResponse(
-            content={"reachable": resp.is_success, "status": resp.status_code}
-        )
-    except httpx.RequestError:
-        return JSONResponse(content={"reachable": False, "status": 0})
+    status = await asyncio.to_thread(_http_get, health_url, 5)
+    return JSONResponse(content={"reachable": status != 0, "status": status})
 
 
 @app.get("/")

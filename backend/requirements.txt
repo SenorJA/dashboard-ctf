@@ -2,4 +2,3 @@ fastapi
 uvicorn
 websockets
 paramiko
-httpx
