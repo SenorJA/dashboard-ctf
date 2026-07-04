@@ -77,24 +77,25 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 | `clearHak5Editor()` | Clears the payload editor |
 | `clearTerminal()` | Clears the terminal output (`#terminal-output`) |
 | `handleFileUpload(input)` | Reads a plain-text file and uploads it to /tmp/ on Kali via SSH |
+| `filterArsenal(query)` | Filters arsenal tools by name/description in real-time |
 | `connectPayloadStudio()` | Shows Payload Studio login form / loads saved creds |
 | `doPayloadStudioLogin()` | Saves Payload Studio credentials to localStorage, navigates iframe |
 | `disconnectPayloadStudio()` | Clears saved creds, resets iframe to login page |
 
 ## Arsenal module system
 
-45 modules: 36 SSH tools + 9 external resource links.
+53 modules: 44 SSH tools + 9 external resource links.
 
 **Categories:**
 | Category | Count | Tools |
 |----------|-------|-------|
-| Web Recon | 8 | gobuster, dirb, wfuzz, ffuf, **feroxbuster**, nikto, whatweb, wpscan |
-| Network | 5 | nmap, masscan, netcat, dnsrecon, **curl** |
-| SMB / Windows | 5 | enum4linux, smbclient, **evil-winrm**, **impacket**, **smbmap** |
+| Web Recon | 9 | gobuster, dirb, wfuzz, ffuf, **feroxbuster**, nikto, whatweb, wpscan, **cewl** |
+| Network | 6 | nmap, masscan, netcat, dnsrecon, **curl**, **socat** |
+| SMB / Windows | 8 | enum4linux, smbclient, **evil-winrm**, **impacket**, **smbmap**, **ldapsearch**, **bloodhound** |
 | Pivoting | 5 | ligolo, nc-listener, **chisel-client**, **proxychains** |
 | Crypto / Decode | 4 | jwt-decode, b64-encode, b64-decode, john, hashcat |
-| Exploitation | 6 | hydra-ssh, hydra-ftp, sqlmap, searchsploit, **responder** |
-| Resources | 8 | links to HackTricks, PortSwigger, PayloadsAllTheThings, Chisel, RevShells, Exploit-DB, **BurpSuite**, GTFOBins |
+| Exploitation | 6 | hydra-ssh, hydra-ftp, sqlmap, searchsploit, **responder**, **burpsuite** |
+| Resources | 8 | links to HackTricks, PortSwigger, PayloadsAllTheThings, Chisel, RevShells, Exploit-DB, BurpSuite, GTFOBins |
 | Utilities | 1 | CyberChef |
 | Extract / Compress | **7** | **unzip, tar-gz, tar-xz, 7z-extract, unrar, gunzip, bunzip2** |
 

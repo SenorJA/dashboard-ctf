@@ -131,15 +131,23 @@
 
                 <h2 class="text-[9px] font-semibold text-gray-600 uppercase tracking-[0.15em] flex items-center gap-1.5">
                     <span class="text-neon">⚔</span> <span data-i18n="arsenal">Arsenal</span>
-                    <span class="ml-auto text-[9px] text-gray-700 font-mono">[31]</span>
+                    <span class="ml-auto text-[9px] text-gray-700 font-mono" id="arsenal-total-count">[45]</span>
                 </h2>
+
+                <!-- ── SEARCH ── -->
+                <div class="relative">
+                    <input type="text" id="arsenal-search" placeholder="🔍 filter tools..."
+                        class="w-full bg-void border border-gray-800 rounded px-2 py-1.5 text-[10px] text-gray-300 placeholder-gray-700 focus:outline-none focus:border-neon/50 font-mono tracking-wider"
+                        oninput="filterArsenal(this.value)">
+                    <span class="absolute right-2 top-1/2 -translate-y-1/2 text-[8px] text-gray-800">/</span>
+                </div>
 
                 <!-- ══════ Web Recon ══════ -->
                 <div>
                     <p class="cat-header text-[9px] font-semibold text-gray-600 uppercase tracking-wider mb-1 flex items-center gap-1"
                         onclick="toggleCategory(this)">
                         <span class="text-cyan-400">▶</span> <span data-i18n="catWebRecon">Web Recon</span>
-                        <span class="ml-auto text-[8px] text-gray-700">7</span>
+                        <span class="ml-auto text-[8px] text-gray-700">9</span>
                     </p>
                     <div class="cat-body space-y-0.5">
 
@@ -215,6 +223,15 @@
                             </span>
                         </button>
 
+                        <button onclick="launchTool('cewl')"
+                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
+                            <span class="text-neon/70 group-hover:text-neon">#</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">Cewl</span>
+                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
+                                generador wordlists desde web
+                            </span>
+                        </button>
+
                     </div>
                 </div>
 
@@ -223,7 +240,7 @@
                     <p class="cat-header text-[9px] font-semibold text-gray-600 uppercase tracking-wider mb-1 flex items-center gap-1"
                         onclick="toggleCategory(this)">
                         <span class="text-violet-400">▶</span> <span data-i18n="catNetwork">Network</span>
-                        <span class="ml-auto text-[8px] text-gray-700">4</span>
+                        <span class="ml-auto text-[8px] text-gray-700">6</span>
                     </p>
                     <div class="cat-body space-y-0.5">
 
@@ -272,6 +289,15 @@
                             </span>
                         </button>
 
+                        <button onclick="launchTool('socat')"
+                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
+                            <span class="text-neon/70 group-hover:text-neon">#</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">Socat</span>
+                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
+                                relay TCP/UDP, reverse shell
+                            </span>
+                        </button>
+
                     </div>
                 </div>
 
@@ -280,7 +306,7 @@
                     <p class="cat-header text-[9px] font-semibold text-gray-600 uppercase tracking-wider mb-1 flex items-center gap-1"
                         onclick="toggleCategory(this)">
                         <span class="text-amber-400">▶</span> <span data-i18n="catSMB">SMB / Windows</span>
-                        <span class="ml-auto text-[8px] text-gray-700">2</span>
+                        <span class="ml-auto text-[8px] text-gray-700">5</span>
                     </p>
                     <div class="cat-body space-y-0.5">
 
@@ -317,6 +343,33 @@
                             <span class="text-gray-400 group-hover:text-gray-200">Impacket</span>
                             <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
                                 psexec / smbexec / wmiexec
+                            </span>
+                        </button>
+
+                        <button onclick="launchTool('smbmap')"
+                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
+                            <span class="text-neon/70 group-hover:text-neon">#</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">Smbmap</span>
+                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
+                                permisos SMB recursivo
+                            </span>
+                        </button>
+
+                        <button onclick="launchTool('ldapsearch')"
+                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
+                            <span class="text-neon/70 group-hover:text-neon">#</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">Ldapsearch</span>
+                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
+                                enumeración LDAP (dominio)
+                            </span>
+                        </button>
+
+                        <button onclick="launchTool('bloodhound')"
+                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
+                            <span class="text-neon/70 group-hover:text-neon">#</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">BloodHound</span>
+                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
+                                ingestor AD (bloodhound-python)
                             </span>
                         </button>
 
@@ -433,7 +486,7 @@
                     <p class="cat-header text-[9px] font-semibold text-gray-600 uppercase tracking-wider mb-1 flex items-center gap-1"
                         onclick="toggleCategory(this)">
                         <span class="text-red-400">▶</span> <span data-i18n="catExploitation">Exploitation</span>
-                        <span class="ml-auto text-[8px] text-gray-700">4</span>
+                        <span class="ml-auto text-[8px] text-gray-700">6</span>
                     </p>
                     <div class="cat-body space-y-0.5">
 
@@ -479,6 +532,15 @@
                             <span class="text-gray-400 group-hover:text-gray-200">Responder</span>
                             <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
                                 LLMNR/NBT-NS poisoning
+                            </span>
+                        </button>
+
+                        <button onclick="launchTool('burpsuite')"
+                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
+                            <span class="text-neon/70 group-hover:text-neon">#</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">BurpSuite</span>
+                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
+                                proxy HTTP/S + lanzar en Kali
                             </span>
                         </button>
 
