@@ -1,38 +1,55 @@
-// Hacemos que ws sea global para poder llamarlo desde el HTML (onclick)
+/**
+ * ============================================================
+ *  CTF Dashboard — Frontend Controller
+ *  WebSocket + SSH + Arsenal Tool Launcher
+ * ============================================================
+ */
+
 let ws;
 
 document.addEventListener('DOMContentLoaded', () => {
 
-    // Referencias al DOM
-    const output = document.getElementById('terminal-output');
-    const statusIndicator = document.getElementById('status-indicator');
-    const statusText = document.getElementById('status-text');
-    const cmdInput = document.getElementById('cmd-input');
-    const btnConnect = document.getElementById('btn-connect');
+    // ============================================================
+    //  REFERENCIAS DOM
+    // ============================================================
+    const output        = document.getElementById('terminal-output');
+    const statusInd     = document.getElementById('status-indicator');
+    const statusText    = document.getElementById('status-text');
+    const cmdInput      = document.getElementById('cmd-input');
+    const btnConnect    = document.getElementById('btn-connect');
     const btnDisconnect = document.getElementById('btn-disconnect');
-    const btnSend = document.getElementById('btn-send');
+    const btnSend       = document.getElementById('btn-send');
+    const targetInput   = document.getElementById('target-ip');
 
-    // Función mejorada para el output con scroll perfecto
+    // ============================================================
+    //  SALIDA EN TERMINAL (global para acceso desde HTML)
+    // ============================================================
     window.appendOutput = function (text) {
         output.textContent += text + (text.endsWith('\n') ? '' : '\n');
         requestAnimationFrame(() => {
             output.scrollTop = output.scrollHeight;
         });
-    }
+    };
 
+    // ============================================================
+    //  WEBSOCKET — CONEXIÓN / DESCONEXIÓN
+    // ============================================================
     function connectWS() {
         if (ws && ws.readyState === WebSocket.OPEN) {
-            appendOutput("[!] Ya estás conectado.");
+            appendOutput('[!] Ya estás conectado.');
             return;
         }
 
-        appendOutput("[*] Iniciando conexión...");
-        ws = new WebSocket("ws://localhost:8000/ws");
+        appendOutput('[*] Iniciando conexión WebSocket...');
+        ws = new WebSocket('ws://localhost:8000/ws');
 
         ws.onopen = () => {
-            statusIndicator.classList.replace('bg-red-500', 'bg-emerald-500');
-            statusIndicator.classList.replace('shadow-[0_0_8px_rgba(239,68,68,0.6)]', 'shadow-[0_0_8px_rgba(16,185,129,0.6)]');
-            statusText.textContent = "Conectado";
+            statusInd.classList.replace('bg-red-500', 'bg-emerald-500');
+            statusInd.classList.replace(
+                'shadow-[0_0_8px_rgba(239,68,68,0.6)]',
+                'shadow-[0_0_8px_rgba(16,185,129,0.6)]'
+            );
+            statusText.textContent = 'Conectado';
             statusText.classList.replace('text-slate-400', 'text-emerald-400');
         };
 
@@ -41,47 +58,100 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         ws.onclose = () => {
-            statusIndicator.classList.replace('bg-emerald-500', 'bg-red-500');
-            statusIndicator.classList.replace('shadow-[0_0_8px_rgba(16,185,129,0.6)]', 'shadow-[0_0_8px_rgba(239,68,68,0.6)]');
-            statusText.textContent = "Desconectado";
+            statusInd.classList.replace('bg-emerald-500', 'bg-red-500');
+            statusInd.classList.replace(
+                'shadow-[0_0_8px_rgba(16,185,129,0.6)]',
+                'shadow-[0_0_8px_rgba(239,68,68,0.6)]'
+            );
+            statusText.textContent = 'Desconectado';
             statusText.classList.replace('text-emerald-400', 'text-slate-400');
-            appendOutput("\n[!] Conexión SSH cerrada.");
+            appendOutput('\n[!] Conexión SSH cerrada.');
             ws = null;
         };
     }
 
     function disconnectWS() {
         if (ws && ws.readyState === WebSocket.OPEN) {
-            appendOutput("[*] Forzando cierre de conexión...");
+            appendOutput('[*] Forzando cierre de conexión...');
             ws.close();
         } else {
-            appendOutput("[!] No hay ninguna conexión activa.");
+            appendOutput('[!] No hay ninguna conexión activa.');
         }
     }
 
+    // ============================================================
+    //  ENVÍO DE COMANDO DESDE EL INPUT MANUAL
+    // ============================================================
     window.sendCommand = function () {
         if (!ws || ws.readyState !== WebSocket.OPEN) {
-            appendOutput("[!] Error: Conecta a Kali primero.");
+            appendOutput('[!] Error: Conecta a Kali primero.');
             return;
         }
-        const cmd = cmdInput.value;
-        if (cmd) {
-            ws.send(cmd);
-            cmdInput.value = '';
-        }
-    }
+        const cmd = cmdInput.value.trim();
+        if (!cmd) return;
+        ws.send(cmd);
+        cmdInput.value = '';
+    };
 
-    // Función para los botones del Sidebar
+    // ============================================================
+    //  LANZADOR DE COMANDOS PREDEFINIDOS (módulos Arsenal)
+    // ============================================================
     window.sendPredefinedCmd = function (cmd) {
         if (!ws || ws.readyState !== WebSocket.OPEN) {
-            appendOutput("[!] Error: Conecta a Kali primero antes de lanzar módulos.");
+            appendOutput('[!] Error: Conecta a Kali primero antes de lanzar módulos.');
             return;
         }
         appendOutput(`\n[*] Lanzando módulo automático: ${cmd}`);
         ws.send(cmd);
-    }
+    };
 
-    // Listeners
+    // ============================================================
+    //  🚀 LANZADOR DE HERRAMIENTAS DEL ARSENAL (FUNCIÓN NUEVA)
+    // ============================================================
+    window.launchTool = function (tool) {
+        // 1. Leer el target del input global
+        const target = targetInput.value.trim();
+
+        // 2. Validar que no esté vacío
+        if (!target) {
+            alert('⚠️  Introduce una IP o dominio en el campo "Objetivo CTF" de la barra lateral antes de lanzar una herramienta.');
+            targetInput.focus();
+            return;
+        }
+
+        // 3. Construir el comando según la herramienta seleccionada
+        let command = '';
+        let description = '';
+
+        switch (tool) {
+            case 'gobuster':
+                command = `gobuster dir -u http://${target} -w /usr/share/wordlists/dirb/common.txt -t 50 -q`;
+                description = 'Gobuster — Directorios web';
+                break;
+
+            case 'nmap':
+                command = `nmap -p- -sV -sC -O -A --min-rate=1000 -T4 ${target}`;
+                description = 'Nmap — Escaneo agresivo completo';
+                break;
+
+            default:
+                appendOutput(`[!] Herramienta desconocida: "${tool}"`);
+                return;
+        }
+
+        // 4. Mostrar en terminal y enviar
+        appendOutput(`\n${'='.repeat(56)}`);
+        appendOutput(`  🚀 ${description}`);
+        appendOutput(`  🎯 Target: ${target}`);
+        appendOutput(`  💻 Comando: ${command}`);
+        appendOutput(`${'='.repeat(56)}`);
+
+        window.sendPredefinedCmd(command);
+    };
+
+    // ============================================================
+    //  EVENT LISTENERS
+    // ============================================================
     btnConnect.addEventListener('click', connectWS);
     btnDisconnect.addEventListener('click', disconnectWS);
     btnSend.addEventListener('click', window.sendCommand);
@@ -91,4 +161,12 @@ document.addEventListener('DOMContentLoaded', () => {
             window.sendCommand();
         }
     });
+
+    // Permitir Enter en el campo target-ip para lanzar Gobuster por defecto
+    targetInput.addEventListener('keypress', (event) => {
+        if (event.key === 'Enter') {
+            window.launchTool('gobuster');
+        }
+    });
+
 });

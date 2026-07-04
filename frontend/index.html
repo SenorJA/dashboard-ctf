@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CTF Dashboard - Control Panel</title>
+    <title>CTF Dashboard — Red Team Arsenal</title>
 
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@400;600&display=swap"
@@ -13,11 +13,12 @@
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 
-<body class="bg-slate-900 text-slate-200 h-screen flex flex-col">
+<body class="bg-slate-900 text-slate-200 h-screen flex flex-col overflow-hidden">
 
-    <header class="bg-slate-800 border-b border-slate-700 p-4 flex justify-between items-center shadow-lg">
+    <!-- ===== HEADER ===== -->
+    <header class="bg-slate-800 border-b border-slate-700 px-6 py-3 flex justify-between items-center shadow-lg flex-shrink-0 z-10">
         <h1 class="text-xl font-bold tracking-wider text-slate-100">
-            <span class="text-emerald-500">CTF</span>_DASHBOARD
+            <span class="text-emerald-500">CTF</span><span class="text-slate-400">_</span>DASHBOARD
         </h1>
         <div class="flex items-center space-x-2">
             <div id="status-indicator" class="w-3 h-3 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]">
@@ -26,36 +27,96 @@
         </div>
     </header>
 
-    <main class="flex-1 p-6 flex flex-col space-y-4 max-w-6xl mx-auto w-full">
+    <!-- ===== LAYOUT PRINCIPAL: SIDEBAR + CONTENIDO ===== -->
+    <div class="flex flex-1 overflow-hidden">
 
-        <div class="flex space-x-4">
-            <button id="btn-connect"
-                class="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2 rounded-md font-semibold transition-colors duration-200 shadow-md">
-                Conectar a Kali
-            </button>
-            <button id="btn-disconnect"
-                class="bg-red-600 hover:bg-red-500 text-white px-6 py-2 rounded-md font-semibold transition-colors duration-200 shadow-md">
-                Desconectar
-            </button>
-            <div class="flex-1 flex">
-                <input type="text" id="cmd-input" placeholder="Introduce un comando (ej: ifconfig, ls -la)..."
-                    class="terminal flex-1 bg-slate-800 border border-slate-600 rounded-l-md px-4 focus:outline-none focus:border-emerald-500 text-slate-200">
-                <button id="btn-send"
-                    class="bg-slate-700 hover:bg-slate-600 border border-slate-600 border-l-0 rounded-r-md px-6 font-semibold transition-colors">
-                    Ejecutar
+        <!-- ===== SIDEBAR / ARSENAL ===== -->
+        <aside class="w-72 bg-slate-800 border-r border-slate-700 flex flex-col flex-shrink-0 overflow-y-auto">
+
+            <!-- INPUT GLOBAL DE OBJETIVO -->
+            <div class="p-4 border-b border-slate-700">
+                <label for="target-ip" class="text-xs font-semibold text-slate-400 uppercase tracking-widest">
+                    🎯 Objetivo CTF
+                </label>
+                <input type="text" id="target-ip"
+                    placeholder="10.10.10.5 o dominio.com"
+                    class="mt-1.5 w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/50 font-mono transition-colors">
+                <p class="mt-1 text-[10px] text-slate-600 italic">IP o dominio del objetivo CTF</p>
+            </div>
+
+            <!-- ARSENAL DE HERRAMIENTAS -->
+            <div class="p-4">
+                <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                    <span class="text-emerald-500">⚔</span> Arsenal
+                </h2>
+
+                <div class="space-y-2">
+
+                    <!-- Gobuster -->
+                    <button onclick="launchTool('gobuster')"
+                        class="w-full bg-slate-700/50 hover:bg-slate-700 text-left px-3 py-2.5 rounded text-sm font-mono transition-all duration-150 border border-slate-600 hover:border-emerald-500/60 group">
+                        <span class="text-emerald-400 group-hover:text-emerald-300 font-semibold">#</span>
+                        <span class="text-slate-200 group-hover:text-white">Gobuster</span>
+                        <span class="block text-[11px] text-slate-500 group-hover:text-slate-400 mt-0.5">
+                            Directorios web (dirb common.txt)
+                        </span>
+                    </button>
+
+                    <!-- Nmap -->
+                    <button onclick="launchTool('nmap')"
+                        class="w-full bg-slate-700/50 hover:bg-slate-700 text-left px-3 py-2.5 rounded text-sm font-mono transition-all duration-150 border border-slate-600 hover:border-emerald-500/60 group">
+                        <span class="text-emerald-400 group-hover:text-emerald-300 font-semibold">#</span>
+                        <span class="text-slate-200 group-hover:text-white">Nmap</span>
+                        <span class="block text-[11px] text-slate-500 group-hover:text-slate-400 mt-0.5">
+                            Escaneo agresivo (-p- -sV -sC -O -A)
+                        </span>
+                    </button>
+
+                </div>
+            </div>
+
+            <!-- SEPARADOR + FUTUROS MÓDULOS -->
+            <div class="mt-auto p-4 border-t border-slate-700">
+                <p class="text-[11px] text-slate-600 italic flex items-center gap-1">
+                    <span class="text-slate-700">◆</span> Más módulos próximamente...
+                </p>
+            </div>
+        </aside>
+
+        <!-- ===== CONTENIDO PRINCIPAL ===== -->
+        <main class="flex-1 p-6 flex flex-col space-y-4 overflow-hidden">
+
+            <!-- CONTROLES DE CONEXIÓN Y COMANDOS -->
+            <div class="flex space-x-4 flex-shrink-0">
+                <button id="btn-connect"
+                    class="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2 rounded-md font-semibold transition-colors duration-200 shadow-md text-sm">
+                    Conectar a Kali
                 </button>
+                <button id="btn-disconnect"
+                    class="bg-red-600 hover:bg-red-500 text-white px-6 py-2 rounded-md font-semibold transition-colors duration-200 shadow-md text-sm">
+                    Desconectar
+                </button>
+                <div class="flex-1 flex">
+                    <input type="text" id="cmd-input"
+                        placeholder="Introduce un comando (ej: ifconfig, ls -la)..."
+                        class="terminal flex-1 bg-slate-800 border border-slate-600 rounded-l-md px-4 focus:outline-none focus:border-emerald-500 text-slate-200 text-sm placeholder-slate-500">
+                    <button id="btn-send"
+                        class="bg-slate-700 hover:bg-slate-600 border border-slate-600 border-l-0 rounded-r-md px-6 font-semibold transition-colors text-sm">
+                        Ejecutar
+                    </button>
+                </div>
             </div>
-        </div>
 
-        <div class="flex-1 bg-[#0f172a] rounded-lg border border-slate-700 p-4 shadow-inner relative">
-            <div
-                class="absolute top-0 left-0 w-full h-8 bg-slate-800 rounded-t-lg border-b border-slate-700 flex items-center px-4">
-                <span class="text-xs text-slate-400 font-semibold tracking-widest">javi@192.168.1.138 (SSH)</span>
+            <!-- TERMINAL SSH -->
+            <div class="flex-1 bg-[#0f172a] rounded-lg border border-slate-700 shadow-inner relative flex flex-col overflow-hidden">
+                <div class="absolute top-0 left-0 w-full h-8 bg-slate-800 rounded-t-lg border-b border-slate-700 flex items-center px-4 flex-shrink-0 z-10">
+                    <span class="text-xs text-slate-400 font-semibold tracking-widest">javi@kali (SSH)</span>
+                </div>
+                <pre id="terminal-output"
+                    class="terminal mt-8 flex-1 overflow-y-auto text-sm text-slate-300 whitespace-pre-wrap leading-relaxed px-4 pb-4"></pre>
             </div>
-            <pre id="terminal-output"
-                class="terminal mt-8 h-[calc(100%-2rem)] overflow-y-auto text-sm text-slate-300 whitespace-pre-wrap leading-relaxed"></pre>
-        </div>
-    </main>
+        </main>
+    </div>
 
     <script src="/static/js/main.js"></script>
 </body>
