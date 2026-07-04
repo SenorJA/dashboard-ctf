@@ -1,7 +1,6 @@
 ---
 description: Principal orchestrator that consolidates and delegates to technical security and development experts
 mode: primary
-model: google/gemini-1.5-pro-preview
 ---
 
 # Orchestrator Architect - Web, Scripting, and OSINT Framework
