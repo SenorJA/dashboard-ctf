@@ -140,6 +140,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 description = 'Wfuzz — Fuzzing web parametrizado';
                 break;
 
+            case 'ffuf':
+                command = `ffuf -w /usr/share/wordlists/dirb/common.txt -u http://${target}/FUZZ`;
+                description = 'Ffuf — Fuzzer web ultrarrápido';
+                break;
+
             case 'nikto':
                 command = `nikto -h http://${target}`;
                 description = 'Nikto — Escáner de vulnerabilidades web';
@@ -150,21 +155,62 @@ document.addEventListener('DOMContentLoaded', () => {
                 description = 'WhatWeb — Fingerprinting de tecnologías';
                 break;
 
+            case 'wpscan':
+                command = `wpscan --url http://${target} --no-update --disable-tls-checks`;
+                description = 'Wpscan — Escáner WordPress';
+                break;
+
             // ── Network ──
             case 'nmap':
                 command = `nmap -p- -sV -sC -O -A --min-rate=1000 -T4 ${target}`;
                 description = 'Nmap — Escaneo agresivo completo';
                 break;
 
-            // ── Exploitation ──
-            case 'hydra':
+            case 'masscan':
+                command = `masscan -p1-65535 --rate=1000 ${target}`;
+                description = 'Masscan — Escaneo masivo 65535 puertos';
+                break;
+
+            case 'netcat':
+                command = `nc -zv ${target} 21 22 23 25 53 80 110 139 143 443 445 993 995 1433 1521 2049 3306 3389 5432 5900 5985 5986 8080 8443`;
+                description = 'Netcat — Escaneo TCP rápido (24 puertos)';
+                break;
+
+            case 'dnsrecon':
+                command = `dnsrecon -d ${target}`;
+                description = 'Dnsrecon — Enumeración DNS';
+                break;
+
+            // ── SMB / Windows ──
+            case 'enum4linux':
+                command = `enum4linux -a ${target}`;
+                description = 'Enum4linux — Enumeración SMB completa';
+                break;
+
+            case 'smbclient':
+                command = `smbclient -L //${target} -N`;
+                description = 'Smbclient — Listar shares SMB (null session)';
+                break;
+
+            // ── Exploitation / Brute Force ──
+            case 'hydra-ssh':
                 command = `hydra -l root -P /usr/share/wordlists/rockyou.txt ssh://${target} -t 4`;
-                description = 'Hydra — Fuerza bruta SSH (rockyou)';
+                description = 'Hydra SSH — Fuerza bruta SSH (rockyou)';
+                break;
+
+            case 'hydra-ftp':
+                command = `hydra -l admin -P /usr/share/wordlists/rockyou.txt ftp://${target} -t 4`;
+                description = 'Hydra FTP — Fuerza bruta FTP (rockyou)';
                 break;
 
             case 'sqlmap':
                 command = `sqlmap -u http://${target} --batch --random-agent`;
                 description = 'Sqlmap — Detección automática SQLi';
+                break;
+
+            case 'searchsploit':
+                command = `searchsploit ${target} 2>/dev/null || echo "[!] No se encontraron resultados en Searchsploit para: ${target}"`;
+                description = 'Searchsploit — Buscar exploits relacionados';
                 break;
 
             default:
