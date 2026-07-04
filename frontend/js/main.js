@@ -524,8 +524,61 @@ document.addEventListener('DOMContentLoaded', () => {
     // ============================================================
     //  🚀 LAUNCH TOOL
     // ============================================================
+    // ── Extra flags examples per tool ──
+    const toolExamples = {
+        gobuster: '-w /usr/share/wordlists/dirbuster/directory-list-lowercase-2.3-small.txt -x php,html,txt',
+        dirb: '-w /usr/share/wordlists/dirb/big.txt -X .php,.html',
+        wfuzz: '-w /usr/share/wfuzz/wordlist/general/common.txt --hc 403,500',
+        ffuf: '-w /usr/share/seclists/Discovery/Web-Content/raft-small-directories.txt -recursion',
+        feroxbuster: '-x php,html -L 3 --filter-status 401,403',
+        nikto: '-ssl -port 443 -Format html -o /tmp/nikto.html',
+        whatweb: '-a 3 --log-verbose /tmp/whatweb.log',
+        wpscan: '--enumerate u,vp --plugins-detection aggressive',
+        cewl: '-d 3 -m 6 -w /tmp/custom.txt -c',
+        nmap: '-p 22,80,443,3306,8080 -sV -sC -Pn',
+        masscan: '-p22,80,443 --rate=500 -oJ /tmp/masscan.json',
+        netcat: '-zv 22 80 443 8080',
+        dnsrecon: '-t rvl -D /usr/share/wordlists/dns/subdomains-top1mil-5000.txt',
+        curl: '-k -L -A \"Mozilla/5.0\" -H \"X-Forwarded-For: 127.0.0.1\"',
+        socat: 'TCP-LISTEN:4444,fork,reuseaddr -',
+        enum4linux: '-U -S -G -P -r -R',
+        smbclient: '-U guest -N -c ls',
+        'evil-winrm': '-u <user> -p <pass> -s /opt/scripts',
+        impacket: '-hashes :<ntlm_hash> -target-ip 10.10.10.10',
+        smbmap: '-u <user> -p <pass> -d <domain> -R',
+        ldapsearch: '-x -b \"dc=htb,dc=local\" \"(objectclass=user)\"',
+        bloodhound: '-d htb.local -u <user> -p <pass> -c All',
+        'nc-listener': '-lvnp 4444',
+        'hydra-ssh': '-l <user> -P /usr/share/seclists/Passwords/Common-Credentials/10k-most-common.txt -t 8',
+        'hydra-ftp': '-l admin -P /usr/share/wordlists/rockyou.txt -V -t 4',
+        sqlmap: '--risk=3 --level=5 --dump-all --batch -D <dbname>',
+        searchsploit: '-t <software> -w -o /tmp/exploits.txt',
+    };
+
+    window.clearExtraFlags = function () {
+        document.getElementById('extra-flags').value = '';
+        document.getElementById('extra-flags-example').classList.add('hidden');
+        document.getElementById('extra-flags-hint').textContent = 'optional';
+    };
+
+    function updateExtraFlagsHint(tool) {
+        const exampleText = document.getElementById('extra-flags-example-text');
+        const exampleDiv = document.getElementById('extra-flags-example');
+        const hint = document.getElementById('extra-flags-hint');
+        const ex = toolExamples[tool];
+        if (ex) {
+            exampleText.textContent = ex;
+            exampleDiv.classList.remove('hidden');
+            hint.textContent = 'click tool for examples';
+        } else {
+            exampleDiv.classList.add('hidden');
+            hint.textContent = 'optional';
+        }
+    }
+
     window.launchTool = function (tool) {
         const target = targetInput.value.trim();
+        const extraFlags = document.getElementById('extra-flags').value.trim();
         const needsTarget = [
             'gobuster','dirb','wfuzz','ffuf','feroxbuster','nikto','whatweb','wpscan','cewl',
             'nmap','masscan','netcat','dnsrecon','curl','socat',
@@ -757,15 +810,62 @@ document.addEventListener('DOMContentLoaded', () => {
             outputBuffer = '';
         }
 
+        // Append extra flags if provided
+        let finalCommand = command;
+        if (extraFlags && tool !== 'cewl' && !description.includes('guide') && !description.includes('Guide') && !description.includes('Usage')) {
+            // For tools with a direct target, insert flags before target
+            // For others, append at end
+            if (command.includes('${target}') && command.indexOf('${target}') > 10) {
+                finalCommand = command.replace(/\$\{target\}/, `${extraFlags} ${target}`);
+            } else {
+                finalCommand = `${command} ${extraFlags}`;
+            }
+        }
+
         const sep = '─'.repeat(52);
         appendOutput(`\n${sep}`);
         appendOutput(`  🚀 ${description}`);
         appendOutput(`  🎯 ${target || '(no target needed)'}`);
-        appendOutput(`  \$ ${command}`);
+        if (extraFlags) appendOutput(`  🚩 extra: ${extraFlags}`);
+        appendOutput(`  \$ ${finalCommand}`);
         appendOutput(`${sep}`);
 
-        window.sendPredefinedCmd(command);
+        window.sendPredefinedCmd(finalCommand);
+
+        // Auto-focus extra flags for next use
+        document.getElementById('extra-flags').focus();
     };
+
+    // ── Delegate tool button events for extra-flags hints ──
+    document.addEventListener('mouseover', function (e) {
+        const btn = e.target.closest('[onclick*=\"launchTool\"]');
+        if (btn) {
+            const match = btn.getAttribute('onclick').match(/launchTool\('(\w+)'\)/);
+            if (match) {
+                const toolId = match[1];
+                const exampleText = document.getElementById('extra-flags-example-text');
+                const exampleDiv = document.getElementById('extra-flags-example');
+                const hint = document.getElementById('extra-flags-hint');
+                const ex = toolExamples[toolId];
+                if (ex) {
+                    exampleText.textContent = ex;
+                    exampleDiv.classList.remove('hidden');
+                    hint.textContent = toolId;
+                }
+            }
+        }
+    });
+
+    // ── Clear hint when mouse leaves the sidebar ──
+    document.getElementById('sidebar').addEventListener('mouseleave', function () {
+        // Only clear if the extra flags input isn't focused
+        if (document.activeElement !== document.getElementById('extra-flags')) {
+            const exampleDiv = document.getElementById('extra-flags-example');
+            const hint = document.getElementById('extra-flags-hint');
+            // Keep the last example visible but dim it
+            hint.textContent = 'hover a tool';
+        }
+    });
 
     // ============================================================
     //  TAB SYSTEM

@@ -80,6 +80,23 @@
                 <input type="text" id="target-ip"
                     placeholder="10.10.10.5 | dominio.htb"
                     class="mt-1 w-full bg-deep border border-gray-800 rounded px-2.5 py-1.5 text-xs text-neon placeholder-gray-700 focus:outline-none focus:border-neon/50 focus:ring-0 font-mono transition-colors tracking-wider">
+
+                <!-- ── EXTRA FLAGS ── -->
+                <label for="extra-flags" class="mt-2 text-[9px] font-semibold text-gray-600 uppercase tracking-[0.15em] flex items-center justify-between">
+                    <span>&gt;&gt; Extra flags_</span>
+                    <span id="extra-flags-hint" class="text-[8px] text-gray-800 font-normal normal-case tracking-normal">optional</span>
+                </label>
+                <div class="flex gap-1 mt-1">
+                    <input type="text" id="extra-flags"
+                        placeholder="-w /path/to/wordlist.txt"
+                        class="flex-1 bg-deep border border-gray-800 rounded px-2.5 py-1.5 text-xs text-gray-400 placeholder-gray-700 focus:outline-none focus:border-neon/50 focus:ring-0 font-mono transition-colors">
+                    <button onclick="clearExtraFlags()" id="btn-clear-flags"
+                        class="text-[9px] text-gray-700 hover:text-gray-500 transition-colors px-1.5 border border-gray-800 rounded"
+                        title="Clear flags">✕</button>
+                </div>
+                <p id="extra-flags-example" class="text-[8px] text-gray-800 mt-1 leading-relaxed hidden">
+                    <span class="text-gray-700">↳ ej:</span> <span id="extra-flags-example-text" class="text-cyber/60"></span>
+                </p>
             </div>
 
             <!-- ── CONNECTION MANAGER ── -->
