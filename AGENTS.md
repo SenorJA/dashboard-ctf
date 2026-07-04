@@ -76,13 +76,29 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 | `listHak5Payloads()` | Lists all saved payloads for active device |
 | `clearHak5Editor()` | Clears the payload editor |
 | `clearTerminal()` | Clears the terminal output (`#terminal-output`) |
+| `handleFileUpload(input)` | Reads a plain-text file and uploads it to /tmp/ on Kali via SSH |
 | `connectPayloadStudio()` | Shows Payload Studio login form / loads saved creds |
 | `doPayloadStudioLogin()` | Saves Payload Studio credentials to localStorage, navigates iframe |
 | `disconnectPayloadStudio()` | Clears saved creds, resets iframe to login page |
 
 ## Arsenal module system
 
-31 modules: 24 SSH tools + 7 external resource links.
+45 modules: 36 SSH tools + 9 external resource links.
+
+**Categories:**
+| Category | Count | Tools |
+|----------|-------|-------|
+| Web Recon | 8 | gobuster, dirb, wfuzz, ffuf, **feroxbuster**, nikto, whatweb, wpscan |
+| Network | 5 | nmap, masscan, netcat, dnsrecon, **curl** |
+| SMB / Windows | 5 | enum4linux, smbclient, **evil-winrm**, **impacket**, **smbmap** |
+| Pivoting | 5 | ligolo, nc-listener, **chisel-client**, **proxychains** |
+| Crypto / Decode | 4 | jwt-decode, b64-encode, b64-decode, john, hashcat |
+| Exploitation | 6 | hydra-ssh, hydra-ftp, sqlmap, searchsploit, **responder** |
+| Resources | 8 | links to HackTricks, PortSwigger, PayloadsAllTheThings, Chisel, RevShells, Exploit-DB, **BurpSuite**, GTFOBins |
+| Utilities | 1 | CyberChef |
+| Extract / Compress | **7** | **unzip, tar-gz, tar-xz, 7z-extract, unrar, gunzip, bunzip2** |
+
+New tools in **bold**.
 
 **Adding a new tool requires changes in 2 files:**
 1. `index.html` — add button in the appropriate Arsenal category

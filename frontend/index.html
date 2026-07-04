@@ -179,6 +179,15 @@
                             </span>
                         </button>
 
+                        <button onclick="launchTool('feroxbuster')"
+                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
+                            <span class="text-neon/70 group-hover:text-neon">#</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">Feroxbuster</span>
+                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
+                                directory scan rápido (Rust)
+                            </span>
+                        </button>
+
                         <button onclick="launchTool('nikto')"
                             class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
                             <span class="text-neon/70 group-hover:text-neon">#</span>
@@ -254,6 +263,15 @@
                             </span>
                         </button>
 
+                        <button onclick="launchTool('curl')"
+                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
+                            <span class="text-neon/70 group-hover:text-neon">#</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">Curl</span>
+                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
+                                peticiones HTTP avanzadas
+                            </span>
+                        </button>
+
                     </div>
                 </div>
 
@@ -284,6 +302,24 @@
                             </span>
                         </button>
 
+                        <button onclick="launchTool('evil-winrm')"
+                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
+                            <span class="text-neon/70 group-hover:text-neon">#</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">Evil-WinRM</span>
+                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
+                                shell remota WinRM
+                            </span>
+                        </button>
+
+                        <button onclick="launchTool('impacket')"
+                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
+                            <span class="text-neon/70 group-hover:text-neon">#</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">Impacket</span>
+                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
+                                psexec / smbexec / wmiexec
+                            </span>
+                        </button>
+
                     </div>
                 </div>
 
@@ -311,6 +347,24 @@
                             <span class="text-gray-400 group-hover:text-gray-200">NC Listener</span>
                             <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
                                 listener reverse shell (LPORT)
+                            </span>
+                        </button>
+
+                        <button onclick="launchTool('chisel-client')"
+                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
+                            <span class="text-neon/70 group-hover:text-neon">#</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">Chisel Client</span>
+                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
+                                túnel TCP/UDP rápido
+                            </span>
+                        </button>
+
+                        <button onclick="launchTool('proxychains')"
+                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
+                            <span class="text-neon/70 group-hover:text-neon">#</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">Proxychains</span>
+                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
+                                encadenar proxies (SOCKS)
                             </span>
                         </button>
 
@@ -419,6 +473,15 @@
                             </span>
                         </button>
 
+                        <button onclick="launchTool('responder')"
+                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
+                            <span class="text-neon/70 group-hover:text-neon">#</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">Responder</span>
+                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
+                                LLMNR/NBT-NS poisoning
+                            </span>
+                        </button>
+
                     </div>
                 </div>
 
@@ -427,7 +490,7 @@
                     <p class="cat-header text-[9px] font-semibold text-gray-600 uppercase tracking-wider mb-1 flex items-center gap-1"
                         onclick="toggleCategory(this)">
                         <span class="text-gray-500">▶</span> <span data-i18n="catResources">Resources</span>
-                        <span class="ml-auto text-[8px] text-gray-700">7</span>
+                        <span class="ml-auto text-[8px] text-gray-700">8</span>
                     </p>
                     <div class="cat-body space-y-0.5">
 
@@ -473,6 +536,13 @@
                             <span class="ml-auto text-[8px] text-gray-700">↗</span>
                         </a>
 
+                        <a href="https://portswigger.net/burp/communitydownload" target="_blank" rel="noopener"
+                            class="tool-btn flex items-center gap-2 w-full bg-deep/50 hover:bg-deep px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-cyber/40 group">
+                            <span class="text-cyber/70 group-hover:text-cyber">🕷</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">BurpSuite Community</span>
+                            <span class="ml-auto text-[8px] text-gray-700">↗</span>
+                        </a>
+
                         <a href="https://gtfobins.github.io/" target="_blank" rel="noopener"
                             class="tool-btn flex items-center gap-2 w-full bg-deep/50 hover:bg-deep px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-cyber/40 group">
                             <span class="text-cyber/70 group-hover:text-cyber">⬆</span>
@@ -502,12 +572,87 @@
                     </div>
                 </div>
 
+                <!-- ══════ Extract / Compress ══════ -->
+                <div>
+                    <p class="cat-header text-[9px] font-semibold text-gray-600 uppercase tracking-wider mb-1 flex items-center gap-1"
+                        onclick="toggleCategory(this)">
+                        <span class="text-emerald-400">▶</span> Extract / Compress
+                        <span class="ml-auto text-[8px] text-gray-700">7</span>
+                    </p>
+                    <div class="cat-body space-y-0.5">
+
+                        <button onclick="launchTool('unzip')"
+                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
+                            <span class="text-neon/70 group-hover:text-neon">#</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">Unzip</span>
+                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
+                                descomprimir .zip
+                            </span>
+                        </button>
+
+                        <button onclick="launchTool('tar-gz')"
+                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
+                            <span class="text-neon/70 group-hover:text-neon">#</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">Tar.gz</span>
+                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
+                                extraer .tar.gz / .tgz
+                            </span>
+                        </button>
+
+                        <button onclick="launchTool('tar-xz')"
+                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
+                            <span class="text-neon/70 group-hover:text-neon">#</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">Tar.xz</span>
+                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
+                                extraer .tar.xz
+                            </span>
+                        </button>
+
+                        <button onclick="launchTool('7z-extract')"
+                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
+                            <span class="text-neon/70 group-hover:text-neon">#</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">7z</span>
+                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
+                                extraer .7z
+                            </span>
+                        </button>
+
+                        <button onclick="launchTool('unrar')"
+                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
+                            <span class="text-neon/70 group-hover:text-neon">#</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">Unrar</span>
+                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
+                                extraer .rar
+                            </span>
+                        </button>
+
+                        <button onclick="launchTool('gunzip')"
+                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
+                            <span class="text-neon/70 group-hover:text-neon">#</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">Gunzip</span>
+                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
+                                descomprimir .gz
+                            </span>
+                        </button>
+
+                        <button onclick="launchTool('bunzip2')"
+                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
+                            <span class="text-neon/70 group-hover:text-neon">#</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">Bunzip2</span>
+                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
+                                descomprimir .bz2
+                            </span>
+                        </button>
+
+                    </div>
+                </div>
+
             </div>  <!-- /p-4 arsenal -->
 
             <!-- ── SIDEBAR FOOTER ── -->
             <div class="mt-auto p-3 border-t border-[#1a1a2e]">
                 <p class="text-[9px] text-gray-700 flex items-center gap-1">
-                    <span class="text-neon/50">◆</span> <span id="tool-count">31</span> <span data-i18n="modulesLoaded">modules loaded</span>
+                    <span class="text-neon/50">◆</span> <span id="tool-count">45</span> <span data-i18n="modulesLoaded">modules loaded</span>
                     <span class="ml-auto text-[8px] text-gray-800">root@vulnforge</span>
                 </p>
             </div>
@@ -580,6 +725,18 @@
                     </div>
                     <pre id="terminal-output"
                         class="terminal flex-1 overflow-y-auto text-xs text-neon/90 whitespace-pre-wrap leading-relaxed px-3 py-2 cursor-blink"></pre>
+                    <!-- Upload bar -->
+                    <div class="flex items-center gap-2 px-3 py-1.5 bg-void border-t border-gray-800 flex-shrink-0">
+                        <span class="text-[9px] text-gray-700">📁</span>
+                        <input type="file" id="file-upload-input" accept=".txt,.md,.sh,.py,.php,.xml,.json,.csv,.conf,.log,.yml,.yaml,.ini"
+                            class="hidden" onchange="handleFileUpload(this)">
+                        <button onclick="document.getElementById('file-upload-input').click()"
+                            class="text-[10px] text-gray-600 hover:text-neon transition-colors border border-gray-800 rounded px-2 py-0.5">
+                            Upload file &gt;
+                        </button>
+                        <span id="file-upload-status" class="text-[9px] text-gray-700 flex-1"></span>
+                        <span class="text-[8px] text-gray-800">cargar texto plano a /tmp/</span>
+                    </div>
                 </div>
             </div>
 
