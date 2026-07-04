@@ -6,9 +6,11 @@ FastAPI + WebSocket + Paramiko (Dynamic SSH)
 import json
 import os
 import asyncio
+import httpx
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
+from pydantic import BaseModel
 import paramiko
 
 app = FastAPI()
@@ -16,6 +18,49 @@ app = FastAPI()
 # ── Static files ──
 frontend_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
 app.mount("/static", StaticFiles(directory=frontend_dir), name="static")
+
+# ════════════════════════════════════════════════════════════════
+#  N8N AUTOMATION PROXY
+# ════════════════════════════════════════════════════════════════
+
+class N8nTriggerRequest(BaseModel):
+    target: str
+    scan_type: str = "full"
+    n8n_url: str = "http://localhost:5678"
+
+@app.post("/api/n8n/trigger")
+async def trigger_n8n_workflow(req: N8nTriggerRequest):
+    """Proxy a trigger request to the n8n webhook."""
+    webhook_url = f"{req.n8n_url.rstrip('/')}/webhook/attack-surface-scan"
+    payload = {"target": req.target, "scan_type": req.scan_type}
+    try:
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            resp = await client.post(webhook_url, json=payload)
+        return JSONResponse(
+            content={
+                "status": resp.status_code,
+                "ok": resp.is_success,
+                "data": resp.text[:2000] if resp.text else ""
+            }
+        )
+    except httpx.RequestError as e:
+        return JSONResponse(
+            status_code=502,
+            content={"status": 502, "ok": False, "error": f"n8n unreachable: {str(e)}"}
+        )
+
+@app.get("/api/n8n/status")
+async def check_n8n_status(n8n_url: str = "http://localhost:5678"):
+    """Health-check that n8n is reachable."""
+    health_url = f"{n8n_url.rstrip('/')}/healthz"
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(health_url)
+        return JSONResponse(
+            content={"reachable": resp.is_success, "status": resp.status_code}
+        )
+    except httpx.RequestError:
+        return JSONResponse(content={"reachable": False, "status": 0})
 
 
 @app.get("/")

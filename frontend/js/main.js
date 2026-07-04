@@ -783,7 +783,8 @@ document.addEventListener('DOMContentLoaded', () => {
             scripts: 2,
             bounty: 3,
             aiwriteup: 4,
-            hak5: 5
+            hak5: 5,
+            automation: 6
         };
         if (panes[tabName] !== undefined) {
             btns[panes[tabName]].classList.add('active');
@@ -1682,6 +1683,168 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
     restorePSSession();
 
     // ============================================================
+    //  N8N AUTOMATION
+    // ============================================================
+
+    // ── Load saved n8n URL ──
+    function loadN8nUrl() {
+        const saved = localStorage.getItem('vulnforge_n8n_url');
+        const input = document.getElementById('n8n-url');
+        if (saved && input) {
+            input.value = saved;
+        }
+    }
+
+    function saveN8nUrl() {
+        const input = document.getElementById('n8n-url');
+        if (input && input.value.trim()) {
+            localStorage.setItem('vulnforge_n8n_url', input.value.trim());
+        }
+    }
+
+    window.checkN8nStatus = async function () {
+        const input = document.getElementById('n8n-url');
+        const badge = document.getElementById('n8n-status-badge');
+        const btn   = document.getElementById('btn-n8n-health');
+        if (!input || !badge) return;
+
+        const url = input.value.trim();
+        if (!url) {
+            badge.innerHTML = '⚠️ enter URL';
+            badge.className = 'text-[9px] text-blood border border-blood/30 rounded px-2 py-1';
+            return;
+        }
+
+        saveN8nUrl();
+        btn.textContent = '⏳ Testing...';
+        btn.disabled = true;
+        badge.innerHTML = '⏳ testing...';
+        badge.className = 'text-[9px] text-cyber border border-cyber/30 rounded px-2 py-1';
+
+        try {
+            const resp = await fetch(`/api/n8n/status?n8n_url=${encodeURIComponent(url)}`);
+            const data = await resp.json();
+            if (data.reachable) {
+                badge.innerHTML = '🟢 reachable';
+                badge.className = 'text-[9px] text-neon border border-neon/30 rounded px-2 py-1';
+                showToast('✅ n8n server is reachable');
+            } else {
+                badge.innerHTML = '🔴 unreachable';
+                badge.className = 'text-[9px] text-blood border border-blood/30 rounded px-2 py-1';
+                showToast('❌ n8n server is not responding');
+            }
+        } catch (err) {
+            badge.innerHTML = '⚠️ error';
+            badge.className = 'text-[9px] text-blood border border-blood/30 rounded px-2 py-1';
+            showToast(`⚠️ Connection test failed: ${err.message}`);
+        } finally {
+            btn.textContent = '🔍 Test';
+            btn.disabled = false;
+        }
+    };
+
+    window.triggerN8nScan = async function () {
+        const urlInput   = document.getElementById('n8n-url');
+        const targetInput = document.getElementById('n8n-target');
+        const scanSelect = document.getElementById('n8n-scan-type');
+        const btn        = document.getElementById('btn-n8n-trigger');
+        const statusSpan = document.getElementById('n8n-scan-status');
+        const logDiv     = document.getElementById('n8n-log');
+
+        if (!urlInput || !targetInput || !scanSelect || !logDiv) return;
+
+        const n8nUrl   = urlInput.value.trim();
+        const target   = targetInput.value.trim();
+        const scanType = scanSelect.value;
+
+        if (!n8nUrl) {
+            showToast('⚠️ Enter your n8n server URL first');
+            return;
+        }
+        if (!target) {
+            showToast('⚠️ Enter a target domain or IP');
+            return;
+        }
+
+        saveN8nUrl();
+        btn.disabled = true;
+        btn.textContent = '⏳ Scanning...';
+        statusSpan.textContent = '⏳ triggering workflow...';
+
+        appendN8nLog(`[•] Triggering Attack Surface Scan on ${target} (${scanType})`);
+        appendN8nLog(`[•] n8n URL: ${n8nUrl}`);
+
+        try {
+            const resp = await fetch('/api/n8n/trigger', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    target: target,
+                    scan_type: scanType,
+                    n8n_url: n8nUrl
+                })
+            });
+            const data = await resp.json();
+
+            if (data.ok) {
+                appendN8nLog(`[✓] Workflow triggered successfully (HTTP ${data.status})`);
+                if (data.data) {
+                    // Try to format as JSON if possible
+                    try {
+                        const parsed = JSON.parse(data.data);
+                        appendN8nLog(`[=] Response: ${JSON.stringify(parsed, null, 2)}`);
+                    } catch {
+                        appendN8nLog(`[=] Response: ${data.data.substring(0, 500)}`);
+                    }
+                }
+                statusSpan.textContent = '✅ Scan triggered';
+                showToast(`✅ Attack Surface Scan triggered for ${target}`);
+            } else {
+                appendN8nLog(`[✗] Workflow failed (HTTP ${data.status}): ${data.error || 'unknown error'}`);
+                statusSpan.textContent = '❌ Failed';
+                showToast(`❌ Workflow trigger failed: ${data.error || 'unknown error'}`);
+            }
+        } catch (err) {
+            appendN8nLog(`[✗] Error: ${err.message}`);
+            statusSpan.textContent = '⚠️ Error';
+            showToast(`⚠️ Trigger error: ${err.message}`);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = '▶ Trigger Scan';
+        }
+    };
+
+    function appendN8nLog(msg) {
+        const logDiv = document.getElementById('n8n-log');
+        if (!logDiv) return;
+        // Remove the placeholder text if still there
+        if (logDiv.textContent.includes('No scans triggered yet')) {
+            logDiv.textContent = '';
+        }
+        const line = document.createElement('div');
+        line.textContent = msg;
+        line.className = 'text-gray-400';
+        logDiv.appendChild(line);
+        logDiv.scrollTop = logDiv.scrollHeight;
+    }
+
+    window.clearN8nLog = function () {
+        const logDiv = document.getElementById('n8n-log');
+        if (logDiv) {
+            logDiv.textContent = '';
+            const placeholder = document.createElement('span');
+            placeholder.className = 'text-gray-700';
+            placeholder.textContent = '[—] Log cleared.';
+            logDiv.appendChild(placeholder);
+        }
+        document.getElementById('n8n-scan-status').textContent = '';
+        showToast('✕ Log cleared');
+    };
+
+    // ── Init n8n ──
+    loadN8nUrl();
+
+    // ============================================================
     //  TOAST NOTIFICATIONS
     // ============================================================
     function showToast(msg) {
@@ -1741,6 +1904,7 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         tabScripts:        { en: '⚡ Scripts',       es: '⚡ Scripts' },
         tabBounty:         { en: '📋 Bounty',        es: '📋 Bounty' },
         tabAI:             { en: '🤖 AI Writeup',   es: '🤖 AI Writeup' },
+        tabAutomation:     { en: '⚙ Automation',   es: '⚙ Automatización' },
         btnConnect:        { en: '> Connect',        es: '> Conectar' },
         btnDisconnect:     { en: '> Disconnect',     es: '> Desconectar' },
         cmdPlaceholder:    { en: '$  enter command...', es: '$  ingresa comando...' },

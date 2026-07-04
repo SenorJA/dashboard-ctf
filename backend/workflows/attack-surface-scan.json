@@ -1,0 +1,652 @@
+{
+  "name": "Attack Surface Scan",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "attack-surface-scan",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "2c0e90d5-df86-4279-8fcd-397dfe924c64",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-704, 816],
+      "webhookId": "attack-surface-scan"
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            { "name": "scan_id", "value": "=ASM-{{ $now.format('yyyyMMdd-HHmmss') }}" },
+            { "name": "target", "value": "={{ $json.body.target }}" },
+            { "name": "timestamp_start", "value": "={{ $now.toISO() }}" },
+            { "name": "scan_type", "value": "={{ $json.body.scan_type || 'full' }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "0cd2cc26-47b7-4e11-8451-7f619c115343",
+      "name": "Initialize Scan",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [-480, 816]
+    },
+    {
+      "parameters": {
+        "conditions": { "string": [{ "value1": "={{ $json.target }}", "operation": "isNotEmpty" }] },
+        "options": {}
+      },
+      "id": "1747dde0-4ca8-42b7-b5e8-39a412a4b5f7",
+      "name": "Validate Target",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [-256, 816]
+    },
+    {
+      "parameters": { "url": "=https://dns.google/resolve?name={{ $json.target }}&type=A", "options": {} },
+      "id": "c7acd46e-1669-43b9-88c8-bacd55f8800c",
+      "name": "DNS - A Records",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-32, 160]
+    },
+    {
+      "parameters": { "url": "=https://dns.google/resolve?name={{ $json.target }}&type=MX", "options": {} },
+      "id": "9275b3eb-337c-4eb8-90b2-cc930642622c",
+      "name": "DNS - MX Records",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-32, 352]
+    },
+    {
+      "parameters": { "url": "=https://dns.google/resolve?name={{ $json.target }}&type=TXT", "options": {} },
+      "id": "bc815f6a-14dc-4660-b75a-d598a090dbf6",
+      "name": "DNS - TXT Records",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-32, 544]
+    },
+    {
+      "parameters": { "url": "=https://dns.google/resolve?name={{ $json.target }}&type=NS", "options": {} },
+      "id": "92f6ebf7-3b40-4c04-8951-70fd51dfd1df",
+      "name": "DNS - NS Records",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-32, 736]
+    },
+    {
+      "parameters": { "url": "=https://crt.sh/?q={{ $json.target }}&output=json", "options": { "timeout": 15000 } },
+      "id": "1b244ff2-7e23-489a-a18f-f65a2b87a3d2",
+      "name": "Certificate Transparency",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-32, 928]
+    },
+    {
+      "parameters": {
+        "workflowId": { "__rl": true, "value": "8f4a2e91-c7d3-4b16-a952-3e8f1d7c4a09", "mode": "id" },
+        "workflowInputs": { "mappingMode": "defineBelow", "value": { "target": "={{ $json.target }}" } },
+        "options": { "waitForSubWorkflow": true }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [-32, 1120],
+      "id": "1654af11-3553-48a9-99e0-8298d231cf2c",
+      "name": "Subfinder (Kali)",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "workflowId": { "__rl": true, "value": "a3b7d4e6-1f29-4c85-b3a1-9d2e5f8c7b04", "mode": "id" },
+        "workflowInputs": { "mappingMode": "defineBelow", "value": { "target": "={{ $json.target }}" } },
+        "options": { "waitForSubWorkflow": true }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [-32, 1312],
+      "id": "ac308c36-bbab-4210-989d-b1d479b009dd",
+      "name": "Amass (Kali)",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "workflowId": { "__rl": true, "value": "d5c9e2f7-3a18-4d6b-a7c4-b1e3f9d8a206", "mode": "id" },
+        "workflowInputs": { "mappingMode": "defineBelow", "value": { "target": "={{ $json.target }}" } },
+        "options": { "waitForSubWorkflow": true }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [-32, 1504],
+      "id": "be3a1886-e10b-4d9a-8e51-0c85a19f4b50",
+      "name": "AssetFinder (Kali)",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": { "numberInputs": 8 },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [192, 720],
+      "id": "f26f7a5b-449d-41b5-ac6a-5875abe201ec",
+      "name": "Merge Reconnaissance"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Consolidate all subdomain sources\nconst items = $input.all();\nconst subdomains = new Set();\n\nfor (const item of items) {\n if (item.json.name_value) {\n item.json.name_value.split('\\n').forEach(d => subdomains.add(d.trim()));\n }\n if (item.json.subdomain) {\n subdomains.add(item.json.subdomain);\n }\n if (item.json.subdomains && Array.isArray(item.json.subdomains)) {\n item.json.subdomains.forEach(d => subdomains.add(d));\n }\n}\n\nreturn Array.from(subdomains).map(subdomain => ({\n json: { subdomain, target: items[0]?.json?.target, scan_id: items[0]?.json?.scan_id }\n}));"
+      },
+      "id": "4d0c0b8e-43bc-43ab-8ab6-ad2f6259e0fa",
+      "name": "Parse Subdomains",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [416, 816]
+    },
+    {
+      "parameters": {
+        "workflowId": { "__rl": true, "value": "b2d8f3a5-6e47-4c19-9a3d-7f1c8e5b2d09", "mode": "id" },
+        "workflowInputs": { "mappingMode": "defineBelow", "value": { "target": "={{ $json.target }}", "scan_type": "full" } },
+        "options": { "waitForSubWorkflow": true }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [640, 528],
+      "id": "9d0bcf17-670f-453b-b34c-0848d32a523d",
+      "name": "Nmap Full Scan (Kali)",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "workflowId": { "__rl": true, "value": "e7a1c4d9-2b56-4f38-8d7e-a3b9f1c6e502", "mode": "id" },
+        "workflowInputs": { "mappingMode": "defineBelow", "value": { "target": "={{ $json.target }}" } },
+        "options": { "waitForSubWorkflow": true }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [640, 720],
+      "id": "d1615c0c-4164-469c-9873-edc364929e33",
+      "name": "Masscan (Kali)",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "workflowId": { "__rl": true, "value": "c4f6a8b2-9d31-4e7a-b5c3-1f8d2e9a7b05", "mode": "id" },
+        "workflowInputs": { "mappingMode": "defineBelow", "value": { "target": "={{ $json.target }}" } },
+        "options": { "waitForSubWorkflow": true }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [640, 912],
+      "id": "a88abfb6-e35e-4392-9a54-f9e15fe51e7b",
+      "name": "Nikto Web Scanner (Kali)",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "workflowId": { "__rl": true, "value": "f9d3b7e1-4a62-4c8d-a1f5-6b2c9e8d3a07", "mode": "id" },
+        "workflowInputs": { "mappingMode": "defineBelow", "value": { "target": "={{ $json.target }}" } },
+        "options": { "waitForSubWorkflow": true }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [640, 1104],
+      "id": "b5c22631-fd54-4d19-b38e-94918fbf075e",
+      "name": "Nuclei Templates (Kali)",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": { "numberInputs": 4 },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [864, 784],
+      "id": "f41dd28b-3082-40c4-8434-db0d9095a293",
+      "name": "Merge Port Scans"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst services = [];\nfor (const item of items) {\n if (item.json.ports && Array.isArray(item.json.ports)) services.push(...item.json.ports);\n if (item.json.port && item.json.state === 'open') services.push(item.json);\n if (item.json.info && item.json.info.severity) {\n services.push({ type: 'vulnerability', severity: item.json.info.severity, name: item.json.info.name, host: item.json.host, matched_at: item.json['matched-at'] });\n }\n}\nreturn services.map(s => ({ json: { ...s, scan_id: items[0]?.json?.scan_id, target: items[0]?.json?.target } }));"
+      },
+      "id": "3b8abdc9-e377-4122-b80b-62a06e05afaf",
+      "name": "Parse Port Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1088, 816]
+    },
+    {
+      "parameters": { "batchSize": 10, "options": {} },
+      "id": "436f4286-3c0f-4ad9-8781-d02f2c8fe3d6",
+      "name": "Split Services",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [1312, 816]
+    },
+    {
+      "parameters": {
+        "url": "=https://services.nvd.nist.gov/rest/json/cves/2.0?keywordSearch={{ encodeURIComponent($json.service + ' ' + $json.product) }}",
+        "options": { "timeout": 20000 }
+      },
+      "id": "63ba9d0e-9ad2-4ec9-8f59-e9ef7278deb8",
+      "name": "NIST CVE Database",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1536, -240]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.shodan.io/shodan/host/{{ $json.ip }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "options": {}
+      },
+      "id": "7b56e2ff-7988-4645-97ad-4add88a21342",
+      "name": "Shodan Search",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1536, -48]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.vulners.com/api/v3/search/lucene/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ query: $json.service + ' ' + $json.product }) }}",
+        "options": {}
+      },
+      "id": "7cc5fd7a-04ae-414d-8de8-04e5b73f20dd",
+      "name": "Vulners Database",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1536, 144]
+    },
+    {
+      "parameters": { "url": "=https://cve.circl.lu/api/search/{{ encodeURIComponent($json.service) }}", "options": {} },
+      "id": "da165120-190a-4008-8a9b-e84f49f0e2e7",
+      "name": "CVE Search (CIRCL)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1536, 336]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.xforce.ibmcloud.com/vulnerabilities/fulltext?q={{ encodeURIComponent($json.service) }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "3d15c6fc-06c2-4b86-9a28-747a679bd298",
+      "name": "IBM X-Force",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1536, 528]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.securitytrails.com/v1/domain/{{ $json.target }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "59a16fb1-64b3-4237-9af9-98ec33400f4c",
+      "name": "SecurityTrails",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1536, 720]
+    },
+    {
+      "parameters": { "url": "=https://otx.alienvault.com/api/v1/indicators/domain/{{ $json.target }}/general", "options": {} },
+      "id": "6d2d53eb-cc2d-4e8e-8015-58941f504c3c",
+      "name": "AlienVault OTX",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1536, 912]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.abuseipdb.com/api/v2/check?ipAddress={{ $json.ip }}&maxAgeInDays=90",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "adeab2ac-8503-47ab-95ab-0ca35a5234be",
+      "name": "AbuseIPDB",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1536, 1104]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.greynoise.io/v3/community/{{ $json.ip }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "07115a15-367b-4ef8-b0ec-e32564c9705a",
+      "name": "GreyNoise",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1536, 1296]
+    },
+    {
+      "parameters": {
+        "url": "=https://haveibeenpwned.com/api/v3/breaches?domain={{ $json.target }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "da3fee7b-8748-40fa-80e2-c927e8950d37",
+      "name": "Have I Been Pwned",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1536, 1488]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.dehashed.com/search?query=email:*@{{ $json.target }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "d5754689-d3bb-4a01-aab0-c3cef28303b4",
+      "name": "DeHashed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1536, 1680]
+    },
+    {
+      "parameters": {
+        "url": "=https://www.virustotal.com/api/v3/domains/{{ $json.target }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "6c1c7b70-9759-486c-babc-e4fbcf206306",
+      "name": "VirusTotal",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1536, 1872]
+    },
+    {
+      "parameters": { "numberInputs": 12 },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [1760, 672],
+      "id": "452608a8-6f85-4e85-b8fa-03db8ebd656a",
+      "name": "Merge Threat Intel"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst vulnerabilities = [];\nfor (const item of items) {\n if (item.json.vulnerabilities) {\n const cves = item.json.vulnerabilities.slice(0, 20);\n for (const vuln of cves) {\n const cve = vuln.cve;\n const metrics = cve.metrics?.cvssMetricV31?.[0]?.cvssData || cve.metrics?.cvssMetricV2?.[0]?.cvssData;\n if (metrics && metrics.baseScore >= 4.0) {\n vulnerabilities.push({ source: 'NIST', cve_id: cve.id, description: cve.descriptions?.[0]?.value?.substring(0, 300), cvss_score: metrics.baseScore, severity: metrics.baseSeverity || 'UNKNOWN', published: cve.published, vector: metrics.vectorString });\n }\n }\n }\n if (item.json.data?.search) {\n item.json.data.search.slice(0, 10).forEach(v => {\n if (v.cvss?.score >= 4.0) vulnerabilities.push({ source: 'Vulners', cve_id: v.id, description: v.description?.substring(0, 300), cvss_score: v.cvss.score, severity: v.cvss.score >= 9 ? 'CRITICAL' : v.cvss.score >= 7 ? 'HIGH' : 'MEDIUM', published: v.published });\n });\n }\n if (item.json.vulns) {\n Object.keys(item.json.vulns).forEach(cve => vulnerabilities.push({ source: 'Shodan', cve_id: cve, cvss_score: item.json.vulns[cve].cvss || 5.0, severity: 'MEDIUM', verified: item.json.vulns[cve].verified }));\n }\n if (item.json.pulse_info?.count > 0) vulnerabilities.push({ source: 'AlienVault', threat_score: item.json.pulse_info.count, pulses: item.json.pulse_info.pulses?.slice(0, 5).map(p => p.name) });\n}\nconst unique = Array.from(new Map(vulnerabilities.map(v => [v.cve_id, v])).values());\nreturn [{ json: { vulnerabilities: unique, total_vulns: unique.length } }];"
+      },
+      "id": "3ff3b9d1-2119-45d1-8566-b6aae3dffd16",
+      "name": "Parse Vulnerabilities",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1984, 832]
+    },
+    {
+      "parameters": {
+        "workflowId": { "__rl": true, "value": "a1e5d8c3-7b42-4f96-9d2a-3c8e6f1b5a08", "mode": "id" },
+        "workflowInputs": { "mappingMode": "defineBelow", "value": { "target": "={{ $json.target }}" } },
+        "options": { "waitForSubWorkflow": true }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [2208, 704],
+      "id": "3e823400-b86e-49b4-9aec-a03793746643",
+      "name": "WPScan (Kali)",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "workflowId": { "__rl": true, "value": "f2c7b9a4-5d18-4e63-8f1a-b7d3c9e2f506", "mode": "id" },
+        "workflowInputs": { "mappingMode": "defineBelow", "value": { "target": "={{ $json.target }}" } },
+        "options": { "waitForSubWorkflow": true }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [2208, 896],
+      "id": "0ad78fb5-0e10-4cb0-ae03-163535ce1388",
+      "name": "SQLMap (Kali)",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "workflowId": { "__rl": true, "value": "c8d4e6a1-3f75-4b29-a2d7-9e1c5f8b3a04", "mode": "id" },
+        "workflowInputs": { "mappingMode": "defineBelow", "value": { "target": "={{ $json.target }}" } },
+        "options": { "waitForSubWorkflow": true }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [2208, 1088],
+      "id": "d0cbb61a-2932-460b-9b02-f52dbe41fe12",
+      "name": "Gobuster (Kali)",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": { "numberInputs": 4 },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [2432, 864],
+      "id": "8600725a-2477-4c46-8c90-9dc5024b977e",
+      "name": "Merge Web Scans"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [2656, 736],
+      "id": "3d8cfeca-6d2b-4c8f-922d-e859f4791174",
+      "name": "Merge All Results"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nlet services = [];\nlet subdomains = [];\nlet vulnerabilities = [];\nlet breaches = [];\nlet threatIntel = { abuseipdb: {}, greynoise: {}, alienvault: {}, virustotal: {} };\nlet webFindings = { wordpress: [], sqli: [], directories: [] };\n\nfor (const item of items) {\n const json = item.json;\n if (json.port && json.state === 'open') services.push(json);\n if (json.subdomain) subdomains.push(json.subdomain);\n if (json.vulnerabilities) vulnerabilities = vulnerabilities.concat(json.vulnerabilities);\n if (json.Name && json.BreachDate) breaches.push(json);\n if (json.abuseConfidenceScore) threatIntel.abuseipdb = json;\n if (json.classification) threatIntel.greynoise = json;\n if (json.pulse_info) threatIntel.alienvault = json;\n if (json.data?.attributes) threatIntel.virustotal = json;\n if (json.wordpress_version) webFindings.wordpress.push(json);\n if (json.sqli_vulnerable) webFindings.sqli.push(json);\n if (json.directories) webFindings.directories = json.directories;\n}\n\nconst criticalPorts = [22, 23, 3389, 445, 135, 139, 1433, 3306, 5432];\nconst criticalServices = services.filter(s => criticalPorts.includes(s.port));\nconst criticalVulns = vulnerabilities.filter(v => v.cvss_score >= 9.0);\nconst highVulns = vulnerabilities.filter(v => v.cvss_score >= 7.0 && v.cvss_score < 9.0);\nconst mediumVulns = vulnerabilities.filter(v => v.cvss_score >= 4.0 && v.cvss_score < 7.0);\nconst lowVulns = vulnerabilities.filter(v => v.cvss_score < 4.0);\n\nlet riskScore = 0;\nriskScore += Math.min(30, (criticalServices.length * 10) + (services.length * 0.5));\nriskScore += (criticalVulns.length * 15);\nriskScore += (highVulns.length * 7);\nriskScore += (mediumVulns.length * 2);\nriskScore += (lowVulns.length * 0.5);\nriskScore += Math.min(15, breaches.length * 5);\nif (threatIntel.abuseipdb.abuseConfidenceScore > 75) riskScore += 10;\nelse if (threatIntel.abuseipdb.abuseConfidenceScore > 50) riskScore += 5;\nif (threatIntel.greynoise.classification === 'malicious') riskScore += 10;\nif (threatIntel.alienvault.pulse_info?.count > 10) riskScore += 10;\nelse if (threatIntel.alienvault.pulse_info?.count > 5) riskScore += 5;\nif (webFindings.sqli.length > 0) riskScore += 5;\nif (webFindings.wordpress.some(w => w.outdated)) riskScore += 3;\nriskScore = Math.min(100, Math.round(riskScore));\n\nconst severity = riskScore >= 80 ? 'CRITICAL' : riskScore >= 60 ? 'HIGH' : riskScore >= 40 ? 'MEDIUM' : 'LOW';\nconst timestamp_end = new Date().toISOString();\nconst timestamp_start = items[0]?.json?.timestamp_start || timestamp_end;\nconst duration = Math.round((new Date(timestamp_end) - new Date(timestamp_start)) / 1000);\n\nreturn [{ json: {\n scan_id: items[0]?.json?.scan_id || 'ASM-UNKNOWN',\n target: items[0]?.json?.target || 'unknown',\n timestamp_start, timestamp_end,\n duration_seconds: duration,\n duration_formatted: Math.floor(duration/60)+'m '+duration%60+'s',\n risk_score: riskScore, severity,\n summary: { total_findings: criticalVulns.length + highVulns.length + mediumVulns.length + lowVulns.length + breaches.length + webFindings.sqli.length, critical: criticalVulns.length, high: highVulns.length + webFindings.sqli.length, medium: mediumVulns.length, low: lowVulns.length, info: breaches.length },\n attack_surface: { open_ports: services.length, critical_ports: criticalServices.length, services_detected: services.length, unique_subdomains: [...new Set(subdomains)].length, vulnerabilities_found: vulnerabilities.length, credential_breaches: breaches.length, web_vulnerabilities: webFindings.sqli.length, exposed_directories: webFindings.directories.length },\n top_risks: vulnerabilities.sort((a,b) => (b.cvss_score||0) - (a.cvss_score||0)).slice(0,15).map(v => ({ type:'Vulnerability', source:v.source, severity:v.severity, cve_id:v.cve_id, cvss_score:v.cvss_score, description:v.description, published:v.published })),\n critical_services: criticalServices.map(s => ({ port:s.port, service:s.service, product:s.product, version:s.version, risk:'CRITICAL' })),\n threat_intelligence: { abuse_confidence: threatIntel.abuseipdb.abuseConfidenceScore || 0, grey_noise_classification: threatIntel.greynoise.classification || 'unknown', alienvault_pulses: threatIntel.alienvault.pulse_info?.count || 0, virustotal_detections: threatIntel.virustotal.data?.attributes?.last_analysis_stats?.malicious || 0 },\n credential_exposure: { total_breaches: breaches.length, breaches: breaches.slice(0,10).map(b => ({ name:b.Name, breach_date:b.BreachDate, pwn_count:b.PwnCount, data_classes:b.DataClasses })) },\n web_findings: webFindings,\n services: services,\n subdomains: [...new Set(subdomains)]\n}}];"
+      },
+      "id": "e9463dea-c9c5-4c95-9145-f759d0b6f069",
+      "name": "Aggregate & Risk Scoring",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2880, 736]
+    },
+    {
+      "parameters": {
+        "conditions": { "number": [{ "value1": "={{ $json.risk_score }}", "operation": "largerEqual", "value2": 70 }] },
+        "options": {}
+      },
+      "id": "f10b8934-4500-4d72-b2a4-d95580226543",
+      "name": "Is High Risk?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [3104, 736]
+    },
+    {
+      "parameters": {
+        "jiraVersion": "server",
+        "project": { "__rl": true, "value": "SEC", "mode": "name" },
+        "issueType": { "__rl": true, "value": "Security", "mode": "name" },
+        "summary": "=🚨 Attack Surface - {{ $json.severity }} ({{ $json.risk_score }}/100) - {{ $json.target }}",
+        "additionalFields": { "priority": { "__rl": true, "value": "={{ $json.severity === 'CRITICAL' ? 'Highest' : 'High' }}", "mode": "name" } }
+      },
+      "id": "a97e17bf-bf47-4e30-883a-f63d2c7dd71e",
+      "name": "Create JIRA - Critical",
+      "type": "n8n-nodes-base.jira",
+      "typeVersion": 1,
+      "position": [3328, 352]
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": { "__rl": true, "value": "C07KR4FNXS2", "mode": "id" },
+        "text": "=🚨 *ATTACK SURFACE SCAN - {{ $json.severity }} RISK*\\n\\n*Target:* `{{ $json.target }}`\\n*Score:* {{ $json.risk_score }}/100\\n*Duration:* {{ $json.duration_formatted }}\\n\\n*Open Ports:* {{ $json.attack_surface.open_ports }} ({{ $json.attack_surface.critical_ports }} critical)\\n*Subdomains:* {{ $json.attack_surface.unique_subdomains }}\\n*CVEs:* {{ $json.attack_surface.vulnerabilities_found }}\\n*Breaches:* {{ $json.attack_surface.credential_breaches }}\\n*Web Vulns:* {{ $json.attack_surface.web_vulnerabilities }}\\n\\n*Scan ID:* {{ $json.scan_id }}",
+        "otherOptions": { "includeLinkToWorkflow": false }
+      },
+      "id": "7cd83eed-6763-484f-aa21-ff49ac79f815",
+      "name": "Slack Alert - Critical",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.1,
+      "position": [3328, 544]
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": { "__rl": true, "value": "C07KR4FNXS2", "mode": "id" },
+        "text": "=✅ *Attack Surface Scan Complete*\\n\\n*Target:* `{{ $json.target }}`\\n*Score:* {{ $json.risk_score }}/100 ({{ $json.severity }})\\n*Duration:* {{ $json.duration_formatted }}\\n\\n*Total Findings:* {{ $json.summary.total_findings }}\\n*Ports:* {{ $json.attack_surface.open_ports }}\\n*Subdomains:* {{ $json.attack_surface.unique_subdomains }}\\n*CVEs:* {{ $json.attack_surface.vulnerabilities_found }}\\n\\n*Scan ID:* {{ $json.scan_id }}",
+        "otherOptions": {}
+      },
+      "id": "baddbf80-68f8-4614-9eee-8fd611fb8c28",
+      "name": "Slack Alert - Normal",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.1,
+      "position": [3328, 928]
+    },
+    {
+      "parameters": {
+        "name": "=AttackSurface_{{ $json.target }}_{{ $json.scan_id }}_{{ $json.risk_score }}.json",
+        "driveId": { "__rl": true, "mode": "list", "value": "My Drive" },
+        "folderId": { "__rl": true, "value": "1xKp7mN3vR8wQ2sT5yU9bF4dG6hJ0lAe", "mode": "list", "cachedResultName": "Security Reports" },
+        "options": {}
+      },
+      "id": "5c381122-a49e-433c-98b7-b3038f02e532",
+      "name": "Save to Drive",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [3328, 736]
+    },
+    {
+      "parameters": {
+        "url": "=https://siem.aisac.cloud/api/v1/events",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ event_type:'attack_surface_scan', severity:$json.severity, scan_id:$json.scan_id, target:$json.target, risk_score:$json.risk_score, findings:$json.summary, timestamp:$json.timestamp_end }) }}",
+        "options": {}
+      },
+      "id": "800d6175-fe63-45d1-9c13-169ed0c812cd",
+      "name": "Log to SIEM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3328, 1120]
+    },
+    {
+      "parameters": { "numberInputs": 4 },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [3552, 704],
+      "id": "69b1597a-a72f-4f32-8d70-88518174249a",
+      "name": "Merge Outputs"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json, null, 2) }}",
+        "options": { "responseCode": 200, "responseHeaders": { "entries": [{ "name": "Content-Type", "value": "application/json" }] } }
+      },
+      "id": "256752b2-c83f-47a2-90b3-7490110fa32c",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [3776, 736]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": { "main": [[{ "node": "Initialize Scan", "type": "main", "index": 0 }]] },
+    "Initialize Scan": { "main": [[{ "node": "Validate Target", "type": "main", "index": 0 }]] },
+    "Validate Target": {
+      "main": [[
+        { "node": "DNS - A Records", "type": "main", "index": 0 },
+        { "node": "DNS - MX Records", "type": "main", "index": 0 },
+        { "node": "DNS - TXT Records", "type": "main", "index": 0 },
+        { "node": "DNS - NS Records", "type": "main", "index": 0 },
+        { "node": "Certificate Transparency", "type": "main", "index": 0 },
+        { "node": "Subfinder (Kali)", "type": "main", "index": 0 },
+        { "node": "Amass (Kali)", "type": "main", "index": 0 },
+        { "node": "AssetFinder (Kali)", "type": "main", "index": 0 }
+      ]]
+    },
+    "DNS - A Records": { "main": [[{ "node": "Merge Reconnaissance", "type": "main", "index": 0 }]] },
+    "DNS - MX Records": { "main": [[{ "node": "Merge Reconnaissance", "type": "main", "index": 1 }]] },
+    "DNS - TXT Records": { "main": [[{ "node": "Merge Reconnaissance", "type": "main", "index": 2 }]] },
+    "DNS - NS Records": { "main": [[{ "node": "Merge Reconnaissance", "type": "main", "index": 3 }]] },
+    "Certificate Transparency": { "main": [[{ "node": "Merge Reconnaissance", "type": "main", "index": 4 }]] },
+    "Subfinder (Kali)": { "main": [[{ "node": "Merge Reconnaissance", "type": "main", "index": 5 }]] },
+    "Amass (Kali)": { "main": [[{ "node": "Merge Reconnaissance", "type": "main", "index": 6 }]] },
+    "AssetFinder (Kali)": { "main": [[{ "node": "Merge Reconnaissance", "type": "main", "index": 7 }]] },
+    "Merge Reconnaissance": { "main": [[{ "node": "Parse Subdomains", "type": "main", "index": 0 }]] },
+    "Parse Subdomains": {
+      "main": [[
+        { "node": "Nmap Full Scan (Kali)", "type": "main", "index": 0 },
+        { "node": "Masscan (Kali)", "type": "main", "index": 0 },
+        { "node": "Nikto Web Scanner (Kali)", "type": "main", "index": 0 },
+        { "node": "Nuclei Templates (Kali)", "type": "main", "index": 0 }
+      ]]
+    },
+    "Nmap Full Scan (Kali)": { "main": [[{ "node": "Merge Port Scans", "type": "main", "index": 0 }]] },
+    "Masscan (Kali)": { "main": [[{ "node": "Merge Port Scans", "type": "main", "index": 1 }]] },
+    "Nikto Web Scanner (Kali)": { "main": [[{ "node": "Merge Port Scans", "type": "main", "index": 2 }]] },
+    "Nuclei Templates (Kali)": { "main": [[{ "node": "Merge Port Scans", "type": "main", "index": 3 }]] },
+    "Merge Port Scans": { "main": [[{ "node": "Parse Port Results", "type": "main", "index": 0 }]] },
+    "Parse Port Results": { "main": [[{ "node": "Split Services", "type": "main", "index": 0 }]] },
+    "Split Services": {
+      "main": [[
+        { "node": "NIST CVE Database", "type": "main", "index": 0 },
+        { "node": "Shodan Search", "type": "main", "index": 0 },
+        { "node": "Vulners Database", "type": "main", "index": 0 },
+        { "node": "CVE Search (CIRCL)", "type": "main", "index": 0 },
+        { "node": "IBM X-Force", "type": "main", "index": 0 },
+        { "node": "SecurityTrails", "type": "main", "index": 0 },
+        { "node": "AlienVault OTX", "type": "main", "index": 0 },
+        { "node": "AbuseIPDB", "type": "main", "index": 0 },
+        { "node": "GreyNoise", "type": "main", "index": 0 },
+        { "node": "Have I Been Pwned", "type": "main", "index": 0 },
+        { "node": "DeHashed", "type": "main", "index": 0 },
+        { "node": "VirusTotal", "type": "main", "index": 0 }
+      ]]
+    },
+    "NIST CVE Database": { "main": [[{ "node": "Merge Threat Intel", "type": "main", "index": 0 }]] },
+    "Shodan Search": { "main": [[{ "node": "Merge Threat Intel", "type": "main", "index": 1 }]] },
+    "Vulners Database": { "main": [[{ "node": "Merge Threat Intel", "type": "main", "index": 2 }]] },
+    "CVE Search (CIRCL)": { "main": [[{ "node": "Merge Threat Intel", "type": "main", "index": 3 }]] },
+    "IBM X-Force": { "main": [[{ "node": "Merge Threat Intel", "type": "main", "index": 4 }]] },
+    "SecurityTrails": { "main": [[{ "node": "Merge Threat Intel", "type": "main", "index": 5 }]] },
+    "AlienVault OTX": { "main": [[{ "node": "Merge Threat Intel", "type": "main", "index": 6 }]] },
+    "AbuseIPDB": { "main": [[{ "node": "Merge Threat Intel", "type": "main", "index": 7 }]] },
+    "GreyNoise": { "main": [[{ "node": "Merge Threat Intel", "type": "main", "index": 8 }]] },
+    "Have I Been Pwned": { "main": [[{ "node": "Merge Threat Intel", "type": "main", "index": 9 }]] },
+    "DeHashed": { "main": [[{ "node": "Merge Threat Intel", "type": "main", "index": 10 }]] },
+    "VirusTotal": { "main": [[{ "node": "Merge Threat Intel", "type": "main", "index": 11 }]] },
+    "Merge Threat Intel": { "main": [[{ "node": "Parse Vulnerabilities", "type": "main", "index": 0 }]] },
+    "Parse Vulnerabilities": {
+      "main": [[
+        { "node": "WPScan (Kali)", "type": "main", "index": 0 },
+        { "node": "SQLMap (Kali)", "type": "main", "index": 0 },
+        { "node": "Gobuster (Kali)", "type": "main", "index": 0 },
+        { "node": "Merge All Results", "type": "main", "index": 0 }
+      ]]
+    },
+    "WPScan (Kali)": { "main": [[{ "node": "Merge Web Scans", "type": "main", "index": 0 }]] },
+    "SQLMap (Kali)": { "main": [[{ "node": "Merge Web Scans", "type": "main", "index": 1 }]] },
+    "Gobuster (Kali)": { "main": [[{ "node": "Merge Web Scans", "type": "main", "index": 2 }]] },
+    "Merge Web Scans": { "main": [[{ "node": "Merge All Results", "type": "main", "index": 1 }]] },
+    "Merge All Results": { "main": [[{ "node": "Aggregate & Risk Scoring", "type": "main", "index": 0 }]] },
+    "Aggregate & Risk Scoring": { "main": [[{ "node": "Is High Risk?", "type": "main", "index": 0 }]] },
+    "Is High Risk?": {
+      "main": [
+        [{ "node": "Create JIRA - Critical", "type": "main", "index": 0 }, { "node": "Slack Alert - Critical", "type": "main", "index": 0 }, { "node": "Save to Drive", "type": "main", "index": 0 }, { "node": "Log to SIEM", "type": "main", "index": 0 }],
+        [{ "node": "Slack Alert - Normal", "type": "main", "index": 0 }, { "node": "Save to Drive", "type": "main", "index": 0 }, { "node": "Log to SIEM", "type": "main", "index": 0 }]
+      ]
+    },
+    "Create JIRA - Critical": { "main": [[{ "node": "Merge Outputs", "type": "main", "index": 0 }]] },
+    "Slack Alert - Critical": { "main": [[{ "node": "Merge Outputs", "type": "main", "index": 1 }]] },
+    "Slack Alert - Normal": { "main": [[{ "node": "Merge Outputs", "type": "main", "index": 1 }]] },
+    "Save to Drive": { "main": [[{ "node": "Merge Outputs", "type": "main", "index": 2 }]] },
+    "Log to SIEM": { "main": [[{ "node": "Merge Outputs", "type": "main", "index": 3 }]] },
+    "Merge Outputs": { "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]] }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "9bd66dc582fc41ff1cce56858ad214a59838863090d469e9734a1c96136148d3"
+  }
+}

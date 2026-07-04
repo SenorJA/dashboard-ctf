@@ -745,6 +745,9 @@
                 <button class="tab-btn" onclick="switchTab('hak5')">
                     🔌 Hak5
                 </button>
+                <button class="tab-btn" onclick="switchTab('automation')">
+                    ⚙ Automation
+                </button>
             </div>
 
             <!-- ════════════════════════════════════════════════════════
@@ -1242,6 +1245,88 @@
                         </div>
                         <textarea id="hak5-editor" class="script-editor flex-1 font-mono"
                             placeholder="Enter your Hak5 payload here...&#10;&#10;Example (Bash Bunny):&#10;LED ATTACK&#10;RUN WIN powershell -Command ...&#10;LED FINISH"></textarea>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- ════════════════════════════════════════════════════════
+                 TAB: AUTOMATION (n8n Workflows)
+                 ════════════════════════════════════════════════════════ -->
+            <div id="tab-automation" class="tab-pane p-4 pt-3 overflow-y-auto">
+
+                <!-- ── n8n Connection Config ── -->
+                <div class="bg-void border border-gray-800 rounded-lg p-3 mb-4">
+                    <h3 class="text-xs text-neon font-semibold tracking-wider mb-2.5">
+                        ⚙ n8n Workflow Automation
+                    </h3>
+                    <p class="text-[10px] text-gray-700 mb-3">
+                        Trigger the <strong class="text-gray-400">Attack Surface Scan</strong> workflow on your n8n server.
+                        Configure the server URL below and send a target domain/IP to begin automated reconnaissance.
+                    </p>
+
+                    <div class="flex items-center gap-2 mb-3">
+                        <span class="text-[9px] text-gray-600 uppercase tracking-wider">n8n URL</span>
+                        <input type="text" id="n8n-url"
+                            placeholder="http://192.168.1.100:5678"
+                            class="flex-1 bg-deep border border-gray-800 rounded px-2.5 py-1.5 text-[11px] text-gray-300 placeholder-gray-700 focus:outline-none focus:border-neon/50 font-mono">
+                        <button onclick="checkN8nStatus()" id="btn-n8n-health"
+                            class="bg-gray-800/50 hover:bg-gray-800 text-gray-500 border border-gray-800 px-3 py-1.5 rounded text-[10px] transition-all">
+                            🔍 Test
+                        </button>
+                        <span id="n8n-status-badge"
+                            class="text-[9px] text-gray-700 border border-gray-800 rounded px-2 py-1">
+                            ⚪ unknown
+                        </span>
+                    </div>
+                </div>
+
+                <!-- ── Scan Configuration ── -->
+                <div class="bg-void border border-gray-800 rounded-lg p-3 mb-4">
+                    <h3 class="text-xs text-neon font-semibold tracking-wider mb-2.5">
+                        🎯 Scan Parameters
+                    </h3>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-[9px] text-gray-600 uppercase tracking-wider block mb-1.5">Target</label>
+                            <input type="text" id="n8n-target"
+                                placeholder="example.com or 10.10.10.1"
+                                class="w-full bg-deep border border-gray-800 rounded px-2.5 py-1.5 text-[11px] text-gray-300 placeholder-gray-700 focus:outline-none focus:border-neon/50 font-mono">
+                        </div>
+                        <div>
+                            <label class="text-[9px] text-gray-600 uppercase tracking-wider block mb-1.5">Scan Type</label>
+                            <select id="n8n-scan-type"
+                                class="w-full bg-deep border border-gray-800 rounded px-2.5 py-1.5 text-[11px] text-gray-300 focus:outline-none focus:border-neon/50">
+                                <option value="full" selected>🔬 Full — DNS + ports + intel</option>
+                                <option value="quick">⚡ Quick — DNS + top ports only</option>
+                                <option value="subdomains">🌐 Subdomains only</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-2 mt-3">
+                        <button onclick="triggerN8nScan()" id="btn-n8n-trigger"
+                            class="bg-neon/10 hover:bg-neon/20 text-neon border border-neon/30 px-5 py-2 rounded text-[11px] font-semibold transition-all duration-200 hover:shadow-[0_0_12px_rgba(0,255,65,0.15)] disabled:opacity-40 disabled:cursor-not-allowed">
+                            ▶ Trigger Scan
+                        </button>
+                        <button onclick="clearN8nLog()"
+                            class="bg-blood/10 hover:bg-blood/20 text-blood border border-blood/30 px-3 py-2 rounded text-[10px] transition-all">
+                            ✕ Clear Log
+                        </button>
+                        <span id="n8n-scan-status" class="text-[10px] text-gray-700 ml-auto"></span>
+                    </div>
+                </div>
+
+                <!-- ── Response / Log ── -->
+                <div class="bg-void border border-gray-800 rounded-lg p-3">
+                    <h3 class="text-xs text-gray-500 font-semibold tracking-wider mb-2">
+                        📋 Execution Log
+                    </h3>
+                    <div id="n8n-log"
+                        class="bg-deep border border-gray-800 rounded p-3 font-mono text-[10px] leading-relaxed text-gray-600"
+                        style="min-height: 200px; max-height: 400px; overflow-y: auto; white-space: pre-wrap;">
+                        <span class="text-gray-700">[—] No scans triggered yet. Configure your n8n URL and click "Trigger Scan".</span>
                     </div>
                 </div>
 
