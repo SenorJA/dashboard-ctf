@@ -1,218 +1,195 @@
 /* ================================================================
-   VulnForge — Hacker Theme v2
-   CRT scanlines · Neon glow · Cyberpunk aesthetic
+   VulnForge — Signal Intelligence Theme
+   Inspired by classified operations centers, SIGINT aircraft,
+   and Cold War-era cipher machines. Warm amber indicator lights,
+   cool teal secondary, deep charcoal backgrounds.
+
+   "Take one real aesthetic risk" — warm amber instead of green.
    ================================================================ */
 
+/* ── Base ── */
 body {
-    font-family: 'Fira Code', 'Courier New', monospace;
-    background: #0a0a0f;
+    font-family: 'IBM Plex Mono', 'Courier New', monospace;
+    background: #0b0e14;
     position: relative;
+    color: #c8ccd4;
 }
 
-/* ── CRT SCANLINE OVERLAY ── */
-body::after {
+/* ── SIGNATURE: Amber status strip ──
+     A thin glowing line at the top of the page, like the
+     indicator rail on a signals intelligence console.      */
+body::before {
     content: '';
     position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: repeating-linear-gradient(
-        0deg,
-        transparent,
-        transparent 2px,
-        rgba(0, 255, 65, 0.015) 2px,
-        rgba(0, 255, 65, 0.015) 4px
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg,
+        rgba(212, 168, 67, 0) 0%,
+        rgba(212, 168, 67, 0.6) 20%,
+        rgba(212, 168, 67, 0.8) 50%,
+        rgba(212, 168, 67, 0.6) 80%,
+        rgba(212, 168, 67, 0) 100%
     );
+    box-shadow: 0 0 12px rgba(212, 168, 67, 0.2);
     pointer-events: none;
     z-index: 9999;
 }
 
-/* ── SCREEN VIGNETTE ── */
-body::before {
-    content: '';
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: radial-gradient(ellipse at center, transparent 60%, rgba(0, 0, 0, 0.7) 100%);
-    pointer-events: none;
-    z-index: 9998;
+/* ── Connection status dot glow ── */
+.status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+    transition: all 0.4s ease;
 }
 
-/* ── TERMINAL STYLES ── */
+.status-dot.online {
+    background: #d4a843;
+    box-shadow: 0 0 8px rgba(212, 168, 67, 0.5);
+}
+
+.status-dot.offline {
+    background: #4a5268;
+    box-shadow: none;
+}
+
+.status-dot.scanning {
+    background: #3b8f8a;
+    box-shadow: 0 0 8px rgba(59, 143, 138, 0.5);
+    animation: pulse-teal 1.5s ease-in-out infinite;
+}
+
+/* ── Terminal ── */
 .terminal {
-    font-family: 'Fira Code', monospace;
+    font-family: 'IBM Plex Mono', monospace;
     font-size: 13px;
     line-height: 1.6;
 }
 
-/* ── GLITCH TEXT ANIMATION ── */
-@keyframes glitch {
-    0% { text-shadow: 2px 0 0 #ff0040, -2px 0 0 #00d4ff; }
-    25% { text-shadow: -2px 0 0 #ff0040, 2px 0 0 #00d4ff; }
-    50% { text-shadow: 1px 0 0 #00ff41, -1px 0 0 #ff0040; }
-    75% { text-shadow: -1px 0 0 #00d4ff, 1px 0 0 #00ff41; }
-    100% { text-shadow: 2px 0 0 #ff0040, -2px 0 0 #00d4ff; }
+/* ── Amber glow (replaces neon glow) ── */
+.amber-glow {
+    box-shadow: 0 0 6px rgba(212, 168, 67, 0.15), 0 0 12px rgba(212, 168, 67, 0.05);
 }
 
-.glitch-text {
-    animation: glitch 3s infinite;
-    display: inline-block;
-}
-
-/* ── NEON GLOW ── */
-.neon-glow {
-    box-shadow: 0 0 5px rgba(0, 255, 65, 0.3), 0 0 10px rgba(0, 255, 65, 0.1);
-}
-
-.neon-glow-cyan {
-    box-shadow: 0 0 5px rgba(0, 212, 255, 0.3), 0 0 10px rgba(0, 212, 255, 0.1);
+.teal-glow {
+    box-shadow: 0 0 6px rgba(59, 143, 138, 0.15), 0 0 12px rgba(59, 143, 138, 0.05);
 }
 
 .terminal-glow {
-    box-shadow: inset 0 0 20px rgba(0, 255, 65, 0.05), 0 0 15px rgba(0, 255, 65, 0.08);
+    box-shadow: inset 0 0 20px rgba(212, 168, 67, 0.03), 0 0 15px rgba(212, 168, 67, 0.04);
 }
 
-/* ── BLINKING CURSOR ── */
+/* ── Blinking cursor ── */
 @keyframes blink {
     0%, 100% { opacity: 1; }
     50% { opacity: 0; }
 }
 
 .cursor-blink::after {
-    content: '█';
-    color: #00ff41;
+    content: '▌';
+    color: #d4a843;
     animation: blink 1s step-end infinite;
     margin-left: 2px;
 }
 
-/* ── SCROLLBAR CYBERPUNK ── */
+/* ── Amber pulse animation ── */
+@keyframes pulse-amber {
+    0%, 100% { opacity: 1; box-shadow: 0 0 6px rgba(212, 168, 67, 0.3); }
+    50% { opacity: 0.6; box-shadow: 0 0 12px rgba(212, 168, 67, 0.5); }
+}
+
+.amber-pulse {
+    animation: pulse-amber 2s ease-in-out infinite;
+}
+
+@keyframes pulse-teal {
+    0%, 100% { opacity: 1; box-shadow: 0 0 6px rgba(59, 143, 138, 0.3); }
+    50% { opacity: 0.5; box-shadow: 0 0 12px rgba(59, 143, 138, 0.5); }
+}
+
+/* ── Scrollbar ── */
 ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 5px;
+    height: 5px;
 }
 
 ::-webkit-scrollbar-track {
-    background: #0d1117;
-    border-left: 1px solid #1a1a2e;
+    background: #0b0e14;
 }
 
 ::-webkit-scrollbar-thumb {
-    background: #00ff41;
-    border-radius: 3px;
-    box-shadow: 0 0 6px rgba(0, 255, 65, 0.4);
+    background: #2a354f;
+    border-radius: 2px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: #00cc33;
-    box-shadow: 0 0 10px rgba(0, 255, 65, 0.6);
+    background: #3b4a6b;
 }
 
 /* Firefox scrollbar */
 * {
     scrollbar-width: thin;
-    scrollbar-color: #00ff41 #0d1117;
+    scrollbar-color: #2a354f #0b0e14;
 }
 
-/* ── TOOL BUTTON HOVER GLOW ── */
+/* ── Tool button hover ── */
 .tool-btn:hover {
-    box-shadow: 0 0 8px rgba(0, 255, 65, 0.15), inset 0 0 8px rgba(0, 255, 65, 0.05);
+    box-shadow: 0 0 6px rgba(212, 168, 67, 0.1), inset 0 0 6px rgba(212, 168, 67, 0.03);
 }
 
-/* ── CONNECTION CARD ── */
+/* ── Connection card ── */
 .conn-card {
-    border-left: 2px solid #00ff41;
-    transition: all 0.3s ease;
+    border-left: 2px solid #2a354f;
+    transition: all 0.25s ease;
 }
 
 .conn-card:hover {
-    border-left-color: #00d4ff;
-    box-shadow: 0 0 10px rgba(0, 212, 255, 0.1);
+    border-left-color: #d4a843;
+    box-shadow: 0 0 8px rgba(212, 168, 67, 0.06);
 }
 
 .conn-card.active {
-    border-left-color: #00ff41;
-    background: rgba(0, 255, 65, 0.05);
+    border-left-color: #d4a843;
+    background: rgba(212, 168, 67, 0.04);
 }
 
-/* ── SIDEBAR CATEGORY HEADER ── */
+/* ── Sidebar category header ── */
 .cat-header {
     cursor: pointer;
     user-select: none;
 }
 
 .cat-header:hover {
-    color: #00ff41;
+    color: #d4a843;
 }
 
-/* ── CONNECTION DOT ── */
-.conn-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    display: inline-block;
-    transition: all 0.3s ease;
-}
-
-.conn-dot.online {
-    background: #00ff41;
-    box-shadow: 0 0 6px rgba(0, 255, 65, 0.6);
-}
-
-.conn-dot.offline {
-    background: #ff0040;
-    box-shadow: 0 0 6px rgba(255, 0, 64, 0.4);
-}
-
-/* ── MATRIX RAIN (subtle background) ── */
-@keyframes matrix-rain {
-    0% { background-position: 0% 0%; }
-    100% { background-position: 0% 100%; }
-}
-
-.matrix-bg {
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: repeating-linear-gradient(
-        0deg,
-        transparent,
-        transparent 20px,
-        rgba(0, 255, 65, 0.008) 20px,
-        rgba(0, 255, 65, 0.008) 21px
-    );
-    pointer-events: none;
-    z-index: 0;
-}
-
-/* ── MODAL ── */
+/* ── Modal ── */
 .modal-overlay {
-    background: rgba(0, 0, 0, 0.85);
-    backdrop-filter: blur(4px);
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(6px);
 }
 
 .modal-content {
-    border: 1px solid #00ff41;
-    box-shadow: 0 0 30px rgba(0, 255, 65, 0.15), 0 0 60px rgba(0, 255, 65, 0.05);
+    border: 1px solid #2a354f;
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.4);
 }
 
-/* ── ANIMATED BORDER ── */
-@keyframes border-pulse {
-    0%, 100% { border-color: rgba(0, 255, 65, 0.3); }
-    50% { border-color: rgba(0, 255, 65, 0.6); }
-}
-
-.border-pulse {
-    animation: border-pulse 2s ease-in-out infinite;
-}
-
-/* ── TOAST NOTIFICATIONS ── */
+/* ── Toast notifications ── */
 .toast {
     position: fixed;
     bottom: 20px;
     right: 20px;
-    background: #0d1117;
-    border: 1px solid #00ff41;
+    background: #111520;
+    border: 1px solid #2a354f;
+    border-left: 3px solid #d4a843;
     padding: 10px 18px;
     font-size: 12px;
-    font-family: 'Fira Code', monospace;
-    color: #00ff41;
-    box-shadow: 0 0 20px rgba(0, 255, 65, 0.15);
+    font-family: 'IBM Plex Mono', monospace;
+    color: #d4a843;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
     z-index: 10000;
     animation: slideIn 0.3s ease;
 }
@@ -222,38 +199,39 @@ body::before {
     to { transform: translateX(0); opacity: 1; }
 }
 
-/* ── TABS ── */
+/* ── Tabs ── */
 .tabs-bar {
     display: flex;
     gap: 0;
-    border-bottom: 1px solid #1a1a2e;
-    background: #0d1117;
+    border-bottom: 1px solid #1a1f2e;
+    background: #0e121c;
     flex-shrink: 0;
 }
 
 .tab-btn {
-    padding: 7px 16px;
-    font-size: 11px;
-    font-family: 'Fira Code', monospace;
-    color: #4a5568;
+    padding: 8px 18px;
+    font-size: 10px;
+    font-family: 'IBM Plex Mono', monospace;
+    color: #4a5268;
     background: transparent;
     border: none;
     border-bottom: 2px solid transparent;
     cursor: pointer;
     transition: all 0.2s ease;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
+    font-weight: 500;
 }
 
 .tab-btn:hover {
-    color: #00ff41;
-    background: rgba(0, 255, 65, 0.03);
+    color: #d4a843;
+    background: rgba(212, 168, 67, 0.03);
 }
 
 .tab-btn.active {
-    color: #00ff41;
-    border-bottom-color: #00ff41;
-    background: rgba(0, 255, 65, 0.05);
+    color: #d4a843;
+    border-bottom-color: #d4a843;
+    background: rgba(212, 168, 67, 0.05);
 }
 
 .tab-pane {
@@ -267,50 +245,51 @@ body::before {
     flex-direction: column;
 }
 
-/* ── REPORT CARDS ── */
+/* ── Report cards ── */
 .report-card {
-    background: #0d1117;
-    border: 1px solid #1a1a2e;
-    border-left: 3px solid #00ff41;
+    background: #111520;
+    border: 1px solid #1a1f2e;
+    border-left: 3px solid #2a354f;
     border-radius: 4px;
     padding: 12px;
     transition: all 0.2s ease;
 }
 
 .report-card:hover {
-    border-color: #2d3748;
-    box-shadow: 0 0 10px rgba(0, 255, 65, 0.05);
+    border-color: #2a354f;
+    border-left-color: #d4a843;
+    box-shadow: 0 0 8px rgba(212, 168, 67, 0.04);
 }
 
 .report-card .port-badge {
     display: inline-block;
-    background: rgba(0, 255, 65, 0.1);
-    color: #00ff41;
-    border: 1px solid rgba(0, 255, 65, 0.2);
+    background: rgba(212, 168, 67, 0.08);
+    color: #d4a843;
+    border: 1px solid rgba(212, 168, 67, 0.15);
     padding: 2px 8px;
     border-radius: 3px;
     font-size: 11px;
-    font-family: 'Fira Code', monospace;
+    font-family: 'IBM Plex Mono', monospace;
 }
 
 .report-card .service-tag {
     display: inline-block;
-    background: rgba(0, 212, 255, 0.1);
-    color: #00d4ff;
-    border: 1px solid rgba(0, 212, 255, 0.2);
+    background: rgba(59, 143, 138, 0.08);
+    color: #3b8f8a;
+    border: 1px solid rgba(59, 143, 138, 0.15);
     padding: 1px 6px;
     border-radius: 2px;
     font-size: 9px;
-    font-family: 'Fira Code', monospace;
+    font-family: 'IBM Plex Mono', monospace;
     margin-left: 4px;
 }
 
 .report-empty {
-    color: #4a5568;
+    color: #4a5268;
     font-size: 12px;
     text-align: center;
     padding: 40px 20px;
-    font-family: 'Fira Code', monospace;
+    font-family: 'IBM Plex Mono', monospace;
 }
 
 .report-empty .icon {
@@ -319,17 +298,17 @@ body::before {
     opacity: 0.3;
 }
 
-/* ── SCRIPT BUILDER ── */
+/* ── Script editor ── */
 .script-editor {
     width: 100%;
     min-height: 200px;
-    background: #050508;
-    border: 1px solid #1a1a2e;
+    background: #080a10;
+    border: 1px solid #1a1f2e;
     border-radius: 4px;
     padding: 14px;
-    font-family: 'Fira Code', monospace;
+    font-family: 'IBM Plex Mono', monospace;
     font-size: 12px;
-    color: #00ff41;
+    color: #c8ccd4;
     resize: vertical;
     outline: none;
     line-height: 1.6;
@@ -337,64 +316,64 @@ body::before {
 }
 
 .script-editor:focus {
-    border-color: #00ff41;
-    box-shadow: 0 0 8px rgba(0, 255, 65, 0.08);
+    border-color: #2a354f;
+    box-shadow: 0 0 6px rgba(212, 168, 67, 0.05);
 }
 
 .script-editor::placeholder {
-    color: #2d3748;
+    color: #2a354f;
 }
 
 .script-template-btn {
     padding: 4px 10px;
     font-size: 10px;
-    font-family: 'Fira Code', monospace;
-    background: #0d1117;
-    border: 1px solid #1a1a2e;
-    color: #718096;
+    font-family: 'IBM Plex Mono', monospace;
+    background: #111520;
+    border: 1px solid #1a1f2e;
+    color: #5a6378;
     border-radius: 3px;
     cursor: pointer;
     transition: all 0.2s ease;
 }
 
 .script-template-btn:hover {
-    border-color: #00ff41;
-    color: #00ff41;
-    background: rgba(0, 255, 65, 0.05);
+    border-color: #d4a843;
+    color: #d4a843;
+    background: rgba(212, 168, 67, 0.04);
 }
 
 .script-template-btn.active {
-    border-color: #00ff41;
-    color: #00ff41;
-    background: rgba(0, 255, 65, 0.1);
+    border-color: #d4a843;
+    color: #d4a843;
+    background: rgba(212, 168, 67, 0.08);
 }
 
-/* ── BOUNTY FORM ── */
+/* ── Form inputs ── */
 .bounty-input {
-    background: #0d1117;
-    border: 1px solid #1a1a2e;
+    background: #111520;
+    border: 1px solid #1a1f2e;
     border-radius: 4px;
     padding: 6px 10px;
     font-size: 11px;
-    font-family: 'Fira Code', monospace;
-    color: #cbd5e0;
+    font-family: 'IBM Plex Mono', monospace;
+    color: #c8ccd4;
     outline: none;
     transition: border 0.2s ease;
     width: 100%;
 }
 
 .bounty-input:focus {
-    border-color: #00ff41;
-    box-shadow: 0 0 6px rgba(0, 255, 65, 0.08);
+    border-color: #2a354f;
+    box-shadow: 0 0 4px rgba(212, 168, 67, 0.06);
 }
 
 .bounty-input::placeholder {
-    color: #2d3748;
+    color: #2a354f;
 }
 
 .bounty-label {
     font-size: 9px;
-    color: #4a5568;
+    color: #4a5268;
     text-transform: uppercase;
     letter-spacing: 0.1em;
     display: block;
@@ -402,114 +381,110 @@ body::before {
 }
 
 select.bounty-input option {
-    background: #0d1117;
-    color: #cbd5e0;
+    background: #111520;
+    color: #c8ccd4;
 }
 
-/* ── RESOURCE LINKS ── */
+/* ── Resource links ── */
 .resource-link {
     transition: all 0.2s ease;
 }
 
 .resource-link:hover {
-    border-color: #00d4ff;
+    border-color: #3b8f8a;
 }
 
-/* ── EXPORT BUTTONS ── */
+/* ── Export buttons ── */
 .report-export-btn {
     display: inline-flex;
     align-items: center;
     gap: 3px;
     padding: 1px 6px;
     font-size: 9px;
-    font-family: 'Fira Code', monospace;
+    font-family: 'IBM Plex Mono', monospace;
     background: transparent;
-    border: 1px solid #1a1a2e;
+    border: 1px solid #1a1f2e;
     border-radius: 2px;
-    color: #4a5568;
+    color: #4a5268;
     cursor: pointer;
     transition: all 0.2s ease;
 }
+
 .report-export-btn:hover {
-    border-color: #00ff41;
-    color: #00ff41;
-    background: rgba(0, 255, 65, 0.05);
+    border-color: #d4a843;
+    color: #d4a843;
+    background: rgba(212, 168, 67, 0.04);
 }
 
-/* ── FORMAT SELECTOR ── */
+/* ── Format selector ── */
 .format-select {
-    background: #0d1117;
-    border: 1px solid #1a1a2e;
+    background: #111520;
+    border: 1px solid #1a1f2e;
     border-radius: 3px;
     padding: 3px 6px;
     font-size: 10px;
-    font-family: 'Fira Code', monospace;
-    color: #8b949e;
+    font-family: 'IBM Plex Mono', monospace;
+    color: #5a6378;
     outline: none;
     cursor: pointer;
     transition: border 0.2s ease;
 }
+
 .format-select:focus {
-    border-color: #00ff41;
+    border-color: #d4a843;
 }
 
-/* ── HAK5 DEVICE TABS ── */
+/* ── Hak5 device tabs ── */
 .hak5-device-btn {
     padding: 4px 12px;
     font-size: 10px;
-    font-family: 'Fira Code', monospace;
+    font-family: 'IBM Plex Mono', monospace;
     background: transparent;
-    border: 1px solid #1a1a2e;
+    border: 1px solid #1a1f2e;
     border-radius: 3px;
-    color: #4a5568;
+    color: #4a5268;
     cursor: pointer;
     transition: all 0.2s ease;
 }
+
 .hak5-device-btn:hover {
-    border-color: #00ff41;
-    color: #00ff41;
-    background: rgba(0, 255, 65, 0.05);
+    border-color: #d4a843;
+    color: #d4a843;
+    background: rgba(212, 168, 67, 0.04);
 }
+
 .hak5-device-btn.active {
-    background: rgba(0, 255, 65, 0.1);
-    color: #00ff41;
-    border-color: #00ff41;
+    background: rgba(212, 168, 67, 0.08);
+    color: #d4a843;
+    border-color: #d4a843;
 }
 
-.hak5-device-btn[data-device="bunny"].active { color: #00ff41; border-color: #00ff41; }
-.hak5-device-btn[data-device="omg"].active { color: #00d4ff; border-color: #00d4ff; }
-.hak5-device-btn[data-device="m5"].active { color: #a78bfa; border-color: #a78bfa; }
-.hak5-device-btn[data-device="shack"].active { color: #ff0040; border-color: #ff0040; }
+.hak5-device-btn[data-device="bunny"].active { color: #d4a843; border-color: #d4a843; }
+.hak5-device-btn[data-device="omg"].active { color: #3b8f8a; border-color: #3b8f8a; }
+.hak5-device-btn[data-device="m5"].active { color: #8b7ec8; border-color: #8b7ec8; }
+.hak5-device-btn[data-device="shack"].active { color: #b8473e; border-color: #b8473e; }
 
-.hak5-device-btn[data-device="bunny"]:hover { color: #00ff41; border-color: #00ff41; }
-.hak5-device-btn[data-device="omg"]:hover { color: #00d4ff; border-color: #00d4ff; }
-.hak5-device-btn[data-device="m5"]:hover { color: #a78bfa; border-color: #a78bfa; }
-.hak5-device-btn[data-device="shack"]:hover { color: #ff0040; border-color: #ff0040; }
+.hak5-device-btn[data-device="bunny"]:hover { color: #d4a843; border-color: #d4a843; }
+.hak5-device-btn[data-device="omg"]:hover { color: #3b8f8a; border-color: #3b8f8a; }
+.hak5-device-btn[data-device="m5"]:hover { color: #8b7ec8; border-color: #8b7ec8; }
+.hak5-device-btn[data-device="shack"]:hover { color: #b8473e; border-color: #b8473e; }
 
-/* ── HAK5 GITHUB CARDS ── */
-.hak5-gh-card {
-    transition: all 0.2s ease;
-}
-.hak5-gh-card:hover {
-    transform: translateY(-1px);
-}
-
-/* ── AI WRITEUP ── */
+/* ── AI status dot ── */
 .ai-status-dot {
     width: 6px;
     height: 6px;
     border-radius: 50%;
     display: inline-block;
-    background: #4a5568;
+    background: #4a5268;
     animation: pulse-dot 1.5s ease-in-out infinite;
 }
 
 @keyframes pulse-dot {
-    0%, 100% { opacity: 1; background: #00ff41; }
-    50% { opacity: 0.3; background: #00ff41; }
+    0%, 100% { opacity: 1; background: #d4a843; }
+    50% { opacity: 0.3; background: #d4a843; }
 }
 
-/* ── RESPONSIVE ── */
+/* ── Responsive ── */
 @media (max-width: 1024px) {
     .grid-cols-2 { grid-template-columns: 1fr; }
 }
@@ -531,13 +506,16 @@ body.monochrome {
 body.monochrome,
 body.monochrome .bg-deep { background: var(--mono-bg) !important; }
 body.monochrome .bg-void { background: var(--mono-surface) !important; }
+
 body.monochrome .bg-neon\/10,
 body.monochrome .bg-neon\/20,
 body.monochrome .bg-neon\/5,
 body.monochrome .bg-cyber\/10,
 body.monochrome .bg-cyber\/20,
 body.monochrome .bg-blood\/10,
-body.monochrome .bg-blood\/20 { background: rgba(255,255,255,0.05) !important; }
+body.monochrome .bg-blood\/20,
+body.monochrome .bg-amber\/10 { background: rgba(255,255,255,0.05) !important; }
+
 body.monochrome .bg-slate-700\/50,
 body.monochrome .bg-slate-800,
 body.monochrome .bg-slate-900 { background: var(--mono-surface) !important; }
@@ -546,8 +524,7 @@ body.monochrome .text-neon,
 body.monochrome .text-cyber,
 body.monochrome .text-blood,
 body.monochrome .text-emerald-400,
-body.monochrome .text-emerald-500,
-body.monochrome .glitch-text { color: var(--mono-accent) !important; }
+body.monochrome .text-emerald-500 { color: var(--mono-accent) !important; }
 
 body.monochrome .text-neon\/70,
 body.monochrome .text-neon\/90 { color: rgba(224,224,224,0.7) !important; }
@@ -564,8 +541,7 @@ body.monochrome .text-slate-400 { color: var(--mono-text) !important; }
 body.monochrome .text-gray-500,
 body.monochrome .text-gray-600,
 body.monochrome .text-slate-500,
-body.monochrome .text-slate-600,
-body.monochrome .text-slate-500 { color: var(--mono-text-dim) !important; }
+body.monochrome .text-slate-600 { color: var(--mono-text-dim) !important; }
 body.monochrome .text-gray-700,
 body.monochrome .text-gray-800,
 body.monochrome .text-slate-700,
@@ -583,7 +559,6 @@ body.monochrome .hover\:border-emerald-500\/60:hover { border-color: var(--mono-
 body.monochrome .border-gray-800,
 body.monochrome .border-gray-800\/50,
 body.monochrome .border-slate-600,
-body.monochrome .border-slate-700,
 body.monochrome .border-slate-700 { border-color: var(--mono-border) !important; }
 
 body.monochrome .bg-\[\#0f172a\] { background: var(--mono-bg) !important; }
@@ -593,14 +568,9 @@ body.monochrome .shadow-\[0_0_8px_rgba\(16\,185\,129\,0\.6\)\],
 body.monochrome .shadow-\[0_0_8px_rgba\(239\,68\,68\,0\.6\)\],
 body.monochrome .shadow-\[0_0_12px_rgba\(0\,255\,65\,0\.15\)\],
 body.monochrome .terminal-glow,
-body.monochrome .neon-glow,
-body.monochrome .neon-glow-cyan { box-shadow: none !important; }
+body.monochrome .amber-glow,
+body.monochrome .teal-glow { box-shadow: none !important; }
 
-body.monochrome .glitch-text { animation: none !important; }
-
-body.monochrome .matrix-bg { display: none !important; }
-
-body.monochrome body::after,
 body.monochrome body::before { display: none !important; }
 
 body.monochrome .cursor-blink::after { color: var(--mono-accent) !important; }
@@ -617,8 +587,8 @@ body.monochrome .service-tag {
 }
 body.monochrome .report-card { border-left-color: var(--mono-accent-dim) !important; }
 body.monochrome .conn-card { border-left-color: var(--mono-text-dim) !important; }
-body.monochrome .conn-dot.online { background: var(--mono-accent) !important; box-shadow: none !important; }
-body.monochrome .conn-dot.offline { background: var(--mono-text-dim) !important; box-shadow: none !important; }
+body.monochrome .status-dot.online { background: var(--mono-accent) !important; box-shadow: none !important; }
+body.monochrome .status-dot.offline { background: var(--mono-text-dim) !important; box-shadow: none !important; }
 
 body.monochrome .text-sky-400,
 body.monochrome .text-violet-400,
@@ -639,6 +609,7 @@ body.monochrome .hak5-device-btn[data-device="bunny"]:hover,
 body.monochrome .hak5-device-btn[data-device="omg"]:hover,
 body.monochrome .hak5-device-btn[data-device="m5"]:hover,
 body.monochrome .hak5-device-btn[data-device="shack"]:hover { color: var(--mono-accent) !important; border-color: var(--mono-accent-dim) !important; }
+
 body.monochrome iframe { filter: grayscale(1) !important; }
 
 body.monochrome .script-editor {
@@ -697,4 +668,9 @@ body.monochrome #ps-connect-form input {
     background: var(--mono-surface) !important;
     border-color: var(--mono-border) !important;
     color: var(--mono-text) !important;
+}
+
+body.monochrome #n8n-status-badge.text-neon {
+    color: var(--mono-accent) !important;
+    border-color: var(--mono-accent-dim) !important;
 }

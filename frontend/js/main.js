@@ -402,10 +402,9 @@ document.addEventListener('DOMContentLoaded', () => {
         ws = new WebSocket('ws://localhost:8000/ws');
 
         ws.onopen = () => {
-            statusInd.classList.replace('bg-blood', 'bg-neon');
-            statusInd.style.boxShadow = '0 0 8px rgba(0,255,65,0.6)';
+            statusInd.classList.replace('offline', 'online');
             statusText.textContent = 'ONLINE';
-            statusText.classList.replace('text-gray-500', 'text-neon');
+            statusText.classList.replace('text-gray-600', 'text-neon');
             if (activeConnectionId !== null) connDot.className = 'conn-dot online';
             connBadge.textContent = `connected: ${sshUser}@${sshIp}`;
             connTitle.textContent = `─╼ ${sshUser}@${sshIp} ╾─────────────────────────────────────`;
@@ -438,10 +437,9 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         ws.onclose = () => {
-            statusInd.classList.replace('bg-neon', 'bg-blood');
-            statusInd.style.boxShadow = '0 0 8px rgba(255,0,64,0.6)';
+            statusInd.classList.replace('online', 'offline');
             statusText.textContent = 'OFFLINE';
-            statusText.classList.replace('text-neon', 'text-gray-500');
+            statusText.classList.replace('text-neon', 'text-gray-600');
             connBadge.textContent = 'disconnected';
             connDot.className = 'conn-dot offline';
             appendOutput('\n[!] Connection closed.');
@@ -1863,14 +1861,14 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
     window.toggleTheme = function () {
         const isMono = document.body.classList.toggle('monochrome');
         localStorage.setItem('vulnforge_theme', isMono ? 'mono' : 'neon');
-        document.getElementById('theme-icon').textContent = isMono ? '☀️' : '🌙';
+        document.getElementById('theme-icon').textContent = isMono ? '◇' : '☾';
         showToast(isMono ? '◼ Monochrome mode' : '🟢 Neon mode');
     };
 
     // Load saved theme
     if (localStorage.getItem('vulnforge_theme') === 'mono') {
         document.body.classList.add('monochrome');
-        document.getElementById('theme-icon').textContent = '☀️';
+        document.getElementById('theme-icon').textContent = '◇';
     }
 
     // ============================================================
