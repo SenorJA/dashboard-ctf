@@ -35,13 +35,27 @@
 
     <!-- ===== HEADER ===== -->
     <header class="bg-void border-b border-[#1a1a2e] px-5 py-2.5 flex justify-between items-center flex-shrink-0 z-20 relative">
-        <h1 class="text-lg font-bold tracking-[0.2em]">
-            <span class="glitch-text text-neon">VULNFORGE</span>
-            <span class="text-xs text-gray-600 ml-2 font-light tracking-wider">v1.0</span>
-        </h1>
-        <div class="flex items-center space-x-4">
-            <span class="text-[10px] text-gray-600 tracking-widest uppercase">/* Red Team Framework */</span>
-            <div class="flex items-center space-x-2">
+        <div class="flex items-center gap-3">
+            <h1 class="text-lg font-bold tracking-[0.2em]">
+                <span class="glitch-text text-neon" data-i18n="appName">VULNFORGE</span>
+                <span class="text-xs text-gray-600 ml-2 font-light tracking-wider">v1.0</span>
+            </h1>
+            <span class="text-[10px] text-gray-600 tracking-widest uppercase hidden md:inline" data-i18n="headerTag">/* Red Team Framework */</span>
+        </div>
+        <div class="flex items-center space-x-3">
+            <!-- Theme Toggle -->
+            <button onclick="toggleTheme()" id="btn-theme"
+                class="text-[10px] text-gray-600 hover:text-gray-400 transition-colors px-2 py-1 border border-gray-800 rounded font-mono tracking-wider"
+                title="Toggle B/W mode">
+                <span id="theme-icon">🌙</span>
+            </button>
+            <!-- Language Toggle -->
+            <button onclick="switchLanguage()" id="btn-lang"
+                class="text-[10px] text-gray-600 hover:text-gray-400 transition-colors px-2 py-1 border border-gray-800 rounded font-mono tracking-wider">
+                <span id="lang-text">EN</span>
+            </button>
+            <!-- Status -->
+            <div class="flex items-center space-x-2 border-l border-gray-800 pl-3">
                 <div id="status-indicator" class="w-2.5 h-2.5 rounded-full bg-blood shadow-[0_0_8px_rgba(255,0,64,0.6)]">
                 </div>
                 <span id="status-text" class="text-xs font-semibold text-gray-500 tracking-wider">OFFLINE</span>
@@ -59,7 +73,7 @@
 
             <!-- ── TARGET INPUT ── -->
             <div class="p-3 border-b border-[#1a1a2e]">
-                <label for="target-ip" class="text-[9px] font-semibold text-gray-600 uppercase tracking-[0.15em]">
+                <label for="target-ip" class="text-[9px] font-semibold text-gray-600 uppercase tracking-[0.15em]" data-i18n="targetLabel">
                     &gt;&gt; Target_
                 </label>
                 <input type="text" id="target-ip"
@@ -70,8 +84,8 @@
             <!-- ── CONNECTION MANAGER ── -->
             <div class="p-3 border-b border-[#1a1a2e]">
                 <p class="text-[9px] font-semibold text-gray-600 uppercase tracking-[0.15em] mb-2 flex items-center justify-between">
-                    <span>&gt;&gt; Connections_</span>
-                    <button onclick="showAddConnection()" class="text-neon/60 hover:text-neon text-[10px]">+ New</button>
+                    <span>&gt;&gt; <span data-i18n="connections">Connections_</span></span>
+                    <button onclick="showAddConnection()" class="text-neon/60 hover:text-neon text-[10px]" data-i18n="newConn">+ New</button>
                 </p>
 
                 <!-- Connection selector -->
@@ -116,15 +130,15 @@
             <div class="p-3 space-y-3 flex-1">
 
                 <h2 class="text-[9px] font-semibold text-gray-600 uppercase tracking-[0.15em] flex items-center gap-1.5">
-                    <span class="text-neon">⚔</span> Arsenal
-                    <span class="ml-auto text-[9px] text-gray-700 font-mono">[24]</span>
+                    <span class="text-neon">⚔</span> <span data-i18n="arsenal">Arsenal</span>
+                    <span class="ml-auto text-[9px] text-gray-700 font-mono">[31]</span>
                 </h2>
 
                 <!-- ══════ Web Recon ══════ -->
                 <div>
                     <p class="cat-header text-[9px] font-semibold text-gray-600 uppercase tracking-wider mb-1 flex items-center gap-1"
                         onclick="toggleCategory(this)">
-                        <span class="text-cyan-400">▶</span> Web Recon
+                        <span class="text-cyan-400">▶</span> <span data-i18n="catWebRecon">Web Recon</span>
                         <span class="ml-auto text-[8px] text-gray-700">7</span>
                     </p>
                     <div class="cat-body space-y-0.5">
@@ -199,7 +213,7 @@
                 <div>
                     <p class="cat-header text-[9px] font-semibold text-gray-600 uppercase tracking-wider mb-1 flex items-center gap-1"
                         onclick="toggleCategory(this)">
-                        <span class="text-violet-400">▶</span> Network
+                        <span class="text-violet-400">▶</span> <span data-i18n="catNetwork">Network</span>
                         <span class="ml-auto text-[8px] text-gray-700">4</span>
                     </p>
                     <div class="cat-body space-y-0.5">
@@ -247,7 +261,7 @@
                 <div>
                     <p class="cat-header text-[9px] font-semibold text-gray-600 uppercase tracking-wider mb-1 flex items-center gap-1"
                         onclick="toggleCategory(this)">
-                        <span class="text-amber-400">▶</span> SMB / Windows
+                        <span class="text-amber-400">▶</span> <span data-i18n="catSMB">SMB / Windows</span>
                         <span class="ml-auto text-[8px] text-gray-700">2</span>
                     </p>
                     <div class="cat-body space-y-0.5">
@@ -277,7 +291,7 @@
                 <div>
                     <p class="cat-header text-[9px] font-semibold text-gray-600 uppercase tracking-wider mb-1 flex items-center gap-1"
                         onclick="toggleCategory(this)">
-                        <span class="text-fuchsia-400">▶</span> Pivoting
+                        <span class="text-fuchsia-400">▶</span> <span data-i18n="catPivoting">Pivoting</span>
                         <span class="ml-auto text-[8px] text-gray-700">2</span>
                     </p>
                     <div class="cat-body space-y-0.5">
@@ -307,7 +321,7 @@
                 <div>
                     <p class="cat-header text-[9px] font-semibold text-gray-600 uppercase tracking-wider mb-1 flex items-center gap-1"
                         onclick="toggleCategory(this)">
-                        <span class="text-yellow-400">▶</span> Crypto / Decode
+                        <span class="text-yellow-400">▶</span> <span data-i18n="catCrypto">Crypto / Decode</span>
                         <span class="ml-auto text-[8px] text-gray-700">4</span>
                     </p>
                     <div class="cat-body space-y-0.5">
@@ -364,7 +378,7 @@
                 <div>
                     <p class="cat-header text-[9px] font-semibold text-gray-600 uppercase tracking-wider mb-1 flex items-center gap-1"
                         onclick="toggleCategory(this)">
-                        <span class="text-red-400">▶</span> Exploitation
+                        <span class="text-red-400">▶</span> <span data-i18n="catExploitation">Exploitation</span>
                         <span class="ml-auto text-[8px] text-gray-700">4</span>
                     </p>
                     <div class="cat-body space-y-0.5">
@@ -408,11 +422,72 @@
                     </div>
                 </div>
 
+                <!-- ══════ Resources ══════ -->
+                <div>
+                    <p class="cat-header text-[9px] font-semibold text-gray-600 uppercase tracking-wider mb-1 flex items-center gap-1"
+                        onclick="toggleCategory(this)">
+                        <span class="text-gray-500">▶</span> <span data-i18n="catResources">Resources</span>
+                        <span class="ml-auto text-[8px] text-gray-700">7</span>
+                    </p>
+                    <div class="cat-body space-y-0.5">
+
+                        <a href="https://hacktricks.wiki/en/index.html" target="_blank" rel="noopener"
+                            class="tool-btn flex items-center gap-2 w-full bg-deep/50 hover:bg-deep px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-cyber/40 group">
+                            <span class="text-cyber/70 group-hover:text-cyber">📘</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">HackTricks</span>
+                            <span class="ml-auto text-[8px] text-gray-700">↗</span>
+                        </a>
+
+                        <a href="https://portswigger.net/web-security" target="_blank" rel="noopener"
+                            class="tool-btn flex items-center gap-2 w-full bg-deep/50 hover:bg-deep px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-cyber/40 group">
+                            <span class="text-cyber/70 group-hover:text-cyber">🔓</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">PortSwigger Academy</span>
+                            <span class="ml-auto text-[8px] text-gray-700">↗</span>
+                        </a>
+
+                        <a href="https://github.com/swisskyrepo/PayloadsAllTheThings" target="_blank" rel="noopener"
+                            class="tool-btn flex items-center gap-2 w-full bg-deep/50 hover:bg-deep px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-cyber/40 group">
+                            <span class="text-cyber/70 group-hover:text-cyber">📦</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">PayloadsAllTheThings</span>
+                            <span class="ml-auto text-[8px] text-gray-700">↗</span>
+                        </a>
+
+                        <a href="https://github.com/jpillora/chisel" target="_blank" rel="noopener"
+                            class="tool-btn flex items-center gap-2 w-full bg-deep/50 hover:bg-deep px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-cyber/40 group">
+                            <span class="text-cyber/70 group-hover:text-cyber">⛏</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">Chisel</span>
+                            <span class="ml-auto text-[8px] text-gray-700">↗</span>
+                        </a>
+
+                        <a href="https://www.revshells.com/" target="_blank" rel="noopener"
+                            class="tool-btn flex items-center gap-2 w-full bg-deep/50 hover:bg-deep px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-cyber/40 group">
+                            <span class="text-cyber/70 group-hover:text-cyber">🐚</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">RevShells.com</span>
+                            <span class="ml-auto text-[8px] text-gray-700">↗</span>
+                        </a>
+
+                        <a href="https://www.exploit-db.com/" target="_blank" rel="noopener"
+                            class="tool-btn flex items-center gap-2 w-full bg-deep/50 hover:bg-deep px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-cyber/40 group">
+                            <span class="text-cyber/70 group-hover:text-cyber">💥</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">Exploit-DB</span>
+                            <span class="ml-auto text-[8px] text-gray-700">↗</span>
+                        </a>
+
+                        <a href="https://gtfobins.github.io/" target="_blank" rel="noopener"
+                            class="tool-btn flex items-center gap-2 w-full bg-deep/50 hover:bg-deep px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-cyber/40 group">
+                            <span class="text-cyber/70 group-hover:text-cyber">⬆</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">GTFOBins</span>
+                            <span class="ml-auto text-[8px] text-gray-700">↗</span>
+                        </a>
+
+                    </div>
+                </div>
+
                 <!-- ══════ Utilities ══════ -->
                 <div>
                     <p class="cat-header text-[9px] font-semibold text-gray-600 uppercase tracking-wider mb-1 flex items-center gap-1"
                         onclick="toggleCategory(this)">
-                        <span class="text-gray-500">▶</span> Utilities
+                        <span class="text-gray-500">▶</span> <span data-i18n="catUtilities">Utilities</span>
                         <span class="ml-auto text-[8px] text-gray-700">1</span>
                     </p>
                     <div class="cat-body space-y-0.5">
@@ -427,67 +502,12 @@
                     </div>
                 </div>
 
-            </div>
-
-                <!-- ══════ Resources ══════ -->
-                <div class="p-3 border-t border-[#1a1a2e]">
-                    <p class="cat-header text-[9px] font-semibold text-gray-600 uppercase tracking-wider mb-1.5 flex items-center gap-1"
-                        onclick="toggleCategory(this)">
-                        <span class="text-gray-500">▶</span> Resources
-                        <span class="ml-auto text-[8px] text-gray-700">7</span>
-                    </p>
-                    <div class="cat-body space-y-1">
-                        <a href="https://hacktricks.wiki/en/index.html" target="_blank" rel="noopener"
-                            class="flex items-center gap-2 w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1 rounded text-[10px] font-mono transition-all border border-gray-800 hover:border-cyber/40 group">
-                            <span class="text-cyber/60">📘</span>
-                            <span class="text-gray-500 group-hover:text-gray-300">HackTricks</span>
-                            <span class="ml-auto text-[8px] text-gray-800">↗</span>
-                        </a>
-                        <a href="https://portswigger.net/web-security" target="_blank" rel="noopener"
-                            class="flex items-center gap-2 w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1 rounded text-[10px] font-mono transition-all border border-gray-800 hover:border-cyber/40 group">
-                            <span class="text-cyber/60">🔓</span>
-                            <span class="text-gray-500 group-hover:text-gray-300">PortSwigger Academy</span>
-                            <span class="ml-auto text-[8px] text-gray-800">↗</span>
-                        </a>
-                        <a href="https://github.com/swisskyrepo/PayloadsAllTheThings" target="_blank" rel="noopener"
-                            class="flex items-center gap-2 w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1 rounded text-[10px] font-mono transition-all border border-gray-800 hover:border-cyber/40 group">
-                            <span class="text-cyber/60">📦</span>
-                            <span class="text-gray-500 group-hover:text-gray-300">PayloadsAllTheThings</span>
-                            <span class="ml-auto text-[8px] text-gray-800">↗</span>
-                        </a>
-                        <a href="https://github.com/jpillora/chisel" target="_blank" rel="noopener"
-                            class="flex items-center gap-2 w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1 rounded text-[10px] font-mono transition-all border border-gray-800 hover:border-cyber/40 group">
-                            <span class="text-cyber/60">⛏</span>
-                            <span class="text-gray-500 group-hover:text-gray-300">Chisel (tunnels)</span>
-                            <span class="ml-auto text-[8px] text-gray-800">↗</span>
-                        </a>
-                        <a href="https://www.revshells.com/" target="_blank" rel="noopener"
-                            class="flex items-center gap-2 w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1 rounded text-[10px] font-mono transition-all border border-gray-800 hover:border-cyber/40 group">
-                            <span class="text-cyber/60">🐚</span>
-                            <span class="text-gray-500 group-hover:text-gray-300">RevShells.com</span>
-                            <span class="ml-auto text-[8px] text-gray-800">↗</span>
-                        </a>
-                        <a href="https://www.exploit-db.com/" target="_blank" rel="noopener"
-                            class="flex items-center gap-2 w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1 rounded text-[10px] font-mono transition-all border border-gray-800 hover:border-cyber/40 group">
-                            <span class="text-cyber/60">💥</span>
-                            <span class="text-gray-500 group-hover:text-gray-300">Exploit-DB</span>
-                            <span class="ml-auto text-[8px] text-gray-800">↗</span>
-                        </a>
-                        <a href="https://gtfobins.github.io/" target="_blank" rel="noopener"
-                            class="flex items-center gap-2 w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1 rounded text-[10px] font-mono transition-all border border-gray-800 hover:border-cyber/40 group">
-                            <span class="text-cyber/60">⬆</span>
-                            <span class="text-gray-500 group-hover:text-gray-300">GTFOBins</span>
-                            <span class="ml-auto text-[8px] text-gray-800">↗</span>
-                        </a>
-                    </div>
-                </div>
-
             </div>  <!-- /p-4 arsenal -->
 
             <!-- ── SIDEBAR FOOTER ── -->
             <div class="mt-auto p-3 border-t border-[#1a1a2e]">
                 <p class="text-[9px] text-gray-700 flex items-center gap-1">
-                    <span class="text-neon/50">◆</span> <span id="tool-count">24</span> modules loaded
+                    <span class="text-neon/50">◆</span> <span id="tool-count">31</span> <span data-i18n="modulesLoaded">modules loaded</span>
                     <span class="ml-auto text-[8px] text-gray-800">root@vulnforge</span>
                 </p>
             </div>

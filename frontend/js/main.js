@@ -1064,6 +1064,150 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
     }
 
     // ============================================================
+    //  THEME TOGGLE (Monochrome Mode)
+    // ============================================================
+    window.toggleTheme = function () {
+        const isMono = document.body.classList.toggle('monochrome');
+        localStorage.setItem('vulnforge_theme', isMono ? 'mono' : 'neon');
+        document.getElementById('theme-icon').textContent = isMono ? '☀️' : '🌙';
+        showToast(isMono ? '◼ Monochrome mode' : '🟢 Neon mode');
+    };
+
+    // Load saved theme
+    if (localStorage.getItem('vulnforge_theme') === 'mono') {
+        document.body.classList.add('monochrome');
+        document.getElementById('theme-icon').textContent = '☀️';
+    }
+
+    // ============================================================
+    //  LANGUAGE (ES/EN)
+    // ============================================================
+    const translations = {
+        appName:           { en: 'VULNFORGE',       es: 'VULNFORGE' },
+        headerTag:         { en: '/* Red Team */',   es: '/* Red Team */' },
+        targetLabel:       { en: '>> Target_',       es: '>> Objetivo_' },
+        targetPlaceholder: { en: '10.10.10.5 | domain.htb', es: '10.10.10.5 | dominio.htb' },
+        connections:       { en: '>> Connections_',  es: '>> Conexiones_' },
+        newConn:           { en: '+ New',            es: '+ Nueva' },
+        selTarget:         { en: '-- Select target --', es: '-- Seleccionar --' },
+        connAlias:         { en: 'Alias (eg: Kali-VPN)', es: 'Alias (ej: Kali-VPN)' },
+        connIP:            { en: 'IP: 192.168.1.x',  es: 'IP: 192.168.1.x' },
+        connUser:          { en: 'User',             es: 'Usuario' },
+        connPass:          { en: 'Pass',             es: 'Contraseña' },
+        btnSave:           { en: '✓ Save',           es: '✓ Guardar' },
+        btnCancel:         { en: '✕ Cancel',         es: '✕ Cancelar' },
+        arsenal:           { en: 'Arsenal',          es: 'Arsenal' },
+        catWebRecon:       { en: 'Web Recon',        es: 'Web Recon' },
+        catNetwork:        { en: 'Network',          es: 'Red' },
+        catSMB:            { en: 'SMB / Windows',    es: 'SMB / Windows' },
+        catPivoting:       { en: 'Pivoting',         es: 'Pivoting' },
+        catCrypto:         { en: 'Crypto / Decode',  es: 'Crypto / Decod' },
+        catExploitation:   { en: 'Exploitation',     es: 'Explotación' },
+        catResources:      { en: 'Resources',        es: 'Recursos' },
+        catUtilities:      { en: 'Utilities',        es: 'Utilidades' },
+        tabTerminal:       { en: '⌨ Terminal',       es: '⌨ Terminal' },
+        tabReports:        { en: '📊 Reports',       es: '📊 Informes' },
+        tabScripts:        { en: '⚡ Scripts',       es: '⚡ Scripts' },
+        tabBounty:         { en: '📋 Bounty',        es: '📋 Bounty' },
+        tabAI:             { en: '🤖 AI Writeup',   es: '🤖 AI Writeup' },
+        btnConnect:        { en: '> Connect',        es: '> Conectar' },
+        btnDisconnect:     { en: '> Disconnect',     es: '> Desconectar' },
+        cmdPlaceholder:    { en: '$  enter command...', es: '$  ingresa comando...' },
+        btnExecute:        { en: '⏎',                es: '⏎' },
+        modulesLoaded:     { en: 'modules loaded',   es: 'módulos cargados' },
+        scanReports:       { en: '📊 Scan Reports',  es: '📊 Informes de Escaneo' },
+        clearAll:          { en: '✕ clear all',      es: '✕ limpiar todo' },
+        noReports:         { en: 'No reports yet',   es: 'Sin informes aún' },
+        noReportsDesc:     { en: 'Run a scan from the Arsenal to see results here', es: 'Ejecuta un escaneo desde el Arsenal' },
+        templates:         { en: 'Templates',        es: 'Plantillas' },
+        editor:            { en: 'EDITOR',           es: 'EDITOR' },
+        deployRun:         { en: '⬆ Deploy & Run',  es: '⬆ Desplegar & Ejec' },
+        bountyTitle:       { en: '📋 Bug Bounty Report Generator', es: '📋 Generador de Reportes Bounty' },
+        aiTitle:           { en: '🤖 AI Writeup Generator', es: '🤖 Generador de Writeups IA' },
+        apiConfig:         { en: '⚙ API Configuration', es: '⚙ Configuración API' },
+        genReport:         { en: '⚡ Generate Report', es: '⚡ Generar Reporte' },
+        downloadMD:        { en: '⬇ Download .md',  es: '⬇ Descargar .md' },
+        genWriteup:        { en: '🤖 Generate Writeup', es: '🤖 Generar Writeup' },
+        offline:           { en: 'OFFLINE',          es: 'DESCONECTADO' },
+        online:            { en: 'ONLINE',           es: 'CONECTADO' },
+        disconnected:      { en: 'disconnected',     es: 'desconectado' },
+        connected:         { en: 'connected',        es: 'conectado' },
+    };
+
+    window.currentLang = localStorage.getItem('vulnforge_lang') || 'en';
+
+    window.switchLanguage = function () {
+        window.currentLang = window.currentLang === 'en' ? 'es' : 'en';
+        localStorage.setItem('vulnforge_lang', window.currentLang);
+        applyLanguage(window.currentLang);
+        document.getElementById('lang-text').textContent = window.currentLang.toUpperCase();
+        showToast(`🌐 Language: ${window.currentLang === 'en' ? 'English' : 'Español'}`);
+    };
+
+    function applyLanguage(lang) {
+        document.documentElement.lang = lang;
+
+        // Update all data-i18n elements
+        document.querySelectorAll('[data-i18n]').forEach(el => {
+            const key = el.getAttribute('data-i18n');
+            if (translations[key] && translations[key][lang]) {
+                el.textContent = translations[key][lang];
+            }
+        });
+
+        // Update title
+        document.title = `VulnForge — ${lang === 'en' ? 'Red Team Dashboard' : 'Panel Red Team'}`;
+
+        // Update placeholders
+        const targetPlaceholder = translations.targetPlaceholder[lang];
+        const targetInput = document.getElementById('target-ip');
+        if (targetInput) targetInput.placeholder = targetPlaceholder;
+
+        const cmdInput = document.getElementById('cmd-input');
+        if (cmdInput) cmdInput.placeholder = translations.cmdPlaceholder[lang];
+
+        // Update connection selector
+        const connSel = document.getElementById('conn-selector');
+        if (connSel) {
+            const firstOpt = connSel.querySelector('option:first-child');
+            if (firstOpt) firstOpt.textContent = translations.selTarget[lang];
+        }
+
+        // Update connection form placeholders
+        const connName = document.getElementById('new-conn-name');
+        if (connName) connName.placeholder = translations.connAlias[lang];
+        const connIP = document.getElementById('new-conn-ip');
+        if (connIP) connIP.placeholder = translations.connIP[lang];
+        const connUser = document.getElementById('new-conn-user');
+        if (connUser) connUser.placeholder = translations.connUser[lang];
+        const connPass = document.getElementById('new-conn-pass');
+        if (connPass) connPass.placeholder = translations.connPass[lang];
+
+        // Update new connection buttons
+        const saveBtn = document.querySelector('#add-conn-form button:first-child');
+        if (saveBtn) saveBtn.textContent = translations.btnSave[lang];
+        const cancelBtn = document.querySelector('#add-conn-form button:last-child');
+        if (cancelBtn) cancelBtn.textContent = translations.btnCancel[lang];
+
+        // Update empty report state
+        const reportEmpty = document.querySelector('.report-empty');
+        if (reportEmpty) {
+            const nodes = reportEmpty.children;
+            if (nodes[1]) nodes[1].textContent = translations.noReports[lang];
+            if (nodes[2]) nodes[2].textContent = translations.noReportsDesc[lang];
+        }
+    }
+
+    // Apply saved language on load
+    if (window.currentLang === 'es') {
+        document.getElementById('lang-text').textContent = 'ES';
+        applyLanguage('es');
+    } else {
+        document.getElementById('lang-text').textContent = 'EN';
+        applyLanguage('en');
+    }
+
+    // ============================================================
     //  EVENT LISTENERS
     // ============================================================
     btnConnect.addEventListener('click', connectWS);
