@@ -453,6 +453,47 @@ select.bounty-input option {
     border-color: #00ff41;
 }
 
+/* ── HAK5 DEVICE TABS ── */
+.hak5-device-btn {
+    padding: 4px 12px;
+    font-size: 10px;
+    font-family: 'Fira Code', monospace;
+    background: transparent;
+    border: 1px solid #1a1a2e;
+    border-radius: 3px;
+    color: #4a5568;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.hak5-device-btn:hover {
+    border-color: #00ff41;
+    color: #00ff41;
+    background: rgba(0, 255, 65, 0.05);
+}
+.hak5-device-btn.active {
+    background: rgba(0, 255, 65, 0.1);
+    color: #00ff41;
+    border-color: #00ff41;
+}
+
+.hak5-device-btn[data-device="bunny"].active { color: #00ff41; border-color: #00ff41; }
+.hak5-device-btn[data-device="omg"].active { color: #00d4ff; border-color: #00d4ff; }
+.hak5-device-btn[data-device="m5"].active { color: #a78bfa; border-color: #a78bfa; }
+.hak5-device-btn[data-device="shack"].active { color: #ff0040; border-color: #ff0040; }
+
+.hak5-device-btn[data-device="bunny"]:hover { color: #00ff41; border-color: #00ff41; }
+.hak5-device-btn[data-device="omg"]:hover { color: #00d4ff; border-color: #00d4ff; }
+.hak5-device-btn[data-device="m5"]:hover { color: #a78bfa; border-color: #a78bfa; }
+.hak5-device-btn[data-device="shack"]:hover { color: #ff0040; border-color: #ff0040; }
+
+/* ── HAK5 GITHUB CARDS ── */
+.hak5-gh-card {
+    transition: all 0.2s ease;
+}
+.hak5-gh-card:hover {
+    transform: translateY(-1px);
+}
+
 /* ── AI WRITEUP ── */
 .ai-status-dot {
     width: 6px;
@@ -586,6 +627,19 @@ body.monochrome .text-fuchsia-400,
 body.monochrome .text-yellow-400,
 body.monochrome .text-red-400,
 body.monochrome .text-cyan-400 { color: var(--mono-text-dim) !important; }
+
+body.monochrome .hak5-device-btn { color: var(--mono-text-dark) !important; border-color: var(--mono-border) !important; }
+body.monochrome .hak5-device-btn:hover { color: var(--mono-accent) !important; border-color: var(--mono-accent-dim) !important; }
+body.monochrome .hak5-device-btn.active { color: var(--mono-accent) !important; border-color: var(--mono-accent) !important; background: rgba(255,255,255,0.1) !important; }
+body.monochrome .hak5-device-btn[data-device="bunny"].active,
+body.monochrome .hak5-device-btn[data-device="omg"].active,
+body.monochrome .hak5-device-btn[data-device="m5"].active,
+body.monochrome .hak5-device-btn[data-device="shack"].active { color: var(--mono-accent) !important; border-color: var(--mono-accent) !important; }
+body.monochrome .hak5-device-btn[data-device="bunny"]:hover,
+body.monochrome .hak5-device-btn[data-device="omg"]:hover,
+body.monochrome .hak5-device-btn[data-device="m5"]:hover,
+body.monochrome .hak5-device-btn[data-device="shack"]:hover { color: var(--mono-accent) !important; border-color: var(--mono-accent-dim) !important; }
+body.monochrome iframe { filter: grayscale(1) !important; }
 
 body.monochrome .script-editor {
     background: #050505 !important;

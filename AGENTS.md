@@ -70,6 +70,11 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 | `exportScanReport(index, format)` | Exports a single scan report (`'md'|'html'|'pdf'`) |
 | `exportAllReports()` | Exports all scan reports in selected format (reads `#reports-format`) |
 | `deployScript()` | Writes script-editor content to `/tmp/` on Kali via SSH |
+| `switchHak5Device(id)` | Switches between Bunny/OMG/M5/Shack payload editor |
+| `saveHak5Payload()` | Saves payload to localStorage per device (`vulnforge_hak5_*`) |
+| `loadHak5Payload()` | Loads a saved payload by number prompt |
+| `listHak5Payloads()` | Lists all saved payloads for active device |
+| `clearHak5Editor()` | Clears the payload editor |
 
 ## Arsenal module system
 

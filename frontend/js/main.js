@@ -616,7 +616,8 @@ document.addEventListener('DOMContentLoaded', () => {
             reports: 1,
             scripts: 2,
             bounty: 3,
-            aiwriteup: 4
+            aiwriteup: 4,
+            hak5: 5
         };
         if (panes[tabName] !== undefined) {
             btns[panes[tabName]].classList.add('active');
@@ -1299,6 +1300,131 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
             if (btnGen) btnGen.disabled = false;
         }
     };
+
+    // ============================================================
+    //  HAK5 PAYLOAD EDITOR
+    // ============================================================
+    const hak5Devices = {
+        bunny:  { name: 'Bash Bunny',      icon: '🐰', ext: 'txt', lang: 'ducky script', desc: 'USB Rubber Ducky-style HID attacks' },
+        omg:    { name: 'OMG Cable',       icon: '🔌', ext: 'js',  lang: 'javascript',    desc: 'WiFi-enabled drop cable payloads' },
+        m5:     { name: 'M5 Stack',        icon: '📟', ext: 'py',  lang: 'micropython',   desc: 'ESP32-based multi-tool payloads' },
+        shack:  { name: 'Shack Jack',      icon: '🦈', ext: 'txt', lang: 'bash',          desc: 'Ethernet remote access payloads' }
+    };
+    let currentHak5Device = 'bunny';
+
+    function getHak5StorageKey() {
+        return `vulnforge_hak5_${currentHak5Device}`;
+    }
+
+    function getHak5Payloads() {
+        try {
+            return JSON.parse(localStorage.getItem(getHak5StorageKey()) || '[]');
+        } catch { return []; }
+    }
+
+    function setHak5Payloads(arr) {
+        localStorage.setItem(getHak5StorageKey(), JSON.stringify(arr));
+        updateHak5SavedCount();
+    }
+
+    function updateHak5SavedCount() {
+        const count = getHak5Payloads().length;
+        document.getElementById('hak5-saved-count').textContent = count;
+    }
+
+    window.switchHak5Device = function (deviceId) {
+        currentHak5Device = deviceId;
+        const dev = hak5Devices[deviceId];
+        if (!dev) return;
+
+        // Update tabs
+        document.querySelectorAll('.hak5-device-btn').forEach(b => b.classList.remove('active'));
+        document.querySelector(`.hak5-device-btn[data-device="${deviceId}"]`)?.classList.add('active');
+
+        // Update UI
+        document.getElementById('hak5-device-name').textContent = dev.name;
+        document.getElementById('hak5-device-icon').textContent = dev.icon;
+        document.getElementById('hak5-device-desc').textContent = dev.desc;
+        document.getElementById('hak5-lang').textContent = dev.lang;
+        document.getElementById('hak5-editor').value = '';
+        document.getElementById('hak5-payload-name').value = '';
+        document.getElementById('hak5-payload-status').textContent = '';
+        updateHak5SavedCount();
+        showToast(`🔌 Switched to ${dev.name}`);
+    };
+
+    window.saveHak5Payload = function () {
+        const dev = hak5Devices[currentHak5Device];
+        const name = document.getElementById('hak5-payload-name').value.trim();
+        const code = document.getElementById('hak5-editor').value.trim();
+        if (!name) { showToast('⚠️ Enter a payload name'); return; }
+        if (!code) { showToast('⚠️ Enter payload code'); return; }
+
+        const payloads = getHak5Payloads();
+        const filename = name.endsWith(`.${dev.ext}`) ? name : `${name}.${dev.ext}`;
+
+        // Update if exists, else add
+        const idx = payloads.findIndex(p => p.name === filename);
+        if (idx >= 0) {
+            payloads[idx].code = code;
+            payloads[idx].updated = new Date().toISOString();
+            showToast(`💾 Updated "${filename}"`);
+        } else {
+            payloads.push({ name: filename, code, device: currentHak5Device, created: new Date().toISOString(), updated: new Date().toISOString() });
+            showToast(`💾 Saved "${filename}"`);
+        }
+        setHak5Payloads(payloads);
+    };
+
+    window.loadHak5Payload = function () {
+        const payloads = getHak5Payloads();
+        if (payloads.length === 0) { showToast('📂 No saved payloads'); return; }
+
+        // Build a simple select prompt
+        const names = payloads.map((p, i) => `${i+1}. ${p.name}`).join('\n');
+        const input = prompt(`Saved payloads for ${hak5Devices[currentHak5Device].name}:\n\n${names}\n\nEnter number to load:`);
+        if (!input) return;
+        const idx = parseInt(input) - 1;
+        if (idx < 0 || idx >= payloads.length) { showToast('⚠️ Invalid selection'); return; }
+
+        document.getElementById('hak5-editor').value = payloads[idx].code;
+        document.getElementById('hak5-payload-name').value = payloads[idx].name;
+        document.getElementById('hak5-payload-status').textContent = `📂 loaded "${payloads[idx].name}"`;
+        showToast(`📂 Loaded "${payloads[idx].name}"`);
+    };
+
+    window.listHak5Payloads = function () {
+        const payloads = getHak5Payloads();
+        if (payloads.length === 0) {
+            showToast('📋 No saved payloads for this device');
+            return;
+        }
+        // Show in terminal-like output in status
+        const list = payloads.map((p, i) => `${i+1}. ${p.name}`).join(' · ');
+        document.getElementById('hak5-payload-status').textContent = `📋 ${payloads.length} payloads: ${list}`;
+        showToast(`📋 ${payloads.length} payloads for ${hak5Devices[currentHak5Device].name}`);
+    };
+
+    window.clearHak5Editor = function () {
+        document.getElementById('hak5-editor').value = '';
+        document.getElementById('hak5-payload-name').value = '';
+        document.getElementById('hak5-payload-status').textContent = '✕ cleared';
+        showToast('✕ Editor cleared');
+    };
+
+    // Update line count on edit (deferred until DOM ready)
+    const initHak5 = () => {
+        const hak5Editor = document.getElementById('hak5-editor');
+        if (hak5Editor) {
+            hak5Editor.addEventListener('input', () => {
+                document.getElementById('hak5-line-count').textContent =
+                    (hak5Editor.value.match(/\n/g) || []).length + 1 + ' lines';
+            });
+        }
+        updateHak5SavedCount();
+    };
+    // Run now (DOM is already loaded at this point since we're inside DOMContentLoaded)
+    initHak5();
 
     // ============================================================
     //  TOAST NOTIFICATIONS
