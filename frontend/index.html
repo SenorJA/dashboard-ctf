@@ -584,10 +584,22 @@
                     <h3 class="text-xs text-neon font-semibold tracking-wider">
                         📊 Scan Reports
                     </h3>
-                    <button onclick="clearReports()"
-                        class="text-[10px] text-gray-600 hover:text-blood transition-colors">
-                        ✕ clear all
-                    </button>
+                    <div class="flex items-center gap-2">
+                        <select id="reports-format"
+                            class="bg-void border border-gray-800 rounded px-2 py-1 text-[10px] text-gray-300 focus:outline-none focus:border-neon/50 font-mono">
+                            <option value="md">.md</option>
+                            <option value="html">.html</option>
+                            <option value="pdf">📄 PDF</option>
+                        </select>
+                        <button onclick="exportAllReports()" id="btn-export-reports" disabled
+                            class="text-[10px] text-gray-600 hover:text-neon transition-colors border border-gray-800 rounded px-2 py-1">
+                            ⬇ Export all
+                        </button>
+                        <button onclick="clearReports()"
+                            class="text-[10px] text-gray-600 hover:text-blood transition-colors">
+                            ✕ clear all
+                        </button>
+                    </div>
                 </div>
                 <div id="reports-container" class="space-y-2 flex-1">
                     <div class="report-empty">
@@ -733,9 +745,15 @@
                                 class="bg-neon/10 hover:bg-neon/20 text-neon border border-neon/30 px-4 py-1.5 rounded text-[10px] font-semibold transition-all">
                                 ⚡ Generate Report
                             </button>
+                            <select id="bounty-format"
+                                class="bg-void border border-gray-800 rounded px-2 py-1.5 text-[10px] text-gray-300 focus:outline-none focus:border-neon/50 font-mono">
+                                <option value="md">.md</option>
+                                <option value="html">.html</option>
+                                <option value="pdf">📄 PDF</option>
+                            </select>
                             <button onclick="downloadBountyReport()" id="btn-download-bounty" disabled
                                 class="bg-cyber/10 hover:bg-cyber/20 text-cyber border border-cyber/30 px-4 py-1.5 rounded text-[10px] transition-all disabled:opacity-30 disabled:cursor-not-allowed">
-                                ⬇ Download .md
+                                ⬇ Download
                             </button>
                         </div>
                     </div>
@@ -805,9 +823,15 @@
                                 class="bg-neon/10 hover:bg-neon/20 text-neon border border-neon/30 px-4 py-1.5 rounded text-[10px] font-semibold transition-all">
                                 🤖 Generate Writeup
                             </button>
+                            <select id="ai-format"
+                                class="bg-void border border-gray-800 rounded px-2 py-1.5 text-[10px] text-gray-300 focus:outline-none focus:border-neon/50 font-mono">
+                                <option value="md">.md</option>
+                                <option value="html">.html</option>
+                                <option value="pdf">📄 PDF</option>
+                            </select>
                             <button onclick="downloadAIWriteup()" id="btn-download-ai" disabled
                                 class="bg-cyber/10 hover:bg-cyber/20 text-cyber border border-cyber/30 px-4 py-1.5 rounded text-[10px] transition-all disabled:opacity-30 disabled:cursor-not-allowed">
-                                ⬇ Download .md
+                                ⬇ Download
                             </button>
                         </div>
                         <div id="ai-status" class="text-[10px] text-gray-700 hidden">⏳ Generating...</div>

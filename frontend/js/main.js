@@ -55,6 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const count     = document.getElementById('report-count');
         if (!container) return;
 
+        const btnExport = document.getElementById('btn-export-reports');
         if (reports.length === 0) {
             container.innerHTML = `
                 <div class="report-empty">
@@ -63,10 +64,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="text-[10px] mt-1 text-gray-700">Run a scan from the Arsenal to see results here</div>
                 </div>`;
             if (count) count.textContent = '(0)';
+            if (btnExport) btnExport.disabled = true;
             return;
         }
 
         if (count) count.textContent = `(${reports.length})`;
+        if (btnExport) btnExport.disabled = false;
 
         container.innerHTML = reports.map(r => {
             let bodyHtml = '';
@@ -85,7 +88,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="report-card">
                     <div class="flex items-center justify-between mb-1.5">
                         <span class="text-[10px] font-semibold uppercase tracking-wider ${toolColor}">${r.type} › ${r.target}</span>
-                        <span class="text-[9px] text-gray-700">${r.timestamp}</span>
+                        <span class="flex items-center gap-2">
+                            <button onclick="exportScanReport(${reports.indexOf(r)}, 'md')"
+                                class="text-[9px] text-gray-600 hover:text-neon transition-colors">⬇ .md</button>
+                            <button onclick="exportScanReport(${reports.indexOf(r)}, 'html')"
+                                class="text-[9px] text-gray-600 hover:text-cyber transition-colors">⬇ .html</button>
+                            <button onclick="exportScanReport(${reports.indexOf(r)}, 'pdf')"
+                                class="text-[9px] text-gray-600 hover:text-blood transition-colors">⬇ PDF</button>
+                            <span class="text-[9px] text-gray-700">${r.timestamp}</span>
+                        </span>
                     </div>
                     ${bodyHtml}
                 </div>`;
@@ -909,17 +920,269 @@ ${fix || 'Apply appropriate security patches and input validation.'}
         showToast('📋 Bounty report generated');
     };
 
-    window.downloadBountyReport = function () {
-        if (!lastBountyReport) return;
-        const target = document.getElementById('bounty-target').value.trim().replace(/[^a-zA-Z0-9]/g, '_');
-        const blob = new Blob([lastBountyReport], { type: 'text/markdown;charset=utf-8' });
+    // ============================================================
+    //  EXPORT UTILITIES (MD / HTML / PDF)
+    // ============================================================
+
+    /**
+     * Convert markdown-like text to basic HTML for export.
+     */
+    function mdToBasicHTML(text) {
+        if (!text) return '<p>No content</p>';
+        let html = text
+            // Escape HTML entities first
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            // Code blocks (```...```)
+            .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
+            // Inline code
+            .replace(/`([^`]+)`/g, '<code>$1</code>')
+            // Headers
+            .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+            .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+            .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+            // Bold / italic
+            .replace(/\*\*(\S[^*]+)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*(\S[^*]+)\*/g, '<em>$1</em>')
+            // Links
+            .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
+            // Horizontal rules
+            .replace(/^---$/gm, '<hr>')
+            // List items
+            .replace(/^- (.+)$/gm, '<li>$1</li>')
+            // Line breaks
+            .replace(/\n\n/g, '</p><p>')
+            .replace(/\n/g, '<br>');
+        return '<p>' + html + '</p>';
+    }
+
+    /**
+     * Build a complete, self-contained HTML document for export or print preview.
+     * @param {string}  content   - Raw markdown-like report text
+     * @param {string}  title     - Document title
+     * @param {string}  type      - 'bounty' | 'writeup' | 'scan'
+     * @returns {string} Full HTML page
+     */
+    function buildExportHTML(content, title, type) {
+        const bodyHtml = mdToBasicHTML(content);
+        const date = new Date().toISOString().split('T')[0];
+        return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${title} — VulnForge</title>
+<style>
+  :root {
+    --bg: #0d1117; --surface: #161b22; --border: #30363d;
+    --text: #e6edf3; --text-dim: #8b949e; --accent: #58a6ff;
+    --accent2: #3fb950; --font: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+    --mono: 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--text); font-family: var(--font);
+    padding: 40px 48px; line-height: 1.7; font-size: 14px;
+  }
+  .header {
+    border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bottom: 24px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .header h1 { font-size: 20px; font-weight: 700; color: var(--accent); }
+  .header .meta { font-size: 12px; color: var(--text-dim); font-family: var(--mono); }
+  .footer {
+    margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--border);
+    font-size: 11px; color: var(--text-dim); text-align: center;
+  }
+  h1, h2, h3, h4 { color: var(--accent); margin: 20px 0 8px; font-weight: 600; }
+  h1 { font-size: 22px; }
+  h2 { font-size: 18px; border-bottom: 1px solid var(--border); padding-bottom: 4px; }
+  h3 { font-size: 15px; }
+  p { margin: 8px 0; }
+  a { color: var(--accent); text-decoration: underline; }
+  pre, code { font-family: var(--mono); background: var(--surface); border-radius: 4px; }
+  code { padding: 1px 5px; font-size: 13px; }
+  pre { padding: 12px 16px; overflow-x: auto; margin: 12px 0; border: 1px solid var(--border); font-size: 13px; line-height: 1.5; }
+  pre code { padding: 0; background: none; }
+  hr { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+  li { margin: 4px 0 4px 20px; }
+  strong { color: #f0f6fc; }
+  @media print {
+    body { background: #fff; color: #000; padding: 20px; }
+    .header h1 { color: #1f6feb; }
+    h1, h2, h3 { color: #1f6feb; }
+    pre, code { background: #f6f8fa; border-color: #d0d7de; }
+    a { color: #1f6feb; }
+    strong { color: #000; }
+    .footer { color: #6e7681; }
+    @page { margin: 15mm; }
+  }
+</style>
+</head>
+<body>
+  <div class="header">
+    <h1>${title}</h1>
+    <div class="meta">${date} · VulnForge</div>
+  </div>
+  ${bodyHtml}
+  <div class="footer">
+    Generated by <strong>VulnForge</strong> — ${date}
+  </div>
+</body>
+</html>`;
+    }
+
+    /**
+     * Open a print-friendly popup window for PDF export.
+     * User chooses "Save as PDF" in the print dialog.
+     */
+    function openPDFPreview(htmlContent, title) {
+        const win = window.open('', '_blank', 'width=900,height=700,scrollbars=yes');
+        if (!win) {
+            showToast('⚠️ Popup blocked — allow popups for PDF export');
+            return;
+        }
+        win.document.write(htmlContent);
+        win.document.title = title;
+        win.document.close();
+        win.focus();
+        // Wait for fonts/images then print
+        setTimeout(() => {
+            win.print();
+        }, 500);
+    }
+
+    /**
+     * Generic file download using Blob.
+     */
+    function downloadString(content, filename, mimeType) {
+        const blob = new Blob([content], { type: mimeType + ';charset=utf-8' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `bug-bounty-${target || 'report'}-${new Date().toISOString().split('T')[0]}.md`;
+        a.download = filename;
         a.click();
         URL.revokeObjectURL(url);
-        showToast('⬇ Report downloaded');
+    }
+
+    /**
+     * Export a raw report string as MD / HTML / PDF.
+     * @param {string} content   - Raw markdown-like text
+     * @param {string} filename  - Base filename (no extension)
+     * @param {string} format    - 'md' | 'html' | 'pdf'
+     * @param {string} title     - Pretty title for the report
+     * @param {string} type      - 'bounty' | 'writeup' | 'scan'
+     */
+    function exportReport(content, filename, format, title, type) {
+        const date = new Date().toISOString().split('T')[0];
+        const safeName = filename.replace(/[^a-zA-Z0-9_-]/g, '_') || 'report';
+
+        switch (format) {
+            case 'md':
+                downloadString(content, `${safeName}-${date}.md`, 'text/markdown');
+                break;
+            case 'html': {
+                const html = buildExportHTML(content, title, type);
+                downloadString(html, `${safeName}-${date}.html`, 'text/html');
+                break;
+            }
+            case 'pdf': {
+                const html = buildExportHTML(content, title, type);
+                openPDFPreview(html, `${title} — ${date}`);
+                break;
+            }
+        }
+        showToast(`⬇ ${format.toUpperCase()} exported`);
+    }
+
+    // ── Updated Bounty Download ──
+    window.downloadBountyReport = function () {
+        if (!lastBountyReport) return;
+        const target = document.getElementById('bounty-target').value.trim().replace(/[^a-zA-Z0-9]/g, '_') || 'report';
+        const format = document.getElementById('bounty-format').value;
+        const vulnType = document.getElementById('bounty-type').value;
+        exportReport(lastBountyReport, `bug-bounty-${target}`, format, `Bug Bounty — ${vulnType}`, 'bounty');
+    };
+
+    // ── Updated AI Writeup Download ──
+    window.downloadAIWriteup = function () {
+        if (!lastAIWriteup) return;
+        const machine = document.getElementById('ai-machine').value.trim().replace(/[^a-zA-Z0-9_-]/g, '_') || 'writeup';
+        const format = document.getElementById('ai-format').value;
+        exportReport(lastAIWriteup, `writeup-${machine}`, format, `Writeup — ${machine}`, 'writeup');
+    };
+
+    // ── Export single scan report ──
+    window.exportScanReport = function (index, format) {
+        const r = window.reports && window.reports[index];
+        if (!r) { showToast('⚠️ Report not found'); return; }
+
+        // Build a text report from the structured data
+        let content = `# ${r.type.toUpperCase()} Scan Report\n\n`;
+        content += `**Target:** \`${r.target}\`\n`;
+        content += `**Date:** ${r.timestamp}\n`;
+        content += `**Tool:** ${r.type}\n\n`;
+        content += `---\n\n`;
+
+        if (r.type === 'nmap' && r.ports) {
+            content += `## Open Ports (${r.ports.length})\n\n`;
+            content += `| Port | Protocol | Service | Version |\n`;
+            content += `|------|----------|---------|--------|\n`;
+            r.ports.forEach(p => {
+                content += `| ${p.port} | ${p.protocol || 'tcp'} | ${p.service || '?'} | ${p.version || '-'} |\n`;
+            });
+            if (r.os) content += `\n**OS:** ${r.os}\n`;
+            if (r.raw) content += `\n## Raw Output\n\n\`\`\`\n${r.raw.substring(0, 2000)}\n\`\`\`\n`;
+        } else if (r.type === 'gobuster' && r.dirs) {
+            content += `## Found Directories (${r.dirs.length})\n\n`;
+            r.dirs.forEach(d => {
+                content += `- [${d.status}] ${d.path}${d.size ? ` (${d.size})` : ''}\n`;
+            });
+            if (r.raw) content += `\n## Raw Output\n\n\`\`\`\n${r.raw.substring(0, 2000)}\n\`\`\`\n`;
+        } else {
+            content += r.raw || 'No data';
+        }
+
+        const title = `${r.type.toUpperCase()} — ${r.target}`;
+        exportReport(content, `${r.type}-${r.target.replace(/[^a-zA-Z0-9]/g, '_')}`, format, title, 'scan');
+    };
+
+    // ── Export all scan reports ──
+    window.exportAllReports = function () {
+        const arr = window.reports || [];
+        if (arr.length === 0) { showToast('⚠️ No reports to export'); return; }
+        const format = document.getElementById('reports-format').value;
+
+        // Build a compiled report document
+        let content = `# VulnForge — Scan Reports Compilation\n\n`;
+        content += `**Date:** ${new Date().toISOString().split('T')[0]}\n`;
+        content += `**Total Reports:** ${arr.length}\n\n`;
+        content += `---\n\n`;
+
+        arr.forEach((r, i) => {
+            content += `## ${i+1}. ${r.type.toUpperCase()} › ${r.target}\n\n`;
+            content += `**Time:** ${r.timestamp}\n\n`;
+
+            if (r.type === 'nmap' && r.ports) {
+                content += `**Open Ports:** ${r.ports.length}\n\n`;
+                r.ports.forEach(p => {
+                    content += `- \`${p.port}/${p.protocol || 'tcp'}\` — ${p.service || '?'} ${p.version ? `(${p.version})` : ''}\n`;
+                });
+                if (r.os) content += `\n**OS Guess:** ${r.os}\n`;
+            } else if (r.type === 'gobuster' && r.dirs) {
+                content += `**Found:** ${r.dirs.length} directories\n\n`;
+                r.dirs.forEach(d => {
+                    content += `- [${d.status}] ${d.path}\n`;
+                });
+            } else {
+                content += `\`\`\`\n${(r.raw || 'No data').substring(0, 1000)}\n\`\`\`\n`;
+            }
+            content += `\n---\n\n`;
+        });
+
+        const title = `All Reports — VulnForge`;
+        exportReport(content, `all-reports-${new Date().toISOString().split('T')[0]}`, format, title, 'scan');
     };
 
     // ============================================================
@@ -1035,19 +1298,6 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
             status.classList.add('hidden');
             if (btnGen) btnGen.disabled = false;
         }
-    };
-
-    window.downloadAIWriteup = function () {
-        if (!lastAIWriteup) return;
-        const machine = document.getElementById('ai-machine').value.trim().replace(/[^a-zA-Z0-9]/g, '_') || 'writeup';
-        const blob = new Blob([lastAIWriteup], { type: 'text/markdown;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `writeup-${machine}-${new Date().toISOString().split('T')[0]}.md`;
-        a.click();
-        URL.revokeObjectURL(url);
-        showToast('⬇ Writeup downloaded');
     };
 
     // ============================================================

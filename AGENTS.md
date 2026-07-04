@@ -15,9 +15,9 @@ C:\Users\34678\Desktop\Proyecto ciber\
 ├── backend/
 │   └── main.py          # FastAPI app (single-file, ~130 lines)
 ├── frontend/
-│   ├── index.html       # SPA (Tailwind CDN, 5 tabs, 31 modules)
-│   ├── js/main.js       # All frontend logic (~1230 lines)
-│   └── css/style.css    # Hacker theme + monochrome override
+│   ├── index.html       # SPA (Tailwind CDN, 5 tabs, 31 modules, ~854 lines)
+│   ├── js/main.js       # All frontend logic (~1480 lines)
+│   └── css/style.css    # Hacker theme + monochrome override (~636 lines)
 └── .opencode/
     └── agents/architect.md  # Primary orchestrator agent definition
 ```
@@ -64,7 +64,11 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 | `switchLanguage()` | Toggles `window.currentLang` (en/es), calls `applyLanguage()` |
 | `toggleCategory(header)` | Collapses/expands sidebar category groups |
 | `generateBountyReport()` | Builds Markdown from form, enables download |
+| `downloadBountyReport()` | Exports bounty report as MD/HTML/PDF (reads `#bounty-format`) |
 | `generateAIWriteup()` | Calls OpenAI-compatible API, renders result |
+| `downloadAIWriteup()` | Exports AI writeup as MD/HTML/PDF (reads `#ai-format`) |
+| `exportScanReport(index, format)` | Exports a single scan report (`'md'|'html'|'pdf'`) |
+| `exportAllReports()` | Exports all scan reports in selected format (reads `#reports-format`) |
 | `deployScript()` | Writes script-editor content to `/tmp/` on Kali via SSH |
 
 ## Arsenal module system
@@ -108,6 +112,32 @@ Tools that need target validation must be listed in the `needsTarget` array (~li
 
 - **Neon** (default): Dark with green/cyan/red accents, CRT scanlines, matrix BG.
 - **Monochrome**: `body.monochrome` class, ~80 CSS overrides in `style.css` that force all colors to grayscale and hide decorative effects.
+
+## Report export system (MD / HTML / PDF)
+
+Three report types → each has a format selector (`#bounty-format`, `#ai-format`, `#reports-format`):
+
+```
+<select id="bounty-format">
+  <option value="md">.md</option>
+  <option value="html">.html</option>
+  <option value="pdf">📄 PDF</option>
+</select>
+```
+
+**How each format works:**
+- **MD** — downloads a `.md` file directly via Blob
+- **HTML** — generates a self-contained HTML doc with inline dark-theme styles, downloads as `.html`
+- **PDF** — generates the same styled HTML, opens it in a new popup window, then triggers `window.print()` → user selects "Save as PDF"
+
+**Key JS functions (not on `window.*`):**
+- `mdToBasicHTML(text)` — converts markdown-like syntax (#, **, `, -, ---) to HTML
+- `buildExportHTML(content, title, type)` — wraps content in a full HTML5 document with print/display CSS
+- `openPDFPreview(htmlContent, title)` — popup + `print()` workflow
+- `downloadString(content, filename, mimeType)` — generic Blob download
+- `exportReport(content, filename, format, title, type)` — central dispatcher
+
+**Scan reports** get per-export buttons (`.md`, `.html`, `.pdf`) next to each card, plus a bulk "Export all" using the shared format selector.
 
 ## Notable constraints
 

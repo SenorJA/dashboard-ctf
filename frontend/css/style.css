@@ -415,6 +415,44 @@ select.bounty-input option {
     border-color: #00d4ff;
 }
 
+/* ── EXPORT BUTTONS ── */
+.report-export-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 1px 6px;
+    font-size: 9px;
+    font-family: 'Fira Code', monospace;
+    background: transparent;
+    border: 1px solid #1a1a2e;
+    border-radius: 2px;
+    color: #4a5568;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.report-export-btn:hover {
+    border-color: #00ff41;
+    color: #00ff41;
+    background: rgba(0, 255, 65, 0.05);
+}
+
+/* ── FORMAT SELECTOR ── */
+.format-select {
+    background: #0d1117;
+    border: 1px solid #1a1a2e;
+    border-radius: 3px;
+    padding: 3px 6px;
+    font-size: 10px;
+    font-family: 'Fira Code', monospace;
+    color: #8b949e;
+    outline: none;
+    cursor: pointer;
+    transition: border 0.2s ease;
+}
+.format-select:focus {
+    border-color: #00ff41;
+}
+
 /* ── AI WRITEUP ── */
 .ai-status-dot {
     width: 6px;
@@ -570,4 +608,29 @@ body.monochrome ::-webkit-scrollbar-thumb {
 body.monochrome .tab-btn.active {
     color: var(--mono-accent) !important;
     border-bottom-color: var(--mono-accent) !important;
+}
+
+body.monochrome .report-export-btn {
+    color: var(--mono-text-dark) !important;
+    border-color: var(--mono-border) !important;
+}
+body.monochrome .report-export-btn:hover {
+    color: var(--mono-accent) !important;
+    border-color: var(--mono-accent) !important;
+    background: rgba(255,255,255,0.05) !important;
+}
+
+body.monochrome .format-select,
+body.monochrome #bounty-format,
+body.monochrome #ai-format,
+body.monochrome #reports-format {
+    background: var(--mono-surface) !important;
+    border-color: var(--mono-border) !important;
+    color: var(--mono-text-dim) !important;
+}
+body.monochrome .format-select:focus,
+body.monochrome #bounty-format:focus,
+body.monochrome #ai-format:focus,
+body.monochrome #reports-format:focus {
+    border-color: var(--mono-accent-dim) !important;
 }
