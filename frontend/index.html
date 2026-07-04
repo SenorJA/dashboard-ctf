@@ -429,6 +429,61 @@
 
             </div>
 
+                <!-- ══════ Resources ══════ -->
+                <div class="p-3 border-t border-[#1a1a2e]">
+                    <p class="cat-header text-[9px] font-semibold text-gray-600 uppercase tracking-wider mb-1.5 flex items-center gap-1"
+                        onclick="toggleCategory(this)">
+                        <span class="text-gray-500">▶</span> Resources
+                        <span class="ml-auto text-[8px] text-gray-700">7</span>
+                    </p>
+                    <div class="cat-body space-y-1">
+                        <a href="https://hacktricks.wiki/en/index.html" target="_blank" rel="noopener"
+                            class="flex items-center gap-2 w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1 rounded text-[10px] font-mono transition-all border border-gray-800 hover:border-cyber/40 group">
+                            <span class="text-cyber/60">📘</span>
+                            <span class="text-gray-500 group-hover:text-gray-300">HackTricks</span>
+                            <span class="ml-auto text-[8px] text-gray-800">↗</span>
+                        </a>
+                        <a href="https://portswigger.net/web-security" target="_blank" rel="noopener"
+                            class="flex items-center gap-2 w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1 rounded text-[10px] font-mono transition-all border border-gray-800 hover:border-cyber/40 group">
+                            <span class="text-cyber/60">🔓</span>
+                            <span class="text-gray-500 group-hover:text-gray-300">PortSwigger Academy</span>
+                            <span class="ml-auto text-[8px] text-gray-800">↗</span>
+                        </a>
+                        <a href="https://github.com/swisskyrepo/PayloadsAllTheThings" target="_blank" rel="noopener"
+                            class="flex items-center gap-2 w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1 rounded text-[10px] font-mono transition-all border border-gray-800 hover:border-cyber/40 group">
+                            <span class="text-cyber/60">📦</span>
+                            <span class="text-gray-500 group-hover:text-gray-300">PayloadsAllTheThings</span>
+                            <span class="ml-auto text-[8px] text-gray-800">↗</span>
+                        </a>
+                        <a href="https://github.com/jpillora/chisel" target="_blank" rel="noopener"
+                            class="flex items-center gap-2 w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1 rounded text-[10px] font-mono transition-all border border-gray-800 hover:border-cyber/40 group">
+                            <span class="text-cyber/60">⛏</span>
+                            <span class="text-gray-500 group-hover:text-gray-300">Chisel (tunnels)</span>
+                            <span class="ml-auto text-[8px] text-gray-800">↗</span>
+                        </a>
+                        <a href="https://www.revshells.com/" target="_blank" rel="noopener"
+                            class="flex items-center gap-2 w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1 rounded text-[10px] font-mono transition-all border border-gray-800 hover:border-cyber/40 group">
+                            <span class="text-cyber/60">🐚</span>
+                            <span class="text-gray-500 group-hover:text-gray-300">RevShells.com</span>
+                            <span class="ml-auto text-[8px] text-gray-800">↗</span>
+                        </a>
+                        <a href="https://www.exploit-db.com/" target="_blank" rel="noopener"
+                            class="flex items-center gap-2 w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1 rounded text-[10px] font-mono transition-all border border-gray-800 hover:border-cyber/40 group">
+                            <span class="text-cyber/60">💥</span>
+                            <span class="text-gray-500 group-hover:text-gray-300">Exploit-DB</span>
+                            <span class="ml-auto text-[8px] text-gray-800">↗</span>
+                        </a>
+                        <a href="https://gtfobins.github.io/" target="_blank" rel="noopener"
+                            class="flex items-center gap-2 w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1 rounded text-[10px] font-mono transition-all border border-gray-800 hover:border-cyber/40 group">
+                            <span class="text-cyber/60">⬆</span>
+                            <span class="text-gray-500 group-hover:text-gray-300">GTFOBins</span>
+                            <span class="ml-auto text-[8px] text-gray-800">↗</span>
+                        </a>
+                    </div>
+                </div>
+
+            </div>  <!-- /p-4 arsenal -->
+
             <!-- ── SIDEBAR FOOTER ── -->
             <div class="mt-auto p-3 border-t border-[#1a1a2e]">
                 <p class="text-[9px] text-gray-700 flex items-center gap-1">
@@ -453,6 +508,12 @@
                 </button>
                 <button class="tab-btn" onclick="switchTab('scripts')">
                     ⚡ Scripts
+                </button>
+                <button class="tab-btn" onclick="switchTab('bounty')">
+                    📋 Bounty
+                </button>
+                <button class="tab-btn" onclick="switchTab('aiwriteup')">
+                    🤖 AI Writeup
                 </button>
             </div>
 
@@ -571,6 +632,172 @@
                 <!-- Deploy log -->
                 <div id="deploy-log" class="hidden flex-shrink-0 bg-deep border border-gray-800 rounded p-2 max-h-16 overflow-y-auto">
                     <pre id="deploy-log-text" class="text-[10px] text-neon/70 font-mono"></pre>
+                </div>
+            </div>
+
+            <!-- ════════════════════════════════════════════════════════
+                 TAB: BOUNTY REPORT GENERATOR
+                 ════════════════════════════════════════════════════════ -->
+            <div id="tab-bounty" class="tab-pane p-4 pt-3 overflow-y-auto">
+                <h3 class="text-xs text-neon font-semibold tracking-wider mb-3">📋 Bug Bounty Report Generator</h3>
+
+                <div class="grid grid-cols-2 gap-4 max-w-4xl">
+                    <!-- Left: Form -->
+                    <div class="space-y-2.5">
+                        <div>
+                            <label class="text-[9px] text-gray-600 uppercase tracking-wider">Target URL / IP</label>
+                            <input type="text" id="bounty-target" placeholder="https://example.com"
+                                class="w-full bg-void border border-gray-800 rounded px-2.5 py-1.5 text-[11px] text-gray-300 placeholder-gray-700 focus:outline-none focus:border-neon/50 font-mono">
+                        </div>
+                        <div class="flex gap-2">
+                            <div class="flex-1">
+                                <label class="text-[9px] text-gray-600 uppercase tracking-wider">Vulnerability</label>
+                                <select id="bounty-type"
+                                    class="w-full bg-void border border-gray-800 rounded px-2.5 py-1.5 text-[11px] text-gray-300 focus:outline-none focus:border-neon/50 font-mono">
+                                    <option value="XSS">Cross-Site Scripting (XSS)</option>
+                                    <option value="SQLi">SQL Injection</option>
+                                    <option value="RCE">Remote Code Execution (RCE)</option>
+                                    <option value="SSRF">Server-Side Request Forgery (SSRF)</option>
+                                    <option value="LFI">Local File Inclusion (LFI)</option>
+                                    <option value="IDOR">Insecure Direct Object Reference (IDOR)</option>
+                                    <option value="CSRF">Cross-Site Request Forgery (CSRF)</option>
+                                    <option value="Open Redirect">Open Redirect</option>
+                                    <option value="Info Disclosure">Information Disclosure</option>
+                                    <option value="Other">Other / Custom</option>
+                                </select>
+                            </div>
+                            <div class="w-28">
+                                <label class="text-[9px] text-gray-600 uppercase tracking-wider">Severity</label>
+                                <select id="bounty-severity"
+                                    class="w-full bg-void border border-gray-800 rounded px-2.5 py-1.5 text-[11px] focus:outline-none focus:border-neon/50 font-mono">
+                                    <option value="Critical" class="text-blood">Critical</option>
+                                    <option value="High" class="text-red-400">High</option>
+                                    <option value="Medium" class="text-yellow-400" selected>Medium</option>
+                                    <option value="Low" class="text-cyan-400">Low</option>
+                                    <option value="Info" class="text-gray-500">Informational</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-[9px] text-gray-600 uppercase tracking-wider">Affected Component</label>
+                            <input type="text" id="bounty-component" placeholder="/api/v1/users, /index.php, etc."
+                                class="w-full bg-void border border-gray-800 rounded px-2.5 py-1.5 text-[11px] text-gray-300 placeholder-gray-700 focus:outline-none focus:border-neon/50 font-mono">
+                        </div>
+                        <div>
+                            <label class="text-[9px] text-gray-600 uppercase tracking-wider">Description</label>
+                            <textarea id="bounty-description" rows="2" placeholder="Brief description of the vulnerability..."
+                                class="w-full bg-void border border-gray-800 rounded px-2.5 py-1.5 text-[11px] text-gray-300 placeholder-gray-700 focus:outline-none focus:border-neon/50 font-mono resize-none"></textarea>
+                        </div>
+                        <div>
+                            <label class="text-[9px] text-gray-600 uppercase tracking-wider">Steps to Reproduce</label>
+                            <textarea id="bounty-steps" rows="4" placeholder="1. Navigate to ...\n2. Inject payload ...\n3. Observe ..."
+                                class="w-full bg-void border border-gray-800 rounded px-2.5 py-1.5 text-[11px] text-gray-300 placeholder-gray-700 focus:outline-none focus:border-neon/50 font-mono resize-none"></textarea>
+                        </div>
+                        <div>
+                            <label class="text-[9px] text-gray-600 uppercase tracking-wider">Impact</label>
+                            <textarea id="bounty-impact" rows="2" placeholder="What an attacker could achieve..."
+                                class="w-full bg-void border border-gray-800 rounded px-2.5 py-1.5 text-[11px] text-gray-300 placeholder-gray-700 focus:outline-none focus:border-neon/50 font-mono resize-none"></textarea>
+                        </div>
+                        <div>
+                            <label class="text-[9px] text-gray-600 uppercase tracking-wider">Proof of Concept</label>
+                            <textarea id="bounty-poc" rows="3" placeholder="URL, payload, screenshots, etc."
+                                class="w-full bg-void border border-gray-800 rounded px-2.5 py-1.5 text-[11px] text-gray-300 placeholder-gray-700 focus:outline-none focus:border-neon/50 font-mono resize-none"></textarea>
+                        </div>
+                        <div>
+                            <label class="text-[9px] text-gray-600 uppercase tracking-wider">Recommendation / Fix</label>
+                            <textarea id="bounty-fix" rows="2" placeholder="How to remediate..."
+                                class="w-full bg-void border border-gray-800 rounded px-2.5 py-1.5 text-[11px] text-gray-300 placeholder-gray-700 focus:outline-none focus:border-neon/50 font-mono resize-none"></textarea>
+                        </div>
+                        <div class="flex gap-2 pt-1">
+                            <button onclick="generateBountyReport()"
+                                class="bg-neon/10 hover:bg-neon/20 text-neon border border-neon/30 px-4 py-1.5 rounded text-[10px] font-semibold transition-all">
+                                ⚡ Generate Report
+                            </button>
+                            <button onclick="downloadBountyReport()" id="btn-download-bounty" disabled
+                                class="bg-cyber/10 hover:bg-cyber/20 text-cyber border border-cyber/30 px-4 py-1.5 rounded text-[10px] transition-all disabled:opacity-30 disabled:cursor-not-allowed">
+                                ⬇ Download .md
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Right: Preview -->
+                    <div class="bg-void border border-gray-800 rounded-lg p-3 overflow-y-auto max-h-[70vh]">
+                        <div class="text-[9px] text-gray-600 uppercase tracking-wider mb-2">Preview</div>
+                        <pre id="bounty-preview" class="text-[11px] text-gray-500 font-mono whitespace-pre-wrap leading-relaxed">Fill in the form and click Generate to see the report preview.</pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ════════════════════════════════════════════════════════
+                 TAB: AI WRITEUP GENERATOR
+                 ════════════════════════════════════════════════════════ -->
+            <div id="tab-aiwriteup" class="tab-pane p-4 pt-3 overflow-y-auto">
+                <h3 class="text-xs text-neon font-semibold tracking-wider mb-3">🤖 AI Writeup Generator</h3>
+
+                <div class="grid grid-cols-2 gap-4 max-w-4xl">
+                    <!-- Left: Config + Input -->
+                    <div class="space-y-2.5">
+                        <div class="bg-void border border-gray-800 rounded p-2.5">
+                            <p class="text-[9px] text-gray-600 uppercase tracking-wider mb-1.5">⚙ API Configuration</p>
+                            <div class="space-y-1.5">
+                                <input type="text" id="ai-endpoint"
+                                    placeholder="API Endpoint"
+                                    value="https://api.openai.com/v1/chat/completions"
+                                    class="w-full bg-deep border border-gray-800 rounded px-2 py-1 text-[10px] text-gray-300 placeholder-gray-700 focus:outline-none focus:border-neon/50 font-mono">
+                                <div class="flex gap-1.5">
+                                    <input type="password" id="ai-key"
+                                        placeholder="API Key"
+                                        class="flex-1 bg-deep border border-gray-800 rounded px-2 py-1 text-[10px] text-gray-300 placeholder-gray-700 focus:outline-none focus:border-neon/50 font-mono">
+                                    <input type="text" id="ai-model"
+                                        placeholder="Model"
+                                        value="gpt-4"
+                                        class="w-24 bg-deep border border-gray-800 rounded px-2 py-1 text-[10px] text-gray-300 placeholder-gray-700 focus:outline-none focus:border-neon/50 font-mono">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="text-[9px] text-gray-600 uppercase tracking-wider">Machine / Target</label>
+                            <input type="text" id="ai-machine" placeholder="Keeper (HTB) / 10.10.10.5"
+                                class="w-full bg-void border border-gray-800 rounded px-2.5 py-1.5 text-[11px] text-gray-300 placeholder-gray-700 focus:outline-none focus:border-neon/50 font-mono">
+                        </div>
+
+                        <div>
+                            <label class="text-[9px] text-gray-600 uppercase tracking-wider">Key Findings (one per line)</label>
+                            <textarea id="ai-findings" rows="4" placeholder="Port 80 - Apache 2.4.49\nPort 22 - OpenSSH 8.2\nGobuster: /admin, /backup\nCVE-2021-41773 - Path Traversal\nUser flag: user.txt"
+                                class="w-full bg-void border border-gray-800 rounded px-2.5 py-1.5 text-[11px] text-gray-300 placeholder-gray-700 focus:outline-none focus:border-neon/50 font-mono"></textarea>
+                        </div>
+
+                        <div>
+                            <label class="text-[9px] text-gray-600 uppercase tracking-wider">Steps Taken (summary)</label>
+                            <textarea id="ai-steps" rows="3" placeholder="1. Nmap scan found ports 80, 22\n2. Found Apache 2.4.49 vulnerable to CVE-2021-41773\n3. Exploited path traversal to get RCE\n4. Found user.txt in /home/user\n5. Privilege escalation via SUID binary..."
+                                class="w-full bg-void border border-gray-800 rounded px-2.5 py-1.5 text-[11px] text-gray-300 placeholder-gray-700 focus:outline-none focus:border-neon/50 font-mono"></textarea>
+                        </div>
+
+                        <div>
+                            <label class="text-[9px] text-gray-600 uppercase tracking-wider">Flags Captured (optional)</label>
+                            <input type="text" id="ai-flags" placeholder="user.txt: 5a1f6d..., root.txt: b8e9c2..."
+                                class="w-full bg-void border border-gray-800 rounded px-2.5 py-1.5 text-[11px] text-gray-300 placeholder-gray-700 focus:outline-none focus:border-neon/50 font-mono">
+                        </div>
+
+                        <div class="flex gap-2 pt-1">
+                            <button onclick="generateAIWriteup()"
+                                class="bg-neon/10 hover:bg-neon/20 text-neon border border-neon/30 px-4 py-1.5 rounded text-[10px] font-semibold transition-all">
+                                🤖 Generate Writeup
+                            </button>
+                            <button onclick="downloadAIWriteup()" id="btn-download-ai" disabled
+                                class="bg-cyber/10 hover:bg-cyber/20 text-cyber border border-cyber/30 px-4 py-1.5 rounded text-[10px] transition-all disabled:opacity-30 disabled:cursor-not-allowed">
+                                ⬇ Download .md
+                            </button>
+                        </div>
+                        <div id="ai-status" class="text-[10px] text-gray-700 hidden">⏳ Generating...</div>
+                    </div>
+
+                    <!-- Right: Output -->
+                    <div class="bg-void border border-gray-800 rounded-lg p-3 overflow-y-auto max-h-[70vh]">
+                        <div class="text-[9px] text-gray-600 uppercase tracking-wider mb-2">Generated Writeup</div>
+                        <pre id="ai-output" class="text-[11px] text-gray-500 font-mono whitespace-pre-wrap leading-relaxed">Configure your API key and fill in the details, then click Generate Writeup.</pre>
+                    </div>
                 </div>
             </div>
 

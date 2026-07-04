@@ -368,3 +368,69 @@ body::before {
     color: #00ff41;
     background: rgba(0, 255, 65, 0.1);
 }
+
+/* ── BOUNTY FORM ── */
+.bounty-input {
+    background: #0d1117;
+    border: 1px solid #1a1a2e;
+    border-radius: 4px;
+    padding: 6px 10px;
+    font-size: 11px;
+    font-family: 'Fira Code', monospace;
+    color: #cbd5e0;
+    outline: none;
+    transition: border 0.2s ease;
+    width: 100%;
+}
+
+.bounty-input:focus {
+    border-color: #00ff41;
+    box-shadow: 0 0 6px rgba(0, 255, 65, 0.08);
+}
+
+.bounty-input::placeholder {
+    color: #2d3748;
+}
+
+.bounty-label {
+    font-size: 9px;
+    color: #4a5568;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    display: block;
+    margin-bottom: 3px;
+}
+
+select.bounty-input option {
+    background: #0d1117;
+    color: #cbd5e0;
+}
+
+/* ── RESOURCE LINKS ── */
+.resource-link {
+    transition: all 0.2s ease;
+}
+
+.resource-link:hover {
+    border-color: #00d4ff;
+}
+
+/* ── AI WRITEUP ── */
+.ai-status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    display: inline-block;
+    background: #4a5568;
+    animation: pulse-dot 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+    0%, 100% { opacity: 1; background: #00ff41; }
+    50% { opacity: 0.3; background: #00ff41; }
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 1024px) {
+    .grid-cols-2 { grid-template-columns: 1fr; }
+}
