@@ -240,6 +240,14 @@ document.addEventListener('DOMContentLoaded', () => {
         outputBuffer = '';
     }
 
+    // ── Clear Terminal ──
+    window.clearTerminal = function () {
+        output.textContent = '';
+        outputBuffer = '';
+        currentToolRunning = null;
+        showToast('✕ Terminal cleared');
+    };
+
     window.appendBanner = function () {
         appendOutput('');
         appendOutput('  ██╗   ██╗██╗   ██╗██╗     ███╗   ██╗███████╗ ██████╗ ██████╗  ██████╗ ███████╗');
@@ -1425,6 +1433,95 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
     };
     // Run now (DOM is already loaded at this point since we're inside DOMContentLoaded)
     initHak5();
+
+    // ============================================================
+    //  PAYLOAD STUDIO CONNECTION
+    // ============================================================
+    function getPSCreds() {
+        try { return JSON.parse(localStorage.getItem('vulnforge_ps_creds') || 'null'); } catch { return null; }
+    }
+
+    function setPSCreds(creds) {
+        localStorage.setItem('vulnforge_ps_creds', JSON.stringify(creds));
+    }
+
+    function clearPSCreds() {
+        localStorage.removeItem('vulnforge_ps_creds');
+    }
+
+    function updatePSStatus(connected) {
+        const badge = document.getElementById('ps-status-badge');
+        const form  = document.getElementById('ps-connect-form');
+        const btnConnect = document.getElementById('btn-connect-ps');
+        const btnDisconnect = document.getElementById('btn-disconnect-ps');
+        if (!badge) return;
+
+        if (connected) {
+            badge.innerHTML = '🟢 connected';
+            badge.className = 'text-[9px] text-neon border border-neon/30 rounded px-2 py-0.5';
+            if (form) form.style.display = 'none';
+            if (btnConnect) btnConnect.style.display = 'none';
+            if (btnDisconnect) btnDisconnect.style.display = 'inline-block';
+        } else {
+            badge.innerHTML = '⚪ disconnected';
+            badge.className = 'text-[9px] text-gray-700 border border-gray-800 rounded px-2 py-0.5';
+            if (form) form.style.display = 'block';
+            if (btnConnect) btnConnect.style.display = 'inline-block';
+            if (btnDisconnect) btnDisconnect.style.display = 'none';
+        }
+    }
+
+    window.connectPayloadStudio = function () {
+        const form = document.getElementById('ps-connect-form');
+        if (form) form.style.display = form.style.display === 'none' ? 'block' : 'block';
+        // If already have saved creds, try auto-login
+        const saved = getPSCreds();
+        if (saved) {
+            document.getElementById('ps-email').value = saved.email || '';
+            document.getElementById('ps-password').value = saved.password || '';
+            showToast('🔌 Credentials loaded — click Sign In');
+        }
+    };
+
+    window.disconnectPayloadStudio = function () {
+        clearPSCreds();
+        updatePSStatus(false);
+        // Reload iframe back to login
+        const iframe = document.getElementById('ps-iframe');
+        if (iframe) iframe.src = 'https://payloadstudio.hak5.org/login/';
+        showToast('⚡ Payload Studio disconnected');
+    };
+
+    window.doPayloadStudioLogin = function () {
+        const email = document.getElementById('ps-email').value.trim();
+        const password = document.getElementById('ps-password').value.trim();
+        if (!email || !password) {
+            showToast('⚠️ Enter email and password');
+            return;
+        }
+
+        // Store creds locally
+        setPSCreds({ email, password, savedAt: new Date().toISOString() });
+        updatePSStatus(true);
+
+        // Navigate the iframe to the main Payload Studio app (post-login)
+        const iframe = document.getElementById('ps-iframe');
+        if (iframe) iframe.src = 'https://payloadstudio.hak5.org/';
+        showToast('🔌 Connected to Payload Studio');
+    };
+
+    // Restore saved session on load
+    function restorePSSession() {
+        const saved = getPSCreds();
+        if (saved) {
+            document.getElementById('ps-email').value = saved.email || '';
+            document.getElementById('ps-password').value = saved.password || '';
+            updatePSStatus(true);
+            const iframe = document.getElementById('ps-iframe');
+            if (iframe) iframe.src = 'https://payloadstudio.hak5.org/';
+        }
+    }
+    restorePSSession();
 
     // ============================================================
     //  TOAST NOTIFICATIONS

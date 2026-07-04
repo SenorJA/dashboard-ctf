@@ -75,6 +75,10 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 | `loadHak5Payload()` | Loads a saved payload by number prompt |
 | `listHak5Payloads()` | Lists all saved payloads for active device |
 | `clearHak5Editor()` | Clears the payload editor |
+| `clearTerminal()` | Clears the terminal output (`#terminal-output`) |
+| `connectPayloadStudio()` | Shows Payload Studio login form / loads saved creds |
+| `doPayloadStudioLogin()` | Saves Payload Studio credentials to localStorage, navigates iframe |
+| `disconnectPayloadStudio()` | Clears saved creds, resets iframe to login page |
 
 ## Arsenal module system
 
@@ -105,6 +109,11 @@ Tools that need target validation must be listed in the `needsTarget` array (~li
 | `vulnforge_ai_model` | string | AI model name |
 | `vulnforge_theme` | "neon" \| "mono" | Color theme |
 | `vulnforge_lang` | "en" \| "es" | Language |
+| `vulnforge_hak5_bunny` | JSON array | Bash Bunny saved payloads |
+| `vulnforge_hak5_omg` | JSON array | OMG Cable saved payloads |
+| `vulnforge_hak5_m5` | JSON array | M5 Stack saved payloads |
+| `vulnforge_hak5_shack` | JSON array | Shack Jack saved payloads |
+| `vulnforge_ps_creds` | JSON object | Payload Studio credentials (email/password) |
 
 ## i18n system
 

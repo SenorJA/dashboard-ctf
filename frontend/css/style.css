@@ -688,3 +688,13 @@ body.monochrome #ai-format:focus,
 body.monochrome #reports-format:focus {
     border-color: var(--mono-accent-dim) !important;
 }
+
+body.monochrome #ps-status-badge.text-neon {
+    color: var(--mono-accent) !important;
+    border-color: var(--mono-accent-dim) !important;
+}
+body.monochrome #ps-connect-form input {
+    background: var(--mono-surface) !important;
+    border-color: var(--mono-border) !important;
+    color: var(--mono-text) !important;
+}
