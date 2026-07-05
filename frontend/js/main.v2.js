@@ -441,17 +441,19 @@ document.addEventListener('DOMContentLoaded', () => {
     window.saveConnection = function () {
         const name = document.getElementById('new-conn-name').value.trim();
         const ip   = document.getElementById('new-conn-ip').value.trim();
+        const port = parseInt(document.getElementById('new-conn-port').value) || 22;
         const user = document.getElementById('new-conn-user').value.trim();
         const pass = document.getElementById('new-conn-pass').value;
         if (!name || !ip || !user || !pass) {
             alert('⚠️  Fill in all fields: Alias, IP, User, Pass');
             return;
         }
-        connections.push({ name, ip, user, pass });
+        connections.push({ name, ip, port, user, pass });
         saveConnections();
         showToast(`✓ Connection "${name}" saved`);
         document.getElementById('new-conn-name').value = '';
         document.getElementById('new-conn-ip').value = '';
+        document.getElementById('new-conn-port').value = '22';
         document.getElementById('new-conn-user').value = '';
         document.getElementById('new-conn-pass').value = '';
         document.getElementById('add-conn-form').classList.add('hidden');
@@ -500,8 +502,8 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         const conn = connections[activeConnectionId];
-        const sshIp = conn.ip, sshUser = conn.user, sshPass = conn.pass;
-        appendOutput(`[*] Connecting to ${conn.name} (${sshIp})...`);
+        const sshIp = conn.ip, sshPort = conn.port || 22, sshUser = conn.user, sshPass = conn.pass;
+        appendOutput(`[*] Connecting to ${conn.name} (${sshIp}:${sshPort})...`);
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const WS_URL = window.WS_URL || `${protocol}//${window.location.host}/ws`;
         ws = new WebSocket(WS_URL);
@@ -511,9 +513,9 @@ document.addEventListener('DOMContentLoaded', () => {
             statusText.textContent = 'ONLINE';
             statusText.classList.replace('text-gray-600', 'text-neon');
             if (activeConnectionId !== null) connDot.className = 'conn-dot online';
-            connBadge.textContent = `connected: ${sshUser}@${sshIp}`;
-            connTitle.textContent = `─╼ ${sshUser}@${sshIp} ╾─────────────────────────────────────`;
-            ws.send(JSON.stringify({ type: 'auth', ip: sshIp, user: sshUser, pass: sshPass }));
+            connBadge.textContent = `connected: ${sshUser}@${sshIp}:${sshPort}`;
+            connTitle.textContent = `─╼ ${sshUser}@${sshIp}:${sshPort} ╾───────────────────────────`;
+            ws.send(JSON.stringify({ type: 'auth', ip: sshIp, port: sshPort, user: sshUser, pass: sshPass }));
         };
 
         ws.onmessage = (event) => {

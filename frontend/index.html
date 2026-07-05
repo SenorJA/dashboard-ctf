@@ -136,12 +136,17 @@
                 <div id="add-conn-form" class="hidden mt-2 space-y-1.5 p-2 bg-deep rounded border border-gray-800/50">
                     <input type="text" id="new-conn-name" placeholder="Alias (ej: Kali-VPN)"
                         class="w-full bg-void border border-gray-800 rounded px-2 py-1 text-[11px] text-gray-300 placeholder-gray-700 focus:outline-none focus:border-neon/50 font-mono">
-                    <input type="text" id="new-conn-ip" placeholder="IP: 192.168.1.x"
-                        class="w-full bg-void border border-gray-800 rounded px-2 py-1 text-[11px] text-gray-300 placeholder-gray-700 focus:outline-none focus:border-neon/50 font-mono">
                     <div class="flex gap-1.5">
-                        <input type="text" id="new-conn-user" placeholder="User"
+                        <input type="text" id="new-conn-ip" placeholder="IP / Host: 0.tcp.ngrok.io"
                             class="flex-1 bg-void border border-gray-800 rounded px-2 py-1 text-[11px] text-gray-300 placeholder-gray-700 focus:outline-none focus:border-neon/50 font-mono">
-                        <input type="password" id="new-conn-pass" placeholder="Pass"
+                        <input type="number" id="new-conn-port" placeholder="Port"
+                            value="22"
+                            class="w-16 bg-void border border-gray-800 rounded px-2 py-1 text-[11px] text-gray-300 placeholder-gray-700 focus:outline-none focus:border-neon/50 font-mono">
+                    </div>
+                    <div class="flex gap-1.5">
+                        <input type="text" id="new-conn-user" placeholder="User: kali"
+                            class="flex-1 bg-void border border-gray-800 rounded px-2 py-1 text-[11px] text-gray-300 placeholder-gray-700 focus:outline-none focus:border-neon/50 font-mono">
+                        <input type="password" id="new-conn-pass" placeholder="Pass: kali"
                             class="flex-1 bg-void border border-gray-800 rounded px-2 py-1 text-[11px] text-gray-300 placeholder-gray-700 focus:outline-none focus:border-neon/50 font-mono">
                     </div>
                     <div class="flex gap-1.5 pt-1">

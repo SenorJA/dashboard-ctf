@@ -482,6 +482,7 @@ async def websocket_endpoint(websocket: WebSocket):
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
     ssh_ip = "192.168.214.142"
+    ssh_port = 22
     ssh_user = "javi"
     ssh_pass = "javi"
     channel = None
@@ -509,6 +510,7 @@ async def websocket_endpoint(websocket: WebSocket):
             return
 
         ssh_ip = auth_data.get("ip", ssh_ip)
+        ssh_port = int(auth_data.get("port", ssh_port))
         ssh_user = auth_data.get("user", ssh_user)
         ssh_pass = auth_data.get("pass", ssh_pass)
 
@@ -524,9 +526,9 @@ async def websocket_endpoint(websocket: WebSocket):
         )
 
         # ── Connect SSH ──
-        await websocket.send_text(f"[*] Connecting to {ssh_user}@{ssh_ip} via SSH...")
+        await websocket.send_text(f"[*] Connecting to {ssh_user}@{ssh_ip}:{ssh_port} via SSH...")
         await asyncio.to_thread(
-            ssh.connect, ssh_ip, username=ssh_user, password=ssh_pass,
+            ssh.connect, ssh_ip, port=ssh_port, username=ssh_user, password=ssh_pass,
             timeout=8, look_for_keys=False, allow_agent=False
         )
         await websocket.send_text(f"[+] Connected to {ssh_user}@{ssh_ip}\n")
@@ -538,6 +540,7 @@ async def websocket_endpoint(websocket: WebSocket):
         # Mutable references for sharing between coroutines
         _ch = [channel]
         _ip = [ssh_ip]
+        _port = [ssh_port]
         _user = [ssh_user]
         _pass = [ssh_pass]
 
@@ -572,6 +575,7 @@ async def websocket_endpoint(websocket: WebSocket):
                                 _ch[0].close()
                                 await asyncio.to_thread(
                                     ssh.connect, cmd.get("ip", _ip[0]),
+                                    port=int(cmd.get("port", 22)),
                                     username=cmd.get("user", _user[0]),
                                     password=cmd.get("pass", _pass[0]),
                                     timeout=8, look_for_keys=False, allow_agent=False

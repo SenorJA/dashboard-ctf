@@ -409,8 +409,8 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         const conn = connections[activeConnectionId];
-        const sshIp = conn.ip, sshUser = conn.user, sshPass = conn.pass;
-        appendOutput(`[*] Connecting to ${conn.name} (${sshIp})...`);
+        const sshIp = conn.ip, sshPort = conn.port || 22, sshUser = conn.user, sshPass = conn.pass;
+        appendOutput(`[*] Connecting to ${conn.name} (${sshIp}:${sshPort})...`);
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const WS_URL = window.WS_URL || `${protocol}//${window.location.host}/ws`;
         ws = new WebSocket(WS_URL);
@@ -420,9 +420,9 @@ document.addEventListener('DOMContentLoaded', () => {
             statusText.textContent = 'ONLINE';
             statusText.classList.replace('text-gray-600', 'text-neon');
             if (activeConnectionId !== null) connDot.className = 'conn-dot online';
-            connBadge.textContent = `connected: ${sshUser}@${sshIp}`;
+            connBadge.textContent = `connected: ${sshUser}@${sshIp}:${sshPort}`;
             connTitle.textContent = `─╼ ${sshUser}@${sshIp} ╾─────────────────────────────────────`;
-            ws.send(JSON.stringify({ type: 'auth', ip: sshIp, user: sshUser, pass: sshPass }));
+            ws.send(JSON.stringify({ type: 'auth', ip: sshIp, port: sshPort, user: sshUser, pass: sshPass }));
         };
 
         ws.onmessage = (event) => {
