@@ -177,7 +177,7 @@
                     <p class="cat-header text-[9px] font-semibold text-gray-600 uppercase tracking-wider mb-1 flex items-center gap-1"
                         onclick="toggleCategory(this)">
                         <span class="text-cyan-400">▶</span> <span data-i18n="catWebRecon">Web Recon</span>
-                        <span class="ml-auto text-[8px] text-gray-700">9</span>
+                        <span class="ml-auto text-[8px] text-gray-700">11</span>
                     </p>
                     <div class="cat-body space-y-0.5">
 
@@ -262,6 +262,26 @@
                             </span>
                         </button>
 
+                        <!-- ── WAF / IDS ── -->
+                        <button onclick="launchTool('wafw00f')"
+                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
+                            <span class="text-neon/70 group-hover:text-neon">#</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">Wafw00f</span>
+                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
+                                detección WAF / IDS fingerprint
+                            </span>
+                        </button>
+
+                        <!-- ── CORS Check ── -->
+                        <button onclick="launchTool('cors-check')"
+                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
+                            <span class="text-neon/70 group-hover:text-neon">#</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">CORS Check</span>
+                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
+                                prueba CORS misconfiguration (Origin)
+                            </span>
+                        </button>
+
                     </div>
                 </div>
 
@@ -270,7 +290,7 @@
                     <p class="cat-header text-[9px] font-semibold text-gray-600 uppercase tracking-wider mb-1 flex items-center gap-1"
                         onclick="toggleCategory(this)">
                         <span class="text-violet-400">▶</span> <span data-i18n="catNetwork">Network</span>
-                        <span class="ml-auto text-[8px] text-gray-700">6</span>
+                        <span class="ml-auto text-[8px] text-gray-700">7</span>
                     </p>
                     <div class="cat-body space-y-0.5">
 
@@ -325,6 +345,16 @@
                             <span class="text-gray-400 group-hover:text-gray-200">Socat</span>
                             <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
                                 relay TCP/UDP, reverse shell
+                            </span>
+                        </button>
+
+                        <!-- ── TestSSL ── -->
+                        <button onclick="launchTool('testssl')"
+                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
+                            <span class="text-neon/70 group-hover:text-neon">#</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">TestSSL</span>
+                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
+                                análisis SSL/TLS (ciphers, vulns)
                             </span>
                         </button>
 
@@ -516,7 +546,7 @@
                     <p class="cat-header text-[9px] font-semibold text-gray-600 uppercase tracking-wider mb-1 flex items-center gap-1"
                         onclick="toggleCategory(this)">
                         <span class="text-red-400">▶</span> <span data-i18n="catExploitation">Exploitation</span>
-                        <span class="ml-auto text-[8px] text-gray-700">6</span>
+                        <span class="ml-auto text-[8px] text-gray-700">9</span>
                     </p>
                     <div class="cat-body space-y-0.5">
 
@@ -571,6 +601,36 @@
                             <span class="text-gray-400 group-hover:text-gray-200">BurpSuite</span>
                             <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
                                 proxy HTTP/S + lanzar en Kali
+                            </span>
+                        </button>
+
+                        <!-- ── XSStrike ── -->
+                        <button onclick="launchTool('xsstrike')"
+                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
+                            <span class="text-neon/70 group-hover:text-neon">#</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">XSStrike</span>
+                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
+                                XSS avanzado con fuzzing + bypass
+                            </span>
+                        </button>
+
+                        <!-- ── Dalfox ── -->
+                        <button onclick="launchTool('dalfox')"
+                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
+                            <span class="text-neon/70 group-hover:text-neon">#</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">Dalfox</span>
+                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
+                                XSS parameter scanner (Go)
+                            </span>
+                        </button>
+
+                        <!-- ── Nuclei ── -->
+                        <button onclick="launchTool('nuclei')"
+                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
+                            <span class="text-neon/70 group-hover:text-neon">#</span>
+                            <span class="text-gray-400 group-hover:text-gray-200">Nuclei</span>
+                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
+                                escáner vulns basado en templates
                             </span>
                         </button>
 
@@ -744,7 +804,7 @@
             <!-- ── SIDEBAR FOOTER ── -->
             <div class="mt-auto p-3 border-t border-[#1a1f2e]">
                 <p class="text-[9px] text-gray-700 flex items-center gap-1">
-                    <span class="text-neon/50">◆</span> <span id="tool-count">45</span> <span data-i18n="modulesLoaded">modules loaded</span>
+                    <span class="text-neon/50">◆</span> <span id="tool-count">51</span> <span data-i18n="modulesLoaded">modules loaded</span>
                     <span class="ml-auto text-[8px] text-gray-800">root@vulnforge</span>
                 </p>
                 <p class="text-[8px] text-gray-800 flex items-center gap-1 mt-1">

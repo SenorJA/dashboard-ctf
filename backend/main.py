@@ -475,58 +475,54 @@ async def read_index():
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
 
-    # ── Default credentials (fallback) ──
-    ssh_ip = "192.168.214.142"
-    ssh_user = "javi"
-    ssh_pass = "javi"
-
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
+    # Variables de conexión (se rellenan vía JSON auth)
+    ssh_ip = ssh_user = ssh_pass = None
+
     try:
-        # ── Wait for initial auth message or first command ──
-        await websocket.send_text("[*] Awaiting authentication...")
+        # ── Wait for authentication JSON ──
+        await websocket.send_text("[*] Awaiting authentication... Send JSON: {\"type\":\"auth\",\"ip\":\"...\",\"user\":\"...\",\"pass\":\"...\"}")
 
         first_msg = await websocket.receive_text()
-        pending_first_command = None  # flag: first message was a command, not auth
 
-        # Try to parse as JSON auth
+        # Parse mandatory JSON auth
         try:
             auth_data = json.loads(first_msg)
-            if isinstance(auth_data, dict) and auth_data.get("type") == "auth":
-                ssh_ip = auth_data.get("ip", ssh_ip)
-                ssh_user = auth_data.get("user", ssh_user)
-                ssh_pass = auth_data.get("pass", ssh_pass)
-                await websocket.send_text(
-                    json.dumps({"type": "connected", "message": f"Authenticating as {ssh_user}@{ssh_ip}..."})
-                )
-            else:
-                await websocket.send_text(
-                    json.dumps({"type": "error", "message": "Invalid auth format, using defaults"})
-                )
-                pending_first_command = first_msg
-                await websocket.send_text("[*] Using default credentials (Kali).")
         except json.JSONDecodeError:
-            # Not JSON — treat as first command
-            pending_first_command = first_msg
-            await websocket.send_text("[*] Using default credentials (Kali).")
+            await websocket.send_text(
+                json.dumps({"type": "error", "message": "First message must be JSON {\"type\":\"auth\",\"ip\":...,\"user\":...,\"pass\":...}"})
+            )
+            await websocket.close(code=1008)
+            return
+
+        if not isinstance(auth_data, dict) or auth_data.get("type") != "auth":
+            await websocket.send_text(
+                json.dumps({"type": "error", "message": "First message must have \"type\":\"auth\""})
+            )
+            await websocket.close(code=1008)
+            return
+
+        ssh_ip = auth_data.get("ip")
+        ssh_user = auth_data.get("user")
+        ssh_pass = auth_data.get("pass")
+
+        if not ssh_ip or not ssh_user or not ssh_pass:
+            await websocket.send_text(
+                json.dumps({"type": "error", "message": "Auth JSON must include ip, user, and pass"})
+            )
+            await websocket.close(code=1008)
+            return
+
+        await websocket.send_text(
+            json.dumps({"type": "connected", "message": f"Authenticating as {ssh_user}@{ssh_ip}..."})
+        )
 
         # ── Connect SSH ──
         await websocket.send_text(f"[*] Connecting to {ssh_user}@{ssh_ip} via SSH...")
         await asyncio.to_thread(ssh.connect, ssh_ip, username=ssh_user, password=ssh_pass, timeout=8)
         await websocket.send_text(f"[+] Connected to {ssh_user}@{ssh_ip}\n")
-
-        # If first message was a command (not auth), execute it now
-        if pending_first_command is not None:
-            prompt = f"{ssh_user}@{ssh_ip}:~$ "
-            await websocket.send_text(f"{prompt}{pending_first_command}")
-            stdin, stdout, stderr = ssh.exec_command(pending_first_command)
-            out = stdout.read().decode("utf-8", errors="replace")
-            err = stderr.read().decode("utf-8", errors="replace")
-            if out:
-                await websocket.send_text(out)
-            if err:
-                await websocket.send_text(f"[STDERR]: {err}")
 
         # ── Command loop ──
         while True:
@@ -536,12 +532,13 @@ async def websocket_endpoint(websocket: WebSocket):
             try:
                 reauth = json.loads(command)
                 if isinstance(reauth, dict) and reauth.get("type") == "auth":
-                    ssh_ip = reauth.get("ip", ssh_ip)
-                    ssh_user = reauth.get("user", ssh_user)
-                    ssh_pass = reauth.get("pass", ssh_pass)
+                    new_ip = reauth.get("ip", ssh_ip)
+                    new_user = reauth.get("user", ssh_user)
+                    new_pass = reauth.get("pass", ssh_pass)
                     ssh.close()
                     await websocket.send_text("[*] Reconnecting with new credentials...")
-                    await asyncio.to_thread(ssh.connect, ssh_ip, username=ssh_user, password=ssh_pass, timeout=8)
+                    await asyncio.to_thread(ssh.connect, new_ip, username=new_user, password=new_pass, timeout=8)
+                    ssh_ip, ssh_user, ssh_pass = new_ip, new_user, new_pass
                     await websocket.send_text(f"[+] Re-connected as {ssh_user}@{ssh_ip}")
                     continue
             except json.JSONDecodeError:
@@ -563,7 +560,7 @@ async def websocket_endpoint(websocket: WebSocket):
     except WebSocketDisconnect:
         print("[*] WebSocket client disconnected")
     except paramiko.AuthenticationException:
-        await websocket.send_text(f"[!] SSH authentication failed for {ssh_user}@{ssh_ip}")
+        await websocket.send_text(f"[!] SSH authentication failed for {ssh_user or '?'}@{ssh_ip or '?'}")
     except paramiko.SSHException as e:
         await websocket.send_text(f"[!] SSH connection error: {str(e)}")
     except Exception as e:

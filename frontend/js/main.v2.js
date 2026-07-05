@@ -627,12 +627,19 @@ document.addEventListener('DOMContentLoaded', () => {
         whatweb: '-a 3 --log-verbose /tmp/whatweb.log',
         wpscan: '--enumerate u,vp --plugins-detection aggressive',
         cewl: '-d 3 -m 6 -w /tmp/custom.txt -c',
+        // ── WAF / IDS ──
+        wafw00f: '-a -v -o /tmp/wafw00f_report.json',
+        'cors-check': 'añade --headers "Origin: https://evil.com" para test manual',
+        // ── Web Recon ──
         nmap: '-p 22,80,443,3306,8080 -sV -sC -Pn',
         masscan: '-p22,80,443 --rate=500 -oJ /tmp/masscan.json',
         netcat: '-zv 22 80 443 8080',
         dnsrecon: '-t rvl -D /usr/share/wordlists/dns/subdomains-top1mil-5000.txt',
         curl: '-k -L -A \"Mozilla/5.0\" -H \"X-Forwarded-For: 127.0.0.1\"',
         socat: 'TCP-LISTEN:4444,fork,reuseaddr -',
+        // ── SSL/TLS ──
+        testssl: '--full --htmlfile /tmp/report.html',
+        // ── SMB / Windows ──
         enum4linux: '-U -S -G -P -r -R',
         smbclient: '-U guest -N -c ls',
         'evil-winrm': '-u <user> -p <pass> -s /opt/scripts',
@@ -640,11 +647,23 @@ document.addEventListener('DOMContentLoaded', () => {
         smbmap: '-u <user> -p <pass> -d <domain> -R',
         ldapsearch: '-x -b \"dc=htb,dc=local\" \"(objectclass=user)\"',
         bloodhound: '-d htb.local -u <user> -p <pass> -c All',
+        // ── Pivoting ──
         'nc-listener': '-lvnp 4444',
+        'chisel-client': 'R:8080:localhost:3000 R:1080:socks',
+        proxychains: 'nmap -sT -Pn 10.0.0.1 (se añade al inicio del comando)',
+        ligolo: 'sudo ip route add 10.10.10.0/24 dev ligolo',
+        // ── Exploitation ──
         'hydra-ssh': '-l <user> -P /usr/share/seclists/Passwords/Common-Credentials/10k-most-common.txt -t 8',
         'hydra-ftp': '-l admin -P /usr/share/wordlists/rockyou.txt -V -t 4',
         sqlmap: '--risk=3 --level=5 --dump-all --batch -D <dbname>',
         searchsploit: '-t <software> -w -o /tmp/exploits.txt',
+        responder: '-I eth0 -dwv -o /tmp/responder_logs',
+        burpsuite: '--collaborator-server --config-file=/tmp/config.json',
+        // ── XSS ──
+        xsstrike: '--data \"q=test&id=1\" --headers \"Cookie: session=abc\" --crawl',
+        dalfox: '--custom-payload \"<script>alert(1)</script>\" --blind https://xss.ht',
+        // ── Nuclei ──
+        nuclei: '-severity critical,high -json -o /tmp/nuclei.json -t ~/nuclei-templates/',
     };
 
     window.clearExtraFlags = function () {
@@ -672,10 +691,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const target = targetInput.value.trim();
         const extraFlags = document.getElementById('extra-flags').value.trim();
         const needsTarget = [
-            'gobuster','dirb','wfuzz','ffuf','feroxbuster','nikto','whatweb','wpscan','cewl',
-            'nmap','masscan','netcat','dnsrecon','curl','socat',
+            'gobuster','dirb','wfuzz','ffuf','feroxbuster','nikto','whatweb','wpscan','cewl','wafw00f','cors-check',
+            'nmap','masscan','netcat','dnsrecon','curl','socat','testssl',
             'enum4linux','smbclient','smbmap','ldapsearch','bloodhound','evil-winrm','impacket',
-            'hydra-ssh','hydra-ftp','sqlmap','responder','burpsuite'
+            'hydra-ssh','hydra-ftp','sqlmap','responder','burpsuite',
+            'xsstrike','dalfox','nuclei'
         ];
         if (needsTarget.includes(tool) && !target) {
             alert('⚠️  Enter a target IP/domain in the "Target_" field first.');
@@ -889,6 +909,38 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'bunzip2':
                 command = 'echo "Usage:\nbunzip2 file.bz2\nbunzip2 -k file.bz2  # keep original\nbzip2 -d file.bz2   # same as bunzip2"';
                 description = 'Bunzip2 — decompress .bz2 files';
+                break;
+
+            // ── WAF / IDS ──
+            case 'wafw00f':
+                command = `wafw00f ${target} -a`;
+                description = 'Wafw00f — WAF / IDS fingerprint detection';
+                break;
+            case 'cors-check':
+                command = `for origin in "https://evil.com" "null" "https://${target}" "https://not${target}"; do echo "--- Origin: \$origin ---"; curl -s -I -H "Origin: \$origin" -H "Host: ${target}" http://${target} 2>/dev/null | grep -iE "access-control|origin"; done`;
+                description = 'CORS Check — test Access-Control misconfigs';
+                break;
+
+            // ── SSL/TLS ──
+            case 'testssl':
+                command = `echo "╔═ TestSSL.sh Guide ═╗\n\n# Quick check (ciphers + protocols):\ntestssl.sh --quiet ${target}\n\n# Full scan (all tests):\ntestssl.sh --full ${target}\n\n# Check specific vulnerabilities:\ntestssl.sh --heartbleed ${target}\ntestssl.sh --logjam ${target}\n\n# Output to HTML:\ntestssl.sh --htmlfile /tmp/${target}_ssl.html ${target}"`;
+                description = 'TestSSL — SSL/TLS security assessment';
+                break;
+
+            // ── XSS ──
+            case 'xsstrike':
+                command = `echo "╔═ XSStrike Guide ═╗\n\n# Basic scan (GET):\nxsstrike -u http://${target} --params\n\n# POST with data:\nxsstrike -u http://${target} --data 'q=test&id=1'\n\n# Crawl + scan:\nxsstrike -u http://${target} --crawl\n\n# With custom headers:\nxsstrike -u http://${target} --headers 'Cookie: session=abc'"`;
+                description = 'XSStrike — advanced XSS detection + bypass';
+                break;
+            case 'dalfox':
+                command = `echo "╔═ Dalfox Guide ═╗\n\n# Scan a single URL:\ndalfox url http://${target}/page?q=test\n\n# Scan using a list of URLs:\ndalfox file /tmp/urls.txt\n\n# With custom payload:\ndalfox url http://${target}/search?q=1 --custom-payload '<script>alert(1)</script>'\n\n# Blind XSS:\ndalfox url http://${target} --blind 'https://your.xss.ht' 2>/dev/null || dalfox url http://${target}"`;
+                description = 'Dalfox — fast XSS parameter scanner (Go)';
+                break;
+
+            // ── Nuclei ──
+            case 'nuclei':
+                command = `echo "╔═ Nuclei Guide ═╗\n\n# Quick scan (critical + high):\nnuclei -u http://${target} -severity critical,high\n\n# Full scan with all templates:\nnuclei -u http://${target} -t ~/nuclei-templates/ -json -o /tmp/nuclei_${target}.json\n\n# CORS misconfiguration check:\nnuclei -u http://${target} -id cors-misconfiguration\n\n# XSS scan:\nnuclei -u http://${target} -id xss-reflected,xss-stored\n\n# Technology + vulnerability fingerprint:\nnuclei -u http://${target} -tags tech,config"`;
+                description = 'Nuclei — template-based vulnerability scanner';
                 break;
 
             default:
