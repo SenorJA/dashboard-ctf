@@ -258,10 +258,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const reader = new FileReader();
         reader.onload = function (e) {
             const content = e.target.result;
-            // Escape single quotes for the heredoc
-            const safe = content.replace(/'/g, `'\\''`);
             const filename = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-            const cmd = `cat > /tmp/${filename} << 'EOF'\n${content}\nEOF`;
+            // Use heredoc with single-quoted delimiter so no escaping is needed
+            const cmd = `cat > /tmp/${filename} << 'VULNFORGE_EOF'\n${content}\nVULNFORGE_EOF`;
             appendOutput(`\n▶ Uploading "${file.name}" to /tmp/${filename}...`);
             if (ws && ws.readyState === WebSocket.OPEN) {
                 ws.send(cmd);
@@ -291,7 +290,7 @@ document.addEventListener('DOMContentLoaded', () => {
         appendOutput('   ╚████╔╝ ╚██████╔╝███████╗██║ ╚████║██║     ╚██████╔╝██║  ██║╚██████╔╝███████╗');
         appendOutput('    ╚═══╝   ╚═════╝ ╚══════╝╚═╝  ╚═══╝╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝');
         appendOutput('  ───────────────────────────────────────────────────────────────────────────────');
-        appendOutput('  🌐 Red Team Dashboard  |  🔗 vulnforge.local  |  ⚡ 36 modules loaded');
+        appendOutput('  🌐 Red Team Dashboard  |  🔗 vulnforge.local  |  ⚡ 45 modules loaded');
         appendOutput('  ───────────────────────────────────────────────────────────────────────────────');
         appendOutput('');
     };
