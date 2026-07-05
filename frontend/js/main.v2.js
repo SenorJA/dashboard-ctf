@@ -473,6 +473,20 @@ document.addEventListener('DOMContentLoaded', () => {
         connSelector.value = '';
     };
 
+    window.deleteActiveConnection = function () {
+        if (activeConnectionId === null) return;
+        const conn = connections[activeConnectionId];
+        if (!conn) return;
+        if (!confirm(`Delete connection "${conn.name}" (${conn.ip})?`)) return;
+        disconnectWS();
+        connections.splice(activeConnectionId, 1);
+        activeConnectionId = null;
+        saveConnections();
+        hideActiveConn();
+        connSelector.value = '';
+        showToast(`🗑 Connection "${conn.name}" deleted`);
+    };
+
     // ============================================================
     //  WEBSOCKET — SSH
     // ============================================================
@@ -481,16 +495,13 @@ document.addEventListener('DOMContentLoaded', () => {
             appendOutput('[!] Already connected.');
             return;
         }
-        let sshIp = '192.168.214.142';
-        let sshUser = 'javi';
-        let sshPass = 'javi';
-        if (activeConnectionId !== null) {
-            const conn = connections[activeConnectionId];
-            sshIp = conn.ip; sshUser = conn.user; sshPass = conn.pass;
-            appendOutput(`[*] Connecting to ${conn.name} (${sshIp})...`);
-        } else {
-            appendOutput('[*] Connecting to Kali (default)...');
+        if (activeConnectionId === null || !connections[activeConnectionId]) {
+            appendOutput('[!] No connection selected. Go to Connections tab, add a target, and select it first.');
+            return;
         }
+        const conn = connections[activeConnectionId];
+        const sshIp = conn.ip, sshUser = conn.user, sshPass = conn.pass;
+        appendOutput(`[*] Connecting to ${conn.name} (${sshIp})...`);
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const WS_URL = window.WS_URL || `${protocol}//${window.location.host}/ws`;
         ws = new WebSocket(WS_URL);

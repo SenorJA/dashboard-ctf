@@ -381,6 +381,20 @@ document.addEventListener('DOMContentLoaded', () => {
         connSelector.value = '';
     };
 
+    window.deleteActiveConnection = function () {
+        if (activeConnectionId === null) return;
+        const conn = connections[activeConnectionId];
+        if (!conn) return;
+        if (!confirm(`Delete connection "${conn.name}" (${conn.ip})?`)) return;
+        disconnectWS();
+        connections.splice(activeConnectionId, 1);
+        activeConnectionId = null;
+        saveConnections();
+        hideActiveConn();
+        connSelector.value = '';
+        if (typeof showToast === 'function') showToast(`🗑 Connection "${conn.name}" deleted`);
+    };
+
     // ============================================================
     //  WEBSOCKET — SSH
     // ============================================================
