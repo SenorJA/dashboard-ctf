@@ -491,7 +491,8 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             appendOutput('[*] Connecting to Kali (default)...');
         }
-        const WS_URL = window.WS_URL || `ws://${window.location.hostname}:8000/ws`;
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const WS_URL = window.WS_URL || `${protocol}//${window.location.host}/ws`;
         ws = new WebSocket(WS_URL);
 
         ws.onopen = () => {
