@@ -491,7 +491,8 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             appendOutput('[*] Connecting to Kali (default)...');
         }
-        ws = new WebSocket('ws://localhost:8000/ws');
+        const WS_URL = window.WS_URL || `ws://${window.location.hostname}:8000/ws`;
+        ws = new WebSocket(WS_URL);
 
         ws.onopen = () => {
             statusInd.classList.replace('offline', 'online');
@@ -1988,7 +1989,7 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         badge.className = 'text-[9px] text-cyber border border-cyber/30 rounded px-2 py-1';
 
         try {
-            const resp = await fetch(`/api/n8n/status?n8n_url=${encodeURIComponent(url)}`);
+            const resp = await fetch((window.API_URL || '') + `/api/n8n/status?n8n_url=${encodeURIComponent(url)}`);
             const data = await resp.json();
             if (data.reachable) {
                 badge.innerHTML = '🟢 reachable';
@@ -2041,7 +2042,7 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         appendN8nLog(`[•] n8n URL: ${n8nUrl}`);
 
         try {
-            const resp = await fetch('/api/n8n/trigger', {
+            const resp = await fetch((window.API_URL || '') + '/api/n8n/trigger', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

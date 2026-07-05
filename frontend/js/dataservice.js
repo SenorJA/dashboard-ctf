@@ -17,6 +17,10 @@ const DataService = {
     _ready: false,
     _initPromise: null,
 
+    _api(path) {
+        return (window.API_URL || '') + path;
+    },
+
     /** Initialize: check if the backend has Supabase configured. */
     init() {
         if (this._initPromise) return this._initPromise;
@@ -26,7 +30,7 @@ const DataService = {
 
     async _checkHealth() {
         try {
-            const resp = await fetch('/api/health');
+            const resp = await fetch(this._api('/api/health'));
             const data = await resp.json();
             this.available = data.supabase === true;
             this._ready = true;
@@ -45,7 +49,7 @@ const DataService = {
 
     async _get(path) {
         try {
-            const r = await fetch(path);
+            const r = await fetch(this._api(path));
             const d = await r.json();
             return d.ok ? d.data : [];
         } catch { return null; }
@@ -53,7 +57,7 @@ const DataService = {
 
     async _post(path, body) {
         try {
-            const r = await fetch(path, {
+            const r = await fetch(this._api(path), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body)
@@ -64,7 +68,7 @@ const DataService = {
 
     async _delete(path) {
         try {
-            const r = await fetch(path, { method: 'DELETE' });
+            const r = await fetch(this._api(path), { method: 'DELETE' });
             return (await r.json()).ok === true;
         } catch { return false; }
     },
@@ -164,7 +168,7 @@ const DataService = {
         const formData = new FormData();
         formData.append('file', file);
         try {
-            const r = await fetch('/api/upload', { method: 'POST', body: formData });
+            const r = await fetch(this._api('/api/upload'), { method: 'POST', body: formData });
             const d = await r.json();
             return d.ok ? d.data : null;
         } catch { return null; }
@@ -177,7 +181,7 @@ const DataService = {
     async getSetting(key) {
         if (!this.available) return null;
         try {
-            const r = await fetch(`/api/settings/${encodeURIComponent(key)}`);
+            const r = await fetch(this._api(`/api/settings/${encodeURIComponent(key)}`));
             const d = await r.json();
             return d.ok ? d.value : null;
         } catch { return null; }
@@ -196,7 +200,7 @@ const DataService = {
     async generatePdf(content, title) {
         if (!this.available) return null;
         try {
-            const r = await fetch('/api/generate-pdf', {
+            const r = await fetch(this._api('/api/generate-pdf'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ content, title, author: 'VulnForge' })

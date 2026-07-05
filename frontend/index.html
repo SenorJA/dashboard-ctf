@@ -41,7 +41,7 @@
         ::-webkit-scrollbar-thumb { background: #2a354f !important; }
     </style>
 
-    <link rel="stylesheet" href="/static/css/style.v2.css">
+    <link rel="stylesheet" href="css/style.v2.css">
 </head>
 
 <body class="bg-deep text-gray-300 h-screen flex flex-col overflow-hidden font-mono">
@@ -1429,8 +1429,18 @@
         </main>
     </div>
 
-    <script src="/static/js/dataservice.js"></script>
-    <script src="/static/js/main.v2.js"></script>
+    <script>
+        // ── Production config ──────────────────────────────────
+        // Descomenta y personaliza cuando despliegues backend y frontend
+        // por separado (ej. backend en Render, frontend en Vercel/GitHub Pages):
+        // window.API_URL = 'https://tu-backend.onrender.com';
+        // window.WS_URL  = 'wss://tu-backend.onrender.com/ws';
+        //
+        // En desarrollo (localhost) ambos se usan vacíos y todo es relativo.
+        // ───────────────────────────────────────────────────────
+    </script>
+    <script src="js/dataservice.js"></script>
+    <script src="js/main.v2.js"></script>
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 </body>
 

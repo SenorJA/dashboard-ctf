@@ -60,7 +60,8 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 
 # ── Static files ──
 frontend_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
-app.mount("/static", StaticFiles(directory=frontend_dir), name="static")
+app.mount("/css", StaticFiles(directory=os.path.join(frontend_dir, "css")), name="css")
+app.mount("/js", StaticFiles(directory=os.path.join(frontend_dir, "js")), name="js")
 
 # ════════════════════════════════════════════════════════════════
 #  N8N AUTOMATION PROXY
@@ -594,4 +595,5 @@ if __name__ == "__main__":
     print("  VulnForge — Red Team Dashboard")
     print(f"  -> http://localhost:8000")
     print("=" * 50)
-    uvicorn.run(app_str, host="0.0.0.0", port=8000, reload=True)
+    port = int(os.getenv("PORT", "8000"))
+    uvicorn.run(app_str, host="0.0.0.0", port=port, reload=(port == 8000))
