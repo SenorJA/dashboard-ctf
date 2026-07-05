@@ -34,7 +34,6 @@ if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File, Form
-from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.cors import CORSMiddleware
@@ -59,9 +58,31 @@ app.add_middleware(NoCacheMiddleware)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 # ── Static files ──
-frontend_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend")
-app.mount("/css", StaticFiles(directory=os.path.join(frontend_dir, "css")), name="css")
-app.mount("/js", StaticFiles(directory=os.path.join(frontend_dir, "js")), name="js")
+frontend_dir = os.path.normpath(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend"))
+css_dir = os.path.normpath(os.path.join(frontend_dir, "css"))
+js_dir = os.path.normpath(os.path.join(frontend_dir, "js"))
+print(f"[*] Frontend dir: {frontend_dir}")
+print(f"[*] CSS dir: {css_dir} (exists: {os.path.isdir(css_dir)})")
+print(f"[*] JS dir: {js_dir} (exists: {os.path.isdir(js_dir)})")
+
+@app.get("/css/{filepath:path}")
+async def css_file(filepath: str):
+    file_path = os.path.normpath(os.path.join(css_dir, filepath))
+    # Security: prevent path traversal
+    if not file_path.startswith(css_dir):
+        return JSONResponse({"detail": "Forbidden"}, status_code=403)
+    if os.path.isfile(file_path):
+        return FileResponse(file_path)
+    return JSONResponse({"detail": "Not Found"}, status_code=404)
+
+@app.get("/js/{filepath:path}")
+async def js_file(filepath: str):
+    file_path = os.path.normpath(os.path.join(js_dir, filepath))
+    if not file_path.startswith(js_dir):
+        return JSONResponse({"detail": "Forbidden"}, status_code=403)
+    if os.path.isfile(file_path):
+        return FileResponse(file_path)
+    return JSONResponse({"detail": "Not Found"}, status_code=404)
 
 # ════════════════════════════════════════════════════════════════
 #  RESPONSE HELPERS
@@ -445,6 +466,13 @@ async def set_setting(setting: SettingUpdate):
 async def read_index():
     return FileResponse(os.path.join(frontend_dir, "index.html"))
 
+@app.get("/favicon.ico")
+async def favicon():
+    favicon_path = os.path.join(frontend_dir, "favicon.ico")
+    if os.path.isfile(favicon_path):
+        return FileResponse(favicon_path, media_type="image/x-icon")
+    return JSONResponse({"detail": "Not Found"}, status_code=404)
+
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -453,16 +481,17 @@ async def websocket_endpoint(websocket: WebSocket):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
-    # Variables de conexión (se rellenan vía JSON auth)
-    ssh_ip = ssh_user = ssh_pass = None
+    ssh_ip = "192.168.214.142"
+    ssh_user = "javi"
+    ssh_pass = "javi"
+    channel = None
+    stop = asyncio.Event()
 
     try:
         # ── Wait for authentication JSON ──
         await websocket.send_text("[*] Awaiting authentication... Send JSON: {\"type\":\"auth\",\"ip\":\"...\",\"user\":\"...\",\"pass\":\"...\"}")
 
         first_msg = await websocket.receive_text()
-
-        # Parse mandatory JSON auth
         try:
             auth_data = json.loads(first_msg)
         except json.JSONDecodeError:
@@ -479,9 +508,9 @@ async def websocket_endpoint(websocket: WebSocket):
             await websocket.close(code=1008)
             return
 
-        ssh_ip = auth_data.get("ip")
-        ssh_user = auth_data.get("user")
-        ssh_pass = auth_data.get("pass")
+        ssh_ip = auth_data.get("ip", ssh_ip)
+        ssh_user = auth_data.get("user", ssh_user)
+        ssh_pass = auth_data.get("pass", ssh_pass)
 
         if not ssh_ip or not ssh_user or not ssh_pass:
             await websocket.send_text(
@@ -491,56 +520,104 @@ async def websocket_endpoint(websocket: WebSocket):
             return
 
         await websocket.send_text(
-            json.dumps({"type": "connected", "message": f"Authenticating as {ssh_user}@{ssh_ip}..."})
+            json.dumps({"type": "connected", "message": f"Authenticated as {ssh_user}@{ssh_ip}"})
         )
 
         # ── Connect SSH ──
         await websocket.send_text(f"[*] Connecting to {ssh_user}@{ssh_ip} via SSH...")
-        await asyncio.to_thread(ssh.connect, ssh_ip, username=ssh_user, password=ssh_pass, timeout=8)
+        await asyncio.to_thread(
+            ssh.connect, ssh_ip, username=ssh_user, password=ssh_pass,
+            timeout=8, look_for_keys=False, allow_agent=False
+        )
         await websocket.send_text(f"[+] Connected to {ssh_user}@{ssh_ip}\n")
 
-        # ── Command loop ──
-        while True:
-            command = await websocket.receive_text()
+        # ── Open interactive shell with PTY ──
+        channel = ssh.invoke_shell(term='xterm', width=120, height=40)
+        channel.setblocking(0)
 
-            # Allow re-auth at any time
+        # Mutable references for sharing between coroutines
+        _ch = [channel]
+        _ip = [ssh_ip]
+        _user = [ssh_user]
+        _pass = [ssh_pass]
+
+        async def read_shell():
+            """Forward SSH shell output → WebSocket (non-blocking)."""
             try:
-                reauth = json.loads(command)
-                if isinstance(reauth, dict) and reauth.get("type") == "auth":
-                    new_ip = reauth.get("ip", ssh_ip)
-                    new_user = reauth.get("user", ssh_user)
-                    new_pass = reauth.get("pass", ssh_pass)
-                    ssh.close()
-                    await websocket.send_text("[*] Reconnecting with new credentials...")
-                    await asyncio.to_thread(ssh.connect, new_ip, username=new_user, password=new_pass, timeout=8)
-                    ssh_ip, ssh_user, ssh_pass = new_ip, new_user, new_pass
-                    await websocket.send_text(f"[+] Re-connected as {ssh_user}@{ssh_ip}")
-                    continue
-            except json.JSONDecodeError:
+                while not stop.is_set():
+                    ch = _ch[0]
+                    try:
+                        if ch.recv_ready():
+                            data = ch.recv(8192).decode("utf-8", errors="replace")
+                            await websocket.send_text(data)
+                    except (OSError, EOFError):
+                        break
+                    await asyncio.sleep(0.02)
+            except Exception:
                 pass
+            finally:
+                stop.set()
 
-            # Normal command execution
-            prompt = f"{ssh_user}@{ssh_ip}:~$ "
-            await websocket.send_text(f"{prompt}{command}")
+        async def read_ws():
+            """Forward WebSocket messages → SSH shell."""
+            try:
+                while not stop.is_set():
+                    msg = await websocket.receive_text()
 
-            stdin, stdout, stderr = ssh.exec_command(command)
-            out = stdout.read().decode("utf-8", errors="replace")
-            err = stderr.read().decode("utf-8", errors="replace")
+                    # Check for JSON control messages
+                    try:
+                        cmd = json.loads(msg)
+                        if isinstance(cmd, dict):
+                            if cmd.get("type") == "auth":
+                                _ch[0].close()
+                                await asyncio.to_thread(
+                                    ssh.connect, cmd.get("ip", _ip[0]),
+                                    username=cmd.get("user", _user[0]),
+                                    password=cmd.get("pass", _pass[0]),
+                                    timeout=8, look_for_keys=False, allow_agent=False
+                                )
+                                _ch[0] = ssh.invoke_shell(term='xterm', width=120, height=40)
+                                _ch[0].setblocking(0)
+                                _ip[0] = cmd.get("ip", _ip[0])
+                                _user[0] = cmd.get("user", _user[0])
+                                _pass[0] = cmd.get("pass", _pass[0])
+                                await websocket.send_text(f"[+] Re-connected as {_user[0]}@{_ip[0]}")
+                                continue
+                            if cmd.get("type") == "resize":
+                                _ch[0].resize_pty(
+                                    width=cmd.get("width", 120),
+                                    height=cmd.get("height", 40)
+                                )
+                                continue
+                    except json.JSONDecodeError:
+                        pass
 
-            if out:
-                await websocket.send_text(out)
-            if err:
-                await websocket.send_text(f"[STDERR]: {err}")
+                    # Regular command → send to shell
+                    _ch[0].send(msg + "\n")
+            except Exception:
+                pass
+            finally:
+                stop.set()
+
+        # ── Run both tasks concurrently ──
+        tasks = [asyncio.create_task(read_shell()), asyncio.create_task(read_ws())]
+        await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
 
     except WebSocketDisconnect:
         print("[*] WebSocket client disconnected")
     except paramiko.AuthenticationException:
-        await websocket.send_text(f"[!] SSH authentication failed for {ssh_user or '?'}@{ssh_ip or '?'}")
+        await websocket.send_text("[!] SSH authentication failed")
     except paramiko.SSHException as e:
         await websocket.send_text(f"[!] SSH connection error: {str(e)}")
     except Exception as e:
         await websocket.send_text(f"[!] Error: {str(e)}")
     finally:
+        stop.set()
+        if channel:
+            try:
+                channel.close()
+            except:
+                pass
         try:
             ssh.close()
         except:
