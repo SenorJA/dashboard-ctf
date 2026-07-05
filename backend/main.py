@@ -64,6 +64,22 @@ app.mount("/css", StaticFiles(directory=os.path.join(frontend_dir, "css")), name
 app.mount("/js", StaticFiles(directory=os.path.join(frontend_dir, "js")), name="js")
 
 # ════════════════════════════════════════════════════════════════
+#  RESPONSE HELPERS
+# ════════════════════════════════════════════════════════════════
+
+def _ok(data, status=200):
+    """Return success JSON, or a 503 error if data is None (DB not configured)."""
+    if data is None:
+        return JSONResponse({"ok": False, "error": "Database not configured"}, status_code=503)
+    return JSONResponse({"ok": True, "data": data}, status_code=status)
+
+def _delete_ok(ok):
+    """Return success JSON for a delete operation, or an error if it failed."""
+    if not ok:
+        return JSONResponse({"ok": False, "error": "Delete failed"}, status_code=400)
+    return JSONResponse({"ok": True})
+
+# ════════════════════════════════════════════════════════════════
 #  N8N AUTOMATION PROXY
 # ════════════════════════════════════════════════════════════════
 
@@ -136,10 +152,7 @@ async def api_health():
 
 @app.get("/api/reports")
 async def get_reports():
-    data = db.list_reports()
-    if data is None:
-        return JSONResponse({"ok": False, "error": "Database not configured"}, status_code=503)
-    return JSONResponse({"ok": True, "data": data})
+    return _ok(db.list_reports())
 
 
 class ReportCreate(BaseModel):
@@ -153,28 +166,19 @@ class ReportCreate(BaseModel):
 
 @app.post("/api/reports")
 async def create_report(report: ReportCreate):
-    result = db.save_report(report.model_dump())
-    if result is None:
-        return JSONResponse({"ok": False, "error": "Database not configured"}, status_code=503)
-    return JSONResponse({"ok": True, "data": result}, status_code=201)
+    return _ok(db.save_report(report.model_dump()), 201)
 
 
 @app.delete("/api/reports/{report_id}")
 async def delete_report(report_id: str):
-    ok = db.delete_report(report_id)
-    if not ok:
-        return JSONResponse({"ok": False, "error": "Delete failed"}, status_code=400)
-    return JSONResponse({"ok": True})
+    return _delete_ok(db.delete_report(report_id))
 
 
 # ── Scripts ──
 
 @app.get("/api/scripts")
 async def get_scripts():
-    data = db.list_scripts()
-    if data is None:
-        return JSONResponse({"ok": False, "error": "Database not configured"}, status_code=503)
-    return JSONResponse({"ok": True, "data": data})
+    return _ok(db.list_scripts())
 
 
 class ScriptCreate(BaseModel):
@@ -185,28 +189,19 @@ class ScriptCreate(BaseModel):
 
 @app.post("/api/scripts")
 async def create_script(script: ScriptCreate):
-    result = db.save_script(script.model_dump())
-    if result is None:
-        return JSONResponse({"ok": False, "error": "Database not configured"}, status_code=503)
-    return JSONResponse({"ok": True, "data": result}, status_code=201)
+    return _ok(db.save_script(script.model_dump()), 201)
 
 
 @app.delete("/api/scripts/{script_id}")
 async def delete_script(script_id: str):
-    ok = db.delete_script(script_id)
-    if not ok:
-        return JSONResponse({"ok": False, "error": "Delete failed"}, status_code=400)
-    return JSONResponse({"ok": True})
+    return _delete_ok(db.delete_script(script_id))
 
 
 # ── SSH Connections ──
 
 @app.get("/api/connections")
 async def get_connections():
-    data = db.list_connections()
-    if data is None:
-        return JSONResponse({"ok": False, "error": "Database not configured"}, status_code=503)
-    return JSONResponse({"ok": True, "data": data})
+    return _ok(db.list_connections())
 
 
 class ConnectionCreate(BaseModel):
@@ -218,28 +213,19 @@ class ConnectionCreate(BaseModel):
 
 @app.post("/api/connections")
 async def create_connection(conn: ConnectionCreate):
-    result = db.save_connection(conn.model_dump())
-    if result is None:
-        return JSONResponse({"ok": False, "error": "Database not configured"}, status_code=503)
-    return JSONResponse({"ok": True, "data": result}, status_code=201)
+    return _ok(db.save_connection(conn.model_dump()), 201)
 
 
 @app.delete("/api/connections/{conn_id}")
 async def delete_connection(conn_id: str):
-    ok = db.delete_connection(conn_id)
-    if not ok:
-        return JSONResponse({"ok": False, "error": "Delete failed"}, status_code=400)
-    return JSONResponse({"ok": True})
+    return _delete_ok(db.delete_connection(conn_id))
 
 
 # ── Hak5 Payloads ──
 
 @app.get("/api/payloads")
 async def get_payloads(device: str = None):
-    data = db.list_hak5_payloads(device)
-    if data is None:
-        return JSONResponse({"ok": False, "error": "Database not configured"}, status_code=503)
-    return JSONResponse({"ok": True, "data": data})
+    return _ok(db.list_hak5_payloads(device))
 
 
 class PayloadCreate(BaseModel):
@@ -250,28 +236,19 @@ class PayloadCreate(BaseModel):
 
 @app.post("/api/payloads")
 async def create_payload(payload: PayloadCreate):
-    result = db.save_hak5_payload(payload.model_dump())
-    if result is None:
-        return JSONResponse({"ok": False, "error": "Database not configured"}, status_code=503)
-    return JSONResponse({"ok": True, "data": result}, status_code=201)
+    return _ok(db.save_hak5_payload(payload.model_dump()), 201)
 
 
 @app.delete("/api/payloads/{payload_id}")
 async def delete_payload(payload_id: str):
-    ok = db.delete_hak5_payload(payload_id)
-    if not ok:
-        return JSONResponse({"ok": False, "error": "Delete failed"}, status_code=400)
-    return JSONResponse({"ok": True})
+    return _delete_ok(db.delete_hak5_payload(payload_id))
 
 
 # ── File Upload (to Supabase Storage) ──
 
 @app.get("/api/files")
 async def get_files():
-    data = db.list_uploaded_files()
-    if data is None:
-        return JSONResponse({"ok": False, "error": "Database not configured"}, status_code=503)
-    return JSONResponse({"ok": True, "data": data})
+    return _ok(db.list_uploaded_files())
 
 
 @app.post("/api/upload")
@@ -457,10 +434,7 @@ async def get_setting(key: str):
 
 @app.post("/api/settings")
 async def set_setting(setting: SettingUpdate):
-    result = db.set_setting(setting.key, setting.value)
-    if result is None:
-        return JSONResponse({"ok": False, "error": "Database not configured"}, status_code=503)
-    return JSONResponse({"ok": True, "data": result})
+    return _ok(db.set_setting(setting.key, setting.value))
 
 
 # ════════════════════════════════════════════════════════════════

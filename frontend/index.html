@@ -179,110 +179,7 @@
                         <span class="text-cyan-400">▶</span> <span data-i18n="catWebRecon">Web Recon</span>
                         <span class="ml-auto text-[8px] text-gray-700">11</span>
                     </p>
-                    <div class="cat-body space-y-0.5">
-
-                        <button onclick="launchTool('gobuster')"
-                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
-                            <span class="text-neon/70 group-hover:text-neon">#</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">Gobuster</span>
-                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
-                                directorios web (common.txt)
-                            </span>
-                        </button>
-
-                        <button onclick="launchTool('dirb')"
-                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
-                            <span class="text-neon/70 group-hover:text-neon">#</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">Dirb</span>
-                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
-                                fuerza bruta directorios
-                            </span>
-                        </button>
-
-                        <button onclick="launchTool('wfuzz')"
-                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
-                            <span class="text-neon/70 group-hover:text-neon">#</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">Wfuzz</span>
-                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
-                                fuzzing (FUZZ param)
-                            </span>
-                        </button>
-
-                        <button onclick="launchTool('ffuf')"
-                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
-                            <span class="text-neon/70 group-hover:text-neon">#</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">Ffuf</span>
-                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
-                                fuzzer ultrarrápido
-                            </span>
-                        </button>
-
-                        <button onclick="launchTool('feroxbuster')"
-                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
-                            <span class="text-neon/70 group-hover:text-neon">#</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">Feroxbuster</span>
-                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
-                                directory scan rápido (Rust)
-                            </span>
-                        </button>
-
-                        <button onclick="launchTool('nikto')"
-                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
-                            <span class="text-neon/70 group-hover:text-neon">#</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">Nikto</span>
-                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
-                                escáner vulnerabilidades web
-                            </span>
-                        </button>
-
-                        <button onclick="launchTool('whatweb')"
-                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
-                            <span class="text-neon/70 group-hover:text-neon">#</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">WhatWeb</span>
-                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
-                                fingerprint tecnologías
-                            </span>
-                        </button>
-
-                        <button onclick="launchTool('wpscan')"
-                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
-                            <span class="text-neon/70 group-hover:text-neon">#</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">Wpscan</span>
-                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
-                                escáner WordPress
-                            </span>
-                        </button>
-
-                        <button onclick="launchTool('cewl')"
-                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
-                            <span class="text-neon/70 group-hover:text-neon">#</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">Cewl</span>
-                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
-                                generador wordlists desde web
-                            </span>
-                        </button>
-
-                        <!-- ── WAF / IDS ── -->
-                        <button onclick="launchTool('wafw00f')"
-                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
-                            <span class="text-neon/70 group-hover:text-neon">#</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">Wafw00f</span>
-                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
-                                detección WAF / IDS fingerprint
-                            </span>
-                        </button>
-
-                        <!-- ── CORS Check ── -->
-                        <button onclick="launchTool('cors-check')"
-                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
-                            <span class="text-neon/70 group-hover:text-neon">#</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">CORS Check</span>
-                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
-                                prueba CORS misconfiguration (Origin)
-                            </span>
-                        </button>
-
-                    </div>
+                    <div id="arsenal-web-recon" class="cat-body space-y-0.5"></div>
                 </div>
 
                 <!-- ══════ Network ══════ -->
@@ -292,73 +189,7 @@
                         <span class="text-violet-400">▶</span> <span data-i18n="catNetwork">Network</span>
                         <span class="ml-auto text-[8px] text-gray-700">7</span>
                     </p>
-                    <div class="cat-body space-y-0.5">
-
-                        <button onclick="launchTool('nmap')"
-                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
-                            <span class="text-neon/70 group-hover:text-neon">#</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">Nmap</span>
-                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
-                                agresivo (-p- -sV -sC -O -A)
-                            </span>
-                        </button>
-
-                        <button onclick="launchTool('masscan')"
-                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
-                            <span class="text-neon/70 group-hover:text-neon">#</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">Masscan</span>
-                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
-                                escaneo masivo 65535 puertos
-                            </span>
-                        </button>
-
-                        <button onclick="launchTool('netcat')"
-                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
-                            <span class="text-neon/70 group-hover:text-neon">#</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">Netcat</span>
-                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
-                                escaneo TCP rápido 24 puertos
-                            </span>
-                        </button>
-
-                        <button onclick="launchTool('dnsrecon')"
-                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
-                            <span class="text-neon/70 group-hover:text-neon">#</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">Dnsrecon</span>
-                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
-                                enumeración DNS
-                            </span>
-                        </button>
-
-                        <button onclick="launchTool('curl')"
-                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
-                            <span class="text-neon/70 group-hover:text-neon">#</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">Curl</span>
-                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
-                                peticiones HTTP avanzadas
-                            </span>
-                        </button>
-
-                        <button onclick="launchTool('socat')"
-                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
-                            <span class="text-neon/70 group-hover:text-neon">#</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">Socat</span>
-                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
-                                relay TCP/UDP, reverse shell
-                            </span>
-                        </button>
-
-                        <!-- ── TestSSL ── -->
-                        <button onclick="launchTool('testssl')"
-                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
-                            <span class="text-neon/70 group-hover:text-neon">#</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">TestSSL</span>
-                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
-                                análisis SSL/TLS (ciphers, vulns)
-                            </span>
-                        </button>
-
-                    </div>
+                    <div id="arsenal-network" class="cat-body space-y-0.5"></div>
                 </div>
 
                 <!-- ══════ SMB / Windows ══════ -->
@@ -366,74 +197,9 @@
                     <p class="cat-header text-[9px] font-semibold text-gray-600 uppercase tracking-wider mb-1 flex items-center gap-1"
                         onclick="toggleCategory(this)">
                         <span class="text-amber-400">▶</span> <span data-i18n="catSMB">SMB / Windows</span>
-                        <span class="ml-auto text-[8px] text-gray-700">5</span>
+                        <span class="ml-auto text-[8px] text-gray-700">7</span>
                     </p>
-                    <div class="cat-body space-y-0.5">
-
-                        <button onclick="launchTool('enum4linux')"
-                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
-                            <span class="text-neon/70 group-hover:text-neon">#</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">Enum4linux</span>
-                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
-                                enumeración SMB completa
-                            </span>
-                        </button>
-
-                        <button onclick="launchTool('smbclient')"
-                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
-                            <span class="text-neon/70 group-hover:text-neon">#</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">Smbclient</span>
-                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
-                                listar shares (null session)
-                            </span>
-                        </button>
-
-                        <button onclick="launchTool('evil-winrm')"
-                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
-                            <span class="text-neon/70 group-hover:text-neon">#</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">Evil-WinRM</span>
-                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
-                                shell remota WinRM
-                            </span>
-                        </button>
-
-                        <button onclick="launchTool('impacket')"
-                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
-                            <span class="text-neon/70 group-hover:text-neon">#</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">Impacket</span>
-                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
-                                psexec / smbexec / wmiexec
-                            </span>
-                        </button>
-
-                        <button onclick="launchTool('smbmap')"
-                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
-                            <span class="text-neon/70 group-hover:text-neon">#</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">Smbmap</span>
-                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
-                                permisos SMB recursivo
-                            </span>
-                        </button>
-
-                        <button onclick="launchTool('ldapsearch')"
-                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
-                            <span class="text-neon/70 group-hover:text-neon">#</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">Ldapsearch</span>
-                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
-                                enumeración LDAP (dominio)
-                            </span>
-                        </button>
-
-                        <button onclick="launchTool('bloodhound')"
-                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
-                            <span class="text-neon/70 group-hover:text-neon">#</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">BloodHound</span>
-                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
-                                ingestor AD (bloodhound-python)
-                            </span>
-                        </button>
-
-                    </div>
+                    <div id="arsenal-smb" class="cat-body space-y-0.5"></div>
                 </div>
 
                 <!-- ══════ Pivoting / Tunnels ══════ -->
@@ -441,47 +207,9 @@
                     <p class="cat-header text-[9px] font-semibold text-gray-600 uppercase tracking-wider mb-1 flex items-center gap-1"
                         onclick="toggleCategory(this)">
                         <span class="text-fuchsia-400">▶</span> <span data-i18n="catPivoting">Pivoting</span>
-                        <span class="ml-auto text-[8px] text-gray-700">2</span>
+                        <span class="ml-auto text-[8px] text-gray-700">4</span>
                     </p>
-                    <div class="cat-body space-y-0.5">
-
-                        <button onclick="launchTool('ligolo')"
-                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
-                            <span class="text-neon/70 group-hover:text-neon">#</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">Ligolo-ng</span>
-                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
-                                túnel reverse / agente pivoting
-                            </span>
-                        </button>
-
-                        <button onclick="launchTool('nc-listener')"
-                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
-                            <span class="text-neon/70 group-hover:text-neon">#</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">NC Listener</span>
-                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
-                                listener reverse shell (LPORT)
-                            </span>
-                        </button>
-
-                        <button onclick="launchTool('chisel-client')"
-                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
-                            <span class="text-neon/70 group-hover:text-neon">#</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">Chisel Client</span>
-                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
-                                túnel TCP/UDP rápido
-                            </span>
-                        </button>
-
-                        <button onclick="launchTool('proxychains')"
-                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
-                            <span class="text-neon/70 group-hover:text-neon">#</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">Proxychains</span>
-                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
-                                encadenar proxies (SOCKS)
-                            </span>
-                        </button>
-
-                    </div>
+                    <div id="arsenal-pivoting" class="cat-body space-y-0.5"></div>
                 </div>
 
                 <!-- ══════ Crypto / Decode ══════ -->
@@ -489,56 +217,9 @@
                     <p class="cat-header text-[9px] font-semibold text-gray-600 uppercase tracking-wider mb-1 flex items-center gap-1"
                         onclick="toggleCategory(this)">
                         <span class="text-yellow-400">▶</span> <span data-i18n="catCrypto">Crypto / Decode</span>
-                        <span class="ml-auto text-[8px] text-gray-700">4</span>
+                        <span class="ml-auto text-[8px] text-gray-700">5</span>
                     </p>
-                    <div class="cat-body space-y-0.5">
-
-                        <button onclick="launchTool('jwt-decode')"
-                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
-                            <span class="text-neon/70 group-hover:text-neon">#</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">JWT Decode</span>
-                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
-                                decodificar JWT tokens online
-                            </span>
-                        </button>
-
-                        <button onclick="launchTool('b64-encode')"
-                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
-                            <span class="text-neon/70 group-hover:text-neon">#</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">Base64 Encode</span>
-                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
-                                texto → base64
-                            </span>
-                        </button>
-
-                        <button onclick="launchTool('b64-decode')"
-                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
-                            <span class="text-neon/70 group-hover:text-neon">#</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">Base64 Decode</span>
-                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
-                                base64 → texto
-                            </span>
-                        </button>
-
-                        <button onclick="launchTool('john')"
-                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
-                            <span class="text-neon/70 group-hover:text-neon">#</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">John</span>
-                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
-                                crack de hashes (rockyou)
-                            </span>
-                        </button>
-
-                        <button onclick="launchTool('hashcat')"
-                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
-                            <span class="text-neon/70 group-hover:text-neon">#</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">Hashcat</span>
-                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
-                                GPU hash cracking (mode 0)
-                            </span>
-                        </button>
-
-                    </div>
+                    <div id="arsenal-crypto" class="cat-body space-y-0.5"></div>
                 </div>
 
                 <!-- ══════ Exploitation ══════ -->
@@ -548,93 +229,7 @@
                         <span class="text-red-400">▶</span> <span data-i18n="catExploitation">Exploitation</span>
                         <span class="ml-auto text-[8px] text-gray-700">9</span>
                     </p>
-                    <div class="cat-body space-y-0.5">
-
-                        <button onclick="launchTool('hydra-ssh')"
-                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
-                            <span class="text-neon/70 group-hover:text-neon">#</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">Hydra SSH</span>
-                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
-                                fuerza bruta SSH (rockyou)
-                            </span>
-                        </button>
-
-                        <button onclick="launchTool('hydra-ftp')"
-                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
-                            <span class="text-neon/70 group-hover:text-neon">#</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">Hydra FTP</span>
-                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
-                                fuerza bruta FTP (rockyou)
-                            </span>
-                        </button>
-
-                        <button onclick="launchTool('sqlmap')"
-                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
-                            <span class="text-neon/70 group-hover:text-neon">#</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">Sqlmap</span>
-                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
-                                detección automática SQLi
-                            </span>
-                        </button>
-
-                        <button onclick="launchTool('searchsploit')"
-                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
-                            <span class="text-neon/70 group-hover:text-neon">#</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">Searchsploit</span>
-                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
-                                buscar exploits por nombre/servicio
-                            </span>
-                        </button>
-
-                        <button onclick="launchTool('responder')"
-                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
-                            <span class="text-neon/70 group-hover:text-neon">#</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">Responder</span>
-                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
-                                LLMNR/NBT-NS poisoning
-                            </span>
-                        </button>
-
-                        <button onclick="launchTool('burpsuite')"
-                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
-                            <span class="text-neon/70 group-hover:text-neon">#</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">BurpSuite</span>
-                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
-                                proxy HTTP/S + lanzar en Kali
-                            </span>
-                        </button>
-
-                        <!-- ── XSStrike ── -->
-                        <button onclick="launchTool('xsstrike')"
-                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
-                            <span class="text-neon/70 group-hover:text-neon">#</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">XSStrike</span>
-                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
-                                XSS avanzado con fuzzing + bypass
-                            </span>
-                        </button>
-
-                        <!-- ── Dalfox ── -->
-                        <button onclick="launchTool('dalfox')"
-                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
-                            <span class="text-neon/70 group-hover:text-neon">#</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">Dalfox</span>
-                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
-                                XSS parameter scanner (Go)
-                            </span>
-                        </button>
-
-                        <!-- ── Nuclei ── -->
-                        <button onclick="launchTool('nuclei')"
-                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
-                            <span class="text-neon/70 group-hover:text-neon">#</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">Nuclei</span>
-                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
-                                escáner vulns basado en templates
-                            </span>
-                        </button>
-
-                    </div>
+                    <div id="arsenal-exploitation" class="cat-body space-y-0.5"></div>
                 </div>
 
                 <!-- ══════ Resources ══════ -->
@@ -644,65 +239,7 @@
                         <span class="text-gray-500">▶</span> <span data-i18n="catResources">Resources</span>
                         <span class="ml-auto text-[8px] text-gray-700">8</span>
                     </p>
-                    <div class="cat-body space-y-0.5">
-
-                        <a href="https://hacktricks.wiki/en/index.html" target="_blank" rel="noopener"
-                            class="tool-btn flex items-center gap-2 w-full bg-deep/50 hover:bg-deep px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-cyber/40 group">
-                            <span class="text-cyber/70 group-hover:text-cyber">📘</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">HackTricks</span>
-                            <span class="ml-auto text-[8px] text-gray-700">↗</span>
-                        </a>
-
-                        <a href="https://portswigger.net/web-security" target="_blank" rel="noopener"
-                            class="tool-btn flex items-center gap-2 w-full bg-deep/50 hover:bg-deep px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-cyber/40 group">
-                            <span class="text-cyber/70 group-hover:text-cyber">🔓</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">PortSwigger Academy</span>
-                            <span class="ml-auto text-[8px] text-gray-700">↗</span>
-                        </a>
-
-                        <a href="https://github.com/swisskyrepo/PayloadsAllTheThings" target="_blank" rel="noopener"
-                            class="tool-btn flex items-center gap-2 w-full bg-deep/50 hover:bg-deep px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-cyber/40 group">
-                            <span class="text-cyber/70 group-hover:text-cyber">📦</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">PayloadsAllTheThings</span>
-                            <span class="ml-auto text-[8px] text-gray-700">↗</span>
-                        </a>
-
-                        <a href="https://github.com/jpillora/chisel" target="_blank" rel="noopener"
-                            class="tool-btn flex items-center gap-2 w-full bg-deep/50 hover:bg-deep px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-cyber/40 group">
-                            <span class="text-cyber/70 group-hover:text-cyber">⛏</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">Chisel</span>
-                            <span class="ml-auto text-[8px] text-gray-700">↗</span>
-                        </a>
-
-                        <a href="https://www.revshells.com/" target="_blank" rel="noopener"
-                            class="tool-btn flex items-center gap-2 w-full bg-deep/50 hover:bg-deep px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-cyber/40 group">
-                            <span class="text-cyber/70 group-hover:text-cyber">🐚</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">RevShells.com</span>
-                            <span class="ml-auto text-[8px] text-gray-700">↗</span>
-                        </a>
-
-                        <a href="https://www.exploit-db.com/" target="_blank" rel="noopener"
-                            class="tool-btn flex items-center gap-2 w-full bg-deep/50 hover:bg-deep px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-cyber/40 group">
-                            <span class="text-cyber/70 group-hover:text-cyber">💥</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">Exploit-DB</span>
-                            <span class="ml-auto text-[8px] text-gray-700">↗</span>
-                        </a>
-
-                        <a href="https://portswigger.net/burp/communitydownload" target="_blank" rel="noopener"
-                            class="tool-btn flex items-center gap-2 w-full bg-deep/50 hover:bg-deep px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-cyber/40 group">
-                            <span class="text-cyber/70 group-hover:text-cyber">🕷</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">BurpSuite Community</span>
-                            <span class="ml-auto text-[8px] text-gray-700">↗</span>
-                        </a>
-
-                        <a href="https://gtfobins.github.io/" target="_blank" rel="noopener"
-                            class="tool-btn flex items-center gap-2 w-full bg-deep/50 hover:bg-deep px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-cyber/40 group">
-                            <span class="text-cyber/70 group-hover:text-cyber">⬆</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">GTFOBins</span>
-                            <span class="ml-auto text-[8px] text-gray-700">↗</span>
-                        </a>
-
-                    </div>
+                    <div id="arsenal-resources" class="cat-body space-y-0.5"></div>
                 </div>
 
                 <!-- ══════ Utilities ══════ -->
@@ -712,16 +249,8 @@
                         <span class="text-gray-500">▶</span> <span data-i18n="catUtilities">Utilities</span>
                         <span class="ml-auto text-[8px] text-gray-700">1</span>
                     </p>
-                    <div class="cat-body space-y-0.5">
-
-                        <a href="https://gchq.github.io/CyberChef/" target="_blank" rel="noopener"
-                            class="tool-btn flex items-center gap-2 w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-cyber/40 group">
-                            <span class="text-cyber/70 group-hover:text-cyber">🔗</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">CyberChef</span>
-                            <span class="ml-auto text-[8px] text-gray-700">↗</span>
-                        </a>
-
-                    </div>
+                    <div id="arsenal-utilities" class="cat-body space-y-0.5"></div>
+                </div>
                 </div>
 
                 <!-- ══════ Extract / Compress ══════ -->
@@ -731,72 +260,7 @@
                         <span class="text-emerald-400">▶</span> Extract / Compress
                         <span class="ml-auto text-[8px] text-gray-700">7</span>
                     </p>
-                    <div class="cat-body space-y-0.5">
-
-                        <button onclick="launchTool('unzip')"
-                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
-                            <span class="text-neon/70 group-hover:text-neon">#</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">Unzip</span>
-                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
-                                descomprimir .zip
-                            </span>
-                        </button>
-
-                        <button onclick="launchTool('tar-gz')"
-                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
-                            <span class="text-neon/70 group-hover:text-neon">#</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">Tar.gz</span>
-                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
-                                extraer .tar.gz / .tgz
-                            </span>
-                        </button>
-
-                        <button onclick="launchTool('tar-xz')"
-                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
-                            <span class="text-neon/70 group-hover:text-neon">#</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">Tar.xz</span>
-                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
-                                extraer .tar.xz
-                            </span>
-                        </button>
-
-                        <button onclick="launchTool('7z-extract')"
-                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
-                            <span class="text-neon/70 group-hover:text-neon">#</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">7z</span>
-                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
-                                extraer .7z
-                            </span>
-                        </button>
-
-                        <button onclick="launchTool('unrar')"
-                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
-                            <span class="text-neon/70 group-hover:text-neon">#</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">Unrar</span>
-                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
-                                extraer .rar
-                            </span>
-                        </button>
-
-                        <button onclick="launchTool('gunzip')"
-                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
-                            <span class="text-neon/70 group-hover:text-neon">#</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">Gunzip</span>
-                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
-                                descomprimir .gz
-                            </span>
-                        </button>
-
-                        <button onclick="launchTool('bunzip2')"
-                            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
-                            <span class="text-neon/70 group-hover:text-neon">#</span>
-                            <span class="text-gray-400 group-hover:text-gray-200">Bunzip2</span>
-                            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">
-                                descomprimir .bz2
-                            </span>
-                        </button>
-
-                    </div>
+                    <div id="arsenal-extract" class="cat-body space-y-0.5"></div>
                 </div>
 
             </div>  <!-- /p-4 arsenal -->

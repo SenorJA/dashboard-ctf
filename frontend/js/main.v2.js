@@ -553,10 +553,7 @@ document.addEventListener('DOMContentLoaded', () => {
     //  COMMAND SENDING
     // ============================================================
     window.sendCommand = function () {
-        if (!ws || ws.readyState !== WebSocket.OPEN) {
-            appendOutput('[!] Connect to Kali first.');
-            return;
-        }
+        if (!ensureConnected()) return;
         const cmd = cmdInput.value.trim();
         if (!cmd) return;
         ws.send(cmd);
@@ -564,13 +561,165 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     window.sendPredefinedCmd = function (cmd) {
-        if (!ws || ws.readyState !== WebSocket.OPEN) {
+        if (!ensureConnected()) {
             appendOutput('[!] Connect to Kali first before launching modules.');
             return;
         }
         appendOutput(`\n▶ ${cmd}`);
         ws.send(cmd);
     };
+
+    // ============================================================
+    //  ARSENAL DATA + RENDER
+    // ============================================================
+    const ARSENAL_GROUPS = [
+        {
+            id: 'web-recon', label: 'Web Recon', color: 'text-cyan-400',
+            tools: [
+                { id: 'gobuster',    name: 'Gobuster',    desc: 'directorios web (common.txt)' },
+                { id: 'dirb',        name: 'Dirb',        desc: 'fuerza bruta directorios' },
+                { id: 'wfuzz',       name: 'Wfuzz',       desc: 'fuzzing (FUZZ param)' },
+                { id: 'ffuf',        name: 'Ffuf',        desc: 'fuzzer ultrarrápido' },
+                { id: 'feroxbuster', name: 'Feroxbuster', desc: 'directory scan rápido (Rust)' },
+                { id: 'nikto',       name: 'Nikto',       desc: 'escáner vulnerabilidades web' },
+                { id: 'whatweb',     name: 'WhatWeb',     desc: 'fingerprint tecnologías' },
+                { id: 'wpscan',      name: 'Wpscan',      desc: 'escáner WordPress' },
+                { id: 'cewl',        name: 'Cewl',        desc: 'generador wordlists desde web' },
+                { id: 'wafw00f',     name: 'Wafw00f',     desc: 'detección WAF / IDS fingerprint' },
+                { id: 'cors-check',  name: 'CORS Check',  desc: 'prueba CORS misconfiguration (Origin)' },
+            ]
+        },
+        {
+            id: 'network', label: 'Network', color: 'text-violet-400',
+            tools: [
+                { id: 'nmap',       name: 'Nmap',      desc: 'agresivo (-p- -sV -sC -O -A)' },
+                { id: 'masscan',    name: 'Masscan',   desc: 'escaneo masivo 65535 puertos' },
+                { id: 'netcat',     name: 'Netcat',    desc: 'escaneo TCP rápido 24 puertos' },
+                { id: 'dnsrecon',   name: 'Dnsrecon',  desc: 'enumeración DNS' },
+                { id: 'curl',       name: 'Curl',      desc: 'peticiones HTTP avanzadas' },
+                { id: 'socat',      name: 'Socat',     desc: 'relay TCP/UDP, reverse shell' },
+                { id: 'testssl',    name: 'TestSSL',   desc: 'análisis SSL/TLS (ciphers, vulns)' },
+            ]
+        },
+        {
+            id: 'smb', label: 'SMB / Windows', color: 'text-amber-400',
+            tools: [
+                { id: 'enum4linux',  name: 'Enum4linux',  desc: 'enumeración SMB completa' },
+                { id: 'smbclient',   name: 'Smbclient',   desc: 'listar shares (null session)' },
+                { id: 'evil-winrm',  name: 'Evil-WinRM',  desc: 'shell remota WinRM' },
+                { id: 'impacket',    name: 'Impacket',    desc: 'psexec / smbexec / wmiexec' },
+                { id: 'smbmap',      name: 'Smbmap',      desc: 'permisos SMB recursivo' },
+                { id: 'ldapsearch',  name: 'Ldapsearch',  desc: 'enumeración LDAP (dominio)' },
+                { id: 'bloodhound',  name: 'BloodHound',  desc: 'ingestor AD (bloodhound-python)' },
+            ]
+        },
+        {
+            id: 'pivoting', label: 'Pivoting', color: 'text-fuchsia-400',
+            tools: [
+                { id: 'ligolo',       name: 'Ligolo-ng',     desc: 'túnel reverse / agente pivoting' },
+                { id: 'nc-listener',  name: 'NC Listener',   desc: 'listener reverse shell (LPORT)' },
+                { id: 'chisel-client',name: 'Chisel Client', desc: 'túnel TCP/UDP rápido' },
+                { id: 'proxychains',  name: 'Proxychains',   desc: 'encadenar proxies (SOCKS)' },
+            ]
+        },
+        {
+            id: 'crypto', label: 'Crypto / Decode', color: 'text-yellow-400',
+            tools: [
+                { id: 'jwt-decode',  name: 'JWT Decode',    desc: 'decodificar JWT tokens online' },
+                { id: 'b64-encode',  name: 'Base64 Encode', desc: 'texto → base64' },
+                { id: 'b64-decode',  name: 'Base64 Decode', desc: 'base64 → texto' },
+                { id: 'john',        name: 'John',          desc: 'crack de hashes (rockyou)' },
+                { id: 'hashcat',     name: 'Hashcat',       desc: 'GPU hash cracking (mode 0)' },
+            ]
+        },
+        {
+            id: 'exploitation', label: 'Exploitation', color: 'text-red-400',
+            tools: [
+                { id: 'hydra-ssh',    name: 'Hydra SSH',     desc: 'fuerza bruta SSH (rockyou)' },
+                { id: 'hydra-ftp',    name: 'Hydra FTP',     desc: 'fuerza bruta FTP (rockyou)' },
+                { id: 'sqlmap',       name: 'Sqlmap',        desc: 'detección automática SQLi' },
+                { id: 'searchsploit', name: 'Searchsploit',  desc: 'buscar exploits por nombre/servicio' },
+                { id: 'responder',    name: 'Responder',     desc: 'LLMNR/NBT-NS poisoning' },
+                { id: 'burpsuite',    name: 'BurpSuite',     desc: 'proxy HTTP/S + lanzar en Kali' },
+                { id: 'xsstrike',     name: 'XSStrike',      desc: 'XSS avanzado con fuzzing + bypass' },
+                { id: 'dalfox',       name: 'Dalfox',        desc: 'XSS parameter scanner (Go)' },
+                { id: 'nuclei',       name: 'Nuclei',        desc: 'escáner vulns basado en templates' },
+            ]
+        },
+        {
+            id: 'extract', label: 'Extract / Compress', color: 'text-emerald-400',
+            tools: [
+                { id: 'unzip',     name: 'Unzip',   desc: 'descomprimir .zip' },
+                { id: 'tar-gz',    name: 'Tar.gz',  desc: 'extraer .tar.gz / .tgz' },
+                { id: 'tar-xz',    name: 'Tar.xz',  desc: 'extraer .tar.xz' },
+                { id: '7z-extract',name: '7z',      desc: 'extraer .7z' },
+                { id: 'unrar',     name: 'Unrar',   desc: 'extraer .rar' },
+                { id: 'gunzip',    name: 'Gunzip',  desc: 'descomprimir .gz' },
+                { id: 'bunzip2',   name: 'Bunzip2', desc: 'descomprimir .bz2' },
+            ]
+        },
+    ];
+
+    const ARSENAL_LINKS = [
+        { name: 'HackTricks',            url: 'https://hacktricks.wiki/en/index.html',                          icon: '📘' },
+        { name: 'PortSwigger Academy',   url: 'https://portswigger.net/web-security',                            icon: '🔓' },
+        { name: 'PayloadsAllTheThings',  url: 'https://github.com/swisskyrepo/PayloadsAllTheThings',             icon: '📦' },
+        { name: 'Chisel',                url: 'https://github.com/jpillora/chisel',                              icon: '⛏' },
+        { name: 'RevShells.com',         url: 'https://www.revshells.com/',                                     icon: '🐚' },
+        { name: 'Exploit-DB',            url: 'https://www.exploit-db.com/',                                    icon: '💥' },
+        { name: 'BurpSuite Community',   url: 'https://portswigger.net/burp/communitydownload',                  icon: '🕷' },
+        { name: 'GTFOBins',             url: 'https://gtfobins.github.io/',                                    icon: '⬆' },
+    ];
+
+    const ARSENAL_UTILITIES = [
+        { name: 'CyberChef',            url: 'https://gchq.github.io/CyberChef/',                               icon: '🔗' },
+    ];
+
+    function renderToolButton(t) {
+        return `<button onclick="launchTool('${t.id}')"
+            class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
+            <span class="text-neon/70 group-hover:text-neon">#</span>
+            <span class="text-gray-400 group-hover:text-gray-200">${t.name}</span>
+            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">${t.desc}</span>
+        </button>`;
+    }
+
+    function renderLinkButton(l) {
+        return `<a href="${l.url}" target="_blank" rel="noopener"
+            class="tool-btn flex items-center gap-2 w-full bg-deep/50 hover:bg-deep px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-cyber/40 group">
+            <span class="text-cyber/70 group-hover:text-cyber">${l.icon}</span>
+            <span class="text-gray-400 group-hover:text-gray-200">${l.name}</span>
+            <span class="ml-auto text-[8px] text-gray-700">↗</span>
+        </a>`;
+    }
+
+    function renderArsenal() {
+        ARSENAL_GROUPS.forEach(g => {
+            const container = document.getElementById(`arsenal-${g.id}`);
+            if (container) container.innerHTML = g.tools.map(renderToolButton).join('');
+        });
+        const resContainer = document.getElementById('arsenal-resources');
+        if (resContainer) resContainer.innerHTML = ARSENAL_LINKS.map(renderLinkButton).join('');
+        const utilContainer = document.getElementById('arsenal-utilities');
+        if (utilContainer) utilContainer.innerHTML = ARSENAL_UTILITIES.map(renderLinkButton).join('');
+        const totalItems = ARSENAL_GROUPS.reduce((s, g) => s + g.tools.length, 0) + ARSENAL_LINKS.length + ARSENAL_UTILITIES.length;
+        const totalSpan = document.getElementById('arsenal-total-count');
+        if (totalSpan) totalSpan.textContent = `[${totalItems}]`;
+        const toolCountSpan = document.getElementById('tool-count');
+        if (toolCountSpan) toolCountSpan.textContent = totalItems;
+    }
+
+    function getLineCount(text) {
+        return (text.match(/\n/g) || []).length + 1 + ' lines';
+    }
+
+    function ensureConnected() {
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+            appendOutput('[!] Connect to Kali first.');
+            return false;
+        }
+        return true;
+    }
 
     // ============================================================
     //  🔍 FILTER ARSENAL
@@ -986,18 +1135,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const btn = e.target.closest('[onclick*=\"launchTool\"]');
         if (btn) {
             const match = btn.getAttribute('onclick').match(/launchTool\('(\w+)'\)/);
-            if (match) {
-                const toolId = match[1];
-                const exampleText = document.getElementById('extra-flags-example-text');
-                const exampleDiv = document.getElementById('extra-flags-example');
-                const hint = document.getElementById('extra-flags-hint');
-                const ex = toolExamples[toolId];
-                if (ex) {
-                    exampleText.textContent = ex;
-                    exampleDiv.classList.remove('hidden');
-                    hint.textContent = toolId;
-                }
-            }
+            if (match) updateExtraFlagsHint(match[1]);
         }
     });
 
@@ -1166,17 +1304,13 @@ echo "[+] Payload generated: rev_shell.\$TYPE"
         if (tmpl) {
             scriptEditor.value = tmpl.content;
             document.getElementById('script-lang').textContent = tmpl.lang;
-            document.getElementById('script-line-count').textContent =
-                tmpl.content.split('\n').length + ' lines';
+            document.getElementById('script-line-count').textContent = getLineCount(tmpl.content);
             if (!scriptName.value) scriptName.value = name + '.sh';
         }
     };
 
     window.deployScript = function () {
-        if (!ws || ws.readyState !== WebSocket.OPEN) {
-            appendOutput('[!] Connect to Kali first.');
-            return;
-        }
+        if (!ensureConnected()) return;
 
         const content = scriptEditor.value.trim();
         const name = scriptName.value.trim() || 'payload.sh';
@@ -1250,7 +1384,7 @@ echo "[+] Payload generated: rev_shell.\$TYPE"
             const s = savedScripts[idx];
             scriptEditor.value = s.content;
             scriptName.value = s.name;
-            document.getElementById('script-line-count').textContent = s.content.split('\n').length + ' lines';
+            document.getElementById('script-line-count').textContent = getLineCount(s.content);
             document.getElementById('script-status').textContent = `📂 loaded "${s.name}"`;
             showToast(`📂 Loaded "${s.name}"`);
         }
@@ -1258,8 +1392,7 @@ echo "[+] Payload generated: rev_shell.\$TYPE"
 
     // Update line count on edit
     scriptEditor.addEventListener('input', () => {
-        document.getElementById('script-line-count').textContent =
-            (scriptEditor.value.match(/\n/g) || []).length + 1 + ' lines';
+        document.getElementById('script-line-count').textContent = getLineCount(scriptEditor.value);
     });
 
     // ============================================================
@@ -1851,8 +1984,7 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         const hak5Editor = document.getElementById('hak5-editor');
         if (hak5Editor) {
             hak5Editor.addEventListener('input', () => {
-                document.getElementById('hak5-line-count').textContent =
-                    (hak5Editor.value.match(/\n/g) || []).length + 1 + ' lines';
+                document.getElementById('hak5-line-count').textContent = getLineCount(hak5Editor.value);
             });
         }
         updateHak5SavedCount();
@@ -2288,5 +2420,6 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
     loadConnections();
     loadSavedScripts();
     loadAIConfig();
+    renderArsenal();
     window.appendBanner();
 });
