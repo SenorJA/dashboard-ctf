@@ -1,6 +1,12 @@
 """
 VulnForge — Backend Server
 FastAPI + WebSocket + Paramiko (Dynamic SSH)
+
+STARTUP:
+  From project root:    uvicorn backend.main:app --reload
+  OR:                   python run.py
+  From backend/:        python main.py
+  OR:                   uvicorn main:app --reload
 """
 
 import json
@@ -202,3 +208,28 @@ async def websocket_endpoint(websocket: WebSocket):
             ssh.close()
         except:
             pass
+
+
+# ════════════════════════════════════════════════════════════════
+#  Direct execution: python main.py   or   python backend/main.py
+# ════════════════════════════════════════════════════════════════
+if __name__ == "__main__":
+    import uvicorn
+
+    # Detect where we're running from to build the correct module path
+    this_dir = os.path.basename(os.path.dirname(os.path.abspath(__file__)))
+    cwd_dir = os.path.basename(os.path.abspath(os.getcwd()))
+
+    if cwd_dir == "backend":
+        # We're inside backend/ — use relative module name
+        app_str = "main:app"
+        print("[*] Running from backend/ directory — using 'main:app'")
+    else:
+        # We're at project root or elsewhere — use fully qualified name
+        app_str = "backend.main:app"
+
+    print("=" * 50)
+    print("  VulnForge — Red Team Dashboard")
+    print(f"  -> http://localhost:8000")
+    print("=" * 50)
+    uvicorn.run(app_str, host="0.0.0.0", port=8000, reload=True)
