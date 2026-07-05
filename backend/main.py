@@ -5,9 +5,16 @@ FastAPI + WebSocket + Paramiko (Dynamic SSH)
 
 import json
 import os
+import sys
 import asyncio
 import urllib.request
 import urllib.error
+
+# ── Fix path: allow import from project root even when run from backend/ ──
+_project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _project_root not in sys.path:
+    sys.path.insert(0, _project_root)
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
