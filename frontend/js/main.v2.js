@@ -10,6 +10,33 @@ let ws;
 document.addEventListener('DOMContentLoaded', () => {
 
     // ============================================================
+    //  DATA SERVICE — check DB status
+    // ============================================================
+    const dbDot = document.getElementById('db-status-dot');
+    const dbText = document.getElementById('db-status-text');
+    function updateDbStatus(available) {
+        if (!dbDot || !dbText) return;
+        if (available) {
+            dbDot.className = 'inline-block w-1.5 h-1.5 rounded-full bg-neon';
+            dbText.textContent = 'DB: Supabase ✓';
+            dbText.className = 'tracking-wider text-neon/70';
+        } else {
+            dbDot.className = 'inline-block w-1.5 h-1.5 rounded-full bg-gray-800';
+            dbText.textContent = 'DB: localStorage';
+            dbText.className = 'tracking-wider text-gray-800';
+        }
+    }
+    // Poll DataService until ready
+    const _dbCheck = setInterval(() => {
+        if (DataService._ready) {
+            updateDbStatus(DataService.available);
+            clearInterval(_dbCheck);
+        }
+    }, 100);
+    // Timeout after 5s
+    setTimeout(() => { clearInterval(_dbCheck); }, 5000);
+
+    // ============================================================
     //  REFERENCIAS DOM
     // ============================================================
     const output          = document.getElementById('terminal-output');
@@ -48,7 +75,53 @@ document.addEventListener('DOMContentLoaded', () => {
         report.timestamp = new Date().toLocaleTimeString();
         reports.unshift(report); // newest first
         renderReports();
+
+        // Persist to Supabase if available
+        if (DataService && DataService.available) {
+            DataService.saveReport({
+                type: report.type || 'manual',
+                title: `${report.type || 'scan'} — ${report.target || 'unknown'}`,
+                target: report.target || '',
+                raw_output: report.raw || '',
+                parsed_data: report.parsed_data || report.ports || report.dirs || {},
+                format: 'md'
+            }).then(saved => {
+                if (saved && saved.id) report.db_id = saved.id;
+            }).catch(() => {});
+        }
     }
+
+    // Load reports from Supabase on startup
+    async function loadReportsFromDB() {
+        if (!DataService || !DataService.available) return;
+        try {
+            const remote = await DataService.listReports();
+            if (remote && remote.length > 0) {
+                // Merge: remote reports first (newest), then local
+                const existingIds = new Set(reports.map(r => r.db_id));
+                for (const r of remote) {
+                    if (!existingIds.has(r.id)) {
+                        reports.push({
+                            id: Date.now() + Math.random(),
+                            db_id: r.id,
+                            type: r.type,
+                            target: r.target,
+                            raw: r.raw_output,
+                            parsed_data: r.parsed_data,
+                            ports: r.parsed_data?.ports,
+                            dirs: r.parsed_data?.dirs,
+                            timestamp: new Date(r.created_at).toLocaleTimeString()
+                        });
+                    }
+                }
+                renderReports();
+            }
+        } catch (e) {
+            console.warn('Failed to load reports from DB:', e);
+        }
+    }
+    // Load after a short delay (give DataService time to init)
+    setTimeout(loadReportsFromDB, 1500);
 
     function renderReports() {
         const container = document.getElementById('reports-container');
@@ -249,36 +322,56 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // ── File Upload to Kali ──
-    window.handleFileUpload = function (input) {
+    window.handleFileUpload = async function (input) {
         const file = input.files && input.files[0];
         if (!file) return;
         const status = document.getElementById('file-upload-status');
         status.textContent = `📄 ${file.name} (${(file.size / 1024).toFixed(1)} KB)...`;
 
-        const reader = new FileReader();
-        reader.onload = function (e) {
-            const content = e.target.result;
-            const filename = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-            // Use heredoc with single-quoted delimiter so no escaping is needed
-            const cmd = `cat > /tmp/${filename} << 'VULNFORGE_EOF'\n${content}\nVULNFORGE_EOF`;
-            appendOutput(`\n▶ Uploading "${file.name}" to /tmp/${filename}...`);
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(cmd);
-                status.textContent = `✅ ${file.name} uploaded to /tmp/`;
-                showToast(`📁 Uploaded ${file.name} to Kali`);
+        // Try Supabase Storage first (if available)
+        if (DataService && DataService.available) {
+            status.textContent = `⬆ Uploading to cloud storage...`;
+            showToast('⬆ Uploading to Supabase Storage...');
+            const result = await DataService.uploadFile(file);
+            if (result && result.public_url) {
+                status.textContent = `✅ ${file.name} → cloud (${(file.size / 1024).toFixed(1)} KB)`;
+                appendOutput(`\n▶ Uploaded to cloud: ${result.public_url}`);
+                input.value = '';
+                return;
             } else {
-                // No SSH — just show in terminal
-                appendOutput(`[!] Not connected to Kali. Content shown below:\n${'-'.repeat(40)}\n${content}\n${'-'.repeat(40)}`);
-                status.textContent = `⚠️  Offline — shown in terminal`;
+                status.textContent = `⚠️ Cloud upload failed, trying SSH...`;
             }
-            // Reset input so same file can be re-uploaded
+        }
+
+        // Fallback: SSH upload to Kali
+        if (file.type && file.type.startsWith('text/')) {
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const content = e.target.result;
+                const filename = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+                const cmd = `cat > /tmp/${filename} << 'VULNFORGE_EOF'\n${content}\nVULNFORGE_EOF`;
+                appendOutput(`\n▶ Uploading "${file.name}" to /tmp/${filename}...`);
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(cmd);
+                    status.textContent = `✅ ${file.name} uploaded to Kali:/tmp/`;
+                    showToast(`📁 Uploaded ${file.name} to Kali`);
+                } else {
+                    appendOutput(`[!] Not connected. Content below:\n${'-'.repeat(40)}\n${content}\n${'-'.repeat(40)}`);
+                    status.textContent = `⚠️ Offline — shown in terminal`;
+                }
+                input.value = '';
+            };
+            reader.onerror = function () {
+                status.textContent = '⚠️ Error reading file';
+                input.value = '';
+            };
+            reader.readAsText(file);
+        } else {
+            // Binary file, can't send via SSH heredoc
+            status.textContent = `⚠️ Binary file — use cloud upload or SCP`;
+            appendOutput(`[!] Binary files (${file.type}) can't be uploaded via SSH terminal. Use Supabase Storage or SCP.`);
             input.value = '';
-        };
-        reader.onerror = function () {
-            status.textContent = '⚠️ Error reading file';
-            input.value = '';
-        };
-        reader.readAsText(file);
+        }
     };
 
     window.appendBanner = function () {
@@ -1352,10 +1445,34 @@ ${fix || 'Apply appropriate security patches and input validation.'}
                 downloadString(html, `${safeName}-${date}.html`, 'text/html');
                 break;
             }
-            case 'pdf': {
+            case 'pdf':
+            case 'client-pdf': {
                 const html = buildExportHTML(content, title, type);
                 openPDFPreview(html, `${title} — ${date}`);
                 break;
+            }
+            case 'pdf-server':
+            case 'server-pdf': {
+                // Try server-side PDF generation
+                if (DataService && DataService.available) {
+                    showToast('⚙ Generating PDF on server...');
+                    DataService.generatePdf(content, title).then(blob => {
+                        if (blob) {
+                            DataService.downloadBlob(blob, `${safeName}-${date}.pdf`);
+                            showToast('⬇ Server PDF generated');
+                        } else {
+                            showToast('⚠️ Server PDF failed, using client-side');
+                            const html = buildExportHTML(content, title, type);
+                            openPDFPreview(html, `${title} — ${date}`);
+                        }
+                    });
+                } else {
+                    // Fallback to client-side
+                    showToast('⚠️ DB not available, using client-side PDF');
+                    const html = buildExportHTML(content, title, type);
+                    openPDFPreview(html, `${title} — ${date}`);
+                }
+                return; // async, toast handled inside
             }
         }
         showToast(`⬇ ${format.toUpperCase()} exported`);

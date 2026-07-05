@@ -2,3 +2,7 @@ fastapi
 uvicorn
 websockets
 paramiko
+supabase
+reportlab
+python-dotenv
+python-multipart
