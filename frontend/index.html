@@ -308,6 +308,9 @@
                 <button class="tab-btn" onclick="switchTab('automation')">
                     ⚙ Automation
                 </button>
+                <button class="tab-btn" onclick="switchTab('findings')">
+                    🎯 Findings <span id="findings-count" class="text-[9px] text-amber-400 ml-1">(0)</span>
+                </button>
             </div>
 
             <!-- ════════════════════════════════════════════════════════
@@ -346,7 +349,8 @@
                         <span id="terminal-title" class="text-[10px] text-gray-700 tracking-wider ml-2 font-mono">
                             ─╼ root@vulnforge ╾─────────────────────────────────────
                         </span>
-                        <span id="conn-badge" class="ml-auto text-[9px] text-gray-700">disconnected</span>
+                        <span id="conn-badge" class="text-[9px] text-gray-700">disconnected</span>
+                        <span id="fdbg" class="ml-2 text-[9px] text-yellow-700"></span>
                     </div>
                     <pre id="terminal-output"
                         class="terminal flex-1 overflow-y-auto text-xs text-neon/90 whitespace-pre-wrap leading-relaxed px-3 py-2 cursor-blink"></pre>
@@ -887,6 +891,48 @@
                         class="bg-deep border border-gray-800 rounded p-3 font-mono text-[10px] leading-relaxed text-gray-600"
                         style="min-height: 200px; max-height: 400px; overflow-y: auto; white-space: pre-wrap;">
                         <span class="text-gray-700">[—] No scans triggered yet. Configure your n8n URL and click "Trigger Scan".</span>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- ════════════════════════════════════════════════════════
+                 TAB: FINDINGS
+                 ════════════════════════════════════════════════════════ -->
+            <div id="tab-findings" class="tab-pane p-4 pt-3 overflow-y-auto">
+
+                <!-- ── Toolbar ── -->
+                <div class="flex items-center gap-2 mb-3 flex-shrink-0">
+                    <span class="text-[10px] text-gray-600 uppercase tracking-wider">🎯 Findings</span>
+                    <select id="findings-format"
+                        class="bg-void border border-gray-800 rounded px-2 py-1 text-[10px] text-gray-300 focus:outline-none focus:border-neon/50 font-mono">
+                        <option value="txt">.txt</option>
+                        <option value="md">.md</option>
+                        <option value="html">.html</option>
+                        <option value="pdf">📄 PDF</option>
+                    </select>
+                    <button onclick="clearFindings()" class="bg-blood/10 hover:bg-blood/20 text-blood border border-blood/30 px-3 py-1 rounded text-[10px] transition-all">
+                        ✕ Clear all
+                    </button>
+                    <button onclick="exportFindings()" class="bg-neon/10 hover:bg-neon/20 text-neon border border-neon/30 px-3 py-1 rounded text-[10px] transition-all">
+                        📥 Export
+                    </button>
+                </div>
+
+                <!-- ── Severity filters ── -->
+                <div class="flex gap-2 mb-3 flex-wrap" id="findings-filters">
+                    <button class="finding-filter active text-[10px] px-2.5 py-1 rounded border transition-all" data-severity="all" style="border-color:#333;color:#888;">All</button>
+                    <button class="finding-filter text-[10px] px-2.5 py-1 rounded border transition-all" data-severity="critical" style="border-color:#7f1d1d;color:#f87171;">🔴 Critical</button>
+                    <button class="finding-filter text-[10px] px-2.5 py-1 rounded border transition-all" data-severity="high" style="border-color:#7f1d1d;color:#fb923c;">🟠 High</button>
+                    <button class="finding-filter text-[10px] px-2.5 py-1 rounded border transition-all" data-severity="medium" style="border-color:#713f12;color:#facc15;">🟡 Medium</button>
+                    <button class="finding-filter text-[10px] px-2.5 py-1 rounded border transition-all" data-severity="low" style="border-color:#1e3a5f;color:#60a5fa;">🔵 Low</button>
+                    <button class="finding-filter text-[10px] px-2.5 py-1 rounded border transition-all" data-severity="info" style="border-color:#1e3a5f;color:#94a3b8;">ℹ️ Info</button>
+                </div>
+
+                <!-- ── Findings list ── -->
+                <div id="findings-list" class="space-y-2">
+                    <div class="text-center text-[11px] text-gray-700 py-8" id="findings-empty">
+                        No findings yet. Run a scan (nmap, gobuster, nikto, etc.) from the Arsenal and results will appear here.
                     </div>
                 </div>
 

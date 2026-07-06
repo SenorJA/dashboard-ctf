@@ -67,6 +67,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let reports = [];
     let currentToolRunning = null;   // tool ID currently being run
     let outputBuffer = '';           // accumulated output for parsing
+    let pendingTool = null;          // tool pending prompt-based parsing (survives timer expiry)
+    let _toolParsed = false;         // true once finishToolOutput has run for this tool
 
     window.reports = reports; // expose for debugging
 
@@ -277,18 +279,538 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ============================================================
+    //  FINDINGS SYSTEM (T3MP3ST-style)
+    // ============================================================
+    const findings = [];
+
+    // Severity helpers
+    function severityColor(sev) {
+        const map = { critical: '#f87171', high: '#fb923c', medium: '#facc15', low: '#60a5fa', info: '#94a3b8' };
+        return map[sev] || '#666';
+    }
+    function severityBg(sev) {
+        const map = { critical: '#1a0a0a', high: '#1a0f0a', medium: '#1a180a', low: '#0a0f1a', info: '#0a0a0a' };
+        return map[sev] || '#0a0a0a';
+    }
+    function severityBadge(sev) {
+        const map = { critical: 'CRITICAL', high: 'HIGH', medium: 'MEDIUM', low: 'LOW', info: 'INFO' };
+        return map[sev] || 'UNKNOWN';
+    }
+
+    // Assign severity based on finding type and data
+    function assignSeverity(finding) {
+        // Port-based
+        if (finding.port === '22') return 'low';
+        if (finding.port === '80' || finding.port === '443') return 'info';
+        if (['21', '23', '3389', '5900', '5901'].includes(finding.port)) return 'medium';
+        if (finding.port === '445' || finding.port === '139') return 'high';
+
+        // Service-based
+        if (finding.service && /mysql|postgresql|redis|elastic|mongodb/i.test(finding.service)) return 'high';
+        if (finding.service && /apache|nginx|iis|http/i.test(finding.service) && !finding.version) return 'low';
+        if (finding.service && /apache|nginx|iis|http/i.test(finding.service) && finding.version) return 'medium';
+
+        // Directory-based
+        if (finding.status === 200 || finding.status === 201 || finding.status === 204) return 'medium';
+        if (finding.status === 301 || finding.status === 302 || finding.status === 307) return 'low';
+        if (finding.status === 401 || finding.status === 403) return 'info';
+        if (finding.status === 500) return 'critical';
+
+        // Vulnerability-based
+        if (finding.type === 'vuln') return 'critical';
+        if (finding.type === 'tech') return 'info';
+
+        return 'info';
+    }
+
+    // ── Parsers ──
+
+    function parseNmapFindings(text, target) {
+        const items = [];
+        const portRegex = /(\d+)\/(tcp|udp)\s+open\s+(\S+)(?:\s+(.+))?/gi;
+        let match;
+        while ((match = portRegex.exec(text)) !== null) {
+            const finding = {
+                id: Date.now() + Math.random(),
+                tool: 'nmap',
+                target,
+                type: 'port',
+                port: match[1],
+                protocol: match[2],
+                service: match[3] || '?',
+                version: (match[4] || '').trim(),
+                raw: match[0]
+            };
+            finding.severity = assignSeverity(finding);
+            items.push(finding);
+        }
+
+        // OS detection as finding
+        const osMatch = text.match(/OS details:\s*(.+)/i);
+        if (osMatch) {
+            items.push({
+                id: Date.now() + Math.random(),
+                tool: 'nmap',
+                target,
+                type: 'os',
+                severity: 'info',
+                title: 'OS Detected',
+                detail: osMatch[1].trim()
+            });
+        }
+
+        return items;
+    }
+
+    function parseGobusterFindings(text, target) {
+        const items = [];
+        const dirRegex = /(?:^|\n)\/(\S+)\s+\(Status:\s*(\d+)\)/g;
+        let match;
+        while ((match = dirRegex.exec(text)) !== null) {
+            const finding = {
+                id: Date.now() + Math.random(),
+                tool: 'gobuster',
+                target,
+                type: 'directory',
+                path: '/' + match[1],
+                status: parseInt(match[2]),
+                severity: assignSeverity({ status: parseInt(match[2]) })
+            };
+            items.push(finding);
+        }
+
+        // Also match "Found: /path (Status: 200)" format
+        const dirRegex2 = /Found:\s+(\/\S+)\s+\(Status:\s*(\d+)\)/g;
+        while ((match = dirRegex2.exec(text)) !== null) {
+            if (!items.some(d => d.path === match[1])) {
+                items.push({
+                    id: Date.now() + Math.random(),
+                    tool: 'gobuster',
+                    target,
+                    type: 'directory',
+                    path: match[1],
+                    status: parseInt(match[2]),
+                    severity: assignSeverity({ status: parseInt(match[2]) })
+                });
+            }
+        }
+
+        return items;
+    }
+
+    function parseNiktoFindings(text, target) {
+        const items = [];
+        // Nikto: + /path: description
+        const vulnRegex = /^\+\s+(\/\S+)?\s*:\s*(.+)$/gm;
+        let match;
+        while ((match = vulnRegex.exec(text)) !== null) {
+            const desc = match[2].trim();
+            const finding = {
+                id: Date.now() + Math.random(),
+                tool: 'nikto',
+                target,
+                type: 'vuln',
+                path: match[1] || '/',
+                title: desc.substring(0, 80),
+                detail: desc,
+                severity: assignSeverity({ type: 'vuln' })
+            };
+            // Adjust severity based on keywords
+            if (/allows|bypass|exec|overflow|remote|critical|high/i.test(desc)) finding.severity = 'critical';
+            else if (/xss|sqli|path|disclosure|injection/i.test(desc)) finding.severity = 'high';
+            else if (/info|version|fingerprint/i.test(desc)) finding.severity = 'info';
+            items.push(finding);
+        }
+        return items;
+    }
+
+    function parseWhatwebFindings(text, target) {
+        const items = [];
+        const seen = new Set(); // dedup by normalized key:val
+        // whatweb output format: URL [HTTP_CODE] Key[value], Key2[value2]...
+        // Approach: find lines containing URLs, then extract all Key[value] pairs
+        const urlLineRegex = /^(https?:\/\/\S+)\s+(.+)$/gm;
+        let urlMatch;
+        while ((urlMatch = urlLineRegex.exec(text)) !== null) {
+            const url = urlMatch[1];
+            const rest = urlMatch[2];
+            // Extract all [value] or Key[value] patterns from the rest
+            const bracketRegex = /(\w[\w-]*)?\[([^\]]+)\]/g;
+            let bm;
+            while ((bm = bracketRegex.exec(rest)) !== null) {
+                const key = bm[1] || '';  // optional key before brackets
+                const rawValue = bm[2];    // content inside brackets
+                // Split comma-separated values inside single bracket group
+                // e.g. "arc-geo,astz,hpage" -> three separate items
+                const values = rawValue.split(',').map(v => v.trim()).filter(v => v.length > 0);
+                for (const val of values) {
+                    // Skip numeric IPs, short codes, numeric status codes
+                    if (/^\d+$/.test(val) && val.length < 5) continue;
+                    if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(val)) continue;
+                    if (/^\w{2,3}$/.test(val) && val === val.toUpperCase()) continue; // country codes
+        
+                    // Dedup: same (key, val) across multiple URLs
+                    const dedupKey = key + ':' + val;
+                    if (seen.has(dedupKey)) continue;
+                    seen.add(dedupKey);
+        
+                    const finding = {
+                        id: Date.now() + Math.random(),
+                        tool: 'whatweb',
+                        target,
+                        type: 'tech',
+                        title: key ? `${key} → ${val}` : val,
+                        detail: `${key ? key + ': ' : ''}${val}`,
+                        severity: 'info'
+                    };
+                    // Flag known vuln versions
+                    if (/Apache 2\.4\.49/i.test(val) || /Apache 2\.4\.50/i.test(val)) finding.severity = 'critical';
+                    else if (/PHP\s*5/i.test(val) || /IIS\s*6/i.test(val)) finding.severity = 'high';
+                    else if (/nginx\s*1\.\d+\.\d+/i.test(val)) finding.severity = 'medium';
+                    items.push(finding);
+                }
+            }
+        }
+        return items;
+    }
+
+    function parseFfufFindings(text, target) {
+        const items = [];
+        // ffuf: /path [Status: 200, Size: 123]
+        const ffufRegex = /(\/\S+)\s+\[Status:\s*(\d+)/g;
+        let match;
+        while ((match = ffufRegex.exec(text)) !== null) {
+            const finding = {
+                id: Date.now() + Math.random(),
+                tool: 'ffuf',
+                target,
+                type: 'directory',
+                path: match[1],
+                status: parseInt(match[2]),
+                severity: assignSeverity({ status: parseInt(match[2]) })
+            };
+            items.push(finding);
+        }
+        return items;
+    }
+
+    function parseWpscanFindings(text, target) {
+        const items = [];
+        // WordPress user enumeration
+        const userRegex = /\[\+\]\s*(\S+)\s*$/gm;
+        let match;
+        while ((match = userRegex.exec(text)) !== null) {
+            items.push({
+                id: Date.now() + Math.random(),
+                tool: 'wpscan',
+                target,
+                type: 'user',
+                title: 'WordPress User: ' + match[1],
+                detail: 'User found: ' + match[1],
+                severity: 'medium'
+            });
+        }
+        // Plugin detection
+        const pluginRegex = /\[\+\]\s*.*plugin.*:\s*(\S+)/gi;
+        while ((match = pluginRegex.exec(text)) !== null) {
+            items.push({
+                id: Date.now() + Math.random(),
+                tool: 'wpscan',
+                target,
+                type: 'plugin',
+                title: 'WP Plugin: ' + match[1],
+                detail: 'Plugin detected: ' + match[1],
+                severity: 'info'
+            });
+        }
+        return items;
+    }
+
+    // ── Main parse dispatcher ──
+    function parseToolOutput(tool, text, target) {
+        let items = [];
+        switch (tool) {
+            case 'nmap':      items = parseNmapFindings(text, target); break;
+            case 'gobuster':  items = parseGobusterFindings(text, target); break;
+            case 'dirb':      items = parseGobusterFindings(text, target); break;
+            case 'ffuf':      items = parseFfufFindings(text, target); break;
+            case 'nikto':     items = parseNiktoFindings(text, target); break;
+            case 'whatweb':   items = parseWhatwebFindings(text, target); break;
+            case 'wpscan':    items = parseWpscanFindings(text, target); break;
+        }
+        return items;
+    }
+
+    // ── Add findings ──
+    function addFindings(items) {
+        if (!items || items.length === 0) return;
+        for (const item of items) {
+            findings.unshift(item);
+        }
+        renderFindings();
+        updateFindingsCount();
+        // Show toast with count
+        const byTool = items[0].tool || 'scan';
+        showToast(`🎯 ${items.length} ${byTool} finding${items.length > 1 ? 's' : ''}`);
+    }
+
+    // ── Render findings cards ──
+    function renderFindings(filterSeverity) {
+        const container = document.getElementById('findings-list');
+        const empty = document.getElementById('findings-empty');
+        if (!container) return;
+
+        let list = findings;
+        if (filterSeverity && filterSeverity !== 'all') {
+            list = findings.filter(f => f.severity === filterSeverity);
+        }
+
+        if (list.length === 0) {
+            container.innerHTML = '<div class="text-center text-[11px] text-gray-700 py-8">No findings match this filter.</div>';
+            return;
+        }
+
+        container.innerHTML = list.map(f => {
+            const sev = f.severity || 'info';
+            const color = severityColor(sev);
+            const bg = severityBg(sev);
+            const badge = severityBadge(sev);
+            const icon = f.tool === 'nmap' ? '🔍' : f.tool === 'gobuster' || f.tool === 'dirb' ? '📁' :
+                         f.tool === 'ffuf' ? '🌐' : f.tool === 'nikto' ? '⚠️' :
+                         f.tool === 'whatweb' ? '🔎' : f.tool === 'wpscan' ? '📌' : '🎯';
+
+            let title = f.title || '';
+            let subtitle = '';
+
+            if (f.type === 'port') {
+                title = `${f.port}/${f.protocol} — ${f.service}`;
+                subtitle = f.version || 'no version';
+            } else if (f.type === 'directory') {
+                title = f.path;
+                subtitle = `Status: ${f.status}` + (f.status >= 400 ? ' ⚠️' : '');
+            } else if (f.type === 'vuln') {
+                title = f.title || 'Potential vulnerability';
+                subtitle = f.detail ? f.detail.substring(0, 120) : '';
+            } else if (f.type === 'tech') {
+                title = f.title;
+                subtitle = 'Technology detected';
+            } else if (f.type === 'os') {
+                title = f.detail || 'Unknown OS';
+                subtitle = 'OS Detection';
+            } else if (f.type === 'user' || f.type === 'plugin') {
+                subtitle = f.type === 'user' ? 'User enumeration' : 'Plugin detected';
+            } else if (f.detail) {
+                // Fallback for any type with detail (generic findings)
+                subtitle = f.detail.substring(0, 150);
+            }
+
+            return `
+                <div class="finding-card rounded-lg border p-2.5 transition-all hover:brightness-110" 
+                     style="border-color:${color}33; background:${bg};"
+                     data-severity="${sev}">
+                    <div class="flex items-start gap-2">
+                        <span class="text-[14px] mt-0.5">${icon}</span>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2">
+                                <span class="text-[11px] font-semibold truncate" style="color:${color}">${title}</span>
+                                <span class="text-[8px] px-1.5 py-0.5 rounded font-bold tracking-wider" 
+                                      style="background:${color}22; color:${color}">${badge}</span>
+                            </div>
+                            <div class="text-[10px] text-gray-600 mt-0.5 truncate">${subtitle}</div>
+                            <div class="flex items-center gap-2 mt-1 text-[8px] text-gray-700">
+                                <span>${f.tool}</span>
+                                <span>·</span>
+                                <span>${f.target}</span>
+                                <span class="ml-auto">${f.id ? f.id.toString().slice(-6) : ''}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function updateFindingsCount() {
+        const el = document.getElementById('findings-count');
+        if (el) el.textContent = `(${findings.length})`;
+    }
+
+    // ── Clear findings ──
+    window.clearFindings = function () {
+        findings.length = 0;
+        renderFindings();
+        updateFindingsCount();
+        showToast('🗑️ Findings cleared');
+    };
+
+    // ── Export findings ──
+    window.exportFindings = function () {
+        if (findings.length === 0) {
+            showToast('No findings to export');
+            return;
+        }
+        const format = (document.getElementById('findings-format') || { value: 'txt' }).value;
+        const date = new Date().toISOString().split('T')[0];
+        const safeName = `findings-${date}`;
+
+        let content;
+        switch (format) {
+            case 'md': {
+                content = `# Findings Report\n\n`;
+                content += `**Date:** ${new Date().toISOString()}\n`;
+                content += `**Total findings:** ${findings.length}\n\n`;
+                content += `| Severity | Tool | Target | Finding |\n`;
+                content += `|----------|------|--------|--------|\n`;
+                for (const f of findings) {
+                    const sev = severityBadge(f.severity);
+                    const title = f.title || f.path || `${f.port}/${f.protocol} ${f.service}` || f.detail || '';
+                    content += `| ${sev} | ${f.tool} | ${f.target} | ${title} |\n`;
+                }
+                downloadString(content, `${safeName}.md`, 'text/markdown');
+                showToast('⬇ MD exported');
+                break;
+            }
+            case 'txt': {
+                content = `═══════════════════════════════════════════\n`;
+                content += `  FINDINGS REPORT\n`;
+                content += `  Date: ${new Date().toISOString()}\n`;
+                content += `  Total: ${findings.length}\n`;
+                content += `═══════════════════════════════════════════\n\n`;
+                for (const f of findings) {
+                    const sev = f.severity.toUpperCase().padEnd(8);
+                    const tool = (f.tool || '?').padEnd(10);
+                    const title = f.title || f.path || `${f.port}/${f.protocol} ${f.service}` || f.detail || '';
+                    content += `[${sev}] [${tool}] ${f.target}  ${title}\n`;
+                }
+                content += `\n──  End of report  ──\n`;
+                downloadString(content, `${safeName}.txt`, 'text/plain');
+                showToast('⬇ TXT exported');
+                break;
+            }
+            case 'html':
+            case 'pdf': {
+                let htmlContent = `# Findings Report\n\n`;
+                htmlContent += `**Date:** ${new Date().toISOString()}\n`;
+                htmlContent += `**Total findings:** ${findings.length}\n\n`;
+                htmlContent += `| Severity | Tool | Target | Finding |\n`;
+                htmlContent += `|----------|------|--------|--------|\n`;
+                for (const f of findings) {
+                    const sev = severityBadge(f.severity);
+                    const title = f.title || f.path || `${f.port}/${f.protocol} ${f.service}` || f.detail || '';
+                    htmlContent += `| ${sev} | ${f.tool} | ${f.target} | ${title} |\n`;
+                }
+                if (format === 'html') {
+                    const html = buildExportHTML(htmlContent, 'Findings Report', 'findings');
+                    downloadString(html, `${safeName}.html`, 'text/html');
+                    showToast('⬇ HTML exported');
+                } else {
+                    const html = buildExportHTML(htmlContent, 'Findings Report', 'findings');
+                    openPDFPreview(html, `Findings Report — ${date}`);
+                }
+                break;
+            }
+        }
+    };
+
+    // ── Findings filter click handler ──
+    document.addEventListener('click', (e) => {
+        const btn = e.target.closest('.finding-filter');
+        if (!btn) return;
+        document.querySelectorAll('.finding-filter').forEach(b => {
+            b.style.background = 'transparent';
+            b.style.color = '#888';
+        });
+        btn.style.background = '#ffffff0a';
+        btn.style.color = '#fff';
+        renderFindings(btn.dataset.severity);
+    });
+
+    // ============================================================
     //  SALIDA EN TERMINAL
     // ============================================================
-    window.appendOutput = function (text) {
-        output.textContent += text + (text.endsWith('\n') ? '' : '\n');
+    // Strip ANSI escape codes (colours, cursor moves, title sequences)
+    function stripANSI(s) {
+        return s
+            .replace(/\x1b\[[\d;?]*[a-zA-Z]/g, '')   // CSI (colours, cursor, DEC private)
+            .replace(/\x1b\][^\x07]*\x07/g, '')       // OSC (window title)
+            .replace(/\x1b./g, '')                    // any remaining ESC + 1 char (ESC =, >, (, ), etc.)
+            .replace(/[\uE000-\uF8FF\u200B-\u200F\u2028-\u202F]/g, ''); // Nerd Font icons (PUA) + zero-width chars
+    }
 
-        // Buffer for report parsing (collect up to 100KB)
-        if (currentToolRunning) {
-            outputBuffer += text + '\n';
-            if (outputBuffer.length > 100000) {
-                // Force parse if buffer gets too large
-                finishToolOutput();
+    // ── Command history (client-side) ──
+    const cmdHistory = [];
+    let cmdHistoryIdx = -1;
+    const CMD_HISTORY_MAX = 100;
+
+    window.sendCommand = function () {
+        if (!ensureConnected()) return;
+        const cmd = cmdInput.value.trim();
+        if (!cmd) return;
+        ws.send(cmd);
+        // Store in history (avoid dupes)
+        if (cmdHistory.length === 0 || cmdHistory[cmdHistory.length - 1] !== cmd) {
+            cmdHistory.push(cmd);
+            if (cmdHistory.length > CMD_HISTORY_MAX) cmdHistory.shift();
+        }
+        cmdHistoryIdx = cmdHistory.length; // reset index to end
+        cmdInput.value = '';
+    };
+
+    // Arrow up/down → navigate history
+    cmdInput.addEventListener('keydown', (event) => {
+        if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            if (cmdHistoryIdx > 0) {
+                cmdHistoryIdx--;
+                cmdInput.value = cmdHistory[cmdHistoryIdx];
             }
+        } else if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            if (cmdHistoryIdx < cmdHistory.length - 1) {
+                cmdHistoryIdx++;
+                cmdInput.value = cmdHistory[cmdHistoryIdx];
+            } else {
+                cmdHistoryIdx = cmdHistory.length;
+                cmdInput.value = '';
+            }
+        }
+    });
+
+    window.appendOutput = function (text) {
+        text = stripANSI(text);
+
+        // Normalize CRLF → LF first (shell uses \r\n for line breaks)
+        text = text.replace(/\r\n/g, '\n');
+
+        // Handle standalone \r (progress updates like apt: "0%\r100%\r")
+        if (text.includes('\r')) {
+            const parts = text.split('\r');
+            for (const part of parts) {
+                if (part === '') continue;
+                const lastNewline = output.textContent.lastIndexOf('\n');
+                if (lastNewline === -1) {
+                    output.textContent = part;
+                } else {
+                    output.textContent = output.textContent.substring(0, lastNewline + 1) + part;
+                }
+            }
+        } else {
+            output.textContent += text + (text.endsWith('\n') ? '' : '\n');
+        }
+
+        // Buffer for findings parsing (ALWAYS accumulate, regardless of currentToolRunning)
+        outputBuffer += text + '\n';
+        if (outputBuffer.length > 100000) {
+            outputBuffer = outputBuffer.slice(-50000);
+        }
+
+        // Detect prompt → trigger tool completion parser
+        // Prompt format: "... with javi@kali  at HH:MM:SS  "
+        if ((currentToolRunning || pendingTool) && /with\s+\S+\s+at\s+\d{1,2}:\d{2}:\d{2}/.test(text)) {
+            clearTimeout(window._toolFinishTimer);
+            window._toolTimerLongSet = false;
+            finishToolOutput();
+            pendingTool = null; // only cleared when prompt is actually detected
         }
 
         requestAnimationFrame(() => {
@@ -296,20 +818,38 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
+    // Click terminal output area → focus the command input
+    output.addEventListener('click', () => cmdInput.focus());
+
     // Called when we detect a tool has finished
     function finishToolOutput() {
-        if (!currentToolRunning || !outputBuffer) return;
-        const tool = currentToolRunning;
+        const tool = currentToolRunning || pendingTool;
+        if (!tool || !outputBuffer || _toolParsed) return;
         const buf = outputBuffer;
         const target = targetInput.value.trim() || 'unknown';
 
+        // Visual debug: show a badge in terminal
+        const dbg = document.getElementById('fdbg');
+        if (dbg) dbg.textContent = `⚙ parsing ${tool}...`;
+
         // Small delay to let the DOM settle
         setTimeout(() => {
+            // Legacy report parsers
             if (tool === 'nmap') parseNmapOutput(buf, target);
             else if (tool === 'gobuster') parseGobusterOutput(buf, target);
+
+            // NEW: Findings parsers (T3MP3ST-style)
+            const items = parseToolOutput(tool, buf, target);
+            if (items.length > 0) {
+                addFindings(items);
+                _toolParsed = true; // prevent duplicate parsing
+            }
+            if (dbg) dbg.textContent = `✓ ${items.length} findings (buf:${buf.length})`;
+            setTimeout(() => { if (dbg) dbg.textContent = ''; }, 4000);
         }, 100);
 
         currentToolRunning = null;
+        // pendingTool stays set until prompt is detected (cleared there)
         outputBuffer = '';
     }
 
@@ -318,6 +858,9 @@ document.addEventListener('DOMContentLoaded', () => {
         output.textContent = '';
         outputBuffer = '';
         currentToolRunning = null;
+        pendingTool = null;
+        _toolParsed = false;
+        clearTimeout(window._toolFinishTimer);
         showToast('✕ Terminal cleared');
     };
 
@@ -534,13 +1077,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 } catch {}
             }
 
-            // Check if this output signals tool completion (prompt pattern)
-            if (currentToolRunning && data.includes('~$ ') && !data.includes('▶ ')) {
-                // Tool probably finished — give it a moment then parse
-                finishToolOutput();
-            }
-
             appendOutput(data);
+
+            // Safety timer: if prompt is not detected within 30s, force-parse
+            // (so tools that don't produce a matching prompt still get findings)
+            if (currentToolRunning && !window._toolTimerLongSet) {
+                window._toolTimerLongSet = true;
+                clearTimeout(window._toolFinishTimer);
+                window._toolFinishTimer = setTimeout(() => {
+                    window._toolTimerLongSet = false;
+                    // Only parse if still running and buffer has data
+                    if ((currentToolRunning || pendingTool) && outputBuffer.length > 200) {
+                        finishToolOutput();
+                    }
+                }, 30000); // 30s safety net
+            }
         };
 
         ws.onclose = () => {
@@ -555,6 +1106,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function disconnectWS() {
+        currentToolRunning = null;
+        pendingTool = null;
+        _toolParsed = false;
+        outputBuffer = '';
+        clearTimeout(window._toolFinishTimer);
         if (ws && ws.readyState === WebSocket.OPEN) {
             appendOutput('[*] Closing connection...');
             ws.close();
@@ -564,16 +1120,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ============================================================
-    //  COMMAND SENDING
+    //  PREDEFINED COMMANDS (arsenal)
     // ============================================================
-    window.sendCommand = function () {
-        if (!ensureConnected()) return;
-        const cmd = cmdInput.value.trim();
-        if (!cmd) return;
-        ws.send(cmd);
-        cmdInput.value = '';
-    };
-
     window.sendPredefinedCmd = function (cmd) {
         if (!ensureConnected()) {
             appendOutput('[!] Connect to Kali first before launching modules.');
@@ -1112,10 +1660,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
         }
 
-        // Set current tool for report parsing
-        if (['nmap', 'gobuster'].includes(tool)) {
+        // Set current tool for report / findings parsing
+        if (['nmap', 'gobuster', 'dirb', 'ffuf', 'nikto', 'whatweb', 'wpscan', 'wfuzz', 'feroxbuster', 'cewl', 'dnsrecon', 'curl'].includes(tool)) {
             currentToolRunning = tool;
+            pendingTool = tool;      // persists until prompt is detected
+            _toolParsed = false;
             outputBuffer = '';
+            window._toolTimerLongSet = false;
+            clearTimeout(window._toolFinishTimer);
         }
 
         // Append extra flags if provided
@@ -1179,7 +1731,8 @@ document.addEventListener('DOMContentLoaded', () => {
             bounty: 3,
             aiwriteup: 4,
             hak5: 5,
-            automation: 6
+            automation: 6,
+            findings: 7
         };
         if (panes[tabName] !== undefined) {
             btns[panes[tabName]].classList.add('active');

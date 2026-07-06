@@ -537,6 +537,9 @@ async def websocket_endpoint(websocket: WebSocket):
         channel = ssh.invoke_shell(term='xterm', width=120, height=40)
         channel.setblocking(0)
 
+        # Disable Powerlevel10k fancy prompt for clean terminal output
+        channel.send("p10k disable 2>/dev/null; PROMPT='$ '; RPROMPT=''\n")
+
         # Mutable references for sharing between coroutines
         _ch = [channel]
         _ip = [ssh_ip]
@@ -582,6 +585,7 @@ async def websocket_endpoint(websocket: WebSocket):
                                 )
                                 _ch[0] = ssh.invoke_shell(term='xterm', width=120, height=40)
                                 _ch[0].setblocking(0)
+                                _ch[0].send("p10k disable 2>/dev/null; PROMPT='$ '; RPROMPT=''\n")
                                 _ip[0] = cmd.get("ip", _ip[0])
                                 _user[0] = cmd.get("user", _user[0])
                                 _pass[0] = cmd.get("pass", _pass[0])
@@ -596,8 +600,15 @@ async def websocket_endpoint(websocket: WebSocket):
                     except json.JSONDecodeError:
                         pass
 
-                    # Regular command → send to shell
-                    _ch[0].send(msg + "\n")
+                    # If sudo command and we know password, use -S to pipe it
+                    if msg.startswith("sudo ") and _pass[0]:
+                        rest = msg[5:]  # everything after "sudo "
+                        _ch[0].send(f"sudo -S {rest}\n")
+                        await asyncio.sleep(0.3)  # let sudo start reading stdin
+                        _ch[0].send(_pass[0] + "\n")
+                    else:
+                        # Regular command → send to shell
+                        _ch[0].send(msg + "\n")
             except Exception:
                 pass
             finally:

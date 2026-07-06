@@ -235,13 +235,13 @@ body::before {
 }
 
 .tab-pane {
-    display: none;
+    display: none !important;
     flex: 1;
     overflow: hidden;
 }
 
 .tab-pane.active {
-    display: flex;
+    display: flex !important;
     flex-direction: column;
 }
 
@@ -673,4 +673,23 @@ body.monochrome #ps-connect-form input {
 body.monochrome #n8n-status-badge.text-neon {
     color: var(--mono-accent) !important;
     border-color: var(--mono-accent-dim) !important;
+}
+
+/* ── Findings cards ── */
+.finding-card {
+    transition: all 0.2s ease;
+}
+.finding-card:hover {
+    transform: translateX(2px);
+}
+.finding-filter {
+    cursor: pointer;
+    user-select: none;
+}
+.finding-filter:hover {
+    opacity: 0.8;
+}
+.finding-filter.active {
+    background: rgba(255,255,255,0.04);
+    color: #ccc !important;
 }
