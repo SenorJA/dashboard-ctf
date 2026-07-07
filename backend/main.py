@@ -13,6 +13,7 @@ import json
 import os
 import sys
 import io
+import shlex
 import asyncio
 import urllib.request
 import urllib.error
@@ -549,7 +550,6 @@ async def websocket_endpoint(websocket: WebSocket):
         _port = [ssh_port]
         _user = [ssh_user]
         _pass = [ssh_pass]
-
         async def read_shell():
             """Forward SSH shell output → WebSocket (non-blocking)."""
             try:
@@ -600,6 +600,55 @@ async def websocket_endpoint(websocket: WebSocket):
                                     width=cmd.get("width", 120),
                                     height=cmd.get("height", 40)
                                 )
+                                continue
+                            if cmd.get("type") == "tab_complete":
+                                # Run compgen in the interactive shell's ACTUAL CWD
+                                # (read via /proc to avoid tracking cd commands)
+                                try:
+                                    partial = cmd.get("text", "")
+                                    # Sanitize: escape chars that are special inside double quotes in bash
+                                    partial = partial.replace('\\', '\\\\').replace('"', '\\"').replace('$', '\\$').replace('`', '\\`')
+                                    is_cmd = cmd.get("is_command", False)
+                                    comp_type = "-c" if is_cmd else "-f --"
+
+                                    def _run():
+                                        # ── Step 1: Get the interactive shell's real CWD via /proc ──
+                                        # The interactive shell is a bash/zsh that has been running
+                                        # longer than the exec_command shell. We exclude our own PID.
+                                        cwd_ch = ssh.exec_command(
+                                            "bash -c '"
+                                            "  mypid=$$; "
+                                            "  shpid=$(pgrep -u $USER -x bash zsh 2>/dev/null "
+                                            "    | grep -v \"^$mypid$\" "
+                                            "    | tail -1); "
+                                            "  [ -n \"$shpid\" ] && readlink /proc/$shpid/cwd 2>/dev/null "
+                                            "    || echo \"$HOME\""
+                                            "'"
+                                        )
+                                        cwd = cwd_ch[1].read().decode("utf-8", errors="replace").strip()
+                                        if not cwd:
+                                            cwd = "/home/javi"
+                                        cwd_quoted = shlex.quote(cwd)
+
+                                        # ── Step 2: Run compgen from that CWD ──
+                                        comp_ch = ssh.exec_command(
+                                            f"bash -c 'cd {cwd_quoted} && compgen {comp_type} \"{partial}\" 2>/dev/null' "
+                                            f"| tr '\\n' ' '"
+                                        )
+                                        return comp_ch[1].read().decode("utf-8", errors="replace").strip()
+
+                                    raw = await asyncio.to_thread(_run)
+                                    completions = raw.split() if raw else []
+                                    await websocket.send_text(json.dumps({
+                                        "type": "tab_result",
+                                        "completions": completions
+                                    }))
+                                except Exception as e:
+                                    await websocket.send_text(json.dumps({
+                                        "type": "tab_result",
+                                        "completions": [],
+                                        "error": str(e)
+                                    }))
                                 continue
                     except json.JSONDecodeError:
                         pass

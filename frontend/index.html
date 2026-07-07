@@ -39,6 +39,9 @@
         .status-dot.online { background: #d4a843 !important; box-shadow: 0 0 8px rgba(212,168,67,0.5) !important; }
         .tab-btn.active { color: #d4a843 !important; border-bottom-color: #d4a843 !important; }
         ::-webkit-scrollbar-thumb { background: #2a354f !important; }
+        #tab-completions::-webkit-scrollbar { width: 4px; }
+        #tab-completions::-webkit-scrollbar-thumb { background: #d4a84366 !important; border-radius: 2px; }
+        #tab-completions::-webkit-scrollbar-track { background: transparent; }
     </style>
 
     <link rel="stylesheet" href="css/style.css">
@@ -330,10 +333,14 @@
                         class="bg-gray-800/50 hover:bg-gray-800 text-gray-500 hover:text-gray-300 border border-gray-800 px-3 py-1.5 rounded text-[11px] transition-all duration-200">
                         ✕ Clear
                     </button>
-                    <div class="flex-1 flex">
-                        <input type="text" id="cmd-input"
+                    <div class="flex-1 flex relative">
+                        <input type="text" id="cmd-input" autocomplete="off" spellcheck="false"
                             placeholder="$  enter command..."
                             class="terminal flex-1 bg-void border border-gray-800 rounded-l px-3 py-1.5 text-xs text-neon placeholder-gray-700 focus:outline-none focus:border-neon/50 tracking-wider">
+                        <div id="tab-completions"
+                            class="absolute left-0 right-0 hidden z-[9999] border border-neon/40 rounded-lg overflow-y-auto"
+                            style="background:#0d111f; box-shadow:0 -4px 24px rgba(212,168,67,0.15), 0 0 0 1px rgba(212,168,67,0.08); max-height:180px;">
+                        </div>
                         <button id="btn-send"
                             class="bg-void border border-gray-800 border-l-0 rounded-r px-4 text-[11px] text-gray-500 hover:text-neon hover:border-neon/30 transition-all font-semibold">
                             ⏎

@@ -800,6 +800,185 @@ document.addEventListener('DOMContentLoaded', () => {
                 cmdInput.value = '';
                 cmdInput.focus();
             }
+        } else if (event.key === 'Tab') {
+            event.preventDefault();
+            requestTabCompletion();
+        }
+    });
+
+    // ── Tab Completion System (via backend exec_command — no shell echo) ──
+    let _compTimer = null;
+
+    function getCurrentWord() {
+        const text = cmdInput.value;
+        const cursor = cmdInput.selectionStart || text.length;
+        let start = cursor;
+        while (start > 0 && text[start - 1] !== ' ') start--;
+        return { word: text.slice(start, cursor), prefix: text.slice(0, start), suffix: text.slice(cursor) };
+    }
+
+    function requestTabCompletion() {
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
+        const { word } = getCurrentWord();
+        if (!word) return;
+
+        const textBefore = cmdInput.value.slice(0, cmdInput.selectionStart || cmdInput.value.length);
+        const words = textBefore.trim().split(/\s+/);
+        const isFirstWord = words.length === 1 && !textBefore.includes(' ');
+
+        // Send JSON to backend — runs compgen via exec_command (no shell echo)
+        ws.send(JSON.stringify({
+            type: "tab_complete",
+            text: word,
+            is_command: isFirstWord
+        }));
+
+        // Safety timeout: clear dropdown state after 5s
+        if (_compTimer) clearTimeout(_compTimer);
+        _compTimer = setTimeout(() => {
+            const dd = document.getElementById('tab-completions');
+            if (dd) dd.classList.add('hidden');
+        }, 5000);
+    }
+
+    function showCompletionDropdown(items) {
+        const dropdown = document.getElementById('tab-completions');
+        if (!dropdown) return;
+
+        const unique = [...new Set(items)].sort();
+        dropdown.innerHTML = '';
+
+        if (unique.length === 0) {
+            dropdown.classList.add('hidden');
+            return;
+        }
+
+        if (unique.length === 1) {
+            applyCompletion(unique[0]);
+            dropdown.classList.add('hidden');
+            showToast(`⭾ ${unique[0]}`);
+            return;
+        }
+
+        const maxShow = 12;
+        const show = unique.slice(0, maxShow);
+        for (const item of show) {
+            const div = document.createElement('div');
+            div.className = 'px-3 py-1.5 text-[13px] text-gray-200 hover:text-white hover:bg-neon/15 cursor-pointer transition-all font-mono border-b border-gray-800 last:border-0';
+            div.textContent = item;
+            div.addEventListener('click', () => {
+                applyCompletion(item);
+                dropdown.classList.add('hidden');
+                cmdInput.focus();
+            });
+            dropdown.appendChild(div);
+        }
+        if (unique.length > maxShow) {
+            const more = document.createElement('div');
+            more.className = 'px-3 py-1 text-[9px] text-gray-700 text-center';
+            more.textContent = `⋯ ${unique.length - maxShow} more`;
+            dropdown.appendChild(more);
+        }
+
+        // ── Smart positioning: measure available space above the input ──
+        const inputRect = cmdInput.getBoundingClientRect();
+        const spaceAbove = inputRect.top;
+        const spaceBelow = window.innerHeight - inputRect.bottom;
+        const itemHeight = 32; // ~32px per item including padding+border
+        const estimatedHeight = Math.min(show.length * itemHeight + 30, 180);
+
+        // Remove both positioning classes, then add the appropriate one
+        dropdown.classList.remove('above', 'below');
+
+        if (spaceAbove >= estimatedHeight || spaceAbove >= spaceBelow) {
+            // Show ABOVE the input (default)
+            dropdown.style.maxHeight = Math.min(spaceAbove - 24, 180) + 'px';
+            dropdown.style.bottom = '100%';
+            dropdown.style.top = 'auto';
+            dropdown.style.marginBottom = '6px';
+            dropdown.style.marginTop = '0';
+        } else {
+            // Show BELOW the input (more room there)
+            dropdown.style.maxHeight = Math.min(spaceBelow - 24, 180) + 'px';
+            dropdown.style.top = '100%';
+            dropdown.style.bottom = 'auto';
+            dropdown.style.marginTop = '6px';
+            dropdown.style.marginBottom = '0';
+        }
+
+        dropdown.classList.remove('hidden');
+
+        // Keyboard navigation
+        window._tabItems = unique;
+        window._tabIndex = -1;
+    }
+
+    function applyCompletion(item) {
+        const { word } = getCurrentWord();
+        const cursor = cmdInput.selectionStart || cmdInput.value.length;
+        const before = cmdInput.value.slice(0, cursor - word.length);
+        const after = cmdInput.value.slice(cursor);
+        // If item looks like a directory (or is below /), append / for further completion
+        let completed = item;
+        if (completed.includes(' ')) completed = completed.replace(/ /g, '\\ ');
+        cmdInput.value = before + completed + after;
+        const newPos = before.length + completed.length;
+        cmdInput.setSelectionRange(newPos, newPos);
+        cmdInput.focus();
+    }
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+        const dd = document.getElementById('tab-completions');
+        const inp = document.getElementById('cmd-input');
+        if (dd && !dd.contains(e.target) && e.target !== inp) {
+            dd.classList.add('hidden');
+        }
+    });
+
+    // Keyboard nav for open dropdown
+    document.addEventListener('keydown', (e) => {
+        const dd = document.getElementById('tab-completions');
+        if (!dd || dd.classList.contains('hidden')) return;
+
+        if (e.key === 'Escape') {
+            dd.classList.add('hidden');
+            e.preventDefault();
+            return;
+        }
+        if (e.key === 'Enter' && window._tabIndex >= 0 && window._tabItems) {
+            e.preventDefault();
+            applyCompletion(window._tabItems[window._tabIndex]);
+            dd.classList.add('hidden');
+            return;
+        }
+        if (e.key === 'Tab') {
+            e.preventDefault();
+            const items = window._tabItems;
+            if (items && items.length > 0) {
+                const idx = window._tabIndex >= 0 ? window._tabIndex : 0;
+                applyCompletion(items[idx]);
+                dd.classList.add('hidden');
+            }
+            return;
+        }
+        if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+            e.preventDefault();
+            const items = window._tabItems;
+            if (!items || items.length === 0) return;
+            const children = dd.children;
+            if (window._tabIndex >= 0 && children[window._tabIndex]) {
+                children[window._tabIndex].classList.remove('bg-neon/10', 'text-neon');
+            }
+            if (e.key === 'ArrowDown') {
+                window._tabIndex = Math.min(window._tabIndex + 1, children.length - 1);
+            } else {
+                window._tabIndex = Math.max(window._tabIndex - 1, -1);
+            }
+            if (window._tabIndex >= 0 && children[window._tabIndex]) {
+                children[window._tabIndex].classList.add('bg-neon/10', 'text-neon');
+                children[window._tabIndex].scrollIntoView({ block: 'nearest' });
+            }
         }
     });
 
@@ -1143,6 +1322,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         appendOutput(`[+] ${msg.message || 'SSH connection established'}`);
                     } else if (msg.type === 'error') {
                         appendOutput(`[!] ${msg.message || 'Unknown error'}`);
+                    } else if (msg.type === 'tab_result') {
+                        // Tab completion results from exec_command
+                        if (_compTimer) clearTimeout(_compTimer);
+                        showCompletionDropdown(msg.completions || []);
+                        return;
                     }
                     return;
                 } catch {}
