@@ -177,13 +177,14 @@
 
 ---
 
-## 🐛 Bugs Conocidos por Corregir
+## ✅ Bugs Corregidos (Julio 2026)
 
-- [ ] Terminal: flechas ↑/↓ navegan historial pero a veces no se actualiza el input visualmente
-- [ ] Upload file: falla si el archivo es muy grande (>1MB)
-- [ ] Reconexión: al reconectar, el prompt limpio no se re-aplica en algunos casos
-- [ ] sudo -S: contraseñas con caracteres especiales pueden fallar (solo afecta si la pass tiene $, ", \, `)
-- [ ] Scroll: al recibir mucho output, el auto-scroll a veces no sigue
+- [x] **Duplicación de findings (Fase 1):** Race condition entre safety timer (30s) y detector de prompt causaba parseo doble. Añadida deduplicación por clave compuesta (tool+target+tipo+contenido) e IDs determinísticos via hash. Todos los parsers limpiados.
+- [x] **Terminal: flechas ↑/↓:** Añadido `focus()` + `setSelectionRange()` tras navegar historial para forzar actualización visual del input.
+- [x] **Upload file (>1MB):** Substituido heredoc por subida chunked en base64 con `printf '%s'` que soporta cualquier tamaño y tipo de archivo (binarios incluidos).
+- [x] **Reconexión prompt limpio:** Añadido `await asyncio.sleep(0.3)` tras `invoke_shell()` para que el shell esté listo antes de enviar `p10k disable`.
+- [x] **sudo -S caracteres especiales:** Substituido envío directo por heredoc con delimitador quoteado (`<< 'SUDOEOF'`) que evita expansión de `$`, `` ` ``, `\` por el shell.
+- [x] **Auto-scroll:** Substituido `requestAnimationFrame` por `setTimeout(0)` con debounce, más fiable para scroll durante ráfagas de output.
 
 ---
 

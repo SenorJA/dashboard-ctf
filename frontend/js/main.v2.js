@@ -331,7 +331,6 @@ document.addEventListener('DOMContentLoaded', () => {
         let match;
         while ((match = portRegex.exec(text)) !== null) {
             const finding = {
-                id: Date.now() + Math.random(),
                 tool: 'nmap',
                 target,
                 type: 'port',
@@ -349,7 +348,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const osMatch = text.match(/OS details:\s*(.+)/i);
         if (osMatch) {
             items.push({
-                id: Date.now() + Math.random(),
                 tool: 'nmap',
                 target,
                 type: 'os',
@@ -368,7 +366,6 @@ document.addEventListener('DOMContentLoaded', () => {
         let match;
         while ((match = dirRegex.exec(text)) !== null) {
             const finding = {
-                id: Date.now() + Math.random(),
                 tool: 'gobuster',
                 target,
                 type: 'directory',
@@ -384,7 +381,6 @@ document.addEventListener('DOMContentLoaded', () => {
         while ((match = dirRegex2.exec(text)) !== null) {
             if (!items.some(d => d.path === match[1])) {
                 items.push({
-                    id: Date.now() + Math.random(),
                     tool: 'gobuster',
                     target,
                     type: 'directory',
@@ -406,7 +402,6 @@ document.addEventListener('DOMContentLoaded', () => {
         while ((match = vulnRegex.exec(text)) !== null) {
             const desc = match[2].trim();
             const finding = {
-                id: Date.now() + Math.random(),
                 tool: 'nikto',
                 target,
                 type: 'vuln',
@@ -455,7 +450,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     seen.add(dedupKey);
         
                     const finding = {
-                        id: Date.now() + Math.random(),
                         tool: 'whatweb',
                         target,
                         type: 'tech',
@@ -481,7 +475,6 @@ document.addEventListener('DOMContentLoaded', () => {
         let match;
         while ((match = ffufRegex.exec(text)) !== null) {
             const finding = {
-                id: Date.now() + Math.random(),
                 tool: 'ffuf',
                 target,
                 type: 'directory',
@@ -501,7 +494,6 @@ document.addEventListener('DOMContentLoaded', () => {
         let match;
         while ((match = userRegex.exec(text)) !== null) {
             items.push({
-                id: Date.now() + Math.random(),
                 tool: 'wpscan',
                 target,
                 type: 'user',
@@ -514,7 +506,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const pluginRegex = /\[\+\]\s*.*plugin.*:\s*(\S+)/gi;
         while ((match = pluginRegex.exec(text)) !== null) {
             items.push({
-                id: Date.now() + Math.random(),
                 tool: 'wpscan',
                 target,
                 type: 'plugin',
@@ -541,17 +532,47 @@ document.addEventListener('DOMContentLoaded', () => {
         return items;
     }
 
-    // ── Add findings ──
+    // ── Build a Set of existing finding keys for fast dedup ──
+    function _existingKeys() {
+        const s = new Set();
+        for (const f of findings) s.add(_findingKey(f));
+        return s;
+    }
+
+    // ── Add findings (with dedup) ──
     function addFindings(items) {
         if (!items || items.length === 0) return;
+        const existing = _existingKeys();
+        let added = 0;
         for (const item of items) {
-            findings.unshift(item);
+            const key = _findingKey(item);
+            if (!existing.has(key)) {
+                existing.add(key);
+                // Give it a deterministic hash from the key for stable identity
+                item.id = _hashStr(key);
+                findings.unshift(item);
+                added++;
+            }
+        }
+        if (added === 0) {
+            showToast(`⏭ ${items[0].tool} — 0 new findings (all duplicates)`);
+            return;
         }
         renderFindings();
         updateFindingsCount();
-        // Show toast with count
         const byTool = items[0].tool || 'scan';
-        showToast(`🎯 ${items.length} ${byTool} finding${items.length > 1 ? 's' : ''}`);
+        showToast(`🎯 +${added} ${byTool} finding${added > 1 ? 's' : ''}`);
+    }
+
+    // ── Simple string hash for stable finding IDs ──
+    function _hashStr(str) {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            const chr = str.charCodeAt(i);
+            hash = ((hash << 5) - hash) + chr;
+            hash |= 0; // Convert to 32bit int
+        }
+        return Math.abs(hash);
     }
 
     // ── Render findings cards ──
@@ -763,15 +784,21 @@ document.addEventListener('DOMContentLoaded', () => {
             if (cmdHistoryIdx > 0) {
                 cmdHistoryIdx--;
                 cmdInput.value = cmdHistory[cmdHistoryIdx];
+                // Force focus + cursor to end (fixes visual glitch when terminal updates)
+                cmdInput.focus();
+                cmdInput.setSelectionRange(cmdInput.value.length, cmdInput.value.length);
             }
         } else if (event.key === 'ArrowDown') {
             event.preventDefault();
             if (cmdHistoryIdx < cmdHistory.length - 1) {
                 cmdHistoryIdx++;
                 cmdInput.value = cmdHistory[cmdHistoryIdx];
+                cmdInput.focus();
+                cmdInput.setSelectionRange(cmdInput.value.length, cmdInput.value.length);
             } else {
                 cmdHistoryIdx = cmdHistory.length;
                 cmdInput.value = '';
+                cmdInput.focus();
             }
         }
     });
@@ -813,18 +840,40 @@ document.addEventListener('DOMContentLoaded', () => {
             pendingTool = null; // only cleared when prompt is actually detected
         }
 
-        requestAnimationFrame(() => {
+        // Use setTimeout(0) for scroll — fires before requestAnimationFrame
+        // and is more reliable for keeping scroll position during rapid output
+        clearTimeout(window._scrollTimer);
+        window._scrollTimer = setTimeout(() => {
             output.scrollTop = output.scrollHeight;
-        });
+        }, 0);
     };
 
     // Click terminal output area → focus the command input
     output.addEventListener('click', () => cmdInput.focus());
 
+    // ── Generate a deterministic compound key for a finding (for dedup) ──
+    function _findingKey(f) {
+        let base = `${f.tool}|${f.target}|${f.type}`;
+        switch (f.type) {
+            case 'port':     return `${base}|${f.port}/${f.protocol}|${f.service}`;
+            case 'directory': return `${base}|${f.path}|${f.status}`;
+            case 'vuln':     return `${base}|${(f.title||'').slice(0,80)}|${(f.detail||'').slice(0,80)}`;
+            case 'tech':     return `${base}|${f.title}`;
+            case 'user':     return `${base}|${f.title}`;
+            case 'plugin':   return `${base}|${f.title}`;
+            case 'os':       return `${base}|${f.detail||''}`;
+            default:         return `${base}|${f.title||''}|${f.detail||''}`;
+        }
+    }
+
     // Called when we detect a tool has finished
     function finishToolOutput() {
         const tool = currentToolRunning || pendingTool;
         if (!tool || !outputBuffer || _toolParsed) return;
+
+        // ⚡ Mark parsed IMMEDIATELY to prevent race with safety timer
+        _toolParsed = true;
+
         const buf = outputBuffer;
         const target = targetInput.value.trim() || 'unknown';
 
@@ -832,7 +881,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const dbg = document.getElementById('fdbg');
         if (dbg) dbg.textContent = `⚙ parsing ${tool}...`;
 
-        // Small delay to let the DOM settle
+        // Small delay to let the DOM settle (but dedup is now safe)
         setTimeout(() => {
             // Legacy report parsers
             if (tool === 'nmap') parseNmapOutput(buf, target);
@@ -842,7 +891,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const items = parseToolOutput(tool, buf, target);
             if (items.length > 0) {
                 addFindings(items);
-                _toolParsed = true; // prevent duplicate parsing
             }
             if (dbg) dbg.textContent = `✓ ${items.length} findings (buf:${buf.length})`;
             setTimeout(() => { if (dbg) dbg.textContent = ''; }, 4000);
@@ -864,10 +912,11 @@ document.addEventListener('DOMContentLoaded', () => {
         showToast('✕ Terminal cleared');
     };
 
-    // ── File Upload to Kali ──
+    // ── File Upload to Kali (with chunked base64 for large files) ──
     window.handleFileUpload = async function (input) {
         const file = input.files && input.files[0];
         if (!file) return;
+        const CHUNK_SIZE = 98 * 1024; // ~98KB base64 chunks (safe for SSH)
         const status = document.getElementById('file-upload-status');
         status.textContent = `📄 ${file.name} (${(file.size / 1024).toFixed(1)} KB)...`;
 
@@ -886,36 +935,58 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // Fallback: SSH upload to Kali
-        if (file.type && file.type.startsWith('text/')) {
-            const reader = new FileReader();
-            reader.onload = function (e) {
-                const content = e.target.result;
-                const filename = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-                const cmd = `cat > /tmp/${filename} << 'VULNFORGE_EOF'\n${content}\nVULNFORGE_EOF`;
-                appendOutput(`\n▶ Uploading "${file.name}" to /tmp/${filename}...`);
-                if (ws && ws.readyState === WebSocket.OPEN) {
-                    ws.send(cmd);
-                    status.textContent = `✅ ${file.name} uploaded to Kali:/tmp/`;
-                    showToast(`📁 Uploaded ${file.name} to Kali`);
-                } else {
-                    appendOutput(`[!] Not connected. Content below:\n${'-'.repeat(40)}\n${content}\n${'-'.repeat(40)}`);
-                    status.textContent = `⚠️ Offline — shown in terminal`;
-                }
-                input.value = '';
-            };
-            reader.onerror = function () {
-                status.textContent = '⚠️ Error reading file';
-                input.value = '';
-            };
-            reader.readAsText(file);
-        } else {
-            // Binary file, can't send via SSH heredoc
-            status.textContent = `⚠️ Binary file — use cloud upload or SCP`;
-            appendOutput(`[!] Binary files (${file.type}) can't be uploaded via SSH terminal. Use Supabase Storage or SCP.`);
+        // ── SSH upload via base64 chunks (works for ALL file types) ──
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+            status.textContent = `⚠️ Not connected — can't upload`;
+            appendOutput('[!] Not connected to Kali. Connect first.');
             input.value = '';
+            return;
         }
+
+        const filename = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        showToast(`⬆ Uploading ${filename} (${(file.size / 1024).toFixed(1)} KB)...`);
+
+        // Read file as base64
+        const reader = new FileReader();
+        reader.onload = async function (e) {
+            const base64data = e.target.result; // data:...;base64,XXXX
+            const b64 = base64data.split(',')[1]; // strip the data URL prefix
+            const totalChunks = Math.ceil(b64.length / CHUNK_SIZE);
+
+            // Start fresh on Kali
+            ws.send(`rm -f /tmp/${filename}.b64`);
+            await new Promise(r => setTimeout(r, 200));
+
+            for (let i = 0; i < totalChunks; i++) {
+                const chunk = b64.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
+                ws.send(`printf '%s' '${_escapeSingleQuotes(chunk)}' >> /tmp/${filename}.b64`);
+                status.textContent = `📤 Chunk ${i+1}/${totalChunks} (${Math.round((i+1)/totalChunks*100)}%)`;
+                // Small delay to avoid flooding the SSH channel
+                await new Promise(r => setTimeout(r, 50 + Math.min(chunk.length / 50, 200)));
+            }
+
+            // Decode base64 → final file
+            ws.send(`base64 -d /tmp/${filename}.b64 > /tmp/${filename} && rm -f /tmp/${filename}.b64`);
+            await new Promise(r => setTimeout(r, 300));
+            ws.send(`ls -lh /tmp/${filename}`);
+            status.textContent = `✅ ${file.name} uploaded to Kali:/tmp/ (${totalChunks} chunks)`;
+            appendOutput(`\n▶ Uploaded "${file.name}" to /tmp/${filename} (${totalChunks} chunks)`);
+            showToast(`📁 Uploaded ${filename} to Kali`);
+            input.value = '';
+        };
+        reader.onerror = function () {
+            status.textContent = '⚠️ Error reading file';
+            appendOutput('[!] Error reading file for upload');
+            input.value = '';
+        };
+        reader.readAsDataURL(file); // Read as base64 data URL
     };
+
+    // ── Helper: escape single quotes for safe shell use ──
+    function _escapeSingleQuotes(str) {
+        // For printf '%s', only ' needs escaping (end quote, add \', resume quote)
+        return str.replace(/'/g, "'\\''");
+    }
 
     window.appendBanner = function () {
         appendOutput('');

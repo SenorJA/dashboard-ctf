@@ -537,6 +537,9 @@ async def websocket_endpoint(websocket: WebSocket):
         channel = ssh.invoke_shell(term='xterm', width=120, height=40)
         channel.setblocking(0)
 
+        # Small delay to let shell initialize before sending commands
+        await asyncio.sleep(0.3)
+
         # Disable Powerlevel10k fancy prompt for clean terminal output
         channel.send("p10k disable 2>/dev/null; PROMPT='$ '; RPROMPT=''\n")
 
@@ -585,6 +588,7 @@ async def websocket_endpoint(websocket: WebSocket):
                                 )
                                 _ch[0] = ssh.invoke_shell(term='xterm', width=120, height=40)
                                 _ch[0].setblocking(0)
+                                await asyncio.sleep(0.3)  # let shell init before prompt clean
                                 _ch[0].send("p10k disable 2>/dev/null; PROMPT='$ '; RPROMPT=''\n")
                                 _ip[0] = cmd.get("ip", _ip[0])
                                 _user[0] = cmd.get("user", _user[0])
@@ -600,12 +604,11 @@ async def websocket_endpoint(websocket: WebSocket):
                     except json.JSONDecodeError:
                         pass
 
-                    # If sudo command and we know password, use -S to pipe it
+                    # If sudo command and we know password, use heredoc with quoted delimiter
+                    # The 'SUDOEOF' (quoted) prevents shell expansion of $, `, \, etc.
                     if msg.startswith("sudo ") and _pass[0]:
                         rest = msg[5:]  # everything after "sudo "
-                        _ch[0].send(f"sudo -S {rest}\n")
-                        await asyncio.sleep(0.3)  # let sudo start reading stdin
-                        _ch[0].send(_pass[0] + "\n")
+                        _ch[0].send(f"sudo -S {rest} << 'SUDOEOF'\n{_pass[0]}\nSUDOEOF\n")
                     else:
                         # Regular command → send to shell
                         _ch[0].send(msg + "\n")
