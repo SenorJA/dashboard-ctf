@@ -465,6 +465,23 @@
                         <div class="text-[10px] mt-1 text-gray-700" data-i18n="noReportsDesc">Click "Generate Report" to save current findings as a report</div>
                     </div>
                 </div>
+
+                <!-- 🤖 AI Assistant -->
+                <div class="border border-amber-500/20 rounded p-2.5 mt-3 bg-amber-500/5 flex-shrink-0">
+                    <div class="flex items-center gap-1.5 mb-1.5">
+                        <span class="text-[10px] text-amber-400/80">🤖</span>
+                        <span class="text-[9px] text-amber-400/60 uppercase tracking-wider">AI Report Assistant</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <input type="text" id="reports-ai-question"
+                            placeholder="Ask about reports (e.g. summarize, prioritize findings...)"
+                            class="flex-1 bg-deep border border-gray-800 rounded px-2 py-1.5 text-[10px] text-gray-300 placeholder-gray-700 focus:outline-none focus:border-amber-500/50 font-mono"
+                            onkeyup="if(event.key==='Enter')reportsAskAI()">
+                        <button onclick="reportsAskAI()"
+                            class="bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 px-3 py-1 rounded text-[10px] transition-all flex-shrink-0">Ask</button>
+                    </div>
+                    <div id="reports-ai-answer" class="text-[9px] text-gray-600 mt-1.5 leading-relaxed"></div>
+                </div>
             </div>
 
             <!-- Report Detail Modal -->
@@ -992,6 +1009,23 @@
                     </div>
                 </div>
 
+                <!-- 🤖 AI Assistant -->
+                <div class="border border-amber-500/20 rounded p-2.5 mt-3 bg-amber-500/5 flex-shrink-0">
+                    <div class="flex items-center gap-1.5 mb-1.5">
+                        <span class="text-[10px] text-amber-400/80">🤖</span>
+                        <span class="text-[9px] text-amber-400/60 uppercase tracking-wider">AI Automation Assistant</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <input type="text" id="automation-ai-question"
+                            placeholder="Ask about n8n workflows (e.g. scan automation, alerts...)"
+                            class="flex-1 bg-deep border border-gray-800 rounded px-2 py-1.5 text-[10px] text-gray-300 placeholder-gray-700 focus:outline-none focus:border-amber-500/50 font-mono"
+                            onkeyup="if(event.key==='Enter')automationAskAI()">
+                        <button onclick="automationAskAI()"
+                            class="bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 px-3 py-1 rounded text-[10px] transition-all flex-shrink-0">Ask</button>
+                    </div>
+                    <div id="automation-ai-answer" class="text-[9px] text-gray-600 mt-1.5 leading-relaxed"></div>
+                </div>
+
             </div>
 
             <!-- ════════════════════════════════════════════════════════
@@ -1246,6 +1280,23 @@
                 <div id="cred-list" class="space-y-1">
                     <div class="text-[10px] text-gray-700 text-center py-4">Loading...</div>
                 </div>
+
+                <!-- 🤖 AI Assistant -->
+                <div class="border border-amber-500/20 rounded p-2.5 mt-3 bg-amber-500/5">
+                    <div class="flex items-center gap-1.5 mb-1.5">
+                        <span class="text-[10px] text-amber-400/80">🤖</span>
+                        <span class="text-[9px] text-amber-400/60 uppercase tracking-wider">AI Credential Analyst</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <input type="text" id="cred-ai-question"
+                            placeholder="Analyze hash, suggest cracking strategy, identify hash type..."
+                            class="flex-1 bg-deep border border-gray-800 rounded px-2 py-1.5 text-[10px] text-gray-300 placeholder-gray-700 focus:outline-none focus:border-amber-500/50 font-mono"
+                            onkeyup="if(event.key==='Enter')credAskAI()">
+                        <button onclick="credAskAI()"
+                            class="bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 px-3 py-1 rounded text-[10px] transition-all flex-shrink-0">Ask</button>
+                    </div>
+                    <div id="cred-ai-answer" class="text-[9px] text-gray-600 mt-1.5 leading-relaxed"></div>
+                </div>
             </div>
 
             <!-- ════════════════════════════════════════════════════════
@@ -1266,6 +1317,23 @@
                 <!-- Results -->
                 <div id="kb-results" class="space-y-1">
                     <div class="text-[10px] text-gray-700 text-center py-4">Type a query or leave empty to browse recent entries</div>
+                </div>
+
+                <!-- 🤖 AI Assistant -->
+                <div class="border border-amber-500/20 rounded p-2.5 mt-3 bg-amber-500/5">
+                    <div class="flex items-center gap-1.5 mb-1.5">
+                        <span class="text-[10px] text-amber-400/80">🤖</span>
+                        <span class="text-[9px] text-amber-400/60 uppercase tracking-wider">AI KnowledgeBase Assistant</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <input type="text" id="kb-ai-question"
+                            placeholder="Ask about CVEs, MITRE techniques, exploit methods..."
+                            class="flex-1 bg-deep border border-gray-800 rounded px-2 py-1.5 text-[10px] text-gray-300 placeholder-gray-700 focus:outline-none focus:border-amber-500/50 font-mono"
+                            onkeyup="if(event.key==='Enter')kbAskAI()">
+                        <button onclick="kbAskAI()"
+                            class="bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 px-3 py-1 rounded text-[10px] transition-all flex-shrink-0">Ask</button>
+                    </div>
+                    <div id="kb-ai-answer" class="text-[9px] text-gray-600 mt-1.5 leading-relaxed"></div>
                 </div>
             </div>
 
@@ -1321,6 +1389,23 @@
                 <!-- Challenge list -->
                 <div id="ctf-list" class="space-y-1">
                     <div class="text-[10px] text-gray-700 text-center py-4">Loading...</div>
+                </div>
+
+                <!-- 🤖 AI Assistant -->
+                <div class="border border-amber-500/20 rounded p-2.5 mt-3 bg-amber-500/5">
+                    <div class="flex items-center gap-1.5 mb-1.5">
+                        <span class="text-[10px] text-amber-400/80">🤖</span>
+                        <span class="text-[9px] text-amber-400/60 uppercase tracking-wider">AI CTF Coach</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <input type="text" id="ctf-ai-question"
+                            placeholder="Need a hint? Ask about techniques, vectors, exploitation methods..."
+                            class="flex-1 bg-deep border border-gray-800 rounded px-2 py-1.5 text-[10px] text-gray-300 placeholder-gray-700 focus:outline-none focus:border-amber-500/50 font-mono"
+                            onkeyup="if(event.key==='Enter')ctfAskAI()">
+                        <button onclick="ctfAskAI()"
+                            class="bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 px-3 py-1 rounded text-[10px] transition-all flex-shrink-0">Ask</button>
+                    </div>
+                    <div id="ctf-ai-answer" class="text-[9px] text-gray-600 mt-1.5 leading-relaxed"></div>
                 </div>
             </div>
 

@@ -4396,4 +4396,50 @@ Reglas:
             showToast('⚠️ Failed to copy command');
         });
     };
+
+    // ── 🤖 Reports: Executive Summary ──
+    window.reportsAskAI = async function () {
+        const input = document.getElementById('reports-ai-question');
+        if (!input || !input.value.trim()) return;
+        const q = input.value.trim();
+        input.disabled = true;
+        const answer = document.getElementById('reports-ai-answer');
+        if (answer) answer.textContent = '⏳ Thinking...';
+        const reports = window.reports || [];
+        const ctx = reports.slice(-5).map(r => `[${r.type}] ${r.title || r.target || 'untitled'}`).join('\n');
+        const systemPrompt = `You are a penetration testing report analyst. Help with: executive summaries, vulnerability prioritization, remediation recommendations, and report formatting. Be concise and professional.`;
+        try {
+            const result = await window.aiChat(systemPrompt, `Recent reports:\n${ctx || 'No reports yet'}\n\nQuestion: ${q}`);
+            if (answer) answer.textContent = result || '(no response)';
+        } catch (e) {
+            if (answer) answer.textContent = 'Error: ' + e.message;
+        } finally {
+            input.disabled = false;
+            input.focus();
+        }
+    };
+
+    window.reportsAskAIEnter = function (e) { if (e.key === 'Enter') reportsAskAI(); };
+
+    // ── 🤖 Automation: Workflow Design ──
+    window.automationAskAI = async function () {
+        const input = document.getElementById('automation-ai-question');
+        if (!input || !input.value.trim()) return;
+        const q = input.value.trim();
+        input.disabled = true;
+        const answer = document.getElementById('automation-ai-answer');
+        if (answer) answer.textContent = '⏳ Thinking...';
+        const systemPrompt = `You are an n8n workflow automation expert for security operations. Help design automation workflows for: vulnerability scanning, recon automation, alerting, report generation, and threat intel feeds. Provide step-by-step workflow descriptions, node configurations, and trigger setups. Be concise and practical.`;
+        try {
+            const result = await window.aiChat(systemPrompt, `Workflow question: ${q}`);
+            if (answer) answer.textContent = result || '(no response)';
+        } catch (e) {
+            if (answer) answer.textContent = 'Error: ' + e.message;
+        } finally {
+            input.disabled = false;
+            input.focus();
+        }
+    };
+
+    window.automationAskAIEnter = function (e) { if (e.key === 'Enter') automationAskAI(); };
 });

@@ -256,3 +256,28 @@ window.swarmResume = function (sessionId) {
     swarmPollInterval = setInterval(swarmPoll, 2000);
     swarmPoll();
 };
+
+// ── 🤖 AI Strategy ──
+window.swarmSuggestStrategy = async function () {
+    const target = document.getElementById('swarm-target').value.trim();
+    if (!target) { if (typeof showToast === 'function') showToast('⚠ Enter a target first'); return; }
+
+    const logs = document.getElementById('swarm-logs-content');
+    const logText = logs ? logs.textContent.slice(-2000) : '';
+
+    const systemPrompt = `You are a swarm attack strategist for penetration testing. Based on the target and current results, suggest:
+1. Which tools to run next and why
+2. Priority order of attacks
+3. Expected outcomes and what to look for
+4. Potential vulnerabilities to test
+Be specific with command examples. Keep it actionable.`;
+
+    const userMsg = `Target: ${target}\n${logText ? 'Current results so far:\n' + logText : 'No results yet. Suggest initial swarm strategy.'}`;
+
+    if (typeof showToast === 'function') showToast('🤖 Asking AI for strategy...');
+    const result = await window.aiChat(systemPrompt, userMsg);
+    if (result) {
+        const output = document.getElementById('swarm-ai-strategy');
+        if (output) output.textContent = result;
+    }
+};

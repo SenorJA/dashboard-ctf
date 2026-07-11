@@ -62,6 +62,7 @@ window.ctfRender = function () {
                 ${c.solved ? '' : `<input id="ctf-flag-${c.id}" placeholder="Enter flag..." class="flex-1 bg-deep border border-gray-800 rounded px-2 py-1 text-[10px] text-gray-300 placeholder-gray-700 font-mono" onkeyup="if(event.key==='Enter')ctfSubmitFlag(${c.id})">
                 <button onclick="ctfSubmitFlag(${c.id})" class="bg-cyber/10 hover:bg-cyber/20 text-cyber border border-cyber/30 px-3 py-1 rounded text-[10px] transition-all">Submit</button>`}
                 ${c.hints ? `<button onclick="ctfShowHint('${c.hints.replace(/'/g, "\\'")}')" class="text-gray-700 hover:text-yellow-500 text-[9px]">Hint</button>` : ''}
+                    <button onclick="ctfAIHint(${c.id})" class="text-amber-500/70 hover:text-amber-400 text-[9px] transition-colors" title="AI Hint">🤖</button>
             </div>
         </div>`;
     }).join('');
@@ -141,6 +142,61 @@ window.ctfDelete = async function (challengeId) {
 window.ctfShowHint = function (hints) {
     showToast(hints);
 };
+
+// ── 🤖 AI Hint (doesn't reveal flag) ──
+window.ctfAIHint = async function (challengeId) {
+    const c = ctfChallenges.find(x => x.id === challengeId);
+    if (!c) { showToast('⚠ Challenge not found'); return; }
+    const points = parseInt(document.getElementById('ctf-points')?.value) || 0;
+    showToast('🤖 Asking AI for a hint...');
+    const systemPrompt = `You are a CTF coach. The user is solving a CTF challenge. Give a helpful hint that guides them toward the solution WITHOUT revealing the flag. Provide:
+1. What to look for or analyze
+2. Suggested tools or techniques
+3. Common pitfalls to avoid
+4. A nudge in the right direction
+DO NOT give the flag or direct answer.`;
+    const result = await window.aiChat(systemPrompt, `Challenge: ${c.title}\nCategory: ${c.category}\nDifficulty: ${c.difficulty}\nDescription: ${c.description}\nPoints: ${c.points}\nHints available: ${c.hints || 'none'}\n\nGive me a hint without revealing the flag.`);
+    if (result) {
+        const existing = document.getElementById('ctf-ai-overlay');
+        if (existing) existing.remove();
+        const overlay = document.createElement('div');
+        overlay.id = 'ctf-ai-overlay';
+        overlay.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/60';
+        overlay.innerHTML = `<div class="bg-deep border border-purple-500/30 rounded-lg max-w-xl w-full mx-4 max-h-[70vh] overflow-y-auto p-4 shadow-2xl">
+            <div class="flex items-center justify-between mb-3">
+                <span class="text-purple-400 font-bold text-[11px] tracking-wider">🤖 Hint: ${c.title}</span>
+                <button onclick="this.closest('#ctf-ai-overlay').remove()" class="text-gray-600 hover:text-gray-400 text-[18px] leading-none">&times;</button>
+            </div>
+            <div class="text-[10px] text-gray-300 leading-relaxed whitespace-pre-wrap">${result}</div>
+            <div class="mt-3 pt-2 border-t border-gray-800 flex justify-end">
+                <button onclick="this.closest('#ctf-ai-overlay').remove()" class="text-[9px] text-gray-600 hover:text-gray-400">Close</button>
+            </div>
+        </div>`;
+        document.body.appendChild(overlay);
+    }
+};
+
+window.ctfAskAI = async function () {
+    const input = document.getElementById('ctf-ai-question');
+    if (!input || !input.value.trim()) return;
+    const q = input.value.trim();
+    input.disabled = true;
+    const answer = document.getElementById('ctf-ai-answer');
+    if (answer) answer.textContent = '⏳ Thinking...';
+    const ctx = ctfChallenges.slice(0, 5).map(c => `- ${c.title} (${c.difficulty}, ${c.category}, ${c.points}pts, solved=${c.solved})`).join('\n');
+    const systemPrompt = `You are a CTF coach and challenge solver. The user is working on CTF challenges. Provide guidance, hints, methodology, and tool suggestions. DO NOT reveal flags. Help them learn the techniques.`;
+    try {
+        const result = await window.aiChat(systemPrompt, `Active challenges:\n${ctx}\n\nQuestion: ${q}`);
+        if (answer) answer.textContent = result || '(no response)';
+    } catch (e) {
+        if (answer) answer.textContent = 'Error: ' + e.message;
+    } finally {
+        input.disabled = false;
+        input.focus();
+    }
+};
+
+window.ctfAskAIEnter = function (e) { if (e.key === 'Enter') ctfAskAI(); };
 
 window.ctfAutoFillTarget = function () {
     const targetInput = document.getElementById('ctf-target');
