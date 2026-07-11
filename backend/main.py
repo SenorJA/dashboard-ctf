@@ -65,6 +65,13 @@ from backend.adb_controller import (
     run_frida_script as mobile_run_frida_script,
     get_available_scripts as mobile_get_frida_scripts,
 )
+from backend.forensics import (
+    analyze_file as forensics_analyze,
+    list_evidence as forensics_list,
+    get_evidence as forensics_get,
+    delete_evidence as forensics_delete,
+    run_tool as forensics_run_tool,
+)
 
 app = FastAPI(title="VulnForge", version=VERSION)
 
@@ -1434,6 +1441,14 @@ async def mobile_upload(file: UploadFile = File(...)):
     except Exception as e:
         return JSONResponse({"ok": False, "error": f"Analysis failed: {e}"}, status_code=500)
 
+    # Save to DB (async)
+    try:
+        result["apk_id"] = apk_id
+        result["filename"] = file.filename
+        await asyncio.to_thread(db.save_mobile_apk, result)
+    except Exception as e:
+        logger.warning("Failed to save mobile APK to DB: %s", e)
+
     if result.get("error"):
         return _ok({
             "apk_id": apk_id,
@@ -1463,13 +1478,28 @@ async def mobile_upload(file: UploadFile = File(...)):
 @app.get("/api/mobile/apks")
 async def mobile_list_apks_endpoint():
     """List all analyzed APKs."""
-    apks = mobile_list_apks()
+    # Try DB first, fall back to in-memory
+    apks = None
+    try:
+        apks = await asyncio.to_thread(db.list_mobile_apks)
+    except Exception:
+        pass
+    if apks is None:
+        apks = mobile_list_apks()
     return _ok(apks)
 
 
 @app.get("/api/mobile/analyze/{apk_id}")
 async def mobile_get_analysis(apk_id: str):
     """Get full static analysis results for an APK."""
+    # Try DB first
+    try:
+        result = await asyncio.to_thread(db.get_mobile_apk, apk_id)
+        if result:
+            return _ok(result)
+    except Exception:
+        pass
+    # Fall back to in-memory
     result = mobile_get_apk(apk_id)
     if not result:
         return JSONResponse({"ok": False, "error": "APK not found"}, status_code=404)
@@ -1479,9 +1509,12 @@ async def mobile_get_analysis(apk_id: str):
 @app.delete("/api/mobile/apks/{apk_id}")
 async def mobile_delete_apk_endpoint(apk_id: str):
     """Delete an APK analysis and its extracted files."""
-    ok = mobile_delete_apk(apk_id)
-    if not ok:
-        return JSONResponse({"ok": False, "error": "APK not found"}, status_code=404)
+    ok = False
+    try:
+        ok = await asyncio.to_thread(db.delete_mobile_apk, apk_id)
+    except Exception:
+        pass
+    ok = mobile_delete_apk(apk_id) or ok
     # Clean uploaded file
     try:
         for f in os.listdir(MOBILE_UPLOAD_DIR):
@@ -1489,6 +1522,8 @@ async def mobile_delete_apk_endpoint(apk_id: str):
                 os.remove(os.path.join(MOBILE_UPLOAD_DIR, f))
     except OSError:
         pass
+    if not ok:
+        return JSONResponse({"ok": False, "error": "APK not found"}, status_code=404)
     return JSONResponse({"ok": True})
 
 
@@ -1730,6 +1765,121 @@ async def ctf_score():
     if result is None:
         return JSONResponse({"ok": True, "data": {"solved": 0, "total": 0, "points": 0, "total_points": 0}, "fallback": True})
     return _ok(result)
+
+
+# ════════════════════════════════════════════════════════════════
+#  FORENSICS LAB API
+# ════════════════════════════════════════════════════════════════
+
+FORENSICS_UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "..", "tmp", "forensics")
+os.makedirs(FORENSICS_UPLOAD_DIR, exist_ok=True)
+
+
+@app.post("/api/forensics/upload")
+async def forensics_upload(file: UploadFile = File(...), category: str = Form("file")):
+    """Upload a file for forensic analysis."""
+    if not file.filename:
+        return JSONResponse({"ok": False, "error": "No filename"}, status_code=400)
+
+    ev_id = str(_uuid.uuid4())[:8]
+    dest = os.path.join(FORENSICS_UPLOAD_DIR, f"{ev_id}_{file.filename}")
+
+    try:
+        content = await file.read()
+        if len(content) > 500 * 1024 * 1024:
+            return JSONResponse({"ok": False, "error": "File too large (max 500MB)"}, status_code=400)
+        with open(dest, "wb") as f:
+            f.write(content)
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": f"Upload failed: {e}"}, status_code=500)
+
+    try:
+        result = await asyncio.to_thread(forensics_analyze, dest, category)
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": f"Analysis failed: {e}"}, status_code=500)
+
+    try:
+        await asyncio.to_thread(db.save_forensics_evidence, result)
+    except Exception as e:
+        logger.warning("Failed to save forensics to DB: %s", e)
+
+    return _ok({
+        "id": ev_id,
+        "filename": file.filename,
+        "file_type": result.get("file_type", ""),
+        "category": category,
+        "size": result.get("size", 0),
+        "md5": result.get("md5", ""),
+        "sha256": result.get("sha256", ""),
+        "findings_count": len(result.get("findings", [])),
+        "summary": result.get("summary", {}),
+    })
+
+
+@app.get("/api/forensics/list")
+async def forensics_list_endpoint():
+    """List all analyzed forensic evidence."""
+    items = None
+    try:
+        items = await asyncio.to_thread(db.list_forensics_evidence)
+    except Exception:
+        pass
+    if items is None:
+        items = forensics_list()
+    return _ok(items)
+
+
+@app.get("/api/forensics/analyze/{ev_id}")
+async def forensics_get_analysis(ev_id: str):
+    """Get full analysis for evidence item."""
+    result = None
+    try:
+        result = await asyncio.to_thread(db.get_forensics_evidence, ev_id)
+    except Exception:
+        pass
+    if not result:
+        result = forensics_get(ev_id)
+    if not result:
+        return JSONResponse({"ok": False, "error": "Evidence not found"}, status_code=404)
+    return _ok(result)
+
+
+@app.post("/api/forensics/analyze/{ev_id}/run")
+async def forensics_run_tool_endpoint(ev_id: str, body: dict):
+    """Run a specific forensic tool on evidence."""
+    tool = body.get("tool", "strings")
+    ev = forensics_get(ev_id)
+    if not ev:
+        return JSONResponse({"ok": False, "error": "Evidence not found"}, status_code=404)
+
+    filepath = os.path.join(FORENSICS_UPLOAD_DIR, f"{ev_id}_{ev.get('filename', '')}")
+    if not os.path.exists(filepath):
+        for f in os.listdir(FORENSICS_UPLOAD_DIR):
+            if f.startswith(ev_id):
+                filepath = os.path.join(FORENSICS_UPLOAD_DIR, f)
+                break
+        else:
+            return JSONResponse({"ok": False, "error": "File not found on disk"}, status_code=404)
+
+    result = await asyncio.to_thread(forensics_run_tool, filepath, tool, body.get("params", {}))
+    return _ok(result)
+
+
+@app.delete("/api/forensics/{ev_id}")
+async def forensics_delete_endpoint(ev_id: str):
+    """Delete evidence and analysis."""
+    ok = False
+    try:
+        ok = await asyncio.to_thread(db.delete_forensics_evidence, ev_id)
+    except Exception:
+        pass
+    ok = forensics_delete(ev_id) or ok
+    for f in os.listdir(FORENSICS_UPLOAD_DIR):
+        if f.startswith(ev_id):
+            os.remove(os.path.join(FORENSICS_UPLOAD_DIR, f))
+    if not ok:
+        return JSONResponse({"ok": False, "error": "Evidence not found"}, status_code=404)
+    return JSONResponse({"ok": True})
 
 
 # ════════════════════════════════════════════════════════════════

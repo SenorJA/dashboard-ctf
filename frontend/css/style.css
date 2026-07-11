@@ -206,6 +206,25 @@ body::before {
     border-bottom: 1px solid #1a1f2e;
     background: #0e121c;
     flex-shrink: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    white-space: nowrap;
+    scrollbar-width: thin;
+    scrollbar-color: #1a1f2e transparent;
+    -webkit-overflow-scrolling: touch;
+}
+.tabs-bar::-webkit-scrollbar {
+    height: 3px;
+}
+.tabs-bar::-webkit-scrollbar-track {
+    background: transparent;
+}
+.tabs-bar::-webkit-scrollbar-thumb {
+    background: #1a1f2e;
+    border-radius: 2px;
+}
+.tabs-bar::-webkit-scrollbar-thumb:hover {
+    background: #2a354f;
 }
 
 .tab-btn {

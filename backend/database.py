@@ -183,6 +183,42 @@ CREATE TABLE IF NOT EXISTS findings (
     raw TEXT DEFAULT '',
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- mobile_apks
+CREATE TABLE IF NOT EXISTS mobile_apks (
+    apk_id TEXT PRIMARY KEY,
+    filename TEXT NOT NULL,
+    package TEXT DEFAULT '',
+    version_name TEXT DEFAULT '',
+    version_code TEXT DEFAULT '',
+    min_sdk TEXT DEFAULT '',
+    target_sdk TEXT DEFAULT '',
+    size INTEGER DEFAULT 0,
+    md5 TEXT DEFAULT '',
+    sha256 TEXT DEFAULT '',
+    findings JSONB DEFAULT '[]',
+    summary JSONB DEFAULT '{"critical":0,"high":0,"medium":0,"low":0,"info":0}',
+    permissions JSONB DEFAULT '[]',
+    components JSONB DEFAULT '{}',
+    error TEXT DEFAULT '',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- forensics_evidence
+CREATE TABLE IF NOT EXISTS forensics_evidence (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    filename TEXT NOT NULL,
+    file_type TEXT DEFAULT '',
+    category TEXT DEFAULT '',
+    size INTEGER DEFAULT 0,
+    md5 TEXT DEFAULT '',
+    sha256 TEXT DEFAULT '',
+    analysis JSONB DEFAULT '{}',
+    findings JSONB DEFAULT '[]',
+    summary JSONB DEFAULT '{"critical":0,"high":0,"medium":0,"low":0,"info":0}',
+    error TEXT DEFAULT '',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
 """
 
 
@@ -199,7 +235,8 @@ def _ensure_tables():
         tables = [
             "ssh_connections", "scripts", "reports",
             "hak5_payloads", "app_settings", "uploaded_files",
-            "findings", "credentials", "ctf_challenges", "ctf_solves"
+            "findings", "credentials", "ctf_challenges", "ctf_solves",
+            "mobile_apks", "forensics_evidence",
         ]
         for table in tables:
             try:
@@ -745,3 +782,129 @@ def get_ctf_score() -> dict | None:
     except Exception as e:
         print(f"[db] get_ctf_score error: {e}")
         return None
+
+
+# ════════════════════════════════════════════════════════════════
+#  MOBILE LAB
+# ════════════════════════════════════════════════════════════════
+
+def save_mobile_apk(data: dict) -> dict | None:
+    if not is_available():
+        return None
+    try:
+        row = {
+            "apk_id": data["apk_id"],
+            "filename": data.get("filename", ""),
+            "package": data.get("package", ""),
+            "version_name": data.get("version_name", ""),
+            "version_code": data.get("version_code", ""),
+            "min_sdk": data.get("min_sdk", ""),
+            "target_sdk": data.get("target_sdk", ""),
+            "size": data.get("size", 0),
+            "md5": data.get("md5", ""),
+            "sha256": data.get("sha256", ""),
+            "findings": json.dumps(data.get("findings", [])),
+            "summary": json.dumps(data.get("summary", {"critical":0,"high":0,"medium":0,"low":0,"info":0})),
+            "permissions": json.dumps(data.get("permissions", [])),
+            "components": json.dumps(data.get("components", {})),
+            "error": data.get("error", ""),
+        }
+        # Upsert (replace if exists)
+        result = _table("mobile_apks").upsert(row).execute()
+        return dict(result.data[0]) if result.data else None
+    except Exception as e:
+        logger.error("save_mobile_apk: %s", e)
+        return None
+
+
+def list_mobile_apks() -> list | None:
+    if not is_available():
+        return None
+    try:
+        result = _table("mobile_apks").select("*").order("created_at", desc=True).execute()
+        return [dict(r) for r in result.data] if result.data else []
+    except Exception as e:
+        logger.error("list_mobile_apks: %s", e)
+        return []
+
+
+def get_mobile_apk(apk_id: str) -> dict | None:
+    if not is_available():
+        return None
+    try:
+        result = _table("mobile_apks").select("*").eq("apk_id", apk_id).maybe_single().execute()
+        return dict(result.data) if result.data else None
+    except Exception as e:
+        logger.error("get_mobile_apk: %s", e)
+        return None
+
+
+def delete_mobile_apk(apk_id: str) -> bool:
+    if not is_available():
+        return False
+    try:
+        _table("mobile_apks").delete().eq("apk_id", apk_id).execute()
+        return True
+    except Exception as e:
+        logger.error("delete_mobile_apk: %s", e)
+        return False
+
+
+# ════════════════════════════════════════════════════════════════
+#  FORENSICS LAB
+# ════════════════════════════════════════════════════════════════
+
+def save_forensics_evidence(data: dict) -> dict | None:
+    if not is_available():
+        return None
+    try:
+        row = {
+            "filename": data.get("filename", ""),
+            "file_type": data.get("file_type", ""),
+            "category": data.get("category", ""),
+            "size": data.get("size", 0),
+            "md5": data.get("md5", ""),
+            "sha256": data.get("sha256", ""),
+            "analysis": json.dumps(data.get("analysis", {})),
+            "findings": json.dumps(data.get("findings", [])),
+            "summary": json.dumps(data.get("summary", {"critical":0,"high":0,"medium":0,"low":0,"info":0})),
+            "error": data.get("error", ""),
+        }
+        result = _table("forensics_evidence").insert(row).execute()
+        return dict(result.data[0]) if result.data else None
+    except Exception as e:
+        logger.error("save_forensics_evidence: %s", e)
+        return None
+
+
+def list_forensics_evidence() -> list | None:
+    if not is_available():
+        return None
+    try:
+        result = _table("forensics_evidence").select("*").order("created_at", desc=True).execute()
+        return [dict(r) for r in result.data] if result.data else []
+    except Exception as e:
+        logger.error("list_forensics_evidence: %s", e)
+        return []
+
+
+def get_forensics_evidence(ev_id: str) -> dict | None:
+    if not is_available():
+        return None
+    try:
+        result = _table("forensics_evidence").select("*").eq("id", ev_id).maybe_single().execute()
+        return dict(result.data) if result.data else None
+    except Exception as e:
+        logger.error("get_forensics_evidence: %s", e)
+        return None
+
+
+def delete_forensics_evidence(ev_id: str) -> bool:
+    if not is_available():
+        return False
+    try:
+        _table("forensics_evidence").delete().eq("id", ev_id).execute()
+        return True
+    except Exception as e:
+        logger.error("delete_forensics_evidence: %s", e)
+        return False

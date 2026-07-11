@@ -347,6 +347,9 @@
                 <button class="tab-btn" onclick="switchTab('mobile')">
                     📱 Mobile
                 </button>
+                <button class="tab-btn" onclick="switchTab('forensics')">
+                    🔍 Forensics
+                </button>
             </div>
 
             <!-- ── STATS BAR ── -->
@@ -1400,6 +1403,54 @@
                 </div>
             </div>
 
+            <!-- ════════════════════════════════════════════════════════
+                 TAB: FORENSICS LAB
+                 ════════════════════════════════════════════════════════ -->
+            <div id="tab-forensics" class="tab-pane p-4 pt-3 overflow-y-auto">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-xs text-neon font-semibold tracking-wider">🔍 Forensics Lab</h3>
+                    <span class="text-[9px] text-gray-700">File, Memory, Network & Steganography Analysis</span>
+                </div>
+
+                <!-- Upload -->
+                <div class="bg-deep/50 border border-gray-800 rounded p-3 mb-3">
+                    <div class="flex items-center gap-3 mb-2">
+                        <input type="file" id="forensics-file-input" accept="*/*"
+                            class="flex-1 text-[10px] text-gray-400 file:bg-deep file:border file:border-gray-800 file:rounded file:px-3 file:py-1 file:text-[10px] file:text-gray-300 file:cursor-pointer file:hover:border-gray-600">
+                        <select id="forensics-category" class="bg-deep border border-gray-800 rounded text-[10px] text-gray-400 px-2 py-1.5">
+                            <option value="file">📄 Generic File</option>
+                            <option value="disk">💿 Disk Image</option>
+                            <option value="memory">🧠 Memory Dump</option>
+                            <option value="network">🌐 Network/PCAP</option>
+                            <option value="stego">🖼️ Stego/Image</option>
+                        </select>
+                        <button id="forensics-upload-btn" onclick="forensicsUpload()"
+                            class="bg-cyber/10 hover:bg-cyber/20 text-cyber border border-cyber/30 px-4 py-2 rounded text-[10px] transition-all whitespace-nowrap">
+                            📤 Upload & Analyze
+                        </button>
+                    </div>
+                    <div class="text-[9px] text-gray-700 flex gap-4">
+                        <span>🔧 Tools: file, strings, binwalk, foremost, exiftool, volatility, tshark, zsteg, steghide</span>
+                    </div>
+                </div>
+
+                <!-- Layout -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                        <h4 class="text-[9px] text-gray-600 uppercase tracking-wider mb-2">📋 Evidence</h4>
+                        <div id="forensics-list" class="space-y-1">
+                            <div class="text-[10px] text-gray-700 text-center py-8">No evidence yet.</div>
+                        </div>
+                    </div>
+                    <div>
+                        <h4 class="text-[9px] text-gray-600 uppercase tracking-wider mb-2">🔍 Analysis</h4>
+                        <div id="forensics-analysis" class="space-y-1">
+                            <div class="text-[10px] text-gray-700 text-center py-8">Select evidence to view analysis</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </main>
     </div>
 
@@ -1421,6 +1472,7 @@
     <script src="js/knowledgebase.js"></script>
     <script src="js/ctf.js"></script>
     <script src="js/mobile.js"></script>
+    <script src="js/forensics.js"></script>
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 
     <!-- ════════════════════════════════════════════════════════════
