@@ -2748,9 +2748,17 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         if (ep.includes('gemini') || ep.includes('generativelanguage')) provider = 'gemini';
         else if (ep.includes('anthropic') || ep.includes('claude')) provider = 'anthropic';
         else if (ep.includes('openrouter')) provider = 'openrouter';
+        else if (ep.includes('deepseek')) provider = 'deepseek';
+        else if (ep.includes('groq')) provider = 'groq';
         document.getElementById('suggest-provider').value = provider;
         document.getElementById('suggest-key').value = key;
-        document.getElementById('suggest-model').value = model || 'gpt-4o-mini';
+        // Set a sensible default model if none saved
+        const defaults = {
+            openai: 'gpt-4o-mini', gemini: 'gemini-2.0-flash',
+            anthropic: 'claude-3-haiku-20240307', openrouter: 'gpt-4o-mini',
+            deepseek: 'deepseek-chat', groq: 'llama-3.3-70b-versatile'
+        };
+        document.getElementById('suggest-model').value = model || defaults[provider] || 'gpt-4o-mini';
         showToast('📋 Config loaded from AI Writeup');
     };
 

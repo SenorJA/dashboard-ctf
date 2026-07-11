@@ -160,7 +160,7 @@ async def check_n8n_status(n8n_url: str = "http://localhost:5678"):
 # ════════════════════════════════════════════════════════════════
 
 class SuggestRequest(BaseModel):
-    provider: str = "openai"       # openai | gemini | anthropic | openrouter
+    provider: str = "openai"       # openai | gemini | anthropic | openrouter | deepseek | groq
     api_key: str = ""
     model: str = ""
     target: str = ""
@@ -188,9 +188,22 @@ Keep suggestions actionable and technical. Focus on the most promising attack pa
 
 def _call_llm_sync(provider: str, api_key: str, model: str, messages: list, timeout: int = 60) -> str:
     """Synchronous LLM API call (runs in thread via asyncio). Returns the response text."""
-    if provider == "openai" or provider == "openrouter":
-        base = "https://api.openai.com/v1" if provider == "openai" else "https://openrouter.ai/api/v1"
-        if not model: model = "gpt-4o-mini"
+    if provider in ("openai", "openrouter", "deepseek", "groq"):
+        # OpenAI-compatible API
+        base_map = {
+            "openai":     "https://api.openai.com/v1",
+            "openrouter": "https://openrouter.ai/api/v1",
+            "deepseek":   "https://api.deepseek.com/v1",
+            "groq":       "https://api.groq.com/openai/v1",
+        }
+        default_model_map = {
+            "openai":     "gpt-4o-mini",
+            "openrouter": "gpt-4o-mini",
+            "deepseek":   "deepseek-chat",
+            "groq":       "llama-3.3-70b-versatile",
+        }
+        base = base_map.get(provider, "https://api.openai.com/v1")
+        if not model: model = default_model_map.get(provider, "gpt-4o-mini")
         url = f"{base}/chat/completions"
         body = json.dumps({
             "model": model,

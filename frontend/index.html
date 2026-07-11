@@ -935,10 +935,12 @@
                     <span class="w-px h-4 bg-gray-800 mx-1"></span>
                     <select id="suggest-provider"
                         class="bg-void border border-gray-800 rounded px-2 py-1 text-[10px] text-gray-300 focus:outline-none focus:border-neon/50 font-mono">
+                        <option value="gemini">Gemini 🆓</option>
+                        <option value="openrouter">OpenRouter 🆓</option>
+                        <option value="groq">Groq 🆓</option>
+                        <option value="deepseek">DeepSeek 🆓</option>
                         <option value="openai">OpenAI</option>
-                        <option value="gemini">Gemini</option>
                         <option value="anthropic">Claude</option>
-                        <option value="openrouter">OpenRouter</option>
                     </select>
                     <button onclick="suggestNextStep()" id="btn-suggest"
                         class="bg-cyber/10 hover:bg-cyber/20 text-cyber border border-cyber/30 px-3 py-1 rounded text-[10px] transition-all">
@@ -950,7 +952,7 @@
                 <div class="flex items-center gap-2 mb-3 flex-wrap text-[10px]">
                     <input type="password" id="suggest-key" placeholder="API Key"
                         class="w-40 bg-deep border border-gray-800 rounded px-2 py-1 text-[10px] text-gray-300 placeholder-gray-700 focus:outline-none focus:border-neon/50 font-mono">
-                    <input type="text" id="suggest-model" placeholder="Model (ej: gpt-4o-mini)"
+                    <input type="text" id="suggest-model" placeholder="Model (ej: gemini-2.0-flash)"
                         class="w-44 bg-deep border border-gray-800 rounded px-2 py-1 text-[10px] text-gray-300 placeholder-gray-700 focus:outline-none focus:border-neon/50 font-mono">
                     <span class="text-gray-700">or</span>
                     <button onclick="loadAIConfigToSuggest()" class="text-cyber/60 hover:text-cyber underline underline-offset-2 decoration-gray-800">use AI Writeup config</button>
