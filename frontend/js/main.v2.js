@@ -2425,7 +2425,8 @@ ${bodyHtml}
             findings: 9,
             credentials: 10,
             knowledgebase: 11,
-            ctf: 12
+            ctf: 12,
+            mobile: 13
         };
         if (panes[tabName] !== undefined) {
             btns[panes[tabName]].classList.add('active');
@@ -3982,6 +3983,7 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         modelPlaceholder:  { en: 'Model (eg: gemini-2.0-flash)', es: 'Modelo (ej: gemini-2.0-flash)' },
         orLabel:           { en: 'or',                es: 'o' },
         useAIConfig:       { en: 'use AI Writeup config', es: 'usar config AI Writeup' },
+        tabMobile:         { en: '📱 Mobile',          es: '📱 Mobile' },
     };
 
     window.currentLang = localStorage.getItem('vulnforge_lang') || 'en';
@@ -4099,6 +4101,8 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
     _loadFindingsFromBackend();
     // Init CTF
     if (typeof ctfLoad === 'function') ctfLoad();
+    // Init Mobile
+    if (typeof mobileLoad === 'function') { mobileLoad(); mobileLoadFridaScripts(); }
 
     // ============================================================
     //  OP ADMIRAL — MISSION PLANNER

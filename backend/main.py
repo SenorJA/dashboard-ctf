@@ -51,6 +51,21 @@ import paramiko
 # ── Supabase Database Layer ──
 from backend import database as db
 
+# ── Mobile Lab Modules ──
+from backend.mobile_analyzer import (
+    analyze_apk as mobile_analyze_apk,
+    list_apks as mobile_list_apks,
+    get_apk as mobile_get_apk,
+    delete_apk as mobile_delete_apk,
+    init_work_dir as mobile_init_work_dir,
+    set_ssh_client as mobile_set_ssh_client,
+)
+from backend.adb_controller import (
+    list_devices as mobile_list_devices,
+    run_frida_script as mobile_run_frida_script,
+    get_available_scripts as mobile_get_frida_scripts,
+)
+
 app = FastAPI(title="VulnForge", version=VERSION)
 
 # ── Production logging ──
@@ -86,6 +101,55 @@ class NoCacheMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(NoCacheMiddleware)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+# ════════════════════════════════════════════════════════════════
+#  SHARED SSH CLIENT (for Mobile Lab API endpoints)
+# ════════════════════════════════════════════════════════════════
+
+_active_ssh_client: paramiko.SSHClient | None = None
+_ssh_credentials: dict = {}
+
+
+def get_active_ssh_client() -> paramiko.SSHClient | None:
+    """Get the shared SSH client. Returns None if not connected."""
+    global _active_ssh_client
+    if _active_ssh_client:
+        transport = _active_ssh_client.get_transport()
+        if transport and transport.is_active():
+            return _active_ssh_client
+        _active_ssh_client = None
+    return None
+
+
+async def _ensure_ssh_connection(ssh_ip: str = None, ssh_user: str = None, ssh_pass: str = None) -> paramiko.SSHClient | None:
+    """Ensure a shared SSH connection exists. Reconnect if needed."""
+    global _active_ssh_client, _ssh_credentials
+    client = get_active_ssh_client()
+    if client:
+        return client
+
+    # Use provided creds or stored creds or env defaults
+    ip = ssh_ip or _ssh_credentials.get("ip") or os.getenv("KALI_IP", "192.168.214.142")
+    user = ssh_user or _ssh_credentials.get("user") or os.getenv("KALI_USER", "javi")
+    pwd = ssh_pass or _ssh_credentials.get("pass") or os.getenv("KALI_PASS", "javi")
+    port = int(os.getenv("KALI_PORT", "22"))
+
+    try:
+        client = paramiko.SSHClient()
+        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        await asyncio.to_thread(
+            client.connect, ip, port=port, username=user, password=pwd,
+            timeout=8, look_for_keys=False, allow_agent=False,
+        )
+        _active_ssh_client = client
+        _ssh_credentials = {"ip": ip, "user": user, "pass": pwd}
+        # Share with mobile_analyzer
+        mobile_set_ssh_client(client)
+        logger.info("Shared SSH connected: %s@%s", user, ip)
+        return client
+    except Exception as e:
+        logger.warning("Shared SSH connection failed: %s", e)
+        return None
 
 # ── Static files ──
 frontend_dir = os.path.normpath(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend"))
@@ -507,10 +571,13 @@ async def api_health():
 @app.on_event("startup")
 async def _record_startup():
     app._start_time = datetime.utcnow()
+    # Initialize Mobile Lab work directory
+    mobile_init_work_dir()
     if PRODUCTION:
         logger.info("VulnForge ready — production mode")
     else:
         logger.info("VulnForge ready — development mode (--reload)")
+    logger.info("Mobile Lab initialized")
 
 # ── Reports ──
 
@@ -1010,6 +1077,11 @@ async def websocket_endpoint(websocket: WebSocket):
         )
         await websocket.send_text(f"[+] Connected to {ssh_user}@{ssh_ip}\n")
 
+        # ── Share SSH client with Mobile Lab modules ──
+        mobile_set_ssh_client(ssh)
+        _active_ssh_client = ssh
+        _ssh_credentials = {"ip": ssh_ip, "user": ssh_user, "pass": ssh_pass}
+
         # ── Open interactive shell with PTY ──
         channel = ssh.invoke_shell(term='xterm', width=120, height=40)
         channel.setblocking(0)
@@ -1076,6 +1148,10 @@ async def websocket_endpoint(websocket: WebSocket):
                                 _ip[0] = cmd.get("ip", _ip[0])
                                 _user[0] = cmd.get("user", _user[0])
                                 _pass[0] = cmd.get("pass", _pass[0])
+                                # Update shared SSH client for Mobile Lab
+                                mobile_set_ssh_client(ssh)
+                                _active_ssh_client = ssh
+                                _ssh_credentials = {"ip": _ip[0], "user": _user[0], "pass": _pass[0]}
                                 await websocket.send_text(f"[+] Re-connected as {_user[0]}@{_ip[0]}")
                                 continue
                             if cmd.get("type") == "resize":
@@ -1318,6 +1394,134 @@ async def swarm_report(session_id: str):
             "type": "swarm",
         }
     })
+
+
+# ════════════════════════════════════════════════════════════════
+#  MOBILE LAB API
+# ════════════════════════════════════════════════════════════════
+
+import uuid as _uuid
+
+MOBILE_UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "..", "tmp", "mobile")
+os.makedirs(MOBILE_UPLOAD_DIR, exist_ok=True)
+
+
+@app.post("/api/mobile/upload")
+async def mobile_upload(file: UploadFile = File(...)):
+    """Upload an APK file for static analysis."""
+    if not file.filename or not file.filename.lower().endswith(".apk"):
+        return JSONResponse({"ok": False, "error": "Only .apk files are accepted"}, status_code=400)
+
+    apk_id = str(_uuid.uuid4())[:8]
+    ext = ".apk"
+    dest = os.path.join(MOBILE_UPLOAD_DIR, f"{apk_id}{ext}")
+
+    try:
+        content = await file.read()
+        if len(content) > 200 * 1024 * 1024:  # 200MB limit
+            return JSONResponse({"ok": False, "error": "File too large (max 200MB)"}, status_code=400)
+        with open(dest, "wb") as f:
+            f.write(content)
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": f"Upload failed: {e}"}, status_code=500)
+
+    # Ensure SSH connection for analysis
+    await _ensure_ssh_connection()
+
+    # Run analysis in a thread (blocking I/O)
+    try:
+        result = await asyncio.to_thread(mobile_analyze_apk, dest, apk_id)
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": f"Analysis failed: {e}"}, status_code=500)
+
+    if result.get("error"):
+        return _ok({
+            "apk_id": apk_id,
+            "filename": file.filename,
+            "error": result["error"],
+            "md5": result.get("md5", ""),
+            "sha256": result.get("sha256", ""),
+            "size": result.get("size", 0),
+        })
+
+    return _ok({
+        "apk_id": apk_id,
+        "filename": file.filename,
+        "package": result.get("package", ""),
+        "version_name": result.get("version_name", ""),
+        "version_code": result.get("version_code", ""),
+        "min_sdk": result.get("min_sdk", ""),
+        "target_sdk": result.get("target_sdk", ""),
+        "size": result.get("size", 0),
+        "md5": result.get("md5", ""),
+        "sha256": result.get("sha256", ""),
+        "findings_count": len(result.get("findings", [])),
+        "summary": result.get("summary", {}),
+    })
+
+
+@app.get("/api/mobile/apks")
+async def mobile_list_apks_endpoint():
+    """List all analyzed APKs."""
+    apks = mobile_list_apks()
+    return _ok(apks)
+
+
+@app.get("/api/mobile/analyze/{apk_id}")
+async def mobile_get_analysis(apk_id: str):
+    """Get full static analysis results for an APK."""
+    result = mobile_get_apk(apk_id)
+    if not result:
+        return JSONResponse({"ok": False, "error": "APK not found"}, status_code=404)
+    return _ok(result)
+
+
+@app.delete("/api/mobile/apks/{apk_id}")
+async def mobile_delete_apk_endpoint(apk_id: str):
+    """Delete an APK analysis and its extracted files."""
+    ok = mobile_delete_apk(apk_id)
+    if not ok:
+        return JSONResponse({"ok": False, "error": "APK not found"}, status_code=404)
+    # Clean uploaded file
+    try:
+        for f in os.listdir(MOBILE_UPLOAD_DIR):
+            if f.startswith(apk_id):
+                os.remove(os.path.join(MOBILE_UPLOAD_DIR, f))
+    except OSError:
+        pass
+    return JSONResponse({"ok": True})
+
+
+@app.get("/api/mobile/devices")
+async def mobile_list_devices_endpoint():
+    """List ADB devices connected to Kali."""
+    await _ensure_ssh_connection()
+    devices = mobile_list_devices()
+    return _ok(devices)
+
+
+@app.get("/api/mobile/frida/scripts")
+async def mobile_list_frida_scripts_endpoint():
+    """List available Frida scripts."""
+    scripts = mobile_get_frida_scripts()
+    return _ok(scripts)
+
+
+@app.post("/api/mobile/frida/run")
+async def mobile_run_frida_endpoint(body: dict):
+    """Run a Frida script on a connected device via Kali SSH."""
+    device = body.get("device_serial", "")
+    script = body.get("script_name", "template.js")
+    target = body.get("target_process", "")
+
+    if not script:
+        return JSONResponse({"ok": False, "error": "script_name is required"}, status_code=400)
+
+    await _ensure_ssh_connection()
+    output = await asyncio.to_thread(mobile_run_frida_script, device, script, target)
+    if output.startswith("ERROR"):
+        return JSONResponse({"ok": False, "error": output}, status_code=500)
+    return _ok({"output": output[:5000]})
 
 
 # ════════════════════════════════════════════════════════════════

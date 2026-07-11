@@ -344,6 +344,9 @@
                 <button class="tab-btn" onclick="switchTab('ctf')">
                     🏴 CTF <span class="text-[9px] text-gray-700 ml-1" id="ctf-score-solved">0</span>/<span id="ctf-score-total">0</span>
                 </button>
+                <button class="tab-btn" onclick="switchTab('mobile')">
+                    📱 Mobile
+                </button>
             </div>
 
             <!-- ── STATS BAR ── -->
@@ -1318,6 +1321,85 @@
                 </div>
             </div>
 
+            <!-- ════════════════════════════════════════════════════════
+                 TAB: MOBILE LAB
+                 ════════════════════════════════════════════════════════ -->
+            <div id="tab-mobile" class="tab-pane p-4 pt-3 overflow-y-auto">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-xs text-neon font-semibold tracking-wider">📱 Mobile Analysis Lab</h3>
+                    <span class="text-[9px] text-gray-700">APK Static + Dynamic Analysis</span>
+                </div>
+
+                <!-- Upload + Info -->
+                <div class="bg-deep/50 border border-gray-800 rounded p-3 mb-3">
+                    <div class="flex items-center gap-3 mb-2">
+                        <input type="file" id="mobile-file-input" accept=".apk"
+                            class="flex-1 text-[10px] text-gray-400 file:bg-deep file:border file:border-gray-800 file:rounded file:px-3 file:py-1 file:text-[10px] file:text-gray-300 file:cursor-pointer file:hover:border-gray-600">
+                        <button id="mobile-upload-btn" onclick="mobileUpload()"
+                            class="bg-cyber/10 hover:bg-cyber/20 text-cyber border border-cyber/30 px-4 py-2 rounded text-[10px] transition-all whitespace-nowrap">
+                            📤 Upload & Analyze
+                        </button>
+                    </div>
+                    <div class="text-[9px] text-gray-700 flex gap-4">
+                        <span>📦 APK (Android Package)</span>
+                        <span>🔧 Tools: apktool + aapt + jadx</span>
+                        <span>🔍 12 security checks</span>
+                    </div>
+                </div>
+
+                <!-- Main layout: list + detail -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <!-- APK List -->
+                    <div>
+                        <h4 class="text-[9px] text-gray-600 uppercase tracking-wider mb-2">📋 Analyzed APKs</h4>
+                        <div id="mobile-apk-list" class="space-y-1">
+                            <div class="text-[10px] text-gray-700 text-center py-8">No APKs analyzed yet.</div>
+                        </div>
+                    </div>
+
+                    <!-- Analysis Detail -->
+                    <div>
+                        <h4 class="text-[9px] text-gray-600 uppercase tracking-wider mb-2">🔍 Analysis Detail</h4>
+                        <div id="mobile-analysis" class="space-y-1">
+                            <div class="text-[10px] text-gray-700 text-center py-8">Select an APK to view analysis</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Dynamic Analysis Section -->
+                <div class="bg-deep/50 border border-gray-800 rounded p-3 mt-3">
+                    <h4 class="text-[9px] text-gray-600 uppercase tracking-wider mb-2">⚡ Dynamic Analysis (ADB + Frida)</h4>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                        <!-- Devices -->
+                        <div>
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="text-[10px] text-gray-600">Connected Devices</span>
+                                <button onclick="mobileListDevices()" class="text-[9px] text-cyber hover:text-cyber/80">↻ Refresh</button>
+                            </div>
+                            <div id="mobile-devices" class="text-[10px] text-gray-700 text-center py-2">
+                                Click refresh to scan ADB devices on Kali
+                            </div>
+                        </div>
+
+                        <!-- Frida Console -->
+                        <div>
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="text-[10px] text-gray-600">Frida Console</span>
+                                <span class="text-[9px] text-gray-700">via SSH → Kali → ADB</span>
+                            </div>
+                            <div class="grid grid-cols-3 gap-1 mb-1">
+                                <input id="mobile-frida-device" placeholder="Device serial" class="bg-deep border border-gray-800 rounded px-2 py-1 text-[10px] text-gray-300 placeholder-gray-700 font-mono">
+                                <select id="mobile-frida-script" class="bg-deep border border-gray-800 rounded text-[10px] text-gray-400 px-2 py-1"></select>
+                                <input id="mobile-frida-target" placeholder="Target pkg (optional)" class="bg-deep border border-gray-800 rounded px-2 py-1 text-[10px] text-gray-300 placeholder-gray-700 font-mono">
+                            </div>
+                            <button onclick="mobileRunFrida()" class="bg-blood/10 hover:bg-blood/20 text-blood border border-blood/30 px-3 py-1 rounded text-[10px] transition-all w-full mb-1">▶ Run Frida Script</button>
+                            <pre id="mobile-frida-output" class="bg-void border border-gray-800 rounded p-2 text-[9px] text-gray-500 font-mono h-20 overflow-y-auto">Click "Run" to execute Frida</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </main>
     </div>
 
@@ -1338,6 +1420,7 @@
     <script src="js/credentials.js"></script>
     <script src="js/knowledgebase.js"></script>
     <script src="js/ctf.js"></script>
+    <script src="js/mobile.js"></script>
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 
     <!-- ════════════════════════════════════════════════════════════
