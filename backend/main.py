@@ -168,6 +168,12 @@ class SuggestRequest(BaseModel):
     history: list = []              # list of {"role":"user"/"assistant","content":"..."}
     system_prompt: str = ""
 
+def _clean_text(text: str) -> str:
+    """Remove non-ASCII characters (emojis, special symbols) that break Latin-1 encoding in urllib."""
+    if not text:
+        return text
+    return text.encode('ascii', 'ignore').decode('ascii').strip()
+
 def _build_suggest_prompt(target: str, findings: str) -> str:
     """Build the system prompt for penetration testing suggestions."""
     return f"""You are an expert penetration testing assistant integrated into VulnForge, a red team dashboard.
@@ -294,14 +300,19 @@ async def suggest_next_step(req: SuggestRequest):
 
         # Build messages
         system = req.system_prompt or _build_suggest_prompt(req.target, req.findings)
-        messages = [{"role": "system", "content": system}]
+        messages = [{"role": "system", "content": _clean_text(system)}]
 
         # Add history
         for h in req.history:
-            messages.append({"role": h.get("role", "user"), "content": h.get("content", "")})
+            messages.append({
+                "role": h.get("role", "user"),
+                "content": _clean_text(h.get("content", ""))
+            })
 
         # Add current context as user message
-        user_msg = f"Target: {req.target}\n\nCurrent findings:\n{req.findings if req.findings else 'None yet'}\n\nWhat should I do next?"
+        clean_findings = _clean_text(req.findings)
+        clean_target = _clean_text(req.target) or "unknown"
+        user_msg = f"Target: {clean_target}\n\nCurrent findings:\n{clean_findings if clean_findings else 'None yet'}\n\nWhat should I do next?"
         messages.append({"role": "user", "content": user_msg})
 
         result = await asyncio.to_thread(
