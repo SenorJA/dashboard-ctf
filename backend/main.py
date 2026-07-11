@@ -297,9 +297,10 @@ async def suggest_next_step(req: SuggestRequest):
         return JSONResponse({"ok": True, "suggestion": result})
 
     except urllib.error.HTTPError as e:
-        return JSONResponse({"ok": False, "error": f"API error {e.code}: {e.read().decode('utf-8', errors='replace')[:500]}"}, status_code=502)
+        body = e.read().decode('utf-8', errors='replace')[:500]
+        return JSONResponse({"ok": False, "error": f"[{req.provider}] {e.code}: {body}"}, status_code=502)
     except Exception as e:
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+        return JSONResponse({"ok": False, "error": f"[{req.provider}] model={req.model or '(default)'}: {e}"}, status_code=500)
 
 # ════════════════════════════════════════════════════════════════
 #  SUPABASE API ENDPOINTS

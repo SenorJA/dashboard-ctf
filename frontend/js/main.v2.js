@@ -2808,7 +2808,8 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         }
 
         btn.disabled = true;
-        btn.textContent = '⏳ Thinking...';
+        btn.textContent = `⏳ ${provider}...`;
+        status.textContent = `⏳ Consulting ${provider} (${model || 'default model'})...`;
         status.classList.remove('hidden');
 
         try {
@@ -3107,6 +3108,32 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
             const el = document.getElementById(id);
             if (el) el.addEventListener('blur', saveAIConfig);
         });
+        // Auto-fill model when provider changes
+        const provEl = document.getElementById('suggest-provider');
+        if (provEl) {
+            provEl.addEventListener('change', function () {
+                const defaults = {
+                    openai: 'gpt-4o-mini', gemini: 'gemini-2.0-flash',
+                    anthropic: 'claude-3-haiku-20240307', openrouter: 'gpt-4o-mini',
+                    deepseek: 'deepseek-chat', groq: 'llama-3.3-70b-versatile'
+                };
+                const modelEl = document.getElementById('suggest-model');
+                if (modelEl && !modelEl.value.trim()) {
+                    modelEl.value = defaults[this.value] || 'gpt-4o-mini';
+                }
+                saveAIConfig();
+            });
+            // Initial fill if empty
+            const modelEl = document.getElementById('suggest-model');
+            if (modelEl && !modelEl.value.trim()) {
+                const defaults = {
+                    openai: 'gpt-4o-mini', gemini: 'gemini-2.0-flash',
+                    anthropic: 'claude-3-haiku-20240307', openrouter: 'gpt-4o-mini',
+                    deepseek: 'deepseek-chat', groq: 'llama-3.3-70b-versatile'
+                };
+                modelEl.value = defaults[provEl.value] || 'gpt-4o-mini';
+            }
+        }
     }
     initAutosave();
 
