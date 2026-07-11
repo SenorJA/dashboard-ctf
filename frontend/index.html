@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 
 <head>
     <meta charset="UTF-8">
@@ -50,11 +50,21 @@
 <body class="bg-deep text-gray-300 h-screen flex flex-col overflow-hidden font-mono">
 
     <!-- ===== HEADER ===== -->
-    <header class="bg-void border-b border-[#1a1f2e] px-5 py-2.5 flex justify-between items-center flex-shrink-0 z-20 relative">
-        <div class="flex items-center gap-3">
-            <h1 class="text-lg font-bold tracking-[0.2em]">
+    <header class="bg-void border-b border-[#1a1f2e] px-3 sm:px-5 py-2.5 flex justify-between items-center flex-shrink-0 z-20 relative">
+        <div class="flex items-center gap-2 sm:gap-3">
+            <!-- 📱 Hamburger toggle (mobile only) -->
+            <button onclick="toggleSidebar()" id="btn-sidebar-toggle"
+                class="lg:hidden text-gray-400 hover:text-neon transition-colors p-1.5 rounded border border-gray-800 hover:border-neon/30"
+                title="Toggle sidebar">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                    <line x1="3" y1="6" x2="21" y2="6"/>
+                    <line x1="3" y1="12" x2="21" y2="12"/>
+                    <line x1="3" y1="18" x2="21" y2="18"/>
+                </svg>
+            </button>
+            <h1 class="text-base sm:text-lg font-bold tracking-[0.15em] sm:tracking-[0.2em]">
                 <span class="text-neon" data-i18n="appName">VULNFORGE</span>
-                <span class="text-xs text-gray-600 ml-2 font-light tracking-wider">v1.0</span>
+                <span class="text-xs text-gray-600 ml-1 sm:ml-2 font-light tracking-wider">v2.0</span>
             </h1>
             <span class="text-[10px] text-gray-600 tracking-widest uppercase hidden md:inline font-sans" data-i18n="headerTag">/* Red Team Framework */</span>
         </div>
@@ -88,10 +98,15 @@
     <!-- ===== LAYOUT PRINCIPAL ===== -->
     <div class="flex flex-1 overflow-hidden relative z-10">
 
+        <!-- 📱 Mobile sidebar overlay -->
+        <div id="sidebar-overlay" onclick="toggleSidebar()"
+            class="lg:hidden fixed inset-0 bg-black/50 z-30 opacity-0 pointer-events-none transition-opacity duration-200">
+        </div>
+
         <!-- ============================================================
              SIDEBAR
              ============================================================ -->
-        <aside id="sidebar" class="w-72 bg-void border-r border-[#1a1f2e] flex flex-col flex-shrink-0 overflow-y-auto">
+        <aside id="sidebar" class="w-72 bg-void border-r border-[#1a1f2e] flex flex-col flex-shrink-0 overflow-y-auto sidebar-mobile">
 
             <!-- ── TARGET INPUT ── -->
             <div class="p-3 border-b border-[#1a1f2e]">
@@ -338,16 +353,16 @@
                 <button class="tab-btn" onclick="switchTab('credentials')">
                     <span data-i18n="tabCredentials">🔑 Credentials</span> <span id="cred-count" class="text-[9px] text-gray-700 ml-1">(0)</span>
                 </button>
-                <button class="tab-btn" onclick="switchTab('knowledgebase')">
-                    <span>📚 KnowledgeBase</span>
+                <button class="tab-btn" onclick="switchTab('knowledgebase')" data-i18n="tabKnowledgebase">
+                    📚 KnowledgeBase
                 </button>
-                <button class="tab-btn" onclick="switchTab('ctf')">
+                <button class="tab-btn" onclick="switchTab('ctf')" data-i18n="tabCTF">
                     🏴 CTF <span class="text-[9px] text-gray-700 ml-1" id="ctf-score-solved">0</span>/<span id="ctf-score-total">0</span>
                 </button>
-                <button class="tab-btn" onclick="switchTab('mobile')">
+                <button class="tab-btn" onclick="switchTab('mobile')" data-i18n="tabMobile">
                     📱 Mobile
                 </button>
-                <button class="tab-btn" onclick="switchTab('forensics')">
+                <button class="tab-btn" onclick="switchTab('forensics')" data-i18n="tabForensics">
                     🔍 Forensics
                 </button>
             </div>
@@ -470,14 +485,14 @@
                 <div class="border border-amber-500/20 rounded p-2.5 mt-3 bg-amber-500/5 flex-shrink-0">
                     <div class="flex items-center gap-1.5 mb-1.5">
                         <span class="text-[10px] text-amber-400/80">🤖</span>
-                        <span class="text-[9px] text-amber-400/60 uppercase tracking-wider">AI Report Assistant</span>
+                        <span class="text-[9px] text-amber-400/60 uppercase tracking-wider" data-i18n="aiReportAssistant">AI Report Assistant</span>
                     </div>
                     <div class="flex gap-2">
                         <input type="text" id="reports-ai-question"
                             placeholder="Ask about reports (e.g. summarize, prioritize findings...)"
                             class="flex-1 bg-deep border border-gray-800 rounded px-2 py-1.5 text-[10px] text-gray-300 placeholder-gray-700 focus:outline-none focus:border-amber-500/50 font-mono"
                             onkeyup="if(event.key==='Enter')reportsAskAI()">
-                        <button onclick="reportsAskAI()"
+                        <button onclick="reportsAskAI()" data-i18n="aiAskBtn"
                             class="bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 px-3 py-1 rounded text-[10px] transition-all flex-shrink-0">Ask</button>
                     </div>
                     <div id="reports-ai-answer" class="text-[9px] text-gray-600 mt-1.5 leading-relaxed"></div>
@@ -932,16 +947,16 @@
 
                 <!-- ── n8n Connection Config ── -->
                 <div class="bg-void border border-gray-800 rounded-lg p-3 mb-4">
-                    <h3 class="text-xs text-neon font-semibold tracking-wider mb-2.5">
+                    <h3 class="text-xs text-neon font-semibold tracking-wider mb-2.5" data-i18n="n8nWorkflow">
                         ⚙ n8n Workflow Automation
                     </h3>
-                    <p class="text-[10px] text-gray-700 mb-3">
+                    <p class="text-[10px] text-gray-700 mb-3" data-i18n="n8nTriggerDesc">
                         Trigger the <strong class="text-gray-400">Attack Surface Scan</strong> workflow on your n8n server.
                         Configure the server URL below and send a target domain/IP to begin automated reconnaissance.
                     </p>
 
                     <div class="flex items-center gap-2 mb-3">
-                        <span class="text-[9px] text-gray-600 uppercase tracking-wider">n8n URL</span>
+                        <span class="text-[9px] text-gray-600 uppercase tracking-wider" data-i18n="n8nUrl">n8n URL</span>
                         <input type="text" id="n8n-url"
                             placeholder="http://192.168.1.100:5678"
                             class="flex-1 bg-deep border border-gray-800 rounded px-2.5 py-1.5 text-[11px] text-gray-300 placeholder-gray-700 focus:outline-none focus:border-neon/50 font-mono">
@@ -958,19 +973,19 @@
 
                 <!-- ── Scan Configuration ── -->
                 <div class="bg-void border border-gray-800 rounded-lg p-3 mb-4">
-                    <h3 class="text-xs text-neon font-semibold tracking-wider mb-2.5">
+                    <h3 class="text-xs text-neon font-semibold tracking-wider mb-2.5" data-i18n="scanParams">
                         🎯 Scan Parameters
                     </h3>
 
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="text-[9px] text-gray-600 uppercase tracking-wider block mb-1.5">Target</label>
+                            <label class="text-[9px] text-gray-600 uppercase tracking-wider block mb-1.5" data-i18n="scanTarget">Target</label>
                             <input type="text" id="n8n-target"
                                 placeholder="example.com or 10.10.10.1"
                                 class="w-full bg-deep border border-gray-800 rounded px-2.5 py-1.5 text-[11px] text-gray-300 placeholder-gray-700 focus:outline-none focus:border-neon/50 font-mono">
                         </div>
                         <div>
-                            <label class="text-[9px] text-gray-600 uppercase tracking-wider block mb-1.5">Scan Type</label>
+                            <label class="text-[9px] text-gray-600 uppercase tracking-wider block mb-1.5" data-i18n="scanType">Scan Type</label>
                             <select id="n8n-scan-type"
                                 class="w-full bg-deep border border-gray-800 rounded px-2.5 py-1.5 text-[11px] text-gray-300 focus:outline-none focus:border-neon/50">
                                 <option value="full" selected>🔬 Full — DNS + ports + intel</option>
@@ -981,15 +996,15 @@
                     </div>
 
                     <div class="flex items-center gap-2 mt-3">
-                        <button onclick="triggerN8nScan()" id="btn-n8n-trigger"
+                        <button onclick="triggerN8nScan()" id="btn-n8n-trigger" data-i18n="triggerScan"
                             class="bg-neon/10 hover:bg-neon/20 text-neon border border-neon/30 px-5 py-2 rounded text-[11px] font-semibold transition-all duration-200 hover:shadow-[0_0_12px_rgba(212,168,67,0.15)] disabled:opacity-40 disabled:cursor-not-allowed">
                             ▶ Trigger Scan
                         </button>
-                        <button onclick="aiGenerateWorkflow()"
+                        <button onclick="aiGenerateWorkflow()" data-i18n="aiWorkflow"
                             class="bg-cyber/10 hover:bg-cyber/20 text-cyber border border-cyber/30 px-3 py-2 rounded text-[10px] transition-all">
                             🤖 AI Workflow
                         </button>
-                        <button onclick="clearN8nLog()"
+                        <button onclick="clearN8nLog()" data-i18n="clearLog"
                             class="bg-blood/10 hover:bg-blood/20 text-blood border border-blood/30 px-3 py-2 rounded text-[10px] transition-all">
                             ✕ Clear Log
                         </button>
@@ -999,7 +1014,7 @@
 
                 <!-- ── Response / Log ── -->
                 <div class="bg-void border border-gray-800 rounded-lg p-3">
-                    <h3 class="text-xs text-gray-500 font-semibold tracking-wider mb-2">
+                    <h3 class="text-xs text-gray-500 font-semibold tracking-wider mb-2" data-i18n="executionLog">
                         📋 Execution Log
                     </h3>
                     <div id="n8n-log"
@@ -1013,14 +1028,14 @@
                 <div class="border border-amber-500/20 rounded p-2.5 mt-3 bg-amber-500/5 flex-shrink-0">
                     <div class="flex items-center gap-1.5 mb-1.5">
                         <span class="text-[10px] text-amber-400/80">🤖</span>
-                        <span class="text-[9px] text-amber-400/60 uppercase tracking-wider">AI Automation Assistant</span>
+                        <span class="text-[9px] text-amber-400/60 uppercase tracking-wider" data-i18n="aiAutomationAssistant">AI Automation Assistant</span>
                     </div>
                     <div class="flex gap-2">
                         <input type="text" id="automation-ai-question"
                             placeholder="Ask about n8n workflows (e.g. scan automation, alerts...)"
                             class="flex-1 bg-deep border border-gray-800 rounded px-2 py-1.5 text-[10px] text-gray-300 placeholder-gray-700 focus:outline-none focus:border-amber-500/50 font-mono"
                             onkeyup="if(event.key==='Enter')automationAskAI()">
-                        <button onclick="automationAskAI()"
+                        <button onclick="automationAskAI()" data-i18n="aiAskBtn"
                             class="bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 px-3 py-1 rounded text-[10px] transition-all flex-shrink-0">Ask</button>
                     </div>
                     <div id="automation-ai-answer" class="text-[9px] text-gray-600 mt-1.5 leading-relaxed"></div>
@@ -1034,16 +1049,16 @@
             <div id="tab-opadmiral" class="tab-pane p-4 pt-3 overflow-y-auto">
                 <!-- Header -->
                 <div class="flex items-center justify-between mb-3">
-                    <h3 class="text-xs text-neon font-semibold tracking-wider">🎯 Op Admiral — Mission Planner</h3>
+                    <h3 class="text-xs text-neon font-semibold tracking-wider" data-i18n="opAdmiralTitle">🎯 Op Admiral — Mission Planner</h3>
                     <div class="flex items-center gap-2">
-                        <button onclick="clearPlan()" class="text-[10px] text-gray-600 hover:text-blood transition-colors">✕ Clear plan</button>
+                        <button onclick="clearPlan()" class="text-[10px] text-gray-600 hover:text-blood transition-colors" data-i18n="clearPlan">✕ Clear plan</button>
                     </div>
                 </div>
 
                 <!-- Progress bar -->
                 <div id="plan-progress-container" class="hidden mb-3">
                     <div class="flex items-center justify-between text-[9px] text-gray-600 mb-1">
-                        <span id="plan-progress-label">Progress</span>
+                        <span id="plan-progress-label" data-i18n="progress">Progress</span>
                         <span id="plan-progress-pct">0%</span>
                     </div>
                     <div class="w-full bg-deep rounded-full h-2 border border-gray-800">
@@ -1053,7 +1068,7 @@
 
                 <!-- Target description -->
                 <div class="mb-3">
-                    <label class="text-[9px] text-gray-600 uppercase tracking-wider mb-1 block">Describe el objetivo</label>
+                    <label class="text-[9px] text-gray-600 uppercase tracking-wider mb-1 block" data-i18n="planDescLabel">Describe el objetivo</label>
                     <textarea id="plan-desc" rows="3"
                         placeholder="Ej: Escanear el target, encontrar vulnerabilidades en el puerto 80, intentar subir una webshell..."
                         class="w-full bg-deep border border-gray-800 rounded px-3 py-2 text-[11px] text-gray-300 placeholder-gray-700 focus:outline-none focus:border-neon/50 font-mono"></textarea>
@@ -1061,11 +1076,11 @@
 
                 <!-- Buttons row -->
                 <div class="flex items-center gap-2 mb-4">
-                    <button onclick="generatePlan()" id="btn-generate-plan"
+                    <button onclick="generatePlan()" id="btn-generate-plan" data-i18n="generatePlan"
                         class="bg-cyber/10 hover:bg-cyber/20 text-cyber border border-cyber/30 px-4 py-2 rounded text-[11px] transition-all font-semibold">
                         🎯 Generate Plan
                     </button>
-                    <button onclick="executeAllSteps()" id="btn-execute-all" disabled
+                    <button onclick="executeAllSteps()" id="btn-execute-all" disabled data-i18n="executeAll"
                         class="bg-neon/10 hover:bg-neon/20 text-neon border border-neon/30 px-3 py-2 rounded text-[10px] transition-all">
                         ▶ Execute All
                     </button>
@@ -1074,7 +1089,7 @@
 
                 <!-- Steps container -->
                 <div id="plan-steps" class="space-y-2">
-                    <div class="text-center text-[11px] text-gray-700 py-8" id="plan-empty">
+                    <div class="text-center text-[11px] text-gray-700 py-8" id="plan-empty" data-i18n="planEmptyDesc">
                         Describe the target and click "Generate Plan" to create a mission plan.
                     </div>
                 </div>
@@ -1086,7 +1101,7 @@
             <div id="tab-swarm" class="tab-pane p-4 pt-3 overflow-y-auto">
                 <!-- Header -->
                 <div class="flex items-center justify-between mb-3">
-                    <h3 class="text-xs text-neon font-semibold tracking-wider">🐝 Swarm — Multi-Operator Pipeline</h3>
+                    <h3 class="text-xs text-neon font-semibold tracking-wider" data-i18n="swarmTitle">🐝 Swarm — Multi-Operator Pipeline</h3>
                     <div class="flex gap-2">
                         <button onclick="swarmRefresh()" class="text-[10px] text-gray-600 hover:text-cyber transition-colors">🔄 Refresh</button>
                         <button onclick="swarmClear()" class="text-[10px] text-gray-600 hover:text-blood transition-colors">✕ Clear</button>
@@ -1241,7 +1256,7 @@
                  ════════════════════════════════════════════════════════ -->
             <div id="tab-credentials" class="tab-pane p-4 pt-3 overflow-y-auto">
                 <div class="flex items-center justify-between mb-3">
-                    <h3 class="text-xs text-neon font-semibold tracking-wider">🔑 Credential Store</h3>
+                    <h3 class="text-xs text-neon font-semibold tracking-wider" data-i18n="credentialStore">🔑 Credential Store</h3>
                     <button onclick="credClearAll()" class="text-[10px] text-gray-600 hover:text-blood transition-colors">✕ Clear all</button>
                 </div>
 
@@ -1285,14 +1300,14 @@
                 <div class="border border-amber-500/20 rounded p-2.5 mt-3 bg-amber-500/5">
                     <div class="flex items-center gap-1.5 mb-1.5">
                         <span class="text-[10px] text-amber-400/80">🤖</span>
-                        <span class="text-[9px] text-amber-400/60 uppercase tracking-wider">AI Credential Analyst</span>
+                        <span class="text-[9px] text-amber-400/60 uppercase tracking-wider" data-i18n="aiCredentialAnalyst">AI Credential Analyst</span>
                     </div>
                     <div class="flex gap-2">
                         <input type="text" id="cred-ai-question"
                             placeholder="Analyze hash, suggest cracking strategy, identify hash type..."
                             class="flex-1 bg-deep border border-gray-800 rounded px-2 py-1.5 text-[10px] text-gray-300 placeholder-gray-700 focus:outline-none focus:border-amber-500/50 font-mono"
                             onkeyup="if(event.key==='Enter')credAskAI()">
-                        <button onclick="credAskAI()"
+                        <button onclick="credAskAI()" data-i18n="aiAskBtn"
                             class="bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 px-3 py-1 rounded text-[10px] transition-all flex-shrink-0">Ask</button>
                     </div>
                     <div id="cred-ai-answer" class="text-[9px] text-gray-600 mt-1.5 leading-relaxed"></div>
@@ -1304,7 +1319,7 @@
                  ════════════════════════════════════════════════════════ -->
             <div id="tab-knowledgebase" class="tab-pane p-4 pt-3 overflow-y-auto">
                 <div class="flex items-center justify-between mb-3">
-                    <h3 class="text-xs text-neon font-semibold tracking-wider">📚 KnowledgeBase — CVE / MITRE ATT&CK</h3>
+                    <h3 class="text-xs text-neon font-semibold tracking-wider" data-i18n="kbTitle">📚 KnowledgeBase — CVE / MITRE ATT&CK</h3>
                 </div>
 
                 <!-- Search bar -->
@@ -1323,14 +1338,14 @@
                 <div class="border border-amber-500/20 rounded p-2.5 mt-3 bg-amber-500/5">
                     <div class="flex items-center gap-1.5 mb-1.5">
                         <span class="text-[10px] text-amber-400/80">🤖</span>
-                        <span class="text-[9px] text-amber-400/60 uppercase tracking-wider">AI KnowledgeBase Assistant</span>
+                        <span class="text-[9px] text-amber-400/60 uppercase tracking-wider" data-i18n="aiKbAssistant">AI KnowledgeBase Assistant</span>
                     </div>
                     <div class="flex gap-2">
                         <input type="text" id="kb-ai-question"
                             placeholder="Ask about CVEs, MITRE techniques, exploit methods..."
                             class="flex-1 bg-deep border border-gray-800 rounded px-2 py-1.5 text-[10px] text-gray-300 placeholder-gray-700 focus:outline-none focus:border-amber-500/50 font-mono"
                             onkeyup="if(event.key==='Enter')kbAskAI()">
-                        <button onclick="kbAskAI()"
+                        <button onclick="kbAskAI()" data-i18n="aiAskBtn"
                             class="bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 px-3 py-1 rounded text-[10px] transition-all flex-shrink-0">Ask</button>
                     </div>
                     <div id="kb-ai-answer" class="text-[9px] text-gray-600 mt-1.5 leading-relaxed"></div>
@@ -1342,7 +1357,7 @@
                  ════════════════════════════════════════════════════════ -->
             <div id="tab-ctf" class="tab-pane p-4 pt-3 overflow-y-auto">
                 <div class="flex items-center justify-between mb-3">
-                    <h3 class="text-xs text-neon font-semibold tracking-wider">🏴 CTF Mode</h3>
+                    <h3 class="text-xs text-neon font-semibold tracking-wider" data-i18n="ctfTitle">🏴 CTF Mode</h3>
                     <span class="text-[9px] text-gray-700" id="ctf-score-display">Score: <span id="ctf-score-points">0</span>/<span id="ctf-score-total-pts">0</span></span>
                 </div>
 
@@ -1395,14 +1410,14 @@
                 <div class="border border-amber-500/20 rounded p-2.5 mt-3 bg-amber-500/5">
                     <div class="flex items-center gap-1.5 mb-1.5">
                         <span class="text-[10px] text-amber-400/80">🤖</span>
-                        <span class="text-[9px] text-amber-400/60 uppercase tracking-wider">AI CTF Coach</span>
+                        <span class="text-[9px] text-amber-400/60 uppercase tracking-wider" data-i18n="aiCtfCoach">AI CTF Coach</span>
                     </div>
                     <div class="flex gap-2">
                         <input type="text" id="ctf-ai-question"
                             placeholder="Need a hint? Ask about techniques, vectors, exploitation methods..."
                             class="flex-1 bg-deep border border-gray-800 rounded px-2 py-1.5 text-[10px] text-gray-300 placeholder-gray-700 focus:outline-none focus:border-amber-500/50 font-mono"
                             onkeyup="if(event.key==='Enter')ctfAskAI()">
-                        <button onclick="ctfAskAI()"
+                        <button onclick="ctfAskAI()" data-i18n="aiAskBtn"
                             class="bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 px-3 py-1 rounded text-[10px] transition-all flex-shrink-0">Ask</button>
                     </div>
                     <div id="ctf-ai-answer" class="text-[9px] text-gray-600 mt-1.5 leading-relaxed"></div>
@@ -1414,7 +1429,7 @@
                  ════════════════════════════════════════════════════════ -->
             <div id="tab-mobile" class="tab-pane p-4 pt-3 overflow-y-auto">
                 <div class="flex items-center justify-between mb-3">
-                    <h3 class="text-xs text-neon font-semibold tracking-wider">📱 Mobile Analysis Lab</h3>
+                    <h3 class="text-xs text-neon font-semibold tracking-wider" data-i18n="mobileTitle">📱 Mobile Analysis Lab</h3>
                     <span class="text-[9px] text-gray-700">APK Static + Dynamic Analysis</span>
                 </div>
 
@@ -1489,11 +1504,11 @@
 
                 <!-- 🤖 AI Assistant -->
                 <div class="bg-deep/50 border border-amber-500/20 rounded p-3 mt-3">
-                    <h4 class="text-[9px] text-amber-500/70 uppercase tracking-wider mb-2">🤖 AI Mobile Assistant</h4>
+                    <h4 class="text-[9px] text-amber-500/70 uppercase tracking-wider mb-2" data-i18n="aiMobileAssistant">🤖 AI Mobile Assistant</h4>
                     <p class="text-[9px] text-gray-700 mb-2">Ask about APK findings, permissions, exploitation techniques, or Frida scripts.</p>
                     <div class="flex gap-2 mb-2">
                         <input id="mobile-ai-question" placeholder="e.g., What does this WebView vulnerability mean? How to exploit it?" class="flex-1 bg-deep border border-gray-800 rounded px-2 py-1 text-[10px] text-gray-300 placeholder-gray-700 font-mono" onkeydown="mobileAskAIEnter(event)">
-                        <button onclick="mobileAskAI()" class="bg-amber-500/10 hover:bg-amber-500/20 text-amber-500/80 border border-amber-500/30 px-3 py-1 rounded text-[10px] transition-all whitespace-nowrap">🤖 Ask AI</button>
+                        <button onclick="mobileAskAI()" data-i18n="aiAskAIBtn" class="bg-amber-500/10 hover:bg-amber-500/20 text-amber-500/80 border border-amber-500/30 px-3 py-1 rounded text-[10px] transition-all whitespace-nowrap">🤖 Ask AI</button>
                     </div>
                     <pre id="mobile-ai-answer" class="text-[9px] text-gray-500 font-mono bg-void/50 border border-gray-800 rounded p-2 h-16 overflow-y-auto">AI response will appear here</pre>
                 </div>
@@ -1504,7 +1519,7 @@
                  ════════════════════════════════════════════════════════ -->
             <div id="tab-forensics" class="tab-pane p-4 pt-3 overflow-y-auto">
                 <div class="flex items-center justify-between mb-3">
-                    <h3 class="text-xs text-neon font-semibold tracking-wider">🔍 Forensics Lab</h3>
+                    <h3 class="text-xs text-neon font-semibold tracking-wider" data-i18n="forensicsTitle">🔍 Forensics Lab</h3>
                     <span class="text-[9px] text-gray-700">File, Memory, Network & Steganography Analysis</span>
                 </div>
 
@@ -1548,11 +1563,11 @@
 
                 <!-- 🤖 AI Assistant -->
                 <div class="bg-deep/50 border border-amber-500/20 rounded p-3 mt-3">
-                    <h4 class="text-[9px] text-amber-500/70 uppercase tracking-wider mb-2">🤖 AI Forensics Assistant</h4>
+                    <h4 class="text-[9px] text-amber-500/70 uppercase tracking-wider mb-2" data-i18n="aiForensicsAssistant">🤖 AI Forensics Assistant</h4>
                     <p class="text-[9px] text-gray-700 mb-2">Ask about forensic artifacts, strings analysis, stego techniques, or next investigation steps.</p>
                     <div class="flex gap-2 mb-2">
                         <input id="forensics-ai-question" placeholder="e.g., What should I look for in this memory dump? How to extract flags from stego?" class="flex-1 bg-deep border border-gray-800 rounded px-2 py-1 text-[10px] text-gray-300 placeholder-gray-700 font-mono" onkeydown="forensicsAskAIEnter(event)">
-                        <button onclick="forensicsAskAI()" class="bg-amber-500/10 hover:bg-amber-500/20 text-amber-500/80 border border-amber-500/30 px-3 py-1 rounded text-[10px] transition-all whitespace-nowrap">🤖 Ask AI</button>
+                        <button onclick="forensicsAskAI()" data-i18n="aiAskAIBtn" class="bg-amber-500/10 hover:bg-amber-500/20 text-amber-500/80 border border-amber-500/30 px-3 py-1 rounded text-[10px] transition-all whitespace-nowrap">🤖 Ask AI</button>
                     </div>
                     <pre id="forensics-ai-answer" class="text-[9px] text-gray-500 font-mono bg-void/50 border border-gray-800 rounded p-2 h-16 overflow-y-auto">AI response will appear here</pre>
                 </div>

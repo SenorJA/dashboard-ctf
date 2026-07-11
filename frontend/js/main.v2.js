@@ -2434,7 +2434,36 @@ ${bodyHtml}
         }
         const el = document.getElementById(`tab-${tabName}`);
         if (el) el.classList.add('active');
+
+        // 📱 Close sidebar on mobile after switching tab
+        if (window.innerWidth < 1024) {
+            closeSidebar();
+        }
     };
+
+    // ============================================================
+    //  📱 MOBILE SIDEBAR TOGGLE
+    // ============================================================
+    window.toggleSidebar = function () {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebar-overlay');
+        if (!sidebar || !overlay) return;
+        const isOpen = sidebar.classList.contains('open');
+        if (isOpen) {
+            closeSidebar();
+        } else {
+            sidebar.classList.add('open');
+            overlay.classList.add('open');
+        }
+    };
+
+    function closeSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebar-overlay');
+        if (sidebar) sidebar.classList.remove('open');
+        if (overlay) overlay.classList.remove('open');
+    }
+    window.closeSidebar = closeSidebar;
 
     // ============================================================
     //  CATEGORY TOGGLE
@@ -3986,6 +4015,176 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         useAIConfig:       { en: 'use AI Writeup config', es: 'usar config AI Writeup' },
         tabMobile:         { en: '📱 Mobile',          es: '📱 Mobile' },
         tabForensics:      { en: '🔍 Forensics',       es: '🔍 Forensics' },
+        tabKnowledgebase:  { en: '📚 KnowledgeBase',   es: '📚 KnowledgeBase' },
+        tabCTF:            { en: '🏴 CTF',              es: '🏴 CTF' },
+
+        // ── Terminal buttons ──
+        btnConnectShort:   { en: '> Connect',          es: '> Conectar' },
+        btnDisconnectShort:{ en: '> Disconnect',       es: '> Desconectar' },
+        btnClear:          { en: '✕ Clear',            es: '✕ Limpiar' },
+        btnStop:           { en: '⏹ Stop',             es: '⏹ Detener' },
+        uploadFile:        { en: 'Upload file >',      es: 'Subir archivo >' },
+
+        // ── AI assistant blocks (shared) ──
+        aiAssistant:       { en: 'AI Assistant',      es: 'Asistente IA' },
+        aiAskBtn:          { en: 'Ask',               es: 'Preguntar' },
+        aiAskAIBtn:        { en: '🤖 Ask AI',         es: '🤖 Preguntar IA' },
+        aiResponseHere:    { en: 'AI response will appear here', es: 'La respuesta de la IA aparecerá aquí' },
+        aiThinking:        { en: '⏳ Thinking...',     es: '⏳ Pensando...' },
+
+        // ── Reports AI ──
+        aiReportAssistant: { en: 'AI Report Assistant', es: 'Asistente de Informes IA' },
+        aiReportPlaceholder:{ en: 'Ask about reports (e.g. summarize, prioritize findings...)', es: 'Pregunta sobre informes (ej: resumir, priorizar hallazgos...)' },
+
+        // ── Automation ──
+        n8nWorkflow:       { en: '⚙ n8n Workflow Automation', es: '⚙ Automatización n8n' },
+        n8nTriggerDesc:   { en: 'Trigger the Attack Surface Scan workflow on your n8n server. Configure the server URL below.', es: 'Dispara el workflow de Attack Surface Scan en tu servidor n8n. Configura la URL del servidor abajo.' },
+        n8nUrl:            { en: 'n8n URL',            es: 'URL n8n' },
+        scanParams:        { en: '🎯 Scan Parameters',  es: '🎯 Parámetros de Escaneo' },
+        scanTarget:        { en: 'Target',             es: 'Objetivo' },
+        scanType:          { en: 'Scan Type',         es: 'Tipo de Escaneo' },
+        triggerScan:       { en: '▶ Trigger Scan',     es: '▶ Disparar Escaneo' },
+        aiWorkflow:        { en: '🤖 AI Workflow',     es: '🤖 Workflow IA' },
+        clearLog:          { en: '✕ Clear Log',        es: '✕ Limpiar Log' },
+        executionLog:      { en: '📋 Execution Log',   es: '📋 Log de Ejecución' },
+        noScansYet:        { en: 'No scans triggered yet. Configure your n8n URL and click "Trigger Scan".', es: 'Sin escaneos aún. Configura la URL de n8n y pulsa "Disparar Escaneo".' },
+        aiAutomationAssistant:{ en: 'AI Automation Assistant', es: 'Asistente de Automatización IA' },
+        aiAutomationPlaceholder:{ en: 'Ask about n8n workflows (e.g. scan automation, alerts...)', es: 'Pregunta sobre workflows n8n (ej: automatizar escaneos, alertas...)' },
+
+        // ── Op Admiral ──
+        opAdmiralTitle:    { en: '🎯 Op Admiral — Mission Planner', es: '🎯 Almirante — Planificador de Misiones' },
+        clearPlan:         { en: '✕ Clear plan',       es: '✕ Limpiar plan' },
+        progress:          { en: 'Progress',          es: 'Progreso' },
+        generatePlan:      { en: '🎯 Generate Plan',   es: '🎯 Generar Plan' },
+        executeAll:        { en: '▶ Execute All',      es: '▶ Ejecutar Todo' },
+        planEmptyDesc:     { en: 'Describe the target and click "Generate Plan" to create a mission plan.', es: 'Describe el objetivo y pulsa "Generate Plan" para crear un plan de misión.' },
+        planDescLabel:     { en: 'Describe the target…', es: 'Describe el objetivo…' },
+        planDescPlaceholder:{ en: 'Ej: Escanear el target, encontrar vulnerabilidades en el puerto 80, intentar subir una webshell…', es: 'Ej: Escanear el target, encontrar vulnerabilidades en el puerto 80, intentar subir una webshell…' },
+
+        // ── Swarm ──
+        swarmTitle:        { en: '🐝 Swarm — Multi-Operator Pipeline', es: '🐝 Enjambre — Pipeline Multi-Operador' },
+        swarmTarget:       { en: 'Target (IP or domain)', es: 'Objetivo (IP o dominio)' },
+        startSwarm:        { en: '🚀 Start Swarm',     es: '🚀 Iniciar Enjambre' },
+        cancelSwarm:       { en: '⏹ Cancel',          es: '⏹ Cancelar' },
+        pipelineProgress:  { en: 'Pipeline progress',  es: 'Progreso del pipeline' },
+        swarmFindings:     { en: '📊 Findings',       es: '📊 Hallazgos' },
+        swarmLogs:         { en: '📋 Logs',            es: '📋 Logs' },
+        swarmSessions:     { en: '📜 Previous sessions', es: '📜 Sesiones anteriores' },
+
+        // ── Findings ──
+        findingsAllFilter: { en: 'All',               es: 'Todos' },
+        findingsCritical:  { en: '🔴 Critical',       es: '🔴 Crítico' },
+        findingsHigh:      { en: '🟠 High',           es: '🟠 Alto' },
+        findingsMedium:    { en: '🟡 Medium',         es: '🟡 Medio' },
+        findingsLow:       { en: '🔵 Low',            es: '🔵 Bajo' },
+        findingsInfo:      { en: 'ℹ️ Info',           es: 'ℹ️ Info' },
+        noFindingsYet:     { en: 'No findings yet. Run a scan from the Arsenal to see results here.', es: 'Sin hallazgos aún. Ejecuta un escaneo desde el Arsenal para ver resultados.' },
+        aiSuggestions:     { en: '🤖 AI Suggestions',  es: '🤖 Sugerencias IA' },
+
+        // ── Credentials ──
+        credentialStore:   { en: '🔑 Credential Store', es: '🔑 Almacén de Credenciales' },
+        addCredential:     { en: '➕ Add Credential',  es: '➕ Añadir Credencial' },
+        credTarget:        { en: 'Target (IP/domain)', es: 'Objetivo (IP/dominio)' },
+        credService:       { en: 'Service (e.g. ssh, mysql)', es: 'Servicio (ej: ssh, mysql)' },
+        credSource:        { en: 'Source (tool / method used to find it)', es: 'Origen (herramienta / método usado)' },
+        aiCredentialAnalyst:{ en: 'AI Credential Analyst', es: 'Analista de Credenciales IA' },
+        aiCredentialPlaceholder:{ en: 'Analyze hash, suggest cracking strategy, identify hash type...', es: 'Analizar hash, sugerir estrategia de cracking, identificar tipo de hash...' },
+
+        // ── KnowledgeBase ──
+        kbTitle:           { en: '📚 KnowledgeBase — CVE / MITRE ATT&CK', es: '📚 KnowledgeBase — CVE / MITRE ATT&CK' },
+        aiKbAssistant:     { en: 'AI KnowledgeBase Assistant', es: 'Asistente de KnowledgeBase IA' },
+        aiKbPlaceholder:   { en: 'Ask about CVEs, MITRE techniques, exploit methods...', es: 'Pregunta sobre CVEs, técnicas MITRE, métodos de exploit...' },
+        kbBrowseEmpty:     { en: 'Type a query or leave empty to browse recent entries', es: 'Escribe una consulta o déjala vacía para ver entradas recientes' },
+
+        // ── CTF ──
+        ctfTitle:          { en: '🏴 CTF Mode',         es: '🏴 Modo CTF' },
+        ctfScore:          { en: 'Score:',             es: 'Puntuación:' },
+        ctfNewChallenge:   { en: '+ New Challenge',    es: '+ Nuevo Reto' },
+        ctfCreateChallenge:{ en: 'Create Challenge',   es: 'Crear Reto' },
+        aiCtfCoach:        { en: 'AI CTF Coach',       es: 'Entrenador CTF IA' },
+        aiCtfPlaceholder:  { en: 'Need a hint? Ask about techniques, vectors, exploitation methods...', es: '¿Pista? Pregunta sobre técnicas, vectores, métodos de explotación...' },
+
+        // ── Mobile ──
+        mobileTitle:       { en: '📱 Mobile Analysis Lab', es: '📱 Lab de Análisis Móvil' },
+        mobileSubtitle:    { en: 'APK Static + Dynamic Analysis', es: 'Análisis Estático + Dinámico APK' },
+        uploadAnalyze:     { en: '📤 Upload & Analyze', es: '📤 Subir & Analizar' },
+        analyzedApks:      { en: '📋 Analyzed APKs',    es: '📋 APKs Analizadas' },
+        noApksYet:         { en: 'No APKs analyzed yet.', es: 'Sin APKs analizadas.' },
+        analysisDetail:    { en: '🔍 Analysis Detail',  es: '🔍 Detalle de Análisis' },
+        selectApk:         { en: 'Select an APK to view analysis', es: 'Selecciona una APK para ver el análisis' },
+        dynamicAnalysis:   { en: '⚡ Dynamic Analysis (ADB + Frida)', es: '⚡ Análisis Dinámico (ADB + Frida)' },
+        connectedDevices:  { en: 'Connected Devices',  es: 'Dispositivos Conectados' },
+        fridaConsole:      { en: 'Frida Console',      es: 'Consola Frida' },
+        runFrida:          { en: '▶ Run Frida Script', es: '▶ Ejecutar Script Frida' },
+        aiMobileAssistant: { en: 'AI Mobile Assistant', es: 'Asistente Móvil IA' },
+        aiMobileDesc:      { en: 'Ask about APK findings, permissions, exploitation techniques, or Frida scripts.', es: 'Pregunta sobre hallazgos APK, permisos, técnicas de explotación o scripts Frida.' },
+
+        // ── Forensics ──
+        forensicsTitle:    { en: '🔍 Forensics Lab',    es: '🔍 Lab Forense' },
+        forensicsSubtitle: { en: 'File, Memory, Network & Steganography Analysis', es: 'Análisis de Archivos, Memoria, Red & Esteganografía' },
+        evidence:          { en: '📋 Evidence',        es: '📋 Evidencia' },
+        noEvidenceYet:     { en: 'No evidence yet.',    es: 'Sin evidencias.' },
+        selectEvidence:    { en: 'Select evidence to view analysis', es: 'Selecciona evidencia para ver análisis' },
+        aiForensicsAssistant:{ en: 'AI Forensics Assistant', es: 'Asistente Forense IA' },
+        aiForensicsDesc:   { en: 'Ask about forensic artifacts, strings analysis, stego techniques, or next investigation steps.', es: 'Pregunta sobre artefactos forenses, análisis de strings, técnicas stego o próximos pasos.' },
+
+        // ── Hak5 ──
+        hak5PayloadStudio: { en: '🔌 Hak5 Payload Studio', es: '🔌 Hak5 Payload Studio' },
+        hak5Credentials:   { en: '🔑 Credentials',      es: '🔑 Credenciales' },
+        hak5Logout:        { en: '⚡ Logout',           es: '⚡ Cerrar sesión' },
+        hak5Email:         { en: 'Email',              es: 'Correo' },
+        hak5Password:      { en: 'Password',           es: 'Contraseña' },
+        hak5Save:          { en: 'Save',               es: 'Guardar' },
+        hak5Launch:        { en: 'Launch Payload Studio', es: 'Abrir Payload Studio' },
+        hak5EditorTitle:   { en: '✏️ Payload Editor',  es: '✏️ Editor de Payloads' },
+        hak5SaveBtn:       { en: '💾 Save',             es: '💾 Guardar' },
+        hak5LoadBtn:       { en: '📂 Load',            es: '📂 Cargar' },
+        hak5ListBtn:       { en: '📋 List',            es: '📋 Listar' },
+        hak5ClearBtn:      { en: '✕ Clear',           es: '✕ Limpiar' },
+        hak5AiBtn:         { en: '🤖 AI',              es: '🤖 IA' },
+        hak5PayloadLabel:  { en: 'PAYLOAD',            es: 'PAYLOAD' },
+
+        // ── Scope Guard ──
+        scopeGuard:        { en: '🔒 Scope Guard',     es: '🔒 Guardia de Scope' },
+        scopeEnable:       { en: 'Enable scope enforcement', es: 'Habilitar enforzamiento de scope' },
+        scopeWarnOnly:     { en: '⚠ Warn only',       es: '⚠ Solo advertir' },
+        scopeBlock:        { en: '🔒 Block out-of-scope', es: '🔒 Bloquear fuera de scope' },
+        scopeAllowedTargets:{ en: 'Allowed targets (one per line — IP, CIDR, domain, *.wildcard)', es: 'Objetivos permitidos (uno por línea — IP, CIDR, dominio, *.comodín)' },
+        scopeSaveConfig:   { en: '💾 Save Config',     es: '💾 Guardar Config' },
+        scopeBlockHistory: { en: '📋 Block History',  es: '📋 Historial de Bloqueos' },
+
+        // ── Bounty ──
+        bountyTargetUrl:   { en: 'Target URL / IP',    es: 'URL / IP del Objetivo' },
+        bountyVuln:         { en: 'Vulnerability',     es: 'Vulnerabilidad' },
+        bountySeverity:     { en: 'Severity',          es: 'Severidad' },
+        bountyComponent:   { en: 'Affected Component', es: 'Componente Afectado' },
+        bountyDescription: { en: 'Description',       es: 'Descripción' },
+        bountySteps:       { en: 'Steps to Reproduce', es: 'Pasos para Reproducir' },
+        bountyImpact:      { en: 'Impact',            es: 'Impacto' },
+        bountyPoc:         { en: 'Proof of Concept',  es: 'Prueba de Concepto' },
+        bountyFix:         { en: 'Recommendation / Fix', es: 'Recomendación / Solución' },
+        bountyGenerate:    { en: '⚡ Generate Report', es: '⚡ Generar Reporte' },
+        bountyEnhance:     { en: '🤖 Enhance',        es: '🤖 Mejorar' },
+        bountyDownload:    { en: '⬇ Download',        es: '⬇ Descargar' },
+        bountyPreview:     { en: 'Preview',            es: 'Vista previa' },
+
+        // ── AI Writeup ──
+        aiMachine:         { en: 'Machine / Target',  es: 'Máquina / Objetivo' },
+        aiKeyFindings:     { en: 'Key Findings (one per line)', es: 'Hallazgos Clave (uno por línea)' },
+        aiStepsTaken:      { en: 'Steps Taken (summary)', es: 'Pasos Realizados (resumen)' },
+        aiFlagsCaptured:   { en: 'Flags Captured (optional)', es: 'Flags Capturadas (opcional)' },
+        aiGeneratedWriteup:{ en: 'Generated Writeup',  es: 'Writeup Generado' },
+
+        // ── Scripts ──
+        scriptBlank:       { en: '📄 Blank',          es: '📄 Vacío' },
+        scriptBashRev:     { en: '🐚 Bash Rev',       es: '🐚 Bash Rev' },
+        scriptPythonRev:   { en: '🐍 Python Rev',     es: '🐍 Python Rev' },
+        scriptPhpWeb:     { en: '🐘 PHP Web',        es: '🐘 PHP Web' },
+        scriptPsRev:       { en: '🪟 PS Rev',          es: '🪟 PS Rev' },
+        scriptMsfvenom:   { en: '💉 Msfvenom',       es: '💉 Msfvenom' },
+        scriptGenerate:   { en: '🤖 Generate',        es: '🤖 Generar' },
+        scriptSave:       { en: '💾 Save',            es: '💾 Guardar' },
+        scriptLoad:       { en: '📂 Load',            es: '📂 Cargar' },
     };
 
     window.currentLang = localStorage.getItem('vulnforge_lang') || 'en';
@@ -4067,6 +4266,77 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         if (suggestKey) suggestKey.placeholder = translations.apiKeyPlaceholder[lang];
         const suggestModel = document.getElementById('suggest-model');
         if (suggestModel) suggestModel.placeholder = translations.modelPlaceholder[lang];
+
+        // ── AI assistant placeholders (per-tab) ──
+        const aiPlaceholders = {
+            'reports-ai-question':      translations.aiReportPlaceholder,
+            'automation-ai-question':   translations.aiAutomationPlaceholder,
+            'cred-ai-question':         translations.aiCredentialPlaceholder,
+            'kb-ai-question':           translations.aiKbPlaceholder,
+            'ctf-ai-question':          translations.aiCtfPlaceholder,
+            'mobile-ai-question':        translations.aiMobileDesc,
+            'forensics-ai-question':    translations.aiForensicsDesc,
+            'n8n-target':               translations.scanTarget,
+            'n8n-url':                  translations.n8nUrl,
+            'plan-desc':                translations.planDescPlaceholder,
+            'cred-target':              translations.credTarget,
+            'cred-username':            translations.connUser,
+            'cred-service':             translations.credService,
+            'cred-source':              translations.credSource,
+        };
+        for (const [id, tr] of Object.entries(aiPlaceholders)) {
+            const el = document.getElementById(id);
+            if (el && tr && tr[lang]) el.placeholder = tr[lang];
+        }
+
+        // ── KB empty state ──
+        const kbEmpty = document.getElementById('kb-results');
+        if (kbEmpty && kbEmpty.children.length === 1 && kbEmpty.children[0].classList.contains('text-center')) {
+            kbEmpty.children[0].textContent = translations.kbBrowseEmpty[lang];
+        }
+
+        // ── Mobile APK empty state ──
+        const mobileList = document.getElementById('mobile-apk-list');
+        if (mobileList && mobileList.children.length === 1) {
+            mobileList.children[0].textContent = translations.noApksYet[lang];
+        }
+
+        // ── Forensics evidence empty state ──
+        const forensicsList = document.getElementById('forensics-list');
+        if (forensicsList && forensicsList.children.length === 1) {
+            forensicsList.children[0].textContent = translations.noEvidenceYet[lang];
+        }
+
+        // ── Cred list empty state ──
+        const credList = document.getElementById('cred-list');
+        if (credList && credList.children.length === 1) {
+            credList.children[0].textContent = translations.credentialStore[lang];
+        }
+
+        // ── Mobile/Forensics analysis placeholder ──
+        const mobileAnalysis = document.getElementById('mobile-analysis');
+        if (mobileAnalysis && mobileAnalysis.children.length === 1) {
+            mobileAnalysis.children[0].textContent = translations.selectApk[lang];
+        }
+        const forensicsAnalysis = document.getElementById('forensics-analysis');
+        if (forensicsAnalysis && forensicsAnalysis.children.length === 1) {
+            forensicsAnalysis.children[0].textContent = translations.selectEvidence[lang];
+        }
+
+        // ── AI response placeholders ──
+        const aiAnswers = ['mobile-ai-answer', 'forensics-ai-answer', 'reports-ai-answer',
+                          'automation-ai-answer', 'cred-ai-answer', 'kb-ai-answer', 'ctf-ai-answer'];
+        for (const id of aiAnswers) {
+            const el = document.getElementById(id);
+            if (el && el.textContent.includes('will appear')) {
+                el.textContent = translations.aiResponseHere[lang];
+            }
+        }
+
+        // ── Mobile/Forensics AI "Ask AI" button label ──
+        document.querySelectorAll('button[data-i18n="aiAskAIBtn"]').forEach(btn => {
+            btn.textContent = translations.aiAskAIBtn[lang];
+        });
     }
 
     // Apply saved language on load

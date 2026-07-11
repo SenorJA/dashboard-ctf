@@ -708,7 +708,166 @@ body.monochrome #n8n-status-badge.text-neon {
 .finding-filter:hover {
     opacity: 0.8;
 }
-.finding-filter.active {
-    background: rgba(255,255,255,0.04);
-    color: #ccc !important;
+
+/* ================================================================
+   RESPONSIVE — Mobile / Tablet
+   Breakpoints:
+     ≤640px  → Phone portrait
+     ≤1024px → Tablet / phone landscape
+     ≥1024px → Desktop (default)
+   ================================================================ */
+
+/* ── Prevent horizontal scroll on body ── */
+body {
+    overflow-x: hidden;
+}
+
+/* ── Sidebar: slide-in drawer on mobile ── */
+.sidebar-mobile {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 40;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease-out;
+    box-shadow: 4px 0 24px rgba(0,0,0,0.4);
+}
+
+.sidebar-mobile.open {
+    transform: translateX(0);
+}
+
+#sidebar-overlay.open {
+    opacity: 1 !important;
+    pointer-events: auto !important;
+}
+
+/* Desktop: sidebar always visible, static */
+@media (min-width: 1024px) {
+    .sidebar-mobile {
+        position: static;
+        transform: translateX(0);
+        box-shadow: none;
+    }
+    #sidebar-overlay {
+        display: none !important;
+    }
+}
+
+/* ── Tablet: narrower sidebar ── */
+@media (max-width: 1023px) and (min-width: 641px) {
+    .sidebar-mobile {
+        width: 260px;
+    }
+}
+
+/* ── Mobile (≤640px): Touch-friendly, full-width grids ── */
+@media (max-width: 640px) {
+    /* Larger tap targets */
+    button,
+    .tab-btn,
+    .arsenal-btn,
+    .cat-header,
+    .hak5-device-btn,
+    .script-template-btn {
+        min-height: 36px;
+    }
+
+    /* Connection buttons */
+    #btn-connect,
+    #btn-disconnect {
+        padding: 8px 16px !important;
+        font-size: 11px !important;
+    }
+
+    /* Connection selector full width */
+    #conn-selector {
+        width: 100% !important;
+    }
+
+    /* Content grids → single column (sidebar grids stay 2-col) */
+    main .grid-cols-2,
+    main .grid-cols-3,
+    main .grid-cols-4,
+    main .grid-cols-5 {
+        grid-template-columns: 1fr !important;
+    }
+
+    /* AI chat inputs full width */
+    input[id*="ai-question"] {
+        width: 100% !important;
+    }
+
+    /* Report modal → full screen */
+    #report-modal > div {
+        width: 100% !important;
+        max-width: 100% !important;
+        height: 100vh !important;
+        max-height: 100vh !important;
+        border-radius: 0 !important;
+    }
+
+    /* Hak5 device tabs smaller */
+    .hak5-device-btn {
+        padding: 4px 8px !important;
+        font-size: 9px !important;
+    }
+
+    /* Prevent text overflow */
+    pre, code {
+        white-space: pre-wrap !important;
+        word-break: break-all !important;
+    }
+
+    /* Terminal fills space */
+    #terminal-output {
+        height: 100% !important;
+    }
+
+    /* Arsenal buttons: more compact on mobile */
+    #sidebar .arsenal-btn {
+        font-size: 9px !important;
+        padding: 4px 6px !important;
+    }
+
+    /* Header: hide version + subtitle */
+    header .text-xs.text-gray-600.ml-1,
+    header .text-xs.text-gray-600.ml-2 {
+        display: none;
+    }
+
+    /* Scope guard badge hidden on small screens */
+    #scope-badge {
+        display: none;
+    }
+}
+
+/* ── Touch: enable momentum scrolling ── */
+.overflow-y-auto,
+.overflow-x-auto,
+#terminal-output,
+#sidebar,
+.tab-pane {
+    -webkit-overflow-scrolling: touch;
+}
+
+/* ── Touch devices: active state feedback ── */
+@media (hover: none) {
+    button:active,
+    .arsenal-btn:active,
+    .tab-btn:active {
+        opacity: 0.7;
+        transform: scale(0.98);
+    }
+}
+
+/* ── Landscape phone: compact terminal ── */
+@media (max-height: 500px) and (orientation: landscape) {
+    .terminal {
+        font-size: 11px;
+    }
+    #terminal-output {
+        max-height: 180px !important;
+    }
 }
