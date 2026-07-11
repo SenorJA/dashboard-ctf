@@ -544,17 +544,17 @@ async def websocket_endpoint(websocket: WebSocket):
         # Disable Powerlevel10k fancy prompt for clean terminal output
         channel.send("p10k disable 2>/dev/null; PROMPT='$ '; RPROMPT=''\n")
 
+        # ── Record the interactive shell's PID for tab completion ──
+        # We read /proc/<pid>/cwd via exec_command (no markers, no visible output)
+        channel.send("echo $$ > /tmp/.vfshell 2>/dev/null\n")
+        _shell_pid = [None]
+
         # Mutable references for sharing between coroutines
         _ch = [channel]
         _ip = [ssh_ip]
         _port = [ssh_port]
         _user = [ssh_user]
         _pass = [ssh_pass]
-
-        # ── Tab completion via marker queue ──
-        # read_shell looks for markers, read_ws waits on the queue
-        _tab_pending = [False]
-        _tab_cwd_queue = asyncio.Queue()
 
         async def read_shell():
             """Forward SSH shell output → WebSocket (non-blocking)."""
@@ -564,25 +564,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     try:
                         if ch.recv_ready():
                             data = ch.recv(8192).decode("utf-8", errors="replace")
-
-                            # ── If a tab completion is pending, extract CWD from markers ──
-                            if _tab_pending[0] and '##VFTABCWD##' in data:
-                                # Format: ##VFTABCWD##\n/home/javi/Downloads\n##VFTABCWD##
-                                parts = data.split('##VFTABCWD##')
-                                if len(parts) >= 3:
-                                    inner = parts[1].strip()
-                                    # Take the last meaningful line (usually the pwd output)
-                                    for line in reversed(inner.split('\n')):
-                                        line = line.strip()
-                                        if line and line.startswith('/'):
-                                            await _tab_cwd_queue.put(line)
-                                            break
-                                _tab_pending[0] = False
-                                # Clean markers from output before sending to frontend
-                                data = data.replace('##VFTABCWD##', '')
-
-                            if data:
-                                await websocket.send_text(data)
+                            await websocket.send_text(data)
                     except (OSError, EOFError):
                         break
                     await asyncio.sleep(0.02)
@@ -614,6 +596,7 @@ async def websocket_endpoint(websocket: WebSocket):
                                 _ch[0].setblocking(0)
                                 await asyncio.sleep(0.3)  # let shell init before prompt clean
                                 _ch[0].send("p10k disable 2>/dev/null; PROMPT='$ '; RPROMPT=''\n")
+                                _ch[0].send("echo $$ > /tmp/.vfshell 2>/dev/null\n")
                                 _ip[0] = cmd.get("ip", _ip[0])
                                 _user[0] = cmd.get("user", _user[0])
                                 _pass[0] = cmd.get("pass", _pass[0])
@@ -626,52 +609,46 @@ async def websocket_endpoint(websocket: WebSocket):
                                 )
                                 continue
                             if cmd.get("type") == "tab_complete":
-                                # ── Queue-based approach: ask the interactive shell for its CWD ──
-                                # This is 100% reliable: no PID guessing, no /proc, no tracking.
-                                if _tab_pending[0]:
-                                    continue  # ignore if one is already in flight
+                                # ── PID-based approach (clean, no markers, no visible output) ──
+                                # We recorded the interactive shell's PID during connection setup.
+                                # Then we read /proc/<pid>/cwd via exec_command (invisible to user).
                                 try:
                                     partial = cmd.get("text", "")
                                     partial = partial.replace('\\', '\\\\').replace('"', '\\"').replace('$', '\\$').replace('`', '\\`')
                                     is_cmd = cmd.get("is_command", False)
                                     comp_type = "-c" if is_cmd else "-f --"
 
-                                    # Signal read_shell to capture the next CWD between markers
-                                    _tab_pending[0] = True
-
-                                    # Clear any stale queue entries
-                                    while not _tab_cwd_queue.empty():
-                                        try: _tab_cwd_queue.get_nowait()
-                                        except: break
-
-                                    # Send marker command to the interactive shell
-                                    _ch[0].send("echo '##VFTABCWD##'; pwd 2>/dev/null; echo '##VFTABCWD##'\n")
-
-                                    # ── Wait for read_shell to extract the CWD ──
-                                    cwd = None
-                                    try:
-                                        cwd = await asyncio.wait_for(_tab_cwd_queue.get(), timeout=2.0)
-                                    except (asyncio.TimeoutError, asyncio.QueueEmpty):
-                                        _tab_pending[0] = False
-
-                                    if not cwd:
-                                        _tab_pending[0] = False
-                                        await websocket.send_text(json.dumps({
-                                            "type": "tab_result",
-                                            "completions": [],
-                                            "error": "Could not determine CWD"
-                                        }))
-                                        continue
-
-                                    # ── Run compgen from the actual CWD ──
-                                    cwd_quoted = shlex.quote(cwd)
-
                                     def _run():
-                                        ch = ssh.exec_command(
+                                        # ── Step 1: Read the PID file to find the interactive shell ──
+                                        pid_ch = ssh.exec_command("cat /tmp/.vfshell 2>/dev/null")
+                                        pid = pid_ch[1].read().decode("utf-8", errors="replace").strip()
+                                        if not pid:
+                                            # Fallback: try to find any bash/zsh via pgrep (excluding ourselves)
+                                            pid_ch = ssh.exec_command(
+                                                "bash -c '"
+                                                "  mypid=$$; "
+                                                "  pgrep -u $USER -x bash zsh 2>/dev/null "
+                                                "    | grep -v \"^$mypid$\" "
+                                                "    | tail -1"
+                                                "'"
+                                            )
+                                            pid = pid_ch[1].read().decode("utf-8", errors="replace").strip()
+                                        if not pid:
+                                            cwd = f"/home/{ssh_user}"
+                                        else:
+                                            # ── Step 2: Read CWD from /proc/<pid>/cwd ──
+                                            cwd_ch = ssh.exec_command(f"readlink /proc/{pid}/cwd 2>/dev/null || echo $HOME")
+                                            cwd = cwd_ch[1].read().decode("utf-8", errors="replace").strip()
+                                            if not cwd:
+                                                cwd = f"/home/{ssh_user}"
+                                        cwd_quoted = shlex.quote(cwd)
+
+                                        # ── Step 3: Run compgen from that CWD ──
+                                        comp_ch = ssh.exec_command(
                                             f"bash -c 'cd {cwd_quoted} && compgen {comp_type} \"{partial}\" 2>/dev/null' "
                                             f"| tr '\\n' ' '"
                                         )
-                                        return ch[1].read().decode("utf-8", errors="replace").strip()
+                                        return comp_ch[1].read().decode("utf-8", errors="replace").strip()
 
                                     raw = await asyncio.to_thread(_run)
                                     completions = raw.split() if raw else []
@@ -680,7 +657,6 @@ async def websocket_endpoint(websocket: WebSocket):
                                         "completions": completions
                                     }))
                                 except Exception as e:
-                                    _tab_pending[0] = False
                                     await websocket.send_text(json.dumps({
                                         "type": "tab_result",
                                         "completions": [],
