@@ -215,6 +215,9 @@ def _call_llm_sync(provider: str, api_key: str, model: str, messages: list, time
         req = urllib.request.Request(url, data=body, method="POST")
         req.add_header("Content-Type", "application/json; charset=utf-8")
         req.add_header("Authorization", f"Bearer {api_key}")
+        req.add_header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36")
+        req.add_header("Accept", "*/*")
+        req.add_header("Cache-Control", "no-cache")
         try:
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 raw = resp.read()
@@ -244,6 +247,7 @@ def _call_llm_sync(provider: str, api_key: str, model: str, messages: list, time
         body = json.dumps({"contents": gemini_contents}).encode("utf-8")
         req = urllib.request.Request(url, data=body, method="POST")
         req.add_header("Content-Type", "application/json")
+        req.add_header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             data = json.loads(resp.read().decode("utf-8"))
             candidates = data.get("candidates", [])
@@ -270,6 +274,7 @@ def _call_llm_sync(provider: str, api_key: str, model: str, messages: list, time
         req.add_header("Content-Type", "application/json")
         req.add_header("x-api-key", api_key)
         req.add_header("anthropic-version", "2023-06-01")
+        req.add_header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             data = json.loads(resp.read().decode("utf-8"))
             content = data.get("content", [])
