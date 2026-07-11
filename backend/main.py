@@ -780,6 +780,11 @@ async def websocket_endpoint(websocket: WebSocket):
                                     height=cmd.get("height", 40)
                                 )
                                 continue
+                            if cmd.get("type") == "interrupt":
+                                # Send Ctrl+C (SIGINT) to kill the foreground process
+                                _ch[0].send("\x03")
+                                await websocket.send_text("^C\n⏹ Process interrupted\n")
+                                continue
                             if cmd.get("type") == "tab_complete":
                                 # ── PID-based approach (clean, no markers, no visible output) ──
                                 # We recorded the interactive shell's PID during connection setup.

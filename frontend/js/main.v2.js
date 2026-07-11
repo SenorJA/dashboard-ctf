@@ -785,6 +785,13 @@ document.addEventListener('DOMContentLoaded', () => {
         cmdInput.value = '';
     };
 
+    window.stopCommand = function () {
+        if (!ensureConnected()) return;
+        ws.send(JSON.stringify({ type: 'interrupt' }));
+        appendOutput('\n⏹ Sending interrupt (Ctrl+C)...\n');
+        showToast('⏹ Interrupt sent');
+    };
+
     // Arrow up/down → navigate history
     cmdInput.addEventListener('keydown', (event) => {
         if (event.key === 'ArrowUp') {
