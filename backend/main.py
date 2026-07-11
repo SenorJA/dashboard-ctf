@@ -328,6 +328,32 @@ async def suggest_next_step(req: SuggestRequest):
         return JSONResponse({"ok": False, "error": f"[{req.provider}] model={req.model or '(default)'}: {e}"}, status_code=500)
 
 # ════════════════════════════════════════════════════════════════
+#  GENERIC AI CHAT (for all sections: scripts, bounty, hak5, etc.)
+# ════════════════════════════════════════════════════════════════
+
+class AIChatRequest(BaseModel):
+    provider: str = "openai"
+    api_key: str = ""
+    model: str = ""
+    messages: list = []  # [{"role":"user"/"assistant"/"system","content":"..."}]
+
+@app.post("/api/ai/chat")
+async def ai_chat(req: AIChatRequest):
+    """Generic AI chat endpoint — reusable by any frontend section."""
+    try:
+        if not req.api_key:
+            return JSONResponse({"ok": False, "error": "API key is required"}, status_code=400)
+        result = await asyncio.to_thread(
+            _call_llm_sync, req.provider, req.api_key, req.model, req.messages, 60
+        )
+        return JSONResponse({"ok": True, "content": result})
+    except urllib.error.HTTPError as e:
+        body = e.read().decode('utf-8', errors='replace')[:500]
+        return JSONResponse({"ok": False, "error": f"[{req.provider}] {e.code}: {body}"}, status_code=502)
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": f"[{req.provider}] model={req.model}: {e}"}, status_code=500)
+
+# ════════════════════════════════════════════════════════════════
 #  SUPABASE API ENDPOINTS
 # ════════════════════════════════════════════════════════════════
 

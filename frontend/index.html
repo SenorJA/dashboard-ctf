@@ -439,6 +439,10 @@
                         <button class="script-template-btn" onclick="selectScriptTemplate('php-webshell')">🐘 PHP Web</button>
                         <button class="script-template-btn" onclick="selectScriptTemplate('powershell-rev')">🪟 PS Rev</button>
                         <button class="script-template-btn" onclick="selectScriptTemplate('msfvenom')">💉 Msfvenom</button>
+                        <button onclick="aiGenerateScript()"
+                            class="bg-cyber/10 hover:bg-cyber/20 text-cyber border border-cyber/30 px-3 py-1 rounded text-[10px] transition-all ml-auto">
+                            🤖 Generate
+                        </button>
                     </div>
                 </div>
 
@@ -564,6 +568,10 @@
                                 <option value="html">.html</option>
                                 <option value="pdf">📄 PDF</option>
                             </select>
+                            <button onclick="aiEnhanceBounty()"
+                                class="bg-cyber/10 hover:bg-cyber/20 text-cyber border border-cyber/30 px-3 py-1.5 rounded text-[10px] transition-all">
+                                🤖 Enhance
+                            </button>
                             <button onclick="downloadBountyReport()" id="btn-download-bounty" disabled
                                 class="bg-cyber/10 hover:bg-cyber/20 text-cyber border border-cyber/30 px-4 py-1.5 rounded text-[10px] transition-all disabled:opacity-30 disabled:cursor-not-allowed">
                                 ⬇ Download
@@ -808,6 +816,10 @@
                             class="bg-blood/10 hover:bg-blood/20 text-blood border border-blood/30 px-3 py-1.5 rounded text-[10px] transition-all">
                             ✕ Clear
                         </button>
+                        <button onclick="aiGeneratePayload()"
+                            class="bg-cyber/10 hover:bg-cyber/20 text-cyber border border-cyber/30 px-3 py-1.5 rounded text-[10px] transition-all">
+                            🤖 AI
+                        </button>
                         <span id="hak5-payload-status" class="text-[10px] text-gray-700 ml-auto"></span>
                     </div>
 
@@ -892,6 +904,10 @@
                         <button onclick="triggerN8nScan()" id="btn-n8n-trigger"
                             class="bg-neon/10 hover:bg-neon/20 text-neon border border-neon/30 px-5 py-2 rounded text-[11px] font-semibold transition-all duration-200 hover:shadow-[0_0_12px_rgba(212,168,67,0.15)] disabled:opacity-40 disabled:cursor-not-allowed">
                             ▶ Trigger Scan
+                        </button>
+                        <button onclick="aiGenerateWorkflow()"
+                            class="bg-cyber/10 hover:bg-cyber/20 text-cyber border border-cyber/30 px-3 py-2 rounded text-[10px] transition-all">
+                            🤖 AI Workflow
                         </button>
                         <button onclick="clearN8nLog()"
                             class="bg-blood/10 hover:bg-blood/20 text-blood border border-blood/30 px-3 py-2 rounded text-[10px] transition-all">

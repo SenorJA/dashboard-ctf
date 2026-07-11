@@ -2924,6 +2924,120 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         return '';
     };
 
+    // ════════════════════════════════════════════════════════════════
+    //  GENERIC AI CHAT — reusable across all sections
+    // ════════════════════════════════════════════════════════════════
+
+    function _getAIConfig() {
+        return {
+            provider: document.getElementById('suggest-provider')?.value || 'groq',
+            apiKey: (document.getElementById('suggest-key')?.value || '').trim(),
+            model: (document.getElementById('suggest-model')?.value || '').trim()
+        };
+    }
+
+    window.aiChat = async function (systemPrompt, userMessage) {
+        const cfg = _getAIConfig();
+        if (!cfg.apiKey) {
+            showToast('⚠️ Configure an API key in Findings → AI Settings first');
+            return null;
+        }
+        try {
+            const resp = await fetch('/api/ai/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    provider: cfg.provider,
+                    api_key: cfg.apiKey,
+                    model: cfg.model,
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        { role: 'user', content: userMessage }
+                    ]
+                })
+            });
+            const data = await resp.json();
+            if (!data.ok) throw new Error(data.error || 'AI request failed');
+            return data.content;
+        } catch (err) {
+            showToast(`⚠️ AI: ${err.message}`);
+            return null;
+        }
+    };
+
+    // ── Scripts: generate script from description ──
+    window.aiGenerateScript = async function () {
+        const desc = prompt('Describe the script you want to generate (e.g. "reverse shell with python connecting to 10.10.14.5:4444"):');
+        if (!desc) return;
+        const editor = document.getElementById('script-editor');
+        const lang = document.getElementById('script-lang')?.textContent || 'bash';
+        const prompt = `Generate a ${lang} script for the following purpose. Return ONLY the raw script code, no explanation, no markdown formatting.\n\nPurpose: ${desc}`;
+        const result = await aiChat('You are an offensive scripting expert. Generate clean, working payload scripts.', prompt);
+        if (result) {
+            editor.value = result.replace(/```\w*\n?/g, '');
+            showToast('🤖 Script generated!');
+            updateScriptLineCount();
+        }
+    };
+
+    // ── Bounty: enhance report with AI ──
+    window.aiEnhanceBounty = async function () {
+        const target = document.getElementById('bounty-target')?.value;
+        const vuln = document.getElementById('bounty-type')?.value;
+        const severity = document.getElementById('bounty-severity')?.value;
+        const component = document.getElementById('bounty-component')?.value;
+        const desc = document.getElementById('bounty-description')?.value;
+        const steps = document.getElementById('bounty-steps')?.value;
+        const impact = document.getElementById('bounty-impact')?.value;
+        const fix = document.getElementById('bounty-fix')?.value;
+        if (!target || !vuln) {
+            showToast('⚠️ Fill at least Target and Vulnerability type first');
+            return;
+        }
+        const context = `Target: ${target}\nVulnerability: ${vuln} (${severity})\nComponent: ${component || 'N/A'}\nDescription: ${desc || 'N/A'}\nSteps: ${steps || 'N/A'}\nImpact: ${impact || 'N/A'}\nFix: ${fix || 'N/A'}`;
+        const result = await aiChat(
+            'You are a professional bug bounty hunter. Generate a polished, detailed bug bounty report in markdown. Include: title, target, vulnerability type, severity, description, steps to reproduce, impact, and remediation. Be precise and professional.',
+            context
+        );
+        if (result) {
+            const output = document.getElementById('bounty-preview');
+            if (output) output.textContent = result;
+            document.getElementById('btn-download-bounty')?.removeAttribute('disabled');
+            showToast('🤖 Bounty report enhanced!');
+        }
+    };
+
+    // ── Hak5: generate payload from description ──
+    window.aiGeneratePayload = async function () {
+        const deviceBtn = document.querySelector('.hak5-device-btn.active');
+        const device = deviceBtn?.dataset?.device || 'bunny';
+        const desc = prompt(`Describe the ${device} payload you want (e.g. "privesc via sticky keys"):`);
+        if (!desc) return;
+        const editor = document.getElementById('hak5-editor');
+        const prompt = `Generate a Hak5 ${device} payload for: ${desc}\n\nReturn ONLY the raw payload code, no explanation.`;
+        const result = await aiChat(`You are a Hak5 payload expert. Generate working payloads for ${device} devices. Use proper syntax for the device.`, prompt);
+        if (result) {
+            editor.value = result.replace(/```\w*\n?/g, '');
+            showToast(`🤖 ${device} payload generated!`);
+            updateHak5LineCount();
+        }
+    };
+
+    // ── Automation: generate n8n workflow description ──
+    window.aiGenerateWorkflow = async function () {
+        const desc = prompt('Describe the n8n workflow you want to create (e.g. "automated port scan that emails results"):');
+        if (!desc) return;
+        const result = await aiChat(
+            'You are an n8n workflow expert. Describe in detail how to build the requested workflow step by step in n8n. Include: trigger type, nodes needed, how to configure each node, and expected output.',
+            `Design an n8n workflow for: ${desc}`
+        );
+        if (result) {
+            const log = document.getElementById('n8n-log') || document.querySelector('#tab-automation .overflow-y-auto pre');
+            if (log) log.textContent = result;
+            showToast('🤖 Workflow description generated!');
+        }
+    };
+
     window.suggestNextStep = async function () {
         const provider = document.getElementById('suggest-provider').value;
         const apiKey = document.getElementById('suggest-key').value.trim();
