@@ -1492,6 +1492,21 @@ document.addEventListener('DOMContentLoaded', () => {
         { name: 'CyberChef',            url: 'https://gchq.github.io/CyberChef/',                               icon: '🔗' },
     ];
 
+    const HARDWARE_STORES = [
+        // ── Official Manufacturers ──
+        { name: 'Hak5',              url: 'https://shop.hak5.org',                          badge: 'OFFICIAL',   badgeColor: 'text-green-400 border-green-400/30',  icon: '🏪', desc: 'USB Rubber Ducky, WiFi Pineapple, Bash Bunny, OMG Cable, Shark Jack, Key Croc', region: '🌎 USA / Global' },
+        { name: 'Flipper Zero',      url: 'https://flipperzero.one',                        badge: 'OFFICIAL',   badgeColor: 'text-green-400 border-green-400/30',  icon: '🐬', desc: 'Flipper Zero multi-tool device & accessories', region: '🌎 Global' },
+        { name: 'Great Scott Gadgets', url: 'https://greatscottgadgets.com',                 badge: 'OFFICIAL',   badgeColor: 'text-green-400 border-green-400/30',  icon: '📡', desc: 'HackRF, PortaPack, KrakenSDR — Software Defined Radio', region: '🌎 USA / Global' },
+        { name: 'M5Stack',           url: 'https://m5stack.com',                            badge: 'OFFICIAL',   badgeColor: 'text-green-400 border-green-400/30',  icon: '📟', desc: 'ESP32 modules for IoT hacking & prototyping', region: '🌎 Global' },
+        // ── Trusted Resellers ──
+        { name: 'Lab 401',           url: 'https://lab401.com',                             badge: 'RESELLER ⭐', badgeColor: 'text-cyan-400 border-cyan-400/30',      icon: '🏪', desc: 'Hak5, Flipper Zero, Proxmark, HackRF, SDR, iCopy-X — EU exclusive distributor', region: '🇪🇺 France / 🇺🇸 USA' },
+        { name: 'Hacker Warehouse',  url: 'https://hackerwarehouse.com',                    badge: 'RESELLER',   badgeColor: 'text-yellow-400 border-yellow-400/30', icon: '🏪', desc: 'Hak5, Flipper Zero, HackRF, PortaPack, accessories', region: '🇺🇸 USA' },
+        { name: 'HackmoD',           url: 'https://hackmod.de',                             badge: 'RESELLER',   badgeColor: 'text-yellow-400 border-yellow-400/30', icon: '🏪', desc: 'Hak5, SDR, pentest tools, LEA & gov solutions', region: '🇩🇪 Germany' },
+        { name: 'KSEC Labs',         url: 'https://labs.ksec.co.uk',                        badge: 'RESELLER',   badgeColor: 'text-yellow-400 border-yellow-400/30', icon: '🏪', desc: 'Hak5, red team tools, pentest hardware', region: '🇬🇧 UK' },
+        { name: 'Firewire Revolution', url: 'https://firewire-revolution.de',               badge: 'RESELLER',   badgeColor: 'text-yellow-400 border-yellow-400/30', icon: '🏪', desc: 'Hak5, IT security hardware', region: '🇩🇪 Germany' },
+        { name: 'SAPSAN',            url: 'https://sapsan-sklep.pl',                        badge: 'RESELLER',   badgeColor: 'text-yellow-400 border-yellow-400/30', icon: '🏪', desc: 'Hak5, pentest gear, IT security', region: '🇵🇱 Poland' },
+    ];
+
     function renderToolButton(t) {
         return `<button onclick="launchTool('${t.id}')"
             class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
@@ -1510,6 +1525,21 @@ document.addEventListener('DOMContentLoaded', () => {
         </a>`;
     }
 
+    function renderStoreButton(s) {
+        return `<a href="${s.url}" target="_blank" rel="noopener"
+            class="tool-btn flex items-center gap-2 w-full bg-deep/50 hover:bg-deep px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-orange-400/40 group">
+            <span class="text-orange-400/70 group-hover:text-orange-400 shrink-0">${s.icon}</span>
+            <div class="flex-1 min-w-0">
+                <span class="flex items-center gap-1.5">
+                    <span class="text-gray-400 group-hover:text-gray-200 truncate">${s.name}</span>
+                    <span class="text-[7px] uppercase tracking-wider border px-1 rounded shrink-0 ${s.badgeColor}">${s.badge}</span>
+                </span>
+                <span class="block text-[8px] text-gray-700 leading-tight">${s.desc} <span class="text-gray-800">${s.region}</span></span>
+            </div>
+            <span class="text-[8px] text-gray-700 shrink-0">↗</span>
+        </a>`;
+    }
+
     function renderArsenal() {
         ARSENAL_GROUPS.forEach(g => {
             const container = document.getElementById(`arsenal-${g.id}`);
@@ -1519,7 +1549,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (resContainer) resContainer.innerHTML = ARSENAL_LINKS.map(renderLinkButton).join('');
         const utilContainer = document.getElementById('arsenal-utilities');
         if (utilContainer) utilContainer.innerHTML = ARSENAL_UTILITIES.map(renderLinkButton).join('');
-        const totalItems = ARSENAL_GROUPS.reduce((s, g) => s + g.tools.length, 0) + ARSENAL_LINKS.length + ARSENAL_UTILITIES.length;
+        const hwContainer = document.getElementById('arsenal-hardware');
+        if (hwContainer) hwContainer.innerHTML = HARDWARE_STORES.map(renderStoreButton).join('');
+        const totalItems = ARSENAL_GROUPS.reduce((s, g) => s + g.tools.length, 0) + ARSENAL_LINKS.length + ARSENAL_UTILITIES.length + HARDWARE_STORES.length;
         const totalSpan = document.getElementById('arsenal-total-count');
         if (totalSpan) totalSpan.textContent = `[${totalItems}]`;
         const toolCountSpan = document.getElementById('tool-count');
@@ -2998,7 +3030,6 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
     function updatePSStatus(connected) {
         const badge = document.getElementById('ps-status-badge');
         const form  = document.getElementById('ps-connect-form');
-        const btnConnect = document.getElementById('btn-connect-ps');
         const btnDisconnect = document.getElementById('btn-disconnect-ps');
         if (!badge) return;
 
@@ -3006,36 +3037,36 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
             badge.innerHTML = '🟢 connected';
             badge.className = 'text-[9px] text-neon border border-neon/30 rounded px-2 py-0.5';
             if (form) form.style.display = 'none';
-            if (btnConnect) btnConnect.style.display = 'none';
             if (btnDisconnect) btnDisconnect.style.display = 'inline-block';
         } else {
             badge.innerHTML = '⚪ disconnected';
             badge.className = 'text-[9px] text-gray-700 border border-gray-800 rounded px-2 py-0.5';
-            if (form) form.style.display = 'block';
-            if (btnConnect) btnConnect.style.display = 'inline-block';
             if (btnDisconnect) btnDisconnect.style.display = 'none';
         }
     }
 
-    window.connectPayloadStudio = function () {
+    window.togglePSCreds = function () {
         const form = document.getElementById('ps-connect-form');
-        if (form) form.style.display = form.style.display === 'none' ? 'block' : 'block';
-        // If already have saved creds, try auto-login
-        const saved = getPSCreds();
-        if (saved) {
-            document.getElementById('ps-email').value = saved.email || '';
-            document.getElementById('ps-password').value = saved.password || '';
-            showToast('🔌 Credentials loaded — click Sign In');
+        if (!form) return;
+        const hidden = form.style.display === 'none';
+        form.style.display = hidden ? 'block' : 'none';
+        // Pre-fill if saved
+        if (hidden) {
+            const saved = getPSCreds();
+            if (saved) {
+                document.getElementById('ps-email').value = saved.email || '';
+                document.getElementById('ps-password').value = saved.password || '';
+            }
         }
     };
 
     window.disconnectPayloadStudio = function () {
         clearPSCreds();
         updatePSStatus(false);
-        // Reload iframe back to login
-        const iframe = document.getElementById('ps-iframe');
-        if (iframe) iframe.src = 'https://payloadstudio.hak5.org/login/';
-        showToast('⚡ Payload Studio disconnected');
+        document.getElementById('ps-email').value = '';
+        document.getElementById('ps-password').value = '';
+        document.getElementById('ps-connect-form').style.display = 'none';
+        showToast('⚡ Credentials cleared');
     };
 
     window.doPayloadStudioLogin = function () {
@@ -3045,15 +3076,10 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
             showToast('⚠️ Enter email and password');
             return;
         }
-
-        // Store creds locally
         setPSCreds({ email, password, savedAt: new Date().toISOString() });
         updatePSStatus(true);
-
-        // Navigate the iframe to the main Payload Studio app (post-login)
-        const iframe = document.getElementById('ps-iframe');
-        if (iframe) iframe.src = 'https://payloadstudio.hak5.org/';
-        showToast('🔌 Connected to Payload Studio');
+        document.getElementById('ps-connect-form').style.display = 'none';
+        showToast('🔌 Credentials saved — click Launch Payload Studio to open');
     };
 
     // Restore saved session on load
@@ -3063,8 +3089,6 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
             document.getElementById('ps-email').value = saved.email || '';
             document.getElementById('ps-password').value = saved.password || '';
             updatePSStatus(true);
-            const iframe = document.getElementById('ps-iframe');
-            if (iframe) iframe.src = 'https://payloadstudio.hak5.org/';
         }
     }
     restorePSSession();

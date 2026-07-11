@@ -268,6 +268,15 @@
                         </p>
                         <div id="arsenal-extract" class="cat-body space-y-0.5"></div>
                     </div>
+                    <!-- ══════ Hardware Stores ══════ -->
+                    <div>
+                        <p class="cat-header text-[9px] font-semibold text-gray-600 uppercase tracking-wider mb-1 flex items-center gap-1"
+                            onclick="toggleCategory(this)">
+                            <span class="text-orange-400">▶</span> 🛒 Hardware Stores
+                            <span class="ml-auto text-[8px] text-gray-700">10</span>
+                        </p>
+                        <div id="arsenal-hardware" class="cat-body space-y-0.5"></div>
+                    </div>
                 </div>  <!-- /p-3 arsenal -->
 
             <!-- ── SIDEBAR FOOTER ── -->
@@ -650,7 +659,7 @@
                  ════════════════════════════════════════════════════════ -->
             <div id="tab-hak5" class="tab-pane p-4 pt-3 overflow-y-auto">
 
-                <!-- ── Payload Studio ── -->
+                <!-- ── Payload Studio Launcher ── -->
                 <div class="bg-void border border-gray-800 rounded-lg p-3 mb-4">
                     <div class="flex items-center justify-between mb-2">
                         <h3 class="text-xs text-neon font-semibold tracking-wider">
@@ -661,23 +670,19 @@
                                 class="text-[9px] text-gray-700 border border-gray-800 rounded px-2 py-0.5">
                                 ⚪ disconnected
                             </span>
-                            <button onclick="connectPayloadStudio()" id="btn-connect-ps"
-                                class="text-[10px] text-cyber hover:text-cyber/80 transition-colors border border-cyber/30 rounded px-2.5 py-1">
-                                🔗 Connect
+                            <button onclick="togglePSCreds()" id="btn-ps-creds"
+                                class="text-[10px] text-gray-600 hover:text-gray-400 transition-colors border border-gray-800 rounded px-2.5 py-1">
+                                🔑 Credentials
                             </button>
                             <button onclick="disconnectPayloadStudio()" id="btn-disconnect-ps" style="display:none"
                                 class="text-[10px] text-blood hover:text-blood/80 transition-colors border border-blood/30 rounded px-2.5 py-1">
-                                ⚡ Disconnect
+                                ⚡ Logout
                             </button>
-                            <a href="https://payloadstudio.hak5.org/login/" target="_blank"
-                                class="text-[10px] text-gray-600 hover:text-gray-400 transition-colors border border-gray-800 rounded px-2.5 py-1">
-                                ↗ Open tab
-                            </a>
                         </div>
                     </div>
 
-                    <!-- Connection form (hidden when connected) -->
-                    <div id="ps-connect-form" class="mb-2.5 p-2 bg-deep border border-gray-800 rounded">
+                    <!-- Credentials form (hidden by default) -->
+                    <div id="ps-connect-form" class="mb-2.5 p-2 bg-deep border border-gray-800 rounded" style="display:none">
                         <div class="flex items-center gap-2">
                             <span class="text-[9px] text-gray-600 uppercase tracking-wider">Email</span>
                             <input type="email" id="ps-email" placeholder="user@hak5.com"
@@ -687,21 +692,24 @@
                                 class="w-32 bg-void border border-gray-800 rounded px-2 py-1 text-[10px] text-gray-300 placeholder-gray-700 focus:outline-none focus:border-neon/50 font-mono">
                             <button onclick="doPayloadStudioLogin()"
                                 class="bg-cyber/10 hover:bg-cyber/20 text-cyber border border-cyber/30 px-3 py-1 rounded text-[10px] transition-all font-semibold">
-                                Sign In
+                                Save
                             </button>
                         </div>
-                        <p class="text-[8px] text-gray-700 mt-1">Credentials stored locally. The iframe will navigate to your Payload Studio dashboard.</p>
+                        <p class="text-[8px] text-gray-700 mt-1">Credentials stored locally for quick launch.</p>
                     </div>
 
-                    <div class="bg-deep border border-gray-800 rounded overflow-hidden" style="height: 360px;">
-                        <iframe id="ps-iframe" src="https://payloadstudio.hak5.org/login/"
-                            title="Hak5 Payload Studio"
-                            class="w-full h-full"
-                            style="border: none; min-height: 360px;"
-                            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-top-navigation">
-                        </iframe>
-                    </div>
-                    <p class="text-[9px] text-gray-700 mt-1.5">Create, edit, and deploy Hak5 payloads (Bash Bunny, OMG, Shark Jack, etc.)</p>
+                    <!-- Launch button -->
+                    <a href="https://payloadstudio.hak5.org/" target="_blank" rel="noopener"
+                        class="flex items-center gap-3 bg-deep border border-cyber/20 hover:border-cyber/50 rounded-lg p-4 transition-all group mb-2">
+                        <span class="text-2xl">🚀</span>
+                        <div class="flex-1">
+                            <p class="text-[13px] font-semibold text-gray-300 group-hover:text-cyber transition-colors">Launch Payload Studio</p>
+                            <p class="text-[10px] text-gray-700">Open in browser tab — create, edit, and deploy Hak5 payloads</p>
+                        </div>
+                        <span class="text-cyber/50 group-hover:text-cyber text-lg">↗</span>
+                    </a>
+
+                    <p class="text-[9px] text-gray-700">Supports Bash Bunny, OMG Cable, Shark Jack, Key Croc, and all Hak5 devices.</p>
                 </div>
 
                 <!-- ── GitHub Payload Repos ── -->
