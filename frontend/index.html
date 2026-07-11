@@ -1401,6 +1401,17 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- 🤖 AI Assistant -->
+                <div class="bg-deep/50 border border-amber-500/20 rounded p-3 mt-3">
+                    <h4 class="text-[9px] text-amber-500/70 uppercase tracking-wider mb-2">🤖 AI Mobile Assistant</h4>
+                    <p class="text-[9px] text-gray-700 mb-2">Ask about APK findings, permissions, exploitation techniques, or Frida scripts.</p>
+                    <div class="flex gap-2 mb-2">
+                        <input id="mobile-ai-question" placeholder="e.g., What does this WebView vulnerability mean? How to exploit it?" class="flex-1 bg-deep border border-gray-800 rounded px-2 py-1 text-[10px] text-gray-300 placeholder-gray-700 font-mono" onkeydown="mobileAskAIEnter(event)">
+                        <button onclick="mobileAskAI()" class="bg-amber-500/10 hover:bg-amber-500/20 text-amber-500/80 border border-amber-500/30 px-3 py-1 rounded text-[10px] transition-all whitespace-nowrap">🤖 Ask AI</button>
+                    </div>
+                    <pre id="mobile-ai-answer" class="text-[9px] text-gray-500 font-mono bg-void/50 border border-gray-800 rounded p-2 h-16 overflow-y-auto">AI response will appear here</pre>
+                </div>
             </div>
 
             <!-- ════════════════════════════════════════════════════════
@@ -1448,6 +1459,17 @@
                             <div class="text-[10px] text-gray-700 text-center py-8">Select evidence to view analysis</div>
                         </div>
                     </div>
+                </div>
+
+                <!-- 🤖 AI Assistant -->
+                <div class="bg-deep/50 border border-amber-500/20 rounded p-3 mt-3">
+                    <h4 class="text-[9px] text-amber-500/70 uppercase tracking-wider mb-2">🤖 AI Forensics Assistant</h4>
+                    <p class="text-[9px] text-gray-700 mb-2">Ask about forensic artifacts, strings analysis, stego techniques, or next investigation steps.</p>
+                    <div class="flex gap-2 mb-2">
+                        <input id="forensics-ai-question" placeholder="e.g., What should I look for in this memory dump? How to extract flags from stego?" class="flex-1 bg-deep border border-gray-800 rounded px-2 py-1 text-[10px] text-gray-300 placeholder-gray-700 font-mono" onkeydown="forensicsAskAIEnter(event)">
+                        <button onclick="forensicsAskAI()" class="bg-amber-500/10 hover:bg-amber-500/20 text-amber-500/80 border border-amber-500/30 px-3 py-1 rounded text-[10px] transition-all whitespace-nowrap">🤖 Ask AI</button>
+                    </div>
+                    <pre id="forensics-ai-answer" class="text-[9px] text-gray-500 font-mono bg-void/50 border border-gray-800 rounded p-2 h-16 overflow-y-auto">AI response will appear here</pre>
                 </div>
             </div>
 

@@ -1,6 +1,7 @@
 // ── 📱 Mobile Lab ──
 
 let mobileApks = [];
+let _currentMobileApkId = null;
 
 window.mobileLoad = async function () {
     try {
@@ -87,6 +88,7 @@ window.mobileUpload = async function () {
 };
 
 window.mobileOpenAnalysis = async function (apkId) {
+    _currentMobileApkId = apkId;
     const container = document.getElementById('mobile-analysis');
     container.innerHTML = '<div class="text-[10px] text-gray-700 text-center py-8">Loading analysis...</div>';
 
@@ -165,10 +167,14 @@ function mobileRenderAnalysis(data, container) {
                     <span class="${colorMap[sev] || 'text-gray-500'} font-bold text-[10px] uppercase">${sevIcons[sev] || '•'} ${sev.toUpperCase()} (${items.length})</span>
                 </div>`;
             for (const f of items) {
+                const fEnc = encodeURIComponent(JSON.stringify(f));
                 html += `<div class="bg-deep/30 border border-gray-800 rounded p-2 mb-1 text-[10px] ml-2">
                     <div class="flex items-center justify-between">
                         <span class="text-gray-200 font-semibold">${f.title}</span>
-                        <span class="text-gray-700 text-[9px]">${f.category || ''}</span>
+                        <div class="flex items-center gap-2">
+                            <span class="text-gray-700 text-[9px]">${f.category || ''}</span>
+                            <button onclick="mobileExplainFinding('${fEnc}')" class="text-[9px] text-amber-500/70 hover:text-amber-400 transition-colors" title="Explain with AI">🤖</button>
+                        </div>
                     </div>
                     <div class="text-gray-400 mt-0.5">${f.description}</div>
                     ${f.file ? `<div class="text-gray-700 text-[9px] mt-0.5 font-mono">${f.file}</div>` : ''}
@@ -267,6 +273,86 @@ window.mobileRunFrida = async function () {
     } catch (e) {
         output.textContent = 'Network error: ' + e.message;
     }
+};
+
+// ── 🤖 AI Assistant ──
+
+window.mobileExplainFinding = async function (encodedFinding) {
+    try {
+        const finding = JSON.parse(decodeURIComponent(encodedFinding));
+        const systemPrompt = `You are a mobile security expert. Explain this Android APK vulnerability finding in simple terms. Include:
+1. What the vulnerability means
+2. Why it's dangerous (CVSS-like rating)
+3. How an attacker could exploit it
+4. How to fix it (code-level recommendation)
+Keep it concise, max 3 paragraphs.`;
+
+        const userMessage = `Analyze this Android APK finding:
+- Title: ${finding.title}
+- Severity: ${finding.severity}
+- Description: ${finding.description}
+- Category: ${finding.category}
+- File: ${finding.file || 'N/A'}`;
+
+        showToast('🤖 Asking AI...');
+        const result = await window.aiChat(systemPrompt, userMessage);
+        if (result) {
+            // Show in a modal/overlay
+            const existing = document.getElementById('mobile-ai-overlay');
+            if (existing) existing.remove();
+
+            const overlay = document.createElement('div');
+            overlay.id = 'mobile-ai-overlay';
+            overlay.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/60';
+            overlay.innerHTML = `<div class="bg-deep border border-amber-500/30 rounded-lg max-w-xl w-full mx-4 max-h-[70vh] overflow-y-auto p-4 shadow-2xl">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-amber-400 font-bold text-[11px] tracking-wider">🤖 AI Analysis</span>
+                    <button onclick="this.closest('#mobile-ai-overlay').remove()" class="text-gray-600 hover:text-gray-400 text-[18px] leading-none">&times;</button>
+                </div>
+                <div class="text-[10px] text-gray-300 leading-relaxed whitespace-pre-wrap">${result}</div>
+                <div class="mt-3 pt-2 border-t border-gray-800 flex justify-end">
+                    <button onclick="this.closest('#mobile-ai-overlay').remove()" class="text-[9px] text-gray-600 hover:text-gray-400">Close</button>
+                </div>
+            </div>`;
+            document.body.appendChild(overlay);
+        }
+    } catch (e) {
+        showToast('⚠ AI error: ' + e.message);
+    }
+};
+
+window.mobileAskAI = async function () {
+    const input = document.getElementById('mobile-ai-question');
+    if (!input || !input.value.trim()) return;
+    const question = input.value.trim();
+    input.disabled = true;
+    const answerBox = document.getElementById('mobile-ai-answer');
+    if (answerBox) answerBox.textContent = '⏳ Thinking...';
+
+    // Build context from current APK analysis
+    const apkInfo = document.querySelector('#mobile-analysis .text-gray-200.font-bold');
+    const packageName = apkInfo ? apkInfo.textContent : 'Unknown APK';
+    const findingsCount = document.querySelectorAll('#mobile-analysis .bg-deep\\/30').length;
+
+    const systemPrompt = `You are a mobile security expert assistant integrated into VulnForge, a CTF/pentest dashboard. 
+The user is analyzing an Android APK (${packageName}) with ${findingsCount} potential findings.
+Answer their question concisely and helpfully. Be specific to Android/mobile security.`;
+
+    try {
+        const result = await window.aiChat(systemPrompt, `Regarding APK "${packageName}": ${question}`);
+        if (answerBox) answerBox.textContent = result || '(no response)';
+        else showToast('🤖 ' + (result || 'Done'));
+    } catch (e) {
+        if (answerBox) answerBox.textContent = 'Error: ' + e.message;
+        showToast('⚠ AI error: ' + e.message);
+    } finally {
+        input.disabled = false;
+        input.focus();
+    }
+};
+
+window.mobileAskAIEnter = function (e) {
+    if (e.key === 'Enter') mobileAskAI();
 };
 
 // Init

@@ -146,10 +146,14 @@ function forensicsRenderAnalysis(data, container) {
                     <span class="${colors[sev]||'text-gray-500'} font-bold text-[10px] uppercase">${sevIcons[sev]||'•'} ${sev.toUpperCase()} (${items.length})</span>
                 </div>`;
             for (const f of items) {
+                const fEnc = encodeURIComponent(JSON.stringify(f));
                 html += `<div class="bg-deep/30 border border-gray-800 rounded p-2 mb-1 text-[10px] ml-2">
                     <div class="flex items-center justify-between">
                         <span class="text-gray-200 font-semibold">${f.title}</span>
-                        <span class="text-gray-700 text-[9px]">${f.category || ''}</span>
+                        <div class="flex items-center gap-2">
+                            <span class="text-gray-700 text-[9px]">${f.category || ''}</span>
+                            <button onclick="forensicsExplainFinding('${fEnc}')" class="text-[9px] text-amber-500/70 hover:text-amber-400 transition-colors" title="Explain with AI">🤖</button>
+                        </div>
                     </div>
                     <div class="text-gray-400 mt-0.5">${f.description}</div>
                 </div>`;
@@ -223,4 +227,80 @@ window.forensicsDelete = async function (evId) {
     } catch (e) {
         showToast('⚠ Error: ' + e.message);
     }
+};
+
+// ── 🤖 AI Assistant ──
+
+window.forensicsExplainFinding = async function (encodedFinding) {
+    try {
+        const finding = JSON.parse(decodeURIComponent(encodedFinding));
+        const systemPrompt = `You are a digital forensics expert. Explain this forensic finding in simple terms. Include:
+1. What this finding means in context of digital forensics
+2. Why it's significant (evidentiary value)
+3. What an investigator should do next
+4. Related forensic artifacts to check
+Keep it concise, max 3 paragraphs.`;
+
+        const userMessage = `Analyze this forensic finding:
+- Title: ${finding.title}
+- Severity: ${finding.severity}
+- Description: ${finding.description}
+- Category: ${finding.category}`;
+
+        showToast('🤖 Asking AI...');
+        const result = await window.aiChat(systemPrompt, userMessage);
+        if (result) {
+            const existing = document.getElementById('forensics-ai-overlay');
+            if (existing) existing.remove();
+
+            const overlay = document.createElement('div');
+            overlay.id = 'forensics-ai-overlay';
+            overlay.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/60';
+            overlay.innerHTML = `<div class="bg-deep border border-amber-500/30 rounded-lg max-w-xl w-full mx-4 max-h-[70vh] overflow-y-auto p-4 shadow-2xl">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-amber-400 font-bold text-[11px] tracking-wider">🤖 AI Forensics Analysis</span>
+                    <button onclick="this.closest('#forensics-ai-overlay').remove()" class="text-gray-600 hover:text-gray-400 text-[18px] leading-none">&times;</button>
+                </div>
+                <div class="text-[10px] text-gray-300 leading-relaxed whitespace-pre-wrap">${result}</div>
+                <div class="mt-3 pt-2 border-t border-gray-800 flex justify-end">
+                    <button onclick="this.closest('#forensics-ai-overlay').remove()" class="text-[9px] text-gray-600 hover:text-gray-400">Close</button>
+                </div>
+            </div>`;
+            document.body.appendChild(overlay);
+        }
+    } catch (e) {
+        showToast('⚠ AI error: ' + e.message);
+    }
+};
+
+window.forensicsAskAI = async function () {
+    const input = document.getElementById('forensics-ai-question');
+    if (!input || !input.value.trim()) return;
+    const question = input.value.trim();
+    input.disabled = true;
+    const answerBox = document.getElementById('forensics-ai-answer');
+    if (answerBox) answerBox.textContent = '⏳ Thinking...';
+
+    const fnameEl = document.querySelector('#forensics-analysis .text-gray-200.font-bold');
+    const fname = fnameEl ? fnameEl.textContent : 'Unknown file';
+
+    const systemPrompt = `You are a digital forensics expert assistant integrated into VulnForge CTF dashboard.
+The user is analyzing a forensic artifact (${fname}). Answer their question concisely and helpfully.
+Be specific to digital forensics, incident response, and CTF challenges.`;
+
+    try {
+        const result = await window.aiChat(systemPrompt, `Regarding forensic artifact "${fname}": ${question}`);
+        if (answerBox) answerBox.textContent = result || '(no response)';
+        else showToast('🤖 ' + (result || 'Done'));
+    } catch (e) {
+        if (answerBox) answerBox.textContent = 'Error: ' + e.message;
+        showToast('⚠ AI error: ' + e.message);
+    } finally {
+        input.disabled = false;
+        input.focus();
+    }
+};
+
+window.forensicsAskAIEnter = function (e) {
+    if (e.key === 'Enter') forensicsAskAI();
 };
