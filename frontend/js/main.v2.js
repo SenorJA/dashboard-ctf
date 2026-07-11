@@ -614,7 +614,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 subtitle = f.detail ? f.detail.substring(0, 120) : '';
             } else if (f.type === 'tech') {
                 title = f.title;
-                subtitle = 'Technology detected';
+                // Extract key name before arrow or colon for cleaner subtitle
+                const arrowIdx = f.title.indexOf('→');
+                const colonIdx = f.title.indexOf(':');
+                const splitIdx = arrowIdx > 0 ? arrowIdx : (colonIdx > 0 ? colonIdx : -1);
+                if (splitIdx > 0 && splitIdx < 80) {
+                    subtitle = f.title.substring(0, splitIdx).trim();
+                } else {
+                    subtitle = 'Technology detected';
+                }
             } else if (f.type === 'os') {
                 title = f.detail || 'Unknown OS';
                 subtitle = 'OS Detection';
@@ -625,24 +633,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 subtitle = f.detail.substring(0, 150);
             }
 
+            const isInfo = sev === 'info';
             return `
-                <div class="finding-card rounded-lg border p-2.5 transition-all hover:brightness-110" 
+                <div class="finding-card rounded-lg border transition-all hover:brightness-110 ${isInfo ? 'p-1.5' : 'p-2.5'}" 
                      style="border-color:${color}33; background:${bg};"
                      data-severity="${sev}">
-                    <div class="flex items-start gap-2">
-                        <span class="text-[14px] mt-0.5">${icon}</span>
+                    <div class="flex items-start gap-1.5">
+                        <span class="${isInfo ? 'text-[11px]' : 'text-[14px]'} mt-0.5 flex-shrink-0">${icon}</span>
                         <div class="flex-1 min-w-0">
-                            <div class="flex items-center gap-2">
-                                <span class="text-[11px] font-semibold truncate" style="color:${color}">${title}</span>
-                                <span class="text-[8px] px-1.5 py-0.5 rounded font-bold tracking-wider" 
+                            <div class="flex items-center gap-1.5">
+                                <span class="${isInfo ? 'text-[10px]' : 'text-[11px]'} font-semibold truncate" style="color:${color}">${title}</span>
+                                <span class="text-[7px] px-1 py-0.5 rounded font-bold tracking-wider flex-shrink-0" 
                                       style="background:${color}22; color:${color}">${badge}</span>
                             </div>
-                            <div class="text-[10px] text-gray-600 mt-0.5 truncate">${subtitle}</div>
-                            <div class="flex items-center gap-2 mt-1 text-[8px] text-gray-700">
+                            ${subtitle ? `<div class="${isInfo ? 'text-[9px]' : 'text-[10px]'} text-gray-600 mt-0.5 truncate">${subtitle}</div>` : ''}
+                            <div class="flex items-center gap-1.5 mt-0.5 ${isInfo ? 'text-[7px]' : 'text-[8px]'} text-gray-700">
                                 <span>${f.tool}</span>
                                 <span>·</span>
-                                <span>${f.target}</span>
-                                <span class="ml-auto">${f.id ? f.id.toString().slice(-6) : ''}</span>
+                                <span class="truncate max-w-[120px]">${f.target}</span>
                             </div>
                         </div>
                     </div>
@@ -2356,6 +2364,42 @@ ${fix || 'Apply appropriate security patches and input validation.'}
     }
 
     /**
+     * Convert markdown text to HTML for inline display (suggestions).
+     * Lighter than mdToBasicHTML — no <p> wrapper, supports numbered lists.
+     */
+    function mdToHTML(text) {
+        if (!text) return '';
+        let html = text
+            // Escape HTML entities
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            // Inline code (backticks)
+            .replace(/`([^`]+)`/g, '<code class="bg-deep text-neon px-1 rounded text-[10px]">$1</code>')
+            // Bold
+            .replace(/\*\*(\S[^*\n]+)\*\*/g, '<strong class="text-gray-100">$1</strong>')
+            // Italic
+            .replace(/\*(\S[^*\n]+)\*/g, '<em>$1</em>')
+            // Numbered list: "1. text" or "1. **cmd:** text"
+            .replace(/^(\d+)\.\s+(.+)$/gm, '<li class="ml-4 list-decimal text-gray-300 mb-1">$2</li>')
+            // Bullet list: "- text"
+            .replace(/^- (.+)$/gm, '<li class="ml-4 list-disc text-gray-300 mb-1">$1</li>')
+            // Links
+            .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-neon/80 underline underline-offset-2">$1</a>')
+            // Horizontal rules
+            .replace(/^---+$/gm, '<hr class="border-gray-800 my-2">')
+            // Double newline = paragraph break
+            .replace(/\n\n+/g, '</div><div class="mb-2">')
+            // Single newline = line break
+            .replace(/\n/g, '<br>');
+        // Wrap in a container div (first opening tag added if content starts with <li>)
+        if (html.startsWith('<li')) {
+            html = '<ol class="list-inside">' + html + '</ol>';
+        }
+        return '<div class="mb-2">' + html + '</div>';
+    }
+
+    /**
      * Build a complete, self-contained HTML document for export or print preview.
      * @param {string}  content   - Raw markdown-like report text
      * @param {string}  title     - Document title
@@ -2885,9 +2929,9 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
                     <span class="text-[9px] text-gray-700">·</span>
                     <span class="text-[9px] text-gray-700 uppercase">${provider}</span>
                 </div>
-                <div class="text-gray-300 leading-relaxed whitespace-pre-wrap">${suggestion}</div>
+                <div class="text-gray-300 leading-relaxed text-[11px] suggestion-body">${mdToHTML(suggestion)}</div>
                 <div class="flex gap-2 mt-1.5">
-                    <button data-cmd="${suggestion.split('\n')[0].replace(/"/g, '&quot;')}"
+                    <button data-cmd="${extractCommandFromSuggestion(suggestion).replace(/"/g, '&quot;')}"
                         class="suggest-run-cmd text-[9px] text-neon/60 hover:text-neon transition-all">▶ Run first command</button>
                     <button onclick="copyToClipboard(this)"
                         class="text-[9px] text-gray-600 hover:text-gray-400 transition-all">📋 Copy</button>
