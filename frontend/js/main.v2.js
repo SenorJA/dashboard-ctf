@@ -2794,7 +2794,14 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
     window.suggestNextStep = async function () {
         const provider = document.getElementById('suggest-provider').value;
         const apiKey = document.getElementById('suggest-key').value.trim();
-        const model = document.getElementById('suggest-model').value.trim();
+        const modelEl = document.getElementById('suggest-model');
+        let model = modelEl.value.trim();
+        // Validate model — if it looks like a provider name, fix it
+        const providerNames = ['openai','gemini','anthropic','openrouter','deepseek','groq'];
+        if (!model || providerNames.includes(model.toLowerCase())) {
+            model = MODEL_DEFAULTS[provider] || 'gpt-4o-mini';
+            if (modelEl) modelEl.value = model;
+        }
         const target = document.getElementById('target-ip').value.trim() || 'unknown';
         const findings = collectFindingsText();
         const btn = document.getElementById('btn-suggest');
@@ -3103,36 +3110,25 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
     restorePSSession();
 
     // ── Auto-save Suggest + AI config on input change ──
+    const MODEL_DEFAULTS = {
+        openai: 'gpt-4o-mini', gemini: 'gemini-2.0-flash',
+        anthropic: 'claude-3-haiku-20240307', openrouter: 'gpt-4o-mini',
+        deepseek: 'deepseek-chat', groq: 'llama-3.3-70b-versatile'
+    };
+
     function initAutosave() {
         ['suggest-provider','suggest-key','suggest-model','ai-endpoint','ai-key','ai-model'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.addEventListener('blur', saveAIConfig);
         });
-        // Auto-fill model when provider changes
+        // Auto-fill model when provider changes (always)
         const provEl = document.getElementById('suggest-provider');
         if (provEl) {
             provEl.addEventListener('change', function () {
-                const defaults = {
-                    openai: 'gpt-4o-mini', gemini: 'gemini-2.0-flash',
-                    anthropic: 'claude-3-haiku-20240307', openrouter: 'gpt-4o-mini',
-                    deepseek: 'deepseek-chat', groq: 'llama-3.3-70b-versatile'
-                };
                 const modelEl = document.getElementById('suggest-model');
-                if (modelEl && !modelEl.value.trim()) {
-                    modelEl.value = defaults[this.value] || 'gpt-4o-mini';
-                }
+                if (modelEl) modelEl.value = MODEL_DEFAULTS[this.value] || 'gpt-4o-mini';
                 saveAIConfig();
             });
-            // Initial fill if empty
-            const modelEl = document.getElementById('suggest-model');
-            if (modelEl && !modelEl.value.trim()) {
-                const defaults = {
-                    openai: 'gpt-4o-mini', gemini: 'gemini-2.0-flash',
-                    anthropic: 'claude-3-haiku-20240307', openrouter: 'gpt-4o-mini',
-                    deepseek: 'deepseek-chat', groq: 'llama-3.3-70b-versatile'
-                };
-                modelEl.value = defaults[provEl.value] || 'gpt-4o-mini';
-            }
         }
     }
     initAutosave();

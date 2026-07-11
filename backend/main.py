@@ -203,7 +203,8 @@ def _call_llm_sync(provider: str, api_key: str, model: str, messages: list, time
             "groq":       "llama-3.3-70b-versatile",
         }
         base = base_map.get(provider, "https://api.openai.com/v1")
-        if not model: model = default_model_map.get(provider, "gpt-4o-mini")
+        if not model or model.lower() in ("openai", "gemini", "anthropic", "openrouter", "deepseek", "groq"):
+            model = default_model_map.get(provider, "gpt-4o-mini")
         url = f"{base}/chat/completions"
         body = json.dumps({
             "model": model,
@@ -212,14 +213,22 @@ def _call_llm_sync(provider: str, api_key: str, model: str, messages: list, time
             "max_tokens": 1024
         }).encode("utf-8")
         req = urllib.request.Request(url, data=body, method="POST")
-        req.add_header("Content-Type", "application/json")
+        req.add_header("Content-Type", "application/json; charset=utf-8")
         req.add_header("Authorization", f"Bearer {api_key}")
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-            choices = data.get("choices", [])
-            if choices:
-                return choices[0].get("message", {}).get("content", str(data))
-            return str(data)
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                raw = resp.read()
+                data = json.loads(raw.decode("utf-8"))
+                choices = data.get("choices", [])
+                if choices:
+                    return choices[0].get("message", {}).get("content", str(data))
+                return str(data)
+        except UnicodeDecodeError:
+            raise RuntimeError(f"Encoding error — the API returned non-UTF-8 data. Check your model name.")
+        except urllib.error.HTTPError as e:
+            # Provide a clearer error for invalid models
+            body = e.read().decode("utf-8", errors="replace")[:500]
+            raise RuntimeError(f"API error {e.code} (model={model}): {body}")
 
     elif provider == "gemini":
         if not model: model = "gemini-2.0-flash"
