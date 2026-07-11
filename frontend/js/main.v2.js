@@ -2723,22 +2723,32 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
     };
 
     window.collectFindingsText = function () {
-        // Collect findings from the findings data structure
-        const items = window.findings || window.reports || [];
-        if (items.length === 0) {
+        // Collect findings from the reports data structure
+        // Each report has: type, title, target, raw_output, parsed_data
+        const reports = window.reports || [];
+        if (reports.length === 0) {
             // Fallback: try to get from the DOM
             const cards = document.querySelectorAll('#findings-list .finding-card');
             return Array.from(cards).map(c => c.textContent.trim()).filter(Boolean).join('\n---\n');
         }
-        return items.map(f => {
-            let line = `[${(f.severity || f.type || 'info').toUpperCase()}] `;
-            if (f.title) line += f.title;
-            if (f.detail) line += ` — ${f.detail}`;
-            if (f.port) line += ` (port ${f.port}/${f.protocol || 'tcp'})`;
-            if (f.path) line += ` (${f.path})`;
-            if (f.status) line += ` [${f.status}]`;
-            return line;
-        }).join('\n');
+        return reports.map(r => {
+            const lines = [`[${r.type.toUpperCase()}] ${r.title || ''}`];
+            if (r.target) lines.push(`  Target: ${r.target}`);
+            // Parse raw_output for key lines
+            if (r.raw_output) {
+                const keyLines = r.raw_output.split('\n').filter(l => {
+                    const t = l.trim();
+                    return t && (t.includes('open') || t.includes('found') || t.includes('Status:') ||
+                           t.includes('->') || t.includes('flag') || t.includes('user:') ||
+                           t.includes('root:') || t.toLowerCase().includes('vulnerable'));
+                }).slice(0, 10).map(l => `  ${l.trim()}`);
+                if (keyLines.length) lines.push(...keyLines);
+            }
+            if (r.parsed_data && Object.keys(r.parsed_data).length) {
+                try { lines.push(`  Data: ${JSON.stringify(r.parsed_data).slice(0, 200)}`); } catch {}
+            }
+            return lines.join('\n');
+        }).join('\n---\n');
     };
 
     window.suggestNextStep = async function () {
@@ -2795,8 +2805,8 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
                 </div>
                 <div class="text-gray-300 leading-relaxed whitespace-pre-wrap">${suggestion}</div>
                 <div class="flex gap-2 mt-1.5">
-                    <button onclick="sendAsCommand(\`${suggestion.split('\n')[0].replace(/[`$]/g, '\\$')}\`)"
-                        class="text-[9px] text-neon/60 hover:text-neon transition-all">▶ Run first command</button>
+                    <button data-cmd="${suggestion.split('\n')[0].replace(/"/g, '&quot;')}"
+                        class="suggest-run-cmd text-[9px] text-neon/60 hover:text-neon transition-all">▶ Run first command</button>
                     <button onclick="copyToClipboard(this)"
                         class="text-[9px] text-gray-600 hover:text-gray-400 transition-all">📋 Copy</button>
                 </div>
@@ -2823,15 +2833,19 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         document.getElementById('suggestions-section').classList.add('hidden');
     };
 
-    window.sendAsCommand = function (cmd) {
-        const input = document.getElementById('cmd-input');
-        if (input) {
-            input.value = cmd;
-            input.focus();
-            // Optionally auto-send after a brief delay
-            showToast('📋 Command loaded in terminal');
+    // Delegated click handler for "Run first command" buttons in suggestions
+    document.addEventListener('click', function (e) {
+        const btn = e.target.closest('.suggest-run-cmd');
+        if (btn) {
+            const cmd = btn.getAttribute('data-cmd') || '';
+            const input = document.getElementById('cmd-input');
+            if (input && cmd) {
+                input.value = cmd;
+                input.focus();
+                showToast('📋 Command loaded in terminal: ' + cmd.slice(0, 60));
+            }
         }
-    };
+    });
 
     window.copyToClipboard = function (btn) {
         const text = btn.closest('.bg-void')?.querySelector('.text-gray-300')?.textContent || '';
