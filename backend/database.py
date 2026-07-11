@@ -125,6 +125,64 @@ CREATE TABLE IF NOT EXISTS uploaded_files (
     public_url TEXT DEFAULT '',
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- credentials
+CREATE TABLE IF NOT EXISTS credentials (
+    uuid UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    type VARCHAR(20) NOT NULL DEFAULT 'password',
+    target VARCHAR(255) NOT NULL,
+    username VARCHAR(255) DEFAULT '',
+    password TEXT DEFAULT '',
+    hash TEXT DEFAULT '',
+    token TEXT DEFAULT '',
+    service VARCHAR(100) DEFAULT '',
+    port VARCHAR(10) DEFAULT '',
+    source VARCHAR(100) DEFAULT '',
+    notes TEXT DEFAULT '',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ctf_challenges
+CREATE TABLE IF NOT EXISTS ctf_challenges (
+    id SERIAL PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    category VARCHAR(50) NOT NULL,
+    description TEXT DEFAULT '',
+    flags TEXT DEFAULT '',
+    points INTEGER DEFAULT 100,
+    target VARCHAR(255) DEFAULT '',
+    hints TEXT DEFAULT '',
+    difficulty VARCHAR(20) DEFAULT 'medium',
+    solved BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ctf_solves
+CREATE TABLE IF NOT EXISTS ctf_solves (
+    id SERIAL PRIMARY KEY,
+    challenge_id INTEGER REFERENCES ctf_challenges(id),
+    flag_value TEXT NOT NULL,
+    solved_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- findings
+CREATE TABLE IF NOT EXISTS findings (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tool TEXT NOT NULL,
+    target TEXT DEFAULT '',
+    type TEXT NOT NULL,
+    severity TEXT DEFAULT 'info',
+    title TEXT DEFAULT '',
+    detail TEXT DEFAULT '',
+    port TEXT DEFAULT '',
+    protocol TEXT DEFAULT '',
+    service TEXT DEFAULT '',
+    version TEXT DEFAULT '',
+    status INTEGER DEFAULT 0,
+    path TEXT DEFAULT '',
+    raw TEXT DEFAULT '',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
 """
 
 
@@ -140,7 +198,8 @@ def _ensure_tables():
 
         tables = [
             "ssh_connections", "scripts", "reports",
-            "hak5_payloads", "app_settings", "uploaded_files"
+            "hak5_payloads", "app_settings", "uploaded_files",
+            "findings", "credentials", "ctf_challenges", "ctf_solves"
         ]
         for table in tables:
             try:
@@ -298,6 +357,187 @@ def delete_report(report_id: str):
         return False
 
 
+# ── Findings ──
+
+def list_findings(target: str = None, tool: str = None, severity: str = None, limit: int = 200):
+    tbl = _table("findings")
+    if not tbl:
+        return None
+    try:
+        q = tbl.select("*").order("created_at", desc=True)
+        if target:
+            q = q.eq("target", target)
+        if tool:
+            q = q.eq("tool", tool)
+        if severity:
+            q = q.eq("severity", severity)
+        resp = q.limit(limit).execute()
+        return resp.data
+    except Exception as e:
+        logger.error("list_findings: %s", e)
+        return []
+
+
+def save_finding(data: dict):
+    tbl = _table("findings")
+    if not tbl:
+        return None
+    try:
+        row = {
+            "tool": data["tool"],
+            "target": data.get("target", ""),
+            "type": data.get("type", "generic"),
+            "severity": data.get("severity", "info"),
+            "title": data.get("title", ""),
+            "detail": data.get("detail", ""),
+            "port": data.get("port", ""),
+            "protocol": data.get("protocol", ""),
+            "service": data.get("service", ""),
+            "version": data.get("version", ""),
+            "status": data.get("status", 0),
+            "path": data.get("path", ""),
+            "raw": data.get("raw", ""),
+        }
+        resp = tbl.insert(row).execute()
+        return resp.data[0] if resp.data else None
+    except Exception as e:
+        logger.error("save_finding: %s", e)
+        return None
+
+
+def save_findings_bulk(items: list):
+    """Save multiple findings at once."""
+    tbl = _table("findings")
+    if not tbl:
+        return None
+    try:
+        rows = []
+        for data in items:
+            rows.append({
+                "tool": data["tool"],
+                "target": data.get("target", ""),
+                "type": data.get("type", "generic"),
+                "severity": data.get("severity", "info"),
+                "title": data.get("title", ""),
+                "detail": data.get("detail", ""),
+                "port": data.get("port", ""),
+                "protocol": data.get("protocol", ""),
+                "service": data.get("service", ""),
+                "version": data.get("version", ""),
+                "status": data.get("status", 0),
+                "path": data.get("path", ""),
+                "raw": data.get("raw", ""),
+            })
+        resp = tbl.insert(rows).execute()
+        return len(resp.data) if resp.data else 0
+    except Exception as e:
+        logger.error("save_findings_bulk: %s", e)
+        return 0
+
+
+def delete_finding(finding_id: str):
+    tbl = _table("findings")
+    if not tbl:
+        return False
+    try:
+        tbl.delete().eq("id", finding_id).execute()
+        return True
+    except Exception as e:
+        logger.error("delete_finding: %s", e)
+        return False
+
+
+def delete_all_findings():
+    tbl = _table("findings")
+    if not tbl:
+        return False
+    try:
+        tbl.delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
+        return True
+    except Exception as e:
+        logger.error("delete_all_findings: %s", e)
+        return False
+
+
+def count_findings():
+    tbl = _table("findings")
+    if not tbl:
+        return 0
+    try:
+        resp = tbl.select("id", count="exact").execute()
+        return resp.count if hasattr(resp, 'count') else 0
+    except Exception as e:
+        logger.error("count_findings: %s", e)
+        return 0
+
+
+# ── Credentials ──
+
+def save_credential(data: dict):
+    tbl = _table("credentials")
+    if not tbl:
+        return None
+    try:
+        row = {
+            "type": data.get("type", "password"),
+            "target": data.get("target", ""),
+            "username": data.get("username", ""),
+            "password": data.get("password", ""),
+            "hash": data.get("hash", ""),
+            "token": data.get("token", ""),
+            "service": data.get("service", ""),
+            "port": data.get("port", ""),
+            "source": data.get("source", ""),
+            "notes": data.get("notes", ""),
+        }
+        resp = tbl.insert(row).execute()
+        return resp.data[0] if resp.data else None
+    except Exception as e:
+        logger.error("save_credential: %s", e)
+        return None
+
+
+def list_credentials(target: str = None, service: str = None):
+    tbl = _table("credentials")
+    if not tbl:
+        return None
+    try:
+        q = tbl.select("*").order("created_at", desc=True)
+        if target:
+            q = q.eq("target", target)
+        if service:
+            q = q.eq("service", service)
+        resp = q.execute()
+        return resp.data
+    except Exception as e:
+        logger.error("list_credentials: %s", e)
+        return []
+
+
+def delete_credential(cred_id: str):
+    tbl = _table("credentials")
+    if not tbl:
+        return False
+    try:
+        tbl.delete().eq("uuid", cred_id).execute()
+        return True
+    except Exception as e:
+        logger.error("delete_credential: %s", e)
+        return False
+
+
+def delete_all_credentials():
+    tbl = _table("credentials")
+    if not tbl:
+        return False
+    try:
+        tbl.delete().neq("uuid", "00000000-0000-0000-0000-000000000000").execute()
+        return True
+    except Exception as e:
+        logger.error("delete_all_credentials: %s", e)
+        return False
+
+
 # ── Hak5 Payloads ──
 
 def list_hak5_payloads(device: str = None):
@@ -417,3 +657,91 @@ def delete_uploaded_file(file_id: str):
     except Exception as e:
         logger.error("delete_uploaded_file: %s", e)
         return False
+
+
+# ── CTF Challenges ──
+
+def save_ctf_challenge(challenge: dict) -> dict | None:
+    if not is_available():
+        return None
+    try:
+        data = {
+            "title": challenge.get("title", ""),
+            "category": challenge.get("category", ""),
+            "description": challenge.get("description", ""),
+            "flags": challenge.get("flags", ""),
+            "points": challenge.get("points", 100),
+            "target": challenge.get("target", ""),
+            "hints": challenge.get("hints", ""),
+            "difficulty": challenge.get("difficulty", "medium"),
+            "solved": challenge.get("solved", False),
+        }
+        result = _table("ctf_challenges").insert(data).execute()
+        return dict(result.data[0]) if result.data else None
+    except Exception as e:
+        print(f"[db] save_ctf_challenge error: {e}")
+        return None
+
+
+def list_ctf_challenges() -> list | None:
+    if not is_available():
+        return None
+    try:
+        result = _table("ctf_challenges").select("*").order("created_at", desc=True).execute()
+        return [dict(r) for r in result.data] if result.data else []
+    except Exception as e:
+        print(f"[db] list_ctf_challenges error: {e}")
+        return None
+
+
+def delete_ctf_challenge(challenge_id: int) -> bool:
+    if not is_available():
+        return False
+    try:
+        _table("ctf_challenges").delete().eq("id", challenge_id).execute()
+        _table("ctf_solves").delete().eq("challenge_id", challenge_id).execute()
+        return True
+    except Exception as e:
+        print(f"[db] delete_ctf_challenge error: {e}")
+        return False
+
+
+def solve_ctf_challenge(challenge_id: int, flag_value: str) -> dict | None:
+    if not is_available():
+        return None
+    try:
+        chal_result = _table("ctf_challenges").select("*").eq("id", challenge_id).execute()
+        if not chal_result.data:
+            return {"ok": False, "error": "Challenge not found"}
+        challenge = chal_result.data[0]
+        flags_list = [f.strip() for f in challenge.get("flags", "").split("\n") if f.strip()]
+        if flag_value not in flags_list:
+            return {"ok": False, "error": "Incorrect flag"}
+        if challenge.get("solved"):
+            return {"ok": True, "message": "Flag correct (already solved)"}
+        _table("ctf_solves").insert({
+            "challenge_id": challenge_id,
+            "flag_value": flag_value,
+        }).execute()
+        _table("ctf_challenges").update({"solved": True}).eq("id", challenge_id).execute()
+        return {"ok": True, "message": f"Correct! +{challenge['points']} points"}
+    except Exception as e:
+        print(f"[db] solve_ctf_challenge error: {e}")
+        return None
+
+
+def get_ctf_score() -> dict | None:
+    if not is_available():
+        return None
+    try:
+        result = _table("ctf_challenges").select("*").execute()
+        if not result.data:
+            return {"solved": 0, "total": 0, "points": 0, "total_points": 0}
+        total = len(result.data)
+        solved = sum(1 for c in result.data if c.get("solved"))
+        total_points = sum(c.get("points", 0) for c in result.data)
+        points = sum(c.get("points", 0) for c in result.data if c.get("solved"))
+        return {"solved": solved, "total": total, "points": points, "total_points": total_points}
+    except Exception as e:
+        print(f"[db] get_ctf_score error: {e}")
+        return None

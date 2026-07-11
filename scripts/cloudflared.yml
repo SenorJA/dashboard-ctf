@@ -1,0 +1,42 @@
+# ════════════════════════════════════════════════════════════════
+#  Cloudflare Tunnel Config — VulnForge
+# ════════════════════════════════════════════════════════════════
+#
+# Instrucciones para ponerlo en marcha:
+#
+#   1. Descargar cloudflared: https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/
+#      (Windows → cloudflared.exe, colocarlo en C:\cloudflared\cloudflared.exe)
+#
+#   2. Autenticar:
+#        C:\cloudflared\cloudflared.exe tunnel login
+#        (Se abre el navegador, autorizar con cuenta Cloudflare)
+#
+#   3. Crear el túnel:
+#        C:\cloudflared\cloudflared.exe tunnel create vulnforge
+#        (Guarda el ID del túnel y el archivo JSON de credenciales)
+#
+#   4. Copiar el ID y la ruta de credentials-file aquí abajo
+#
+#   5. Enrutar DNS (necesitas un dominio en Cloudflare):
+#        C:\cloudflared\cloudflared.exe tunnel route dns vulnforge vulnforge.TU-DOMINIO.com
+#
+#   6. Probar el túnel:
+#        C:\cloudflared\cloudflared.exe tunnel run vulnforge
+#
+#   7. Para auto-arranque en Windows:
+#        - Usar el script scripts/start_production.bat
+#        - O registrarlo como tarea programada (Task Scheduler)
+# ════════════════════════════════════════════════════════════════
+
+# ── CAMBIA ESTO ──
+tunnel: vulnforge                                    # Nombre del túnel (paso 3)
+credentials-file: C:\Users\TU_USUARIO\.cloudflared\TU_ID_DEL_TUNEL.json  # Ruta al JSON (paso 3)
+
+# ── Reglas de entrada ──
+ingress:
+  # Dashboard web: https://vulnforge.TU-DOMINIO.com → localhost:8000
+  - hostname: vulnforge.TU-DOMINIO.com
+    service: http://localhost:8000
+
+  # Cualquier otro hostname → 404
+  - service: http_status:404

@@ -15,9 +15,16 @@ import sys
 import io
 import shlex
 import asyncio
+import logging
 import urllib.request
 import urllib.error
 from datetime import datetime
+
+# ── Production mode detection ──
+# If run WITHOUT --reload, we're in production mode
+# We detect this by checking if uvicorn's --reload flag is absent
+PRODUCTION = "--reload" not in " ".join(sys.argv)
+VERSION = "1.0.0"
 
 # ── Load .env (if exists) ──
 try:
@@ -44,7 +51,29 @@ import paramiko
 # ── Supabase Database Layer ──
 from backend import database as db
 
-app = FastAPI()
+app = FastAPI(title="VulnForge", version=VERSION)
+
+# ── Production logging ──
+if PRODUCTION:
+    log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
+    os.makedirs(log_dir, exist_ok=True)
+    log_file = os.path.join(log_dir, "vulnforge.log")
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        handlers=[
+            logging.FileHandler(log_file),
+            logging.StreamHandler(sys.stdout),
+        ],
+    )
+    logging.info("=" * 50)
+    logging.info("VulnForge starting in PRODUCTION mode")
+    logging.info(f"Version: {VERSION}")
+    logging.info("=" * 50)
+else:
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+
+logger = logging.getLogger("vulnforge")
 
 # ── Middleware: force no-cache on everything (kill browser cache) ──
 class NoCacheMiddleware(BaseHTTPMiddleware):
@@ -288,6 +317,34 @@ def _call_llm_sync(provider: str, api_key: str, model: str, messages: list, time
                 return content[0].get("text", str(data))
             return str(data)
 
+    elif provider == "local":
+        # Ollama / LM Studio (OpenAI-compatible API, no API key required)
+        base = os.getenv("OLLAMA_URL", "http://localhost:11434")
+        if not model: model = "llama3"
+        url = f"{base.rstrip('/')}/v1/chat/completions"
+        body = json.dumps({
+            "model": model,
+            "messages": messages,
+            "temperature": 0.3,
+            "max_tokens": 1024
+        }).encode("utf-8")
+        req = urllib.request.Request(url, data=body, method="POST")
+        req.add_header("Content-Type", "application/json; charset=utf-8")
+        req.add_header("User-Agent", "Mozilla/5.0")
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                raw = resp.read()
+                data = json.loads(raw.decode("utf-8"))
+                choices = data.get("choices", [])
+                if choices:
+                    return choices[0].get("message", {}).get("content", str(data))
+                return str(data)
+        except urllib.error.HTTPError as e:
+            err_body = e.read().decode("utf-8", errors="replace")[:500]
+            raise RuntimeError(f"Local AI error {e.code} (model={model}, url={url}): {err_body}")
+        except urllib.error.URLError as e:
+            raise RuntimeError(f"Cannot connect to local AI at {base}. Is Ollama/LM Studio running? Error: {e.reason}")
+
     else:
         raise ValueError(f"Unknown provider: {provider}")
 
@@ -295,7 +352,7 @@ def _call_llm_sync(provider: str, api_key: str, model: str, messages: list, time
 async def suggest_next_step(req: SuggestRequest):
     """AI-powered suggestion for the next penetration testing step."""
     try:
-        if not req.api_key:
+        if not req.api_key and req.provider != "local":
             return JSONResponse({"ok": False, "error": "API key is required"}, status_code=400)
 
         # Build messages
@@ -341,7 +398,7 @@ class AIChatRequest(BaseModel):
 async def ai_chat(req: AIChatRequest):
     """Generic AI chat endpoint — reusable by any frontend section."""
     try:
-        if not req.api_key:
+        if not req.api_key and req.provider != "local":
             return JSONResponse({"ok": False, "error": "API key is required"}, status_code=400)
         result = await asyncio.to_thread(
             _call_llm_sync, req.provider, req.api_key, req.model, req.messages, 60
@@ -354,19 +411,106 @@ async def ai_chat(req: AIChatRequest):
         return JSONResponse({"ok": False, "error": f"[{req.provider}] model={req.model}: {e}"}, status_code=500)
 
 # ════════════════════════════════════════════════════════════════
+#  FINDINGS API (persistent storage)
+# ════════════════════════════════════════════════════════════════
+
+@app.get("/api/findings")
+async def get_findings(target: str = "", tool: str = "", severity: str = ""):
+    """List findings with optional filters."""
+    data = db.list_findings(
+        target=target or None,
+        tool=tool or None,
+        severity=severity or None
+    )
+    if data is None:
+        # Fallback: return empty list when DB is not configured
+        return JSONResponse({"ok": True, "data": [], "fallback": True})
+    return JSONResponse({"ok": True, "data": data})
+
+
+@app.post("/api/findings")
+async def create_finding(req: dict):
+    """Save a single finding."""
+    if not req:
+        return JSONResponse({"ok": False, "error": "Empty body"}, status_code=400)
+    result = db.save_finding(req)
+    if result is None:
+        return JSONResponse({"ok": False, "error": "Database not configured"}, status_code=503)
+    return JSONResponse({"ok": True, "data": result}, status_code=201)
+
+
+@app.post("/api/findings/bulk")
+async def create_findings_bulk(req: list):
+    """Save multiple findings at once."""
+    if not req:
+        return JSONResponse({"ok": False, "error": "Empty array"}, status_code=400)
+    count = db.save_findings_bulk(req)
+    if count is None:
+        return JSONResponse({"ok": False, "error": "Database not configured"}, status_code=503)
+    return JSONResponse({"ok": True, "count": count}, status_code=201)
+
+
+@app.delete("/api/findings/{finding_id}")
+async def remove_finding(finding_id: str):
+    """Delete a single finding."""
+    ok = db.delete_finding(finding_id)
+    if ok is None:
+        return JSONResponse({"ok": False, "error": "Database not configured"}, status_code=503)
+    return JSONResponse({"ok": ok})
+
+
+@app.delete("/api/findings")
+async def clear_all_findings():
+    """Delete all findings."""
+    ok = db.delete_all_findings()
+    if ok is None:
+        return JSONResponse({"ok": False, "error": "Database not configured"}, status_code=503)
+    return JSONResponse({"ok": ok})
+
+
+@app.get("/api/findings/stats")
+async def findings_stats():
+    """Return quick stats: total findings, unique tools, unique targets."""
+    data = db.list_findings()
+    if data is None:
+        return JSONResponse({"ok": True, "count": 0, "tools": [], "targets": []})
+    tools = list(set(f.get("tool", "?") for f in data))
+    targets = list(set(f.get("target", "?") for f in data if f.get("target")))
+    return JSONResponse({
+        "ok": True,
+        "count": len(data),
+        "tools": sorted(tools),
+        "targets": sorted(targets)
+    })
+
+# ════════════════════════════════════════════════════════════════
 #  SUPABASE API ENDPOINTS
 # ════════════════════════════════════════════════════════════════
 
 @app.get("/api/health")
 async def api_health():
-    """Check if Supabase is configured and reachable."""
+    """Check system health — database, uptime, mode."""
     ok = db.is_available()
+    uptime_seconds = 0
+    if hasattr(app, "_start_time"):
+        uptime_seconds = int((datetime.utcnow() - app._start_time).total_seconds())
     return JSONResponse({
         "status": "ok" if ok else "degraded",
+        "mode": "production" if PRODUCTION else "development",
+        "version": VERSION,
+        "uptime_seconds": uptime_seconds,
         "supabase": ok,
         "database": "supabase" if ok else "localstorage (fallback)",
-        "version": "1.0"
     })
+
+# Record startup time
+@app.on_event("startup")
+async def _record_startup():
+    app._start_time = datetime.utcnow()
+    if PRODUCTION:
+        logger.info("VulnForge ready — production mode")
+    else:
+        logger.info("VulnForge ready — development mode (--reload)")
 
 # ── Reports ──
 
@@ -392,6 +536,140 @@ async def create_report(report: ReportCreate):
 @app.delete("/api/reports/{report_id}")
 async def delete_report(report_id: str):
     return _delete_ok(db.delete_report(report_id))
+
+
+# ── Report Generator ──
+class ReportGenerateRequest(BaseModel):
+    target: str = ""
+    title: str = ""
+    findings: list = []
+    suggestions: list = []
+
+
+@app.post("/api/report/generate")
+async def generate_report(req: ReportGenerateRequest):
+    """
+    Compile findings into a structured report.
+    Returns the created report with all fields populated.
+    """
+    findings = req.findings or []
+    suggestions = req.suggestions or []
+    target = req.target or "unknown"
+    title = req.title or f"Scan Report — {target} — {datetime.utcnow().strftime('%Y-%m-%d %H:%M')}"
+
+    # Compute stats
+    total = len(findings)
+    by_severity = {}
+    by_tool = {}
+    for f in findings:
+        sev = f.get("severity", "info")
+        tool = f.get("tool", "?")
+        by_severity[sev] = by_severity.get(sev, 0) + 1
+        by_tool[tool] = by_tool.get(tool, 0) + 1
+
+    severity_order = ["critical", "high", "medium", "low", "info"]
+    severity_labels = {"critical": "🔴 Critical", "high": "🟠 High", "medium": "🟡 Medium", "low": "🔵 Low", "info": "ℹ️ Info"}
+
+    # Build MD body
+    md_lines = [
+        f"# {title}",
+        f"",
+        f"**Target:** `{target}`",
+        f"**Date:** {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}",
+        f"**Total Findings:** {total}",
+        f"",
+        f"---",
+        f"",
+        f"## Summary",
+        f"",
+        f"| Severity | Count |",
+        f"|----------|-------|",
+    ]
+    for sev in severity_order:
+        cnt = by_severity.get(sev, 0)
+        label = severity_labels.get(sev, sev)
+        md_lines.append(f"| {label} | {cnt} |")
+    md_lines.append(f"| **Total** | **{total}** |")
+    md_lines.append("")
+    md_lines.append("### Tools Used")
+    for tool, cnt in sorted(by_tool.items()):
+        md_lines.append(f"- **{tool}**: {cnt} finding{'s' if cnt > 1 else ''}")
+    md_lines.append("")
+
+    # Per-severity findings
+    for sev in severity_order:
+        items = [f for f in findings if f.get("severity") == sev]
+        if not items:
+            continue
+        label = severity_labels.get(sev, sev)
+        md_lines.append(f"---")
+        md_lines.append(f"## {label} ({len(items)})")
+        md_lines.append("")
+        for i, f in enumerate(items, 1):
+            title_f = f.get("title") or f.get("detail", "")[:80] or "Finding"
+            detail = f.get("detail", "")
+            tool = f.get("tool", "?")
+            tgt = f.get("target", target)
+            port = f.get("port", "")
+            path = f.get("path", "")
+            extra = f" on port {port}" if port else ""
+            extra += f" — path `{path}`" if path else ""
+            md_lines.append(f"### {i}. {title_f}")
+            md_lines.append(f"- **Tool:** {tool} | **Target:** `{tgt}`{extra}")
+            if detail:
+                md_lines.append(f"- **Detail:** {detail}")
+            md_lines.append("")
+
+    # AI Suggestions
+    if suggestions:
+        md_lines.append("---")
+        md_lines.append("## 🤖 AI Suggestions")
+        md_lines.append("")
+        for s in suggestions:
+            ts = s.get("created_at", "")[:16] if s.get("created_at") else ""
+            text = s.get("suggestion", s.get("text", ""))
+            md_lines.append(f"- *({ts})* {text}")
+            md_lines.append("")
+
+    md_lines.append("")
+    md_lines.append("---")
+    md_lines.append(f"*Generated by VulnForge on {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}*")
+
+    md_body = "\n".join(md_lines)
+
+    # Build parsed_data
+    parsed_data = {
+        "summary": {
+            "total": total,
+            "by_severity": by_severity,
+            "by_tool": by_tool
+        },
+        "findings": findings,
+        "suggestions": suggestions
+    }
+
+    # Save to DB
+    report = db.save_report({
+        "type": "scan",
+        "title": title,
+        "target": target,
+        "raw_output": md_body,
+        "parsed_data": parsed_data,
+        "format": "md"
+    })
+
+    if report:
+        return _ok(report, 201)
+    else:
+        # Return the generated data even if DB save fails
+        return _ok({
+            "title": title,
+            "target": target,
+            "raw_output": md_body,
+            "parsed_data": parsed_data,
+            "format": "md",
+            "note": "Saved locally only (DB unavailable)"
+        })
 
 
 # ── Scripts ──
@@ -869,6 +1147,30 @@ async def websocket_endpoint(websocket: WebSocket):
                     except json.JSONDecodeError:
                         pass
 
+                    # ── Scope Guard: validate command ──
+                    if not msg.startswith("sudo ") and not msg.startswith("p10k ") and "PROMPT=" not in msg:
+                        from backend.scope_guard import validate_command, log_block
+                        scope_check = validate_command(msg)
+                        if scope_check:
+                            log_block(scope_check)
+                            if scope_check.get("mode") == "block":
+                                await websocket.send_text(
+                                    json.dumps({
+                                        "type": "scope_block",
+                                        "message": f"🔒 BLOCKED: {scope_check['message']}",
+                                        "targets": scope_check["targets"],
+                                    })
+                                )
+                                await websocket.send_text(
+                                    f"\n⚠ 🔒 Scope Guard BLOCKED: {scope_check['message']}\n"
+                                )
+                                continue  # Skip sending to SSH
+                            else:
+                                # Warn mode: send warning but allow
+                                await websocket.send_text(
+                                    f"\n⚠ 🔒 Scope Warning: {scope_check['message']}\n"
+                                )
+
                     # If sudo command and we know password, use heredoc with quoted delimiter
                     # The 'SUDOEOF' (quoted) prevents shell expansion of $, `, \, etc.
                     if msg.startswith("sudo ") and _pass[0]:
@@ -908,6 +1210,325 @@ async def websocket_endpoint(websocket: WebSocket):
 
 
 # ════════════════════════════════════════════════════════════════
+#  SWARM API (Fase 4 — Multi-Operator)
+# ════════════════════════════════════════════════════════════════
+
+from backend.swarm import SwarmCoordinator, get_session, list_sessions
+
+
+class SwarmStartRequest(BaseModel):
+    target: str
+    ssh_ip: str = ""
+    ssh_user: str = ""
+    ssh_pass: str = ""
+
+
+@app.post("/api/swarm/start")
+async def swarm_start(req: SwarmStartRequest):
+    """Start a new swarm pipeline."""
+    if not req.target:
+        return JSONResponse({"ok": False, "error": "Target is required"}, status_code=400)
+
+    # Use defaults if SSH credentials not provided
+    ssh_ip = req.ssh_ip or os.getenv("KALI_IP", "192.168.214.142")
+    ssh_user = req.ssh_user or os.getenv("KALI_USER", "javi")
+    ssh_pass = req.ssh_pass or os.getenv("KALI_PASS", "javi")
+
+    swarm = SwarmCoordinator(
+        target=req.target,
+        ssh_ip=ssh_ip,
+        ssh_user=ssh_user,
+        ssh_pass=ssh_pass,
+    )
+    swarm.start()
+
+    return JSONResponse({
+        "ok": True,
+        "session_id": swarm.session_id,
+        "status": swarm.status,
+    }, status_code=201)
+
+
+@app.get("/api/swarm/{session_id}")
+async def swarm_status(session_id: str):
+    """Get swarm session status."""
+    swarm = get_session(session_id)
+    if not swarm:
+        return JSONResponse({"ok": False, "error": "Session not found"}, status_code=404)
+    return JSONResponse({"ok": True, "data": swarm.to_dict()})
+
+
+@app.post("/api/swarm/{session_id}/cancel")
+async def swarm_cancel(session_id: str):
+    """Cancel a running swarm session."""
+    swarm = get_session(session_id)
+    if not swarm:
+        return JSONResponse({"ok": False, "error": "Session not found"}, status_code=404)
+    swarm.cancel()
+    return JSONResponse({"ok": True, "status": "cancelled"})
+
+
+@app.get("/api/swarm/list")
+async def swarm_list():
+    """List all swarm sessions."""
+    sessions = list_sessions()
+    return JSONResponse({"ok": True, "data": sessions})
+
+
+@app.get("/api/swarm/{session_id}/report")
+async def swarm_report(session_id: str):
+    """Get the report from a completed swarm session."""
+    swarm = get_session(session_id)
+    if not swarm:
+        return JSONResponse({"ok": False, "error": "Session not found"}, status_code=404)
+
+    if swarm.status != "completed":
+        return JSONResponse({"ok": False, "error": "Swarm not yet completed"}, status_code=400)
+
+    # Find the report operator's findings which contain the report reference
+    report_findings = swarm.get_operator_findings("report")
+    report_text = ""
+    report_id = None
+    for f in report_findings:
+        if f.get("tool") == "report" and "report saved" in f.get("title", "").lower():
+            report_text = f.get("detail", "")
+            # Extract report ID
+            import re
+            m = re.search(r"ID:\s*(\S+)", f.get("title", ""))
+            if m:
+                report_id = m.group(1)
+
+    try:
+        from backend import database as db
+        reports = db.list_reports()
+        for r in (reports or []):
+            if r.get("type") == "swarm" and r.get("target") == swarm.target:
+                return JSONResponse({"ok": True, "data": r})
+    except Exception:
+        pass
+
+    # Fallback: return the swarm session data
+    return JSONResponse({
+        "ok": True,
+        "data": {
+            "title": f"Swarm Report — {swarm.target}",
+            "target": swarm.target,
+            "raw_output": f"Swarm completed with {len(swarm.findings)} findings. "
+                          f"View findings in the session data.",
+            "type": "swarm",
+        }
+    })
+
+
+# ════════════════════════════════════════════════════════════════
+#  SCOPE GUARD API (Fase 6 — Containment)
+# ════════════════════════════════════════════════════════════════
+
+from backend.scope_guard import get_config as scope_get_config, save_config, validate_command, _is_ip
+from backend.scope_guard import extract_targets, log_block, get_block_history, clear_block_history
+
+
+@app.get("/api/scope")
+async def scope_get():
+    """Get current scope configuration."""
+    cfg = scope_get_config(force_refresh=True)
+    return JSONResponse({
+        "ok": True,
+        "data": {
+            "enabled": cfg.get("enabled", False),
+            "mode": cfg.get("mode", "warn"),
+            "targets": cfg.get("targets", []),
+            "block_private": cfg.get("block_private", False),
+            "blocked_count": len(get_block_history()),
+        }
+    })
+
+
+class ScopeUpdateRequest(BaseModel):
+    enabled: bool = False
+    mode: str = "warn"
+    targets: list = []
+    block_private: bool = False
+
+
+@app.post("/api/scope")
+async def scope_update(req: ScopeUpdateRequest):
+    """Update scope configuration."""
+    cfg = {
+        "enabled": req.enabled,
+        "mode": req.mode if req.mode in ("warn", "block") else "warn",
+        "targets": req.targets,
+        "block_private": req.block_private,
+    }
+    ok = save_config(cfg)
+    if not ok:
+        return JSONResponse({"ok": False, "error": "Failed to save config"}, status_code=500)
+    return JSONResponse({"ok": True})
+
+
+@app.get("/api/scope/history")
+async def scope_history():
+    """Get blocked/warned command history."""
+    return JSONResponse({"ok": True, "data": get_block_history()})
+
+
+@app.post("/api/scope/history/clear")
+async def scope_clear_history():
+    """Clear block history."""
+    clear_block_history()
+    return JSONResponse({"ok": True})
+
+
+@app.post("/api/scope/validate")
+async def scope_validate_command(req: dict):
+    """Validate a single command against scope."""
+    cmd = req.get("command", "") if isinstance(req, dict) else ""
+    if not cmd:
+        return JSONResponse({"ok": True, "blocked": False})
+    result = validate_command(cmd)
+    if result:
+        return JSONResponse({"ok": True, **result})
+    return JSONResponse({"ok": True, "blocked": False})
+
+
+# ════════════════════════════════════════════════════════════════
+#  CREDENTIAL STORE API
+# ════════════════════════════════════════════════════════════════
+
+class CredentialCreate(BaseModel):
+    type: str = "password"
+    target: str = ""
+    username: str = ""
+    password: str = ""
+    hash: str = ""
+    token: str = ""
+    service: str = ""
+    port: str = ""
+    source: str = ""
+    notes: str = ""
+
+
+@app.get("/api/credentials")
+async def get_credentials(target: str = "", service: str = ""):
+    """List credentials with optional filters."""
+    data = db.list_credentials(target=target or None, service=service or None)
+    if data is None:
+        return JSONResponse({"ok": True, "data": [], "fallback": True})
+    return _ok(data)
+
+
+@app.post("/api/credentials")
+async def create_credential(cred: CredentialCreate):
+    """Save a credential."""
+    result = db.save_credential(cred.model_dump())
+    if result is None:
+        return JSONResponse({"ok": False, "error": "Database not configured"}, status_code=503)
+    return _ok(result, 201)
+
+
+@app.delete("/api/credentials/{cred_id}")
+async def remove_credential(cred_id: str):
+    """Delete a credential."""
+    ok = db.delete_credential(cred_id)
+    if ok is None:
+        return JSONResponse({"ok": False, "error": "Database not configured"}, status_code=503)
+    return JSONResponse({"ok": ok})
+
+
+@app.delete("/api/credentials")
+async def clear_all_credentials():
+    """Delete all credentials."""
+    ok = db.delete_all_credentials()
+    if ok is None:
+        return JSONResponse({"ok": False, "error": "Database not configured"}, status_code=503)
+    return JSONResponse({"ok": ok})
+
+
+# ════════════════════════════════════════════════════════════════
+#  KNOWLEDGE BASE API
+# ════════════════════════════════════════════════════════════════
+from knowledgebase import search_all, search_cve, search_mitre, get_cve, get_mitre
+
+@app.get("/api/knowledgebase/search")
+async def kb_search(query: str = ""):
+    """Search CVE + MITRE databases."""
+    return _ok(search_all(query))
+
+@app.get("/api/knowledgebase/cve/{cve_id}")
+async def kb_cve_detail(cve_id: str):
+    """Get single CVE detail."""
+    result = get_cve(cve_id)
+    if not result:
+        return JSONResponse({"ok": False, "error": "CVE not found"}, status_code=404)
+    return _ok(result)
+
+
+@app.get("/api/knowledgebase/mitre/{tech_id}")
+async def kb_mitre_detail(tech_id: str):
+    """Get single MITRE technique detail."""
+    result = get_mitre(tech_id)
+    if not result:
+        return JSONResponse({"ok": False, "error": "Technique not found"}, status_code=404)
+    return _ok(result)
+
+
+# ════════════════════════════════════════════════════════════════
+#  CTF MODE API
+# ════════════════════════════════════════════════════════════════
+
+class CTFChallengeCreate(BaseModel):
+    title: str
+    category: str = ""
+    description: str = ""
+    flags: str = ""
+    points: int = 100
+    target: str = ""
+    hints: str = ""
+    difficulty: str = "medium"
+
+
+@app.get("/api/ctf/challenges")
+async def ctf_list_challenges():
+    data = db.list_ctf_challenges()
+    if data is None:
+        return JSONResponse({"ok": True, "data": [], "fallback": True})
+    return _ok(data)
+
+
+@app.post("/api/ctf/challenges")
+async def ctf_create_challenge(challenge: CTFChallengeCreate):
+    result = db.save_ctf_challenge(challenge.model_dump())
+    if result is None:
+        return JSONResponse({"ok": False, "error": "Database not configured"}, status_code=503)
+    return _ok(result, 201)
+
+
+@app.post("/api/ctf/challenges/{challenge_id}/solve")
+async def ctf_submit_flag(challenge_id: int, body: dict):
+    flag = body.get("flag", "")
+    if not flag:
+        return JSONResponse({"ok": False, "error": "Flag is required"}, status_code=400)
+    result = db.solve_ctf_challenge(challenge_id, flag)
+    if result is None:
+        return JSONResponse({"ok": False, "error": "Database not configured"}, status_code=503)
+    return result
+
+
+@app.delete("/api/ctf/challenges/{challenge_id}")
+async def ctf_delete_challenge(challenge_id: int):
+    ok = db.delete_ctf_challenge(challenge_id)
+    return JSONResponse({"ok": ok})
+
+
+@app.get("/api/ctf/score")
+async def ctf_score():
+    result = db.get_ctf_score()
+    if result is None:
+        return JSONResponse({"ok": True, "data": {"solved": 0, "total": 0, "points": 0, "total_points": 0}, "fallback": True})
+    return _ok(result)
+
+
+# ════════════════════════════════════════════════════════════════
 #  Direct execution: python main.py   or   python backend/main.py
 # ════════════════════════════════════════════════════════════════
 if __name__ == "__main__":
@@ -925,9 +1546,13 @@ if __name__ == "__main__":
         # We're at project root or elsewhere — use fully qualified name
         app_str = "backend.main:app"
 
-    print("=" * 50)
-    print("  VulnForge — Red Team Dashboard")
-    print(f"  -> http://localhost:8000")
-    print("=" * 50)
     port = int(os.getenv("PORT", "8000"))
+    mode_str = "PRODUCTION" if PRODUCTION else "DEVELOPMENT"
+    print("=" * 50)
+    print(f"  VulnForge — Red Team Dashboard ({mode_str})")
+    print(f"  Version {VERSION}")
+    print(f"  -> http://localhost:{port}")
+    if PRODUCTION:
+        print(f"  -> Remote: https://vulnforge.YOUR-DOMAIN.com")
+    print("=" * 50)
     uvicorn.run(app_str, host="0.0.0.0", port=port, reload=(port == 8000))

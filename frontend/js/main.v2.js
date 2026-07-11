@@ -73,152 +73,385 @@ document.addEventListener('DOMContentLoaded', () => {
     window.reports = reports; // expose for debugging
 
     function addReport(report) {
-        report.id = Date.now();
-        report.timestamp = new Date().toLocaleTimeString();
-        reports.unshift(report); // newest first
+        report.id = Date.now() + Math.random();
+        report.timestamp = new Date().toLocaleString();
+        reports.unshift(report);
         renderReports();
-
-        // Persist to Supabase if available
-        if (DataService && DataService.available) {
-            DataService.saveReport({
-                type: report.type || 'manual',
-                title: `${report.type || 'scan'} — ${report.target || 'unknown'}`,
-                target: report.target || '',
-                raw_output: report.raw || '',
-                parsed_data: report.parsed_data || report.ports || report.dirs || {},
-                format: 'md'
-            }).then(saved => {
-                if (saved && saved.id) report.db_id = saved.id;
-            }).catch(() => {});
-        }
+        _updateReportCount();
     }
 
-    // Load reports from Supabase on startup
-    async function loadReportsFromDB() {
-        if (!DataService || !DataService.available) return;
+    // ── Load reports from backend ──
+    async function loadReports() {
         try {
-            const remote = await DataService.listReports();
-            if (remote && remote.length > 0) {
-                // Merge: remote reports first (newest), then local
+            const resp = await fetch('/api/reports');
+            const json = await resp.json();
+            if (json.ok && json.data && json.data.length > 0) {
                 const existingIds = new Set(reports.map(r => r.db_id));
-                for (const r of remote) {
+                for (const r of json.data) {
                     if (!existingIds.has(r.id)) {
+                        const parsed = typeof r.parsed_data === 'string' ? JSON.parse(r.parsed_data) : (r.parsed_data || {});
                         reports.push({
                             id: Date.now() + Math.random(),
                             db_id: r.id,
-                            type: r.type,
-                            target: r.target,
-                            raw: r.raw_output,
-                            parsed_data: r.parsed_data,
-                            ports: r.parsed_data?.ports,
-                            dirs: r.parsed_data?.dirs,
-                            timestamp: new Date(r.created_at).toLocaleTimeString()
+                            type: r.type || 'scan',
+                            title: r.title || `Report — ${r.target || 'unknown'}`,
+                            target: r.target || '',
+                            raw: r.raw_output || '',
+                            parsed_data: parsed,
+                            timestamp: new Date(r.created_at).toLocaleString()
                         });
                     }
                 }
+                // Sort: newest first
+                reports.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
                 renderReports();
+                _updateReportCount();
             }
         } catch (e) {
-            console.warn('Failed to load reports from DB:', e);
+            // Silent fail — offline-first
         }
     }
-    // Load after a short delay (give DataService time to init)
-    setTimeout(loadReportsFromDB, 1500);
 
+    // ── Render report list ──
     function renderReports() {
         const container = document.getElementById('reports-container');
-        const count     = document.getElementById('report-count');
+        const empty = document.getElementById('report-empty');
+        const btnExport = document.getElementById('btn-export-reports');
         if (!container) return;
 
-        const btnExport = document.getElementById('btn-export-reports');
         if (reports.length === 0) {
-            container.innerHTML = `
-                <div class="report-empty">
-                    <div class="icon">📂</div>
-                    <div>No reports yet</div>
-                    <div class="text-[10px] mt-1 text-gray-700">Run a scan from the Arsenal to see results here</div>
-                </div>`;
-            if (count) count.textContent = '(0)';
+            if (empty) empty.style.display = '';
+            // Remove any report cards
+            container.querySelectorAll('.report-card').forEach(el => el.remove());
             if (btnExport) btnExport.disabled = true;
             return;
         }
-
-        if (count) count.textContent = `(${reports.length})`;
+        if (empty) empty.style.display = 'none';
         if (btnExport) btnExport.disabled = false;
 
         container.innerHTML = reports.map(r => {
-            let bodyHtml = '';
+            const summary = r.parsed_data?.summary || {};
+            const total = summary.total || 0;
+            const bySeverity = summary.by_severity || {};
+            const byTool = summary.by_tool || {};
+            const toolCount = Object.keys(byTool).length;
+            const sevBadges = ['critical', 'high', 'medium', 'low', 'info']
+                .filter(s => bySeverity[s])
+                .map(s => {
+                    const colors = { critical: 'bg-red-900/30 text-red-400', high: 'bg-orange-900/30 text-orange-400', medium: 'bg-yellow-900/30 text-yellow-400', low: 'bg-blue-900/30 text-blue-400', info: 'bg-gray-800/50 text-gray-500' };
+                    return `<span class="text-[8px] px-1.5 py-0.5 rounded ${colors[s] || 'bg-gray-800 text-gray-600'}">${s} ${bySeverity[s]}</span>`;
+                }).join(' ');
+            const toolBadges = Object.entries(byTool).map(([t, c]) =>
+                `<span class="text-[8px] text-gray-600">${t} (${c})</span>`
+            ).join(' ');
 
-            if (r.type === 'nmap') {
-                bodyHtml = renderNmapReport(r);
-            } else if (r.type === 'gobuster') {
-                bodyHtml = renderGobusterReport(r);
-            } else {
-                bodyHtml = `<div class="text-[11px] text-gray-500 font-mono">${r.raw?.substring(0, 300) || 'No data'}</div>`;
-            }
-
-            const toolColor = r.type === 'nmap' ? 'text-violet-400' : r.type === 'gobuster' ? 'text-sky-400' : 'text-gray-400';
-
-            return `
-                <div class="report-card">
-                    <div class="flex items-center justify-between mb-1.5">
-                        <span class="text-[10px] font-semibold uppercase tracking-wider ${toolColor}">${r.type} › ${r.target}</span>
-                        <span class="flex items-center gap-2">
-                            <button onclick="exportScanReport(${reports.indexOf(r)}, 'md')"
-                                class="text-[9px] text-gray-600 hover:text-neon transition-colors">⬇ .md</button>
-                            <button onclick="exportScanReport(${reports.indexOf(r)}, 'html')"
-                                class="text-[9px] text-gray-600 hover:text-cyber transition-colors">⬇ .html</button>
-                            <button onclick="exportScanReport(${reports.indexOf(r)}, 'pdf')"
-                                class="text-[9px] text-gray-600 hover:text-blood transition-colors">⬇ PDF</button>
-                            <span class="text-[9px] text-gray-700">${r.timestamp}</span>
-                        </span>
+            return `<div class="report-card">
+                <div class="flex items-start justify-between gap-2">
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="text-[10px] font-semibold text-neon truncate">${r.title || 'Report'}</span>
+                            <span class="text-[8px] text-gray-700">${r.timestamp}</span>
+                        </div>
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                            ${sevBadges}
+                        </div>
+                        <div class="text-[9px] text-gray-600 mt-1">${toolBadges}</div>
+                        <div class="text-[9px] text-gray-700 mt-0.5">📍 ${r.target || 'no target'} · 📊 ${total} findings</div>
                     </div>
-                    ${bodyHtml}
-                </div>`;
-        }).join('');
-    }
-
-    function renderNmapReport(r) {
-        if (!r.ports || r.ports.length === 0) {
-            return `<div class="text-[11px] text-gray-600">${r.raw?.substring(0, 400) || 'No open ports found'}</div>`;
-        }
-        let html = `<div class="text-[10px] text-gray-600 mb-1.5">Open ports: <span class="text-neon">${r.ports.length}</span></div>`;
-        html += `<div class="flex flex-wrap gap-1.5">`;
-        r.ports.forEach(p => {
-            html += `<span class="port-badge">${p.port}/${p.protocol || 'tcp'}
-                <span class="service-tag">${p.service || p.state || '?'}</span>
-                ${p.version ? `<span class="text-[8px] text-gray-700 ml-1">${p.version}</span>` : ''}
-            </span>`;
-        });
-        html += `</div>`;
-        if (r.os) html += `<div class="text-[10px] text-gray-700 mt-1.5">OS: ${r.os}</div>`;
-        return html;
-    }
-
-    function renderGobusterReport(r) {
-        if (!r.dirs || r.dirs.length === 0) {
-            return `<div class="text-[11px] text-gray-600">${r.raw?.substring(0, 400) || 'No directories found'}</div>`;
-        }
-        let html = `<div class="text-[10px] text-gray-600 mb-1.5">Found: <span class="text-neon">${r.dirs.length}</span> directories</div>`;
-        html += `<div class="space-y-0.5">`;
-        r.dirs.forEach(d => {
-            const color = d.status < 300 ? 'text-neon' : d.status < 400 ? 'text-yellow-400' : 'text-gray-600';
-            html += `<div class="text-[11px] font-mono">
-                <span class="${color}">[${d.status}]</span>
-                <span class="text-gray-400">${d.path}</span>
-                ${d.size ? `<span class="text-gray-700 text-[9px]">(${d.size})</span>` : ''}
+                    <div class="flex items-center gap-1 flex-shrink-0">
+                        <button onclick="viewReport(${reports.indexOf(r)})" class="text-[9px] text-cyber/70 hover:text-cyber border border-cyber/20 rounded px-2 py-0.5 transition-colors">👁 View</button>
+                        <select onchange="exportReport(${reports.indexOf(r)}, this.value)" class="bg-void border border-gray-800 rounded px-1 py-0.5 text-[8px] text-gray-400">
+                            <option value="">⬇ Export</option>
+                            <option value="md">.md</option>
+                            <option value="html">.html</option>
+                            <option value="pdf">📄 PDF</option>
+                        </select>
+                        <button onclick="deleteReport(${reports.indexOf(r)})" class="text-[9px] text-gray-700 hover:text-blood transition-colors">✕</button>
+                    </div>
+                </div>
             </div>`;
-        });
-        html += `</div>`;
-        return html;
+        }).join('');
+        _updateReportCount();
     }
 
-    function clearReports() {
+    function _updateReportCount() {
+        const el = document.getElementById('report-count');
+        if (el) el.textContent = `(${reports.length})`;
+        const stat = document.getElementById('stat-reports');
+        if (stat) stat.textContent = reports.length;
+        if (typeof updateStats === 'function') updateStats();
+    }
+
+    // ── Generate report from current findings ──
+    window.generateReport = async function () {
+        if (window.findings && window.findings.length === 0) {
+            showToast('⚠️ No findings to report. Run a scan first.');
+            return;
+        }
+        const target = document.getElementById('target-ip')?.value?.trim() || 'unknown';
+        const findings = window.findings || [];
+        const suggestions = window.suggestions || [];
+
+        showToast('📝 Generating report...');
+
+        try {
+            const resp = await fetch('/api/report/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    target,
+                    title: `Scan Report — ${target} — ${new Date().toLocaleString()}`,
+                    findings,
+                    suggestions
+                })
+            });
+            const json = await resp.json();
+            if (json.ok && json.data) {
+                const r = json.data;
+                const parsed = typeof r.parsed_data === 'string' ? JSON.parse(r.parsed_data) : (r.parsed_data || {});
+                addReport({
+                    db_id: r.id,
+                    type: r.type || 'scan',
+                    title: r.title || `Report — ${target}`,
+                    target: r.target || target,
+                    raw: r.raw_output || '',
+                    parsed_data: parsed,
+                    timestamp: new Date().toLocaleString()
+                });
+                showToast(`✅ Report generated: ${r.title}`);
+            } else if (json.ok && json.title) {
+                // DB unavailable fallback
+                addReport({
+                    type: 'scan',
+                    title: json.title,
+                    target: json.target,
+                    raw: json.raw_output,
+                    parsed_data: json.parsed_data,
+                    timestamp: new Date().toLocaleString()
+                });
+                showToast('✅ Report generated (local only)');
+            } else {
+                showToast('⚠️ Failed to generate report');
+            }
+        } catch (e) {
+            showToast('⚠️ Error generating report: ' + e.message);
+        }
+    };
+
+    // ── View report in modal ──
+    window.viewReport = function (index) {
+        const r = reports[index];
+        if (!r) return;
+        const modal = document.getElementById('report-modal');
+        const title = document.getElementById('report-modal-title');
+        const body = document.getElementById('report-modal-body');
+        if (!modal || !title || !body) return;
+
+        title.textContent = r.title || 'Report';
+        // Store current report index for export
+        modal.dataset.reportIndex = index;
+
+        // Render markdown as HTML for readability
+        const raw = r.raw || 'No content';
+        const html = mdToBasicHTML(raw);
+        body.innerHTML = `<div class="prose-xs text-gray-300 leading-relaxed">${html}</div>`;
+
+        modal.classList.remove('hidden');
+    };
+
+    window.closeReportModal = function () {
+        const modal = document.getElementById('report-modal');
+        if (modal) modal.classList.add('hidden');
+    };
+
+    // Close modal on background click & Escape key
+    document.addEventListener('click', (e) => {
+        const modal = document.getElementById('report-modal');
+        if (modal && e.target === modal) modal.classList.add('hidden');
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            const modal = document.getElementById('report-modal');
+            if (modal && !modal.classList.contains('hidden')) modal.classList.add('hidden');
+        }
+    });
+
+    // ── Export current report (from modal) ──
+    window.exportCurrentReport = function () {
+        const modal = document.getElementById('report-modal');
+        const idx = parseInt(modal?.dataset?.reportIndex);
+        if (isNaN(idx)) return;
+        const format = document.getElementById('report-detail-format')?.value || 'md';
+        exportReport(idx, format);
+    };
+
+    // ── Export a single report ──
+    window.exportReport = function (index, format) {
+        if (!format) return;
+        const r = reports[index];
+        if (!r) return;
+        const content = r.raw || '# Empty report';
+        const title = r.title || 'report';
+        const target = r.target || 'unknown';
+        const date = new Date().toISOString().slice(0, 10);
+        const safeName = `vulnforge-${target}-${date}`;
+
+        if (format === 'md') {
+            downloadString(content, `${safeName}.md`, 'text/markdown');
+        } else if (format === 'html') {
+            const html = buildExportHTML(content, title, 'report');
+            downloadString(html, `${safeName}.html`, 'text/html');
+        } else if (format === 'pdf') {
+            const html = buildExportHTML(content, title, 'report');
+            openPDFPreview(html, `${safeName}.pdf`);
+        }
+        showToast(`⬇ Exported: ${safeName}.${format}`);
+    };
+
+    // ── Export all reports ──
+    window.exportAllReports = function () {
+        if (reports.length === 0) {
+            showToast('No reports to export');
+            return;
+        }
+        const format = document.getElementById('reports-format')?.value || 'md';
+        // Build a combined document
+        let combined = '# VulnForge — All Reports\n\n';
+        reports.forEach((r, i) => {
+            combined += `---\n## ${i + 1}. ${r.title || 'Report'}\n`;
+            combined += `**Target:** ${r.target || '?'}  \n`;
+            combined += `**Date:** ${r.timestamp}  \n\n`;
+            combined += (r.raw || 'No content') + '\n\n';
+        });
+
+        const date = new Date().toISOString().slice(0, 10);
+        const safeName = `vulnforge-all-reports-${date}`;
+
+        if (format === 'md') {
+            downloadString(combined, `${safeName}.md`, 'text/markdown');
+        } else if (format === 'html') {
+            const html = buildExportHTML(combined, 'All Reports', 'report');
+            downloadString(html, `${safeName}.html`, 'text/html');
+        } else if (format === 'pdf') {
+            const html = buildExportHTML(combined, 'All Reports', 'report');
+            openPDFPreview(html, `${safeName}.pdf`);
+        }
+        showToast(`⬇ Exported ${reports.length} reports as ${format}`);
+    };
+
+    // ── Delete a single report ──
+    window.deleteReport = function (index) {
+        const r = reports[index];
+        if (!r) return;
+        // Delete from backend if it has a db_id
+        if (r.db_id) {
+            fetch(`/api/reports/${r.db_id}`, { method: 'DELETE' }).catch(() => {});
+        }
+        reports.splice(index, 1);
+        renderReports();
+        showToast('🗑️ Report deleted');
+    };
+
+    // ── Clear all reports ──
+    window.clearReports = function () {
+        if (reports.length === 0) return;
+        // Delete all from backend
+        reports.forEach(r => {
+            if (r.db_id) {
+                fetch(`/api/reports/${r.db_id}`, { method: 'DELETE' }).catch(() => {});
+            }
+        });
         reports = [];
         renderReports();
-        showToast('Reports cleared');
+        showToast('🗑️ All reports cleared');
+    };
+
+    // Helper: download a string as file
+    function downloadString(content, filename, mimeType) {
+        const blob = new Blob([content], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
     }
-    window.clearReports = clearReports;
+
+    // Helper: convert MD-like syntax → basic HTML
+    function mdToBasicHTML(text) {
+        if (!text) return '';
+        let html = text
+            // Escape HTML entities
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            // Headers
+            .replace(/^### (.+)$/gm, '<h3 class="text-amber-400 text-[13px] font-semibold mt-3 mb-1">$1</h3>')
+            .replace(/^## (.+)$/gm, '<h2 class="text-amber-400 text-[14px] font-bold mt-4 mb-1">$1</h2>')
+            .replace(/^# (.+)$/gm, '<h1 class="text-neon text-[15px] font-bold mt-4 mb-2">$1</h1>')
+            // Bold
+            .replace(/\*\*(.+?)\*\*/g, '<strong class="text-gray-100">$1</strong>')
+            // Italic
+            .replace(/\*(.+?)\*/g, '<em class="text-gray-400">$1</em>')
+            // Inline code
+            .replace(/`([^`]+)`/g, '<code class="text-cyber bg-void px-1 rounded text-[10px]">$1</code>')
+            // Separator
+            .replace(/^---$/gm, '<hr class="border-gray-800 my-3">')
+            // Table rows (basic: | a | b |)
+            .replace(/^\|(.+)\|$/gm, (m, row) => {
+                const cells = row.split('|').map(c => c.trim()).filter(Boolean);
+                if (cells.every(c => /^[-]+$/.test(c))) return '<hr class="border-gray-800 my-1">';
+                return `<div class="flex gap-4 text-[11px] text-gray-400">${cells.map(c => `<span>${c}</span>`).join('')}</div>`;
+            })
+            // Unordered list
+            .replace(/^- (.+)$/gm, '<li class="text-gray-400 text-[11px] ml-3 list-disc">$1</li>')
+            // Line breaks
+            .replace(/\n/g, '<br>');
+        return html;
+    }
+
+    // Helper: build a self-contained HTML document for export
+    function buildExportHTML(content, title, type) {
+        const bodyHtml = mdToBasicHTML(content);
+        return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>${title} — VulnForge</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#0a0b10; color:#c8c8c8; font-family:monospace; font-size:12px; line-height:1.6; padding:40px; }
+h1 { color:#d4a843; font-size:18px; margin-bottom:12px; }
+h2 { color:#d4a843; font-size:16px; margin-top:20px; margin-bottom:8px; }
+h3 { color:#d4a843; font-size:14px; margin-top:16px; margin-bottom:6px; }
+code { background:#0f111a; color:#3b9eff; padding:1px 5px; border-radius:3px; font-size:11px; }
+hr { border:none; border-top:1px solid #1a1f2e; margin:16px 0; }
+strong { color:#e0e0e0; }
+em { color:#888; }
+li { color:#aaa; margin-left:20px; }
+br { content:''; display:block; margin:4px 0; }
+@media print { body { padding:20px; background:#fff; color:#333; } h1,h2,h3 { color:#222; } code { background:#eee; color:#333; } }
+</style>
+</head>
+<body>
+${bodyHtml}
+</body>
+</html>`;
+    }
+
+    // Helper: open a popup window with print dialog (PDF export)
+    function openPDFPreview(htmlContent, filename) {
+        const win = window.open('', '_blank', 'width=800,height=600,scrollbars=yes');
+        if (!win) {
+            showToast('⚠️ Popup blocked. Allow popups for PDF export.');
+            return;
+        }
+        win.document.write(htmlContent);
+        win.document.title = filename;
+        win.focus();
+        setTimeout(() => { win.print(); }, 500);
+    }
+
+    // Load reports on init (delayed to let page settle)
+    setTimeout(loadReports, 2000);
 
     // ── Parse Nmap output ──
     function parseNmapOutput(text, target) {
@@ -282,6 +515,7 @@ document.addEventListener('DOMContentLoaded', () => {
     //  FINDINGS SYSTEM (T3MP3ST-style)
     // ============================================================
     const findings = [];
+    window.findings = findings; // expose for backend sync + stats
 
     // Severity helpers
     function severityColor(sev) {
@@ -425,8 +659,14 @@ document.addEventListener('DOMContentLoaded', () => {
         // Group findings per URL into a single consolidated finding with details
         const urlLineRegex = /^(https?:\/\/\S+)\s+(.+)$/gm;
         let urlMatch;
+        const seenUrls = new Set(); // dedup by normalized URL
         while ((urlMatch = urlLineRegex.exec(text)) !== null) {
-            const url = urlMatch[1];
+            let url = urlMatch[1];
+            // Normalize: remove trailing slash, prefer https
+            url = url.replace(/\/+$/, '');
+            const normalized = url.replace(/^http:\/\//, 'https://');
+            if (seenUrls.has(normalized)) continue;
+            seenUrls.add(normalized);
             const rest = urlMatch[2];
 
             // Extract status code
@@ -459,7 +699,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     else if (key === 'UncommonHeaders') { uncommons.push(val); }
                     else if (/^(X-Frame-Options|X-XSS-Protection|Strict-Transport-Security|X-Content-Type-Options)$/i.test(key)) {
                         headers.push(`${key}: ${val}`);
-                    } else if (/^(Script|JQuery|Google-Tag-Manager|HTML5|Frame|Open-Graph-Protocol|Meta-Author)$/i.test(key)) {
+                    } else if (/^(Country|IP|Port)$/i.test(key)) {
+                        // Skip location/IP metadata
+                    } else {
                         techs.push(key + (val && val !== key ? `[${val}]` : ''));
                     }
                 }
@@ -479,7 +721,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 tool: 'whatweb',
                 target,
                 type: 'tech',
-                title: `WhatWeb: ${url}`,
+                title: `WhatWeb: ${normalized}`,
                 detail: detailParts.join(' | '),
                 severity: 'info'
             });
@@ -558,7 +800,87 @@ document.addEventListener('DOMContentLoaded', () => {
         return s;
     }
 
-    // ── Add findings (with dedup) ──
+    // ── Sync findings to backend (Supabase) ──
+    let _findingsSyncTimer = null;
+    function _debounceSync() {
+        clearTimeout(_findingsSyncTimer);
+        _findingsSyncTimer = setTimeout(_syncFindingsToBackend, 2000);
+    }
+
+    async function _syncFindingsToBackend() {
+        try {
+            // Only send findings that haven't been synced yet
+            const unsynced = findings.filter(f => !f._synced);
+            if (unsynced.length === 0) return;
+            const payload = unsynced.map(f => ({
+                tool: f.tool || 'unknown',
+                target: f.target || '',
+                type: f.type || 'generic',
+                severity: f.severity || 'info',
+                title: f.title || '',
+                detail: f.detail || '',
+                port: f.port || '',
+                protocol: f.protocol || '',
+                service: f.service || '',
+                version: f.version || '',
+                status: f.status || 0,
+                path: f.path || '',
+                raw: f.raw || ''
+            }));
+            const resp = await fetch('/api/findings/bulk', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (resp.ok) {
+                // Mark all as synced
+                unsynced.forEach(f => f._synced = true);
+            }
+        } catch (e) {
+            // Silent fail — offline-first
+        }
+    }
+
+    async function _loadFindingsFromBackend() {
+        try {
+            const resp = await fetch('/api/findings');
+            const json = await resp.json();
+            if (json.ok && json.data && json.data.length > 0) {
+                // Merge with existing findings (avoid dupes)
+                const existing = _existingKeys();
+                let added = 0;
+                for (const item of json.data) {
+                    const key = _findingKey({
+                        tool: item.tool,
+                        target: item.target,
+                        type: item.type,
+                        port: item.port,
+                        protocol: item.protocol,
+                        service: item.service,
+                        path: item.path,
+                        status: item.status,
+                        title: item.title,
+                        detail: item.detail
+                    });
+                    if (!existing.has(key)) {
+                        existing.add(key);
+                        item.id = _hashStr(key);
+                        item._synced = true; // already in DB, don't re-sync
+                        findings.push(item);
+                        added++;
+                    }
+                }
+                if (added > 0) {
+                    renderFindings();
+                    updateFindingsCount();
+                }
+            }
+        } catch (e) {
+            // Silent fail — offline-first
+        }
+    }
+
+    // ── Add findings (with dedup + backend sync) ──
     function addFindings(items) {
         if (!items || items.length === 0) return;
         const existing = _existingKeys();
@@ -581,6 +903,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateFindingsCount();
         const byTool = items[0].tool || 'scan';
         showToast(`🎯 +${added} ${byTool} finding${added > 1 ? 's' : ''}`);
+        _debounceSync();
     }
 
     // ── Simple string hash for stable finding IDs ──
@@ -605,12 +928,26 @@ document.addEventListener('DOMContentLoaded', () => {
             list = findings.filter(f => f.severity === filterSeverity);
         }
 
+        // Text search filter
+        const q = (document.getElementById('findings-search')?.value || '').toLowerCase().trim();
+        if (q) {
+            list = list.filter(f => {
+                const haystack = [
+                    f.title, f.detail, f.tool, f.target, f.port, f.service,
+                    f.path, f.protocol, f.host, f.severity
+                ].filter(Boolean).join(' ').toLowerCase();
+                return haystack.includes(q);
+            });
+        }
+
         if (list.length === 0) {
             container.innerHTML = '<div class="text-center text-[11px] text-gray-700 py-8">No findings match this filter.</div>';
+            updateStats();
             return;
         }
 
         container.innerHTML = list.map(f => _renderOneFinding(f)).join('');
+        updateStats();
     }
 
     // ── Render a single finding card HTML (used by renderFindings + real-time append) ──
@@ -680,6 +1017,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         container.insertAdjacentHTML('afterbegin', _renderOneFinding(f));
         updateFindingsCount();
+        updateStats();
+        _debounceSync();
     }
 
     function _currentTarget() {
@@ -692,80 +1031,70 @@ document.addEventListener('DOMContentLoaded', () => {
         if (el) el.textContent = `(${findings.length})`;
     }
 
+    function updateStats() {
+        const f = window.findings || [];
+        const uniqueTargets = new Set(f.map(x => x.target || 'unknown'));
+        const uniqueTools = new Set(f.map(x => x.tool || 'scan'));
+        document.getElementById('stat-findings').textContent = f.length;
+        document.getElementById('stat-targets').textContent = uniqueTargets.size;
+        document.getElementById('stat-tools').textContent = uniqueTools.size;
+        document.getElementById('stat-reports').textContent = (window.reports || []).length;
+    }
+
     // ── Clear findings ──
     window.clearFindings = function () {
         findings.length = 0;
         renderFindings();
         updateFindingsCount();
+        updateStats();
+        // Also clear on backend
+        fetch('/api/findings', { method: 'DELETE' }).catch(() => {});
         showToast('🗑️ Findings cleared');
     };
 
-    // ── Export findings ──
-    window.exportFindings = function () {
-        if (findings.length === 0) {
+    // ── Export findings (via API for rich formatting) ──
+    window.exportFindings = async function () {
+        const f = window.findings || [];
+        if (f.length === 0) {
             showToast('No findings to export');
             return;
         }
-        const format = (document.getElementById('findings-format') || { value: 'txt' }).value;
-        const date = new Date().toISOString().split('T')[0];
-        const safeName = `findings-${date}`;
+        const format = (document.getElementById('findings-format') || { value: 'md' }).value;
+        const target = document.getElementById('target-ip')?.value?.trim() || 'unknown';
+        const suggestions = window.suggestions || [];
+        const date = new Date().toISOString().slice(0, 10);
 
-        let content;
-        switch (format) {
-            case 'md': {
-                content = `# Findings Report\n\n`;
-                content += `**Date:** ${new Date().toISOString()}\n`;
-                content += `**Total findings:** ${findings.length}\n\n`;
-                content += `| Severity | Tool | Target | Finding |\n`;
-                content += `|----------|------|--------|--------|\n`;
-                for (const f of findings) {
-                    const sev = severityBadge(f.severity);
-                    const title = f.title || f.path || `${f.port}/${f.protocol} ${f.service}` || f.detail || '';
-                    content += `| ${sev} | ${f.tool} | ${f.target} | ${title} |\n`;
-                }
-                downloadString(content, `${safeName}.md`, 'text/markdown');
-                showToast('⬇ MD exported');
-                break;
+        showToast('📝 Generating report...');
+
+        try {
+            const resp = await fetch('/api/report/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    target,
+                    title: `Findings Report — ${target} — ${new Date().toLocaleString()}`,
+                    findings: f,
+                    suggestions
+                })
+            });
+            const json = await resp.json();
+            const md = json.data?.raw_output || json.raw_output ||
+                `# Findings Report\n\n${f.map(x => `- ${x.tool}: ${x.title || x.detail}`).join('\n')}`;
+            const safeName = `vulnforge-${target.replace(/[^a-z0-9]/gi, '_')}-${date}`;
+
+            if (format === 'md' || format === 'txt') {
+                downloadString(md, `${safeName}.md`, 'text/markdown');
+                showToast(`⬇ Report exported as ${format}`);
+            } else if (format === 'html') {
+                const html = buildExportHTML(md, 'Findings Report', 'findings');
+                downloadString(html, `${safeName}.html`, 'text/html');
+                showToast('⬇ HTML exported');
+            } else if (format === 'pdf') {
+                const html = buildExportHTML(md, 'Findings Report', 'findings');
+                openPDFPreview(html, `Findings Report — ${date}`);
             }
-            case 'txt': {
-                content = `═══════════════════════════════════════════\n`;
-                content += `  FINDINGS REPORT\n`;
-                content += `  Date: ${new Date().toISOString()}\n`;
-                content += `  Total: ${findings.length}\n`;
-                content += `═══════════════════════════════════════════\n\n`;
-                for (const f of findings) {
-                    const sev = f.severity.toUpperCase().padEnd(8);
-                    const tool = (f.tool || '?').padEnd(10);
-                    const title = f.title || f.path || `${f.port}/${f.protocol} ${f.service}` || f.detail || '';
-                    content += `[${sev}] [${tool}] ${f.target}  ${title}\n`;
-                }
-                content += `\n──  End of report  ──\n`;
-                downloadString(content, `${safeName}.txt`, 'text/plain');
-                showToast('⬇ TXT exported');
-                break;
-            }
-            case 'html':
-            case 'pdf': {
-                let htmlContent = `# Findings Report\n\n`;
-                htmlContent += `**Date:** ${new Date().toISOString()}\n`;
-                htmlContent += `**Total findings:** ${findings.length}\n\n`;
-                htmlContent += `| Severity | Tool | Target | Finding |\n`;
-                htmlContent += `|----------|------|--------|--------|\n`;
-                for (const f of findings) {
-                    const sev = severityBadge(f.severity);
-                    const title = f.title || f.path || `${f.port}/${f.protocol} ${f.service}` || f.detail || '';
-                    htmlContent += `| ${sev} | ${f.tool} | ${f.target} | ${title} |\n`;
-                }
-                if (format === 'html') {
-                    const html = buildExportHTML(htmlContent, 'Findings Report', 'findings');
-                    downloadString(html, `${safeName}.html`, 'text/html');
-                    showToast('⬇ HTML exported');
-                } else {
-                    const html = buildExportHTML(htmlContent, 'Findings Report', 'findings');
-                    openPDFPreview(html, `Findings Report — ${date}`);
-                }
-                break;
-            }
+        } catch (e) {
+            showToast('⚠️ Error exporting report: ' + e.message);
         }
     };
 
@@ -780,6 +1109,13 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.style.background = '#ffffff0a';
         btn.style.color = '#fff';
         renderFindings(btn.dataset.severity);
+    });
+
+    // ── Findings search on input ──
+    document.addEventListener('input', (e) => {
+        if (e.target.id === 'findings-search') {
+            renderFindings(document.querySelector('.finding-filter.active')?.dataset.severity);
+        }
     });
 
     // ============================================================
@@ -1322,6 +1658,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const conn = connections[idx];
         showActiveConn(conn);
         targetInput.value = conn.ip;
+        window.lastScopedIp = conn.ip;
     });
 
     window.disconnectConn = function () {
@@ -1372,6 +1709,7 @@ document.addEventListener('DOMContentLoaded', () => {
             connBadge.textContent = `connected: ${sshUser}@${sshIp}:${sshPort}`;
             connTitle.textContent = `─╼ ${sshUser}@${sshIp}:${sshPort} ╾───────────────────────────`;
             ws.send(JSON.stringify({ type: 'auth', ip: sshIp, port: sshPort, user: sshUser, pass: sshPass }));
+            window.lastScopedIp = sshIp;
         };
 
         ws.onmessage = (event) => {
@@ -2082,7 +2420,12 @@ document.addEventListener('DOMContentLoaded', () => {
             aiwriteup: 4,
             hak5: 5,
             automation: 6,
-            findings: 7
+            opadmiral: 7,
+            swarm: 8,
+            findings: 9,
+            credentials: 10,
+            knowledgebase: 11,
+            ctf: 12
         };
         if (panes[tabName] !== undefined) {
             btns[panes[tabName]].classList.add('active');
@@ -2669,43 +3012,6 @@ ${fix || 'Apply appropriate security patches and input validation.'}
         exportReport(content, `${r.type}-${r.target.replace(/[^a-zA-Z0-9]/g, '_')}`, format, title, 'scan');
     };
 
-    // ── Export all scan reports ──
-    window.exportAllReports = function () {
-        const arr = window.reports || [];
-        if (arr.length === 0) { showToast('⚠️ No reports to export'); return; }
-        const format = document.getElementById('reports-format').value;
-
-        // Build a compiled report document
-        let content = `# VulnForge — Scan Reports Compilation\n\n`;
-        content += `**Date:** ${new Date().toISOString().split('T')[0]}\n`;
-        content += `**Total Reports:** ${arr.length}\n\n`;
-        content += `---\n\n`;
-
-        arr.forEach((r, i) => {
-            content += `## ${i+1}. ${r.type.toUpperCase()} › ${r.target}\n\n`;
-            content += `**Time:** ${r.timestamp}\n\n`;
-
-            if (r.type === 'nmap' && r.ports) {
-                content += `**Open Ports:** ${r.ports.length}\n\n`;
-                r.ports.forEach(p => {
-                    content += `- \`${p.port}/${p.protocol || 'tcp'}\` — ${p.service || '?'} ${p.version ? `(${p.version})` : ''}\n`;
-                });
-                if (r.os) content += `\n**OS Guess:** ${r.os}\n`;
-            } else if (r.type === 'gobuster' && r.dirs) {
-                content += `**Found:** ${r.dirs.length} directories\n\n`;
-                r.dirs.forEach(d => {
-                    content += `- [${d.status}] ${d.path}\n`;
-                });
-            } else {
-                content += `\`\`\`\n${(r.raw || 'No data').substring(0, 1000)}\n\`\`\`\n`;
-            }
-            content += `\n---\n\n`;
-        });
-
-        const title = `All Reports — VulnForge`;
-        exportReport(content, `all-reports-${new Date().toISOString().split('T')[0]}`, format, title, 'scan');
-    };
-
     // ============================================================
     //  AI WRITEUP GENERATOR
     // ============================================================
@@ -2727,6 +3033,11 @@ ${fix || 'Apply appropriate security patches and input validation.'}
             if (sp) document.getElementById('suggest-provider').value = sp;
             if (sk) document.getElementById('suggest-key').value = sk;
             if (sm) document.getElementById('suggest-model').value = sm;
+            // Apply local provider key field state on load
+            if (sp === 'local') {
+                const keyEl = document.getElementById('suggest-key');
+                if (keyEl) { keyEl.disabled = true; keyEl.value = ''; keyEl.placeholder = 'No needed for local AI'; }
+            }
         } catch {}
     }
 
@@ -2849,13 +3160,15 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         else if (ep.includes('openrouter')) provider = 'openrouter';
         else if (ep.includes('deepseek')) provider = 'deepseek';
         else if (ep.includes('groq')) provider = 'groq';
+        else if (ep.includes('localhost:11434') || ep.includes('localhost:1234') || ep.includes('127.0.0.1:11434') || ep.includes('127.0.0.1:1234')) provider = 'local';
         document.getElementById('suggest-provider').value = provider;
         document.getElementById('suggest-key').value = key;
         // Set a sensible default model if none saved
         const defaults = {
             openai: 'gpt-4o-mini', gemini: 'gemini-2.0-flash',
             anthropic: 'claude-3-haiku-20240307', openrouter: 'gpt-4o-mini',
-            deepseek: 'deepseek-chat', groq: 'llama-3.3-70b-versatile'
+            deepseek: 'deepseek-chat', groq: 'llama-3.3-70b-versatile',
+            local: 'llama3'
         };
         document.getElementById('suggest-model').value = model || defaults[provider] || 'gpt-4o-mini';
         showToast('📋 Config loaded from AI Writeup');
@@ -2938,7 +3251,7 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
 
     window.aiChat = async function (systemPrompt, userMessage) {
         const cfg = _getAIConfig();
-        if (!cfg.apiKey) {
+        if (!cfg.apiKey && cfg.provider !== 'local') {
             showToast('⚠️ Configure an API key in Findings → AI Settings first');
             return null;
         }
@@ -3044,7 +3357,7 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         const modelEl = document.getElementById('suggest-model');
         let model = modelEl.value.trim();
         // Validate model — if it looks like a provider name, fix it
-        const providerNames = ['openai','gemini','anthropic','openrouter','deepseek','groq'];
+        const providerNames = ['openai','gemini','anthropic','openrouter','deepseek','groq','local'];
         if (!model || providerNames.includes(model.toLowerCase())) {
             model = MODEL_DEFAULTS[provider] || 'gpt-4o-mini';
             if (modelEl) modelEl.value = model;
@@ -3056,7 +3369,7 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         const section = document.getElementById('suggestions-section');
         const list = document.getElementById('suggestions-list');
 
-        if (!apiKey) {
+        if (!apiKey && provider !== 'local') {
             showToast('⚠️ Enter an API key or load from AI Writeup config');
             return;
         }
@@ -3372,7 +3685,8 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
     const MODEL_DEFAULTS = {
         openai: 'gpt-4o-mini', gemini: 'gemini-2.0-flash',
         anthropic: 'claude-3-haiku-20240307', openrouter: 'gpt-4o-mini',
-        deepseek: 'deepseek-chat', groq: 'llama-3.3-70b-versatile'
+        deepseek: 'deepseek-chat', groq: 'llama-3.3-70b-versatile',
+        local: 'llama3'
     };
 
     function initAutosave() {
@@ -3386,6 +3700,18 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
             provEl.addEventListener('change', function () {
                 const modelEl = document.getElementById('suggest-model');
                 if (modelEl) modelEl.value = MODEL_DEFAULTS[this.value] || 'gpt-4o-mini';
+                // Handle API key field for local provider (no key needed)
+                const keyEl = document.getElementById('suggest-key');
+                if (keyEl) {
+                    if (this.value === 'local') {
+                        keyEl.disabled = true;
+                        keyEl.value = '';
+                        keyEl.placeholder = 'No needed for local AI';
+                    } else {
+                        keyEl.disabled = false;
+                        keyEl.placeholder = 'API Key';
+                    }
+                }
                 saveAIConfig();
             });
         }
@@ -3615,6 +3941,8 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         tabBounty:         { en: '📋 Bounty',        es: '📋 Bounty' },
         tabAI:             { en: '🤖 AI Writeup',   es: '🤖 AI Writeup' },
         tabAutomation:     { en: '⚙ Automation',   es: '⚙ Automatización' },
+        tabOpAdmiral:      { en: '🎯 Op Admiral',    es: '🎯 Almirante' },
+        tabSwarm:          { en: '🐝 Swarm',          es: '🐝 Enjambre' },
         btnConnect:        { en: '> Connect',        es: '> Conectar' },
         btnDisconnect:     { en: '> Disconnect',     es: '> Desconectar' },
         cmdPlaceholder:    { en: '$  enter command...', es: '$  ingresa comando...' },
@@ -3637,6 +3965,23 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         online:            { en: 'ONLINE',           es: 'CONECTADO' },
         disconnected:      { en: 'disconnected',     es: 'desconectado' },
         connected:         { en: 'connected',        es: 'conectado' },
+        tabHak5:           { en: '🔌 Hak5',          es: '🔌 Hak5' },
+        tabFindings:       { en: '🎯 Findings',       es: '🎯 Hallazgos' },
+        tabCredentials:    { en: '🔑 Credentials',     es: '🔑 Credenciales' },
+        statFindings:      { en: '📊 {n} findings',   es: '📊 {n} hallazgos' },
+        statTargets:       { en: '📡 {n} targets',    es: '📡 {n} objetivos' },
+        statTools:         { en: '🔧 {n} tools',      es: '🔧 {n} herramientas' },
+        statReports:       { en: '📁 {n} reports',    es: '📁 {n} informes' },
+        findingsTitle:     { en: '🎯 Findings',       es: '🎯 Hallazgos' },
+        clearFindings:     { en: '✕ Clear all',       es: '✕ Limpiar todo' },
+        exportFindings:    { en: '📥 Export',         es: '📥 Exportar' },
+        generateReportBtn: { en: '📊 Generate Report', es: '📊 Generar Informe' },
+        suggestBtn:        { en: '🔍 Suggest next step', es: '🔍 Sugerir siguiente paso' },
+        exportAll:         { en: '⬇ Export all',      es: '⬇ Exportar todo' },
+        apiKeyPlaceholder: { en: 'API Key',           es: 'Clave API' },
+        modelPlaceholder:  { en: 'Model (eg: gemini-2.0-flash)', es: 'Modelo (ej: gemini-2.0-flash)' },
+        orLabel:           { en: 'or',                es: 'o' },
+        useAIConfig:       { en: 'use AI Writeup config', es: 'usar config AI Writeup' },
     };
 
     window.currentLang = localStorage.getItem('vulnforge_lang') || 'en';
@@ -3656,7 +4001,18 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         document.querySelectorAll('[data-i18n]').forEach(el => {
             const key = el.getAttribute('data-i18n');
             if (translations[key] && translations[key][lang]) {
-                el.textContent = translations[key][lang];
+                const text = translations[key][lang];
+                // If the translation uses {n}, preserve child elements (stats bar)
+                if (text.includes('{n}')) {
+                    const numEl = el.querySelector('[id]');
+                    if (numEl) {
+                        const n = numEl.textContent;
+                        const filled = text.replace('{n}', n);
+                        el.innerHTML = filled.replace(n, `<span id="${numEl.id}">${n}</span>`);
+                    }
+                } else {
+                    el.textContent = text;
+                }
             }
         });
 
@@ -3701,6 +4057,12 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
             if (nodes[1]) nodes[1].textContent = translations.noReports[lang];
             if (nodes[2]) nodes[2].textContent = translations.noReportsDesc[lang];
         }
+
+        // Update Findings AI config placeholders
+        const suggestKey = document.getElementById('suggest-key');
+        if (suggestKey) suggestKey.placeholder = translations.apiKeyPlaceholder[lang];
+        const suggestModel = document.getElementById('suggest-model');
+        if (suggestModel) suggestModel.placeholder = translations.modelPlaceholder[lang];
     }
 
     // Apply saved language on load
@@ -3733,4 +4095,297 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
     loadAIConfig();
     renderArsenal();
     window.appendBanner();
+    // Load persistent findings from backend
+    _loadFindingsFromBackend();
+    // Init CTF
+    if (typeof ctfLoad === 'function') ctfLoad();
+
+    // ============================================================
+    //  OP ADMIRAL — MISSION PLANNER
+    // ============================================================
+    let missionPlan = [];
+    let currentStepIndex = -1;
+
+    function extractJSON(text) {
+        // Try to extract JSON array from markdown code blocks or raw text
+        // 1. Check for ```json ... ``` blocks
+        const mdMatch = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+        if (mdMatch) {
+            try { return JSON.parse(mdMatch[1].trim()); } catch {}
+        }
+        // 2. Try to find a JSON array directly
+        const arrMatch = text.match(/\[[\s\S]*\]/);
+        if (arrMatch) {
+            try { return JSON.parse(arrMatch[0]); } catch {}
+        }
+        // 3. Try the whole text
+        try { return JSON.parse(text); } catch {}
+        return null;
+    }
+
+    function updatePlanProgress() {
+        const total = missionPlan.length;
+        const done = missionPlan.filter(s => s.status === 'done').length;
+        const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+        const container = document.getElementById('plan-progress-container');
+        const bar = document.getElementById('plan-progress-bar');
+        const pctEl = document.getElementById('plan-progress-pct');
+        const labelEl = document.getElementById('plan-progress-label');
+        if (total > 0) {
+            container.classList.remove('hidden');
+            bar.style.width = pct + '%';
+            pctEl.textContent = pct + '%';
+            labelEl.textContent = `${done}/${total} steps completed`;
+            // Color changes based on progress
+            if (pct === 100) {
+                bar.className = 'bg-neon h-2 rounded-full transition-all duration-500';
+            } else if (pct >= 50) {
+                bar.className = 'bg-cyber h-2 rounded-full transition-all duration-500';
+            } else {
+                bar.className = 'bg-cyber/60 h-2 rounded-full transition-all duration-500';
+            }
+        } else {
+            container.classList.add('hidden');
+        }
+    }
+
+    window.renderPlan = function () {
+        const container = document.getElementById('plan-steps');
+        const emptyEl = document.getElementById('plan-empty');
+        const execAllBtn = document.getElementById('btn-execute-all');
+        const statusEl = document.getElementById('plan-status');
+
+        if (missionPlan.length === 0) {
+            container.innerHTML = '';
+            container.appendChild(emptyEl || createEmptyEl());
+            if (emptyEl) emptyEl.classList.remove('hidden');
+            execAllBtn.disabled = true;
+            statusEl.textContent = '';
+            updatePlanProgress();
+            return;
+        }
+
+        // Check if any pending steps exist
+        const hasPending = missionPlan.some(s => s.status === 'pending');
+        execAllBtn.disabled = !hasPending;
+
+        // Count stats
+        const done = missionPlan.filter(s => s.status === 'done').length;
+        const failed = missionPlan.filter(s => s.status === 'failed').length;
+        statusEl.textContent = `${done} done · ${failed} failed · ${missionPlan.length - done - failed} pending`;
+
+        const statusIcons = { pending: '○', running: '▶', done: '✅', failed: '❌' };
+        const statusColors = {
+            pending: 'text-gray-700',
+            running: 'text-cyber animate-pulse',
+            done: 'text-neon',
+            failed: 'text-blood'
+        };
+        const borderColors = {
+            pending: 'border-gray-800',
+            running: 'border-cyber/40',
+            done: 'border-neon/30',
+            failed: 'border-blood/30'
+        };
+
+        container.innerHTML = missionPlan.map((step, i) => {
+            const prevDone = i === 0 || missionPlan[i - 1].status === 'done';
+            const execDisabled = step.status !== 'pending' || !prevDone;
+            const copyDisabled = !step.command;
+            return `
+            <div class="bg-void border ${borderColors[step.status]} rounded-lg p-3 transition-all duration-200" data-step="${i}">
+                <div class="flex items-center justify-between mb-1.5">
+                    <div class="flex items-center gap-2">
+                        <span class="text-[10px] ${statusColors[step.status]} font-mono">${statusIcons[step.status]}</span>
+                        <span class="text-[10px] text-gray-600 font-mono">Step ${i + 1}</span>
+                        <span class="text-[11px] text-gray-300 font-semibold">${escapeHTML(step.title)}</span>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <button onclick="copyPlanCommand(${i})"
+                            class="text-[9px] text-gray-600 hover:text-cyber transition-colors px-1.5 py-0.5 rounded hover:bg-cyber/10"
+                            ${copyDisabled ? 'disabled title="No command"' : ''}>
+                            📋 Copy
+                        </button>
+                        <button onclick="executeStep(${i})"
+                            class="text-[9px] text-neon/60 hover:text-neon transition-colors px-1.5 py-0.5 rounded hover:bg-neon/10"
+                            ${execDisabled ? 'disabled title="Complete previous steps first"' : ''}>
+                            ▶ Execute
+                        </button>
+                    </div>
+                </div>
+                <div class="text-[10px] text-gray-500 leading-relaxed mb-2 ml-5">${escapeHTML(step.description)}</div>
+                ${step.command ? `<div class="ml-5 flex items-center gap-2 bg-deep rounded px-2 py-1.5 border border-gray-800">
+                    <code class="text-[10px] text-cyber/80 font-mono flex-1 overflow-x-auto whitespace-nowrap">${escapeHTML(step.command)}</code>
+                </div>` : ''}
+            </div>`;
+        }).join('');
+
+        updatePlanProgress();
+    };
+
+    function createEmptyEl() {
+        const div = document.createElement('div');
+        div.className = 'text-center text-[11px] text-gray-700 py-8';
+        div.id = 'plan-empty';
+        div.textContent = 'Describe the target and click "Generate Plan" to create a mission plan.';
+        return div;
+    }
+
+    function escapeHTML(str) {
+        if (!str) return '';
+        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    window.generatePlan = async function () {
+        const desc = document.getElementById('plan-desc').value.trim();
+        if (!desc) {
+            showToast('⚠️ Describe the mission objective first');
+            return;
+        }
+
+        const btn = document.getElementById('btn-generate-plan');
+        const statusEl = document.getElementById('plan-status');
+        btn.disabled = true;
+        btn.textContent = '⏳ Generating...';
+        statusEl.textContent = 'AI is planning the mission...';
+        missionPlan = [];
+        window.renderPlan();
+
+        const target = document.getElementById('target-ip')?.value?.trim() || 'unknown';
+        const findings = window.collectFindingsText ? window.collectFindingsText() : 'No findings yet';
+
+        const systemPrompt = `Eres Op Admiral, un planificador de misiones ofensivas de ciberseguridad. Genera un plan paso a paso basado en la descripción del objetivo.
+
+Contexto:
+- Target: ${target}
+- Hallazgos actuales: ${findings || 'Ninguno aún'}
+
+Devuelve SOLO un array JSON válido con objetos:
+[{"title": "Nombre del paso", "description": "Qué hace y por qué es importante", "command": "comando exacto de Kali Linux para ejecutar"}]
+
+Reglas:
+- Máximo 8 pasos
+- Cada comando debe ser una herramienta real de Kali Linux
+- Ordena los pasos de forma lógica (recon → enum → exploit → post)
+- Si no hay un comando específico, deja command como cadena vacía ""
+- NO incluyas explicación fuera del JSON`;
+
+        try {
+            const result = await window.aiChat(systemPrompt, desc);
+            if (!result) {
+                showToast('⚠️ AI returned no response');
+                btn.disabled = false;
+                btn.textContent = '🎯 Generate Plan';
+                statusEl.textContent = '';
+                return;
+            }
+
+            const parsed = extractJSON(result);
+            if (!parsed || !Array.isArray(parsed)) {
+                showToast('⚠️ AI response was not a valid JSON array');
+                // Show raw response in terminal for debugging
+                window.appendOutput(`\n[Op Admiral] AI response:\n${result}`);
+                btn.disabled = false;
+                btn.textContent = '🎯 Generate Plan';
+                statusEl.textContent = '';
+                return;
+            }
+
+            missionPlan = parsed.slice(0, 8).map((step, i) => ({
+                id: i,
+                title: step.title || `Step ${i + 1}`,
+                description: step.description || '',
+                command: step.command || '',
+                status: 'pending'
+            }));
+
+            window.renderPlan();
+            showToast(`🎯 Mission plan generated: ${missionPlan.length} steps`);
+            statusEl.textContent = `${missionPlan.length} steps ready`;
+        } catch (err) {
+            showToast(`⚠️ Plan generation failed: ${err.message}`);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = '🎯 Generate Plan';
+        }
+    };
+
+    window.executeStep = function (index) {
+        if (index < 0 || index >= missionPlan.length) return;
+        const step = missionPlan[index];
+
+        // Check previous step is done (except first)
+        if (index > 0 && missionPlan[index - 1].status !== 'done') {
+            showToast('⚠️ Complete the previous step first');
+            return;
+        }
+
+        if (step.status !== 'pending') return;
+        if (!step.command) {
+            // No command — mark as done (informational step)
+            step.status = 'done';
+            window.renderPlan();
+            showToast(`✅ Step ${index + 1} completed (no command needed)`);
+            return;
+        }
+
+        step.status = 'running';
+        currentStepIndex = index;
+        window.renderPlan();
+
+        // Send command to terminal SSH
+        window.sendPredefinedCmd(step.command);
+
+        // After 3s, mark as done (command dispatched to terminal)
+        setTimeout(() => {
+            step.status = 'done';
+            currentStepIndex = -1;
+            window.renderPlan();
+            showToast(`✅ Step ${index + 1} dispatched to terminal`);
+        }, 3000);
+    };
+
+    window.executeAllSteps = function () {
+        const pending = missionPlan.filter(s => s.status === 'pending');
+        if (pending.length === 0) {
+            showToast('ℹ️ No pending steps to execute');
+            return;
+        }
+
+        showToast(`▶ Executing ${pending.length} steps sequentially...`);
+
+        let delay = 0;
+        missionPlan.forEach((step, i) => {
+            if (step.status === 'pending') {
+                setTimeout(() => window.executeStep(i), delay);
+                delay += 2500; // 2.5s between steps
+            }
+        });
+    };
+
+    window.clearPlan = function () {
+        missionPlan = [];
+        currentStepIndex = -1;
+        document.getElementById('plan-desc').value = '';
+        document.getElementById('plan-steps').innerHTML = '';
+        const emptyEl = createEmptyEl();
+        document.getElementById('plan-steps').appendChild(emptyEl);
+        document.getElementById('btn-execute-all').disabled = true;
+        document.getElementById('plan-status').textContent = '';
+        updatePlanProgress();
+        showToast('🗑 Plan cleared');
+    };
+
+    window.copyPlanCommand = function (index) {
+        const step = missionPlan[index];
+        if (!step || !step.command) {
+            showToast('⚠️ No command to copy');
+            return;
+        }
+        navigator.clipboard.writeText(step.command).then(() => {
+            showToast('📋 Command copied to clipboard');
+        }).catch(() => {
+            showToast('⚠️ Failed to copy command');
+        });
+    };
 });

@@ -70,6 +70,12 @@
                 class="text-[10px] text-gray-600 hover:text-gray-400 transition-colors px-2 py-1 border border-gray-800 rounded font-mono tracking-wider">
                 <span id="lang-text">EN</span>
             </button>
+            <!-- Scope Guard Badge -->
+            <button onclick="scopeModalOpen()" id="scope-badge"
+                class="text-[10px] text-gray-700 px-1.5 py-0.5 rounded border border-gray-800 hover:border-gray-600 transition-colors"
+                title="Scope Guard">
+                🔓 Scope off
+            </button>
             <!-- Status -->
             <div class="flex items-center space-x-2 border-l border-gray-800 pl-3">
                 <div id="status-indicator" class="status-dot offline">
@@ -299,30 +305,56 @@
 
             <!-- ── TABS BAR ── -->
             <div class="tabs-bar px-4">
-                <button class="tab-btn active" onclick="switchTab('terminal')">
+                <button class="tab-btn active" onclick="switchTab('terminal')" data-i18n="tabTerminal">
                     ⌨ Terminal
                 </button>
                 <button class="tab-btn" onclick="switchTab('reports')">
-                    📊 Reports <span id="report-count" class="text-[9px] text-gray-700 ml-1">(0)</span>
+                    <span data-i18n="tabReports">📊 Reports</span> <span id="report-count" class="text-[9px] text-gray-700 ml-1">(0)</span>
                 </button>
-                <button class="tab-btn" onclick="switchTab('scripts')">
+                <button class="tab-btn" onclick="switchTab('scripts')" data-i18n="tabScripts">
                     ⚡ Scripts
                 </button>
-                <button class="tab-btn" onclick="switchTab('bounty')">
+                <button class="tab-btn" onclick="switchTab('bounty')" data-i18n="tabBounty">
                     📋 Bounty
                 </button>
-                <button class="tab-btn" onclick="switchTab('aiwriteup')">
+                <button class="tab-btn" onclick="switchTab('aiwriteup')" data-i18n="tabAI">
                     🤖 AI Writeup
                 </button>
-                <button class="tab-btn" onclick="switchTab('hak5')">
+                <button class="tab-btn" onclick="switchTab('hak5')" data-i18n="tabHak5">
                     🔌 Hak5
                 </button>
-                <button class="tab-btn" onclick="switchTab('automation')">
+                <button class="tab-btn" onclick="switchTab('automation')" data-i18n="tabAutomation">
                     ⚙ Automation
                 </button>
-                <button class="tab-btn" onclick="switchTab('findings')">
-                    🎯 Findings <span id="findings-count" class="text-[9px] text-amber-400 ml-1">(0)</span>
+                <button class="tab-btn" onclick="switchTab('opadmiral')" data-i18n="tabOpAdmiral">
+                    🎯 Op Admiral
                 </button>
+                <button class="tab-btn" onclick="switchTab('swarm')" data-i18n="tabSwarm">
+                    🐝 Swarm
+                </button>
+                <button class="tab-btn" onclick="switchTab('findings')">
+                    <span data-i18n="tabFindings">🎯 Findings</span> <span id="findings-count" class="text-[9px] text-amber-400 ml-1">(0)</span>
+                </button>
+                <button class="tab-btn" onclick="switchTab('credentials')">
+                    <span data-i18n="tabCredentials">🔑 Credentials</span> <span id="cred-count" class="text-[9px] text-gray-700 ml-1">(0)</span>
+                </button>
+                <button class="tab-btn" onclick="switchTab('knowledgebase')">
+                    <span>📚 KnowledgeBase</span>
+                </button>
+                <button class="tab-btn" onclick="switchTab('ctf')">
+                    🏴 CTF <span class="text-[9px] text-gray-700 ml-1" id="ctf-score-solved">0</span>/<span id="ctf-score-total">0</span>
+                </button>
+            </div>
+
+            <!-- ── STATS BAR ── -->
+            <div id="stats-bar" class="flex items-center gap-3 px-4 py-1.5 bg-deep/50 border-b border-gray-800/50 text-[9px] text-gray-700">
+                <span data-i18n="statFindings">📊 <span id="stat-findings">0</span> findings</span>
+                <span class="w-px h-3 bg-gray-800"></span>
+                <span data-i18n="statTargets">📡 <span id="stat-targets">0</span> targets</span>
+                <span class="w-px h-3 bg-gray-800"></span>
+                <span data-i18n="statTools">🔧 <span id="stat-tools">0</span> tools</span>
+                <span class="w-px h-3 bg-gray-800"></span>
+                <span data-i18n="statReports">📁 <span id="stat-reports">0</span> reports</span>
             </div>
 
             <!-- ════════════════════════════════════════════════════════
@@ -394,7 +426,7 @@
                  ════════════════════════════════════════════════════════ -->
             <div id="tab-reports" class="tab-pane p-4 pt-3 overflow-y-auto">
                 <div class="flex items-center justify-between mb-3 flex-shrink-0">
-                    <h3 class="text-xs text-neon font-semibold tracking-wider">
+                    <h3 class="text-xs text-neon font-semibold tracking-wider" data-i18n="scanReports">
                         📊 Scan Reports
                     </h3>
                     <div class="flex items-center gap-2">
@@ -404,22 +436,47 @@
                             <option value="html">.html</option>
                             <option value="pdf">📄 PDF</option>
                         </select>
-                        <button onclick="exportAllReports()" id="btn-export-reports" disabled
+                        <button onclick="generateReport()" data-i18n="generateReportBtn"
+                            class="bg-cyber/10 hover:bg-cyber/20 text-cyber border border-cyber/30 px-3 py-1 rounded text-[10px] transition-all font-semibold">
+                            📊 Generate Report
+                        </button>
+                        <button onclick="exportAllReports()" id="btn-export-reports" disabled data-i18n="exportAll"
                             class="text-[10px] text-gray-600 hover:text-neon transition-colors border border-gray-800 rounded px-2 py-1">
                             ⬇ Export all
                         </button>
-                        <button onclick="clearReports()"
+                        <button onclick="clearReports()" data-i18n="clearAll"
                             class="text-[10px] text-gray-600 hover:text-blood transition-colors">
-                            ✕ clear all
+                            ✕ Clear all
                         </button>
                     </div>
                 </div>
+
+                <!-- Report list -->
                 <div id="reports-container" class="space-y-2 flex-1">
-                    <div class="report-empty">
+                    <div id="report-empty" class="report-empty">
                         <div class="icon">📂</div>
-                        <div>No reports yet</div>
-                        <div class="text-[10px] mt-1 text-gray-700">Run a scan from the Arsenal to see results here</div>
+                        <div data-i18n="noReports">No reports yet</div>
+                        <div class="text-[10px] mt-1 text-gray-700" data-i18n="noReportsDesc">Click "Generate Report" to save current findings as a report</div>
                     </div>
+                </div>
+            </div>
+
+            <!-- Report Detail Modal -->
+            <div id="report-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/70 backdrop-blur-sm">
+                <div class="bg-deep border border-gray-800 rounded-lg w-11/12 max-w-4xl max-h-[85vh] flex flex-col shadow-2xl">
+                    <div class="flex items-center justify-between px-4 py-3 border-b border-gray-800 flex-shrink-0">
+                        <h3 id="report-modal-title" class="text-xs text-neon font-semibold tracking-wider truncate pr-4"></h3>
+                        <div class="flex items-center gap-2">
+                            <select id="report-detail-format" class="bg-void border border-gray-800 rounded px-2 py-1 text-[9px] text-gray-300">
+                                <option value="md">.md</option>
+                                <option value="html">.html</option>
+                                <option value="pdf">📄 PDF</option>
+                            </select>
+                            <button onclick="exportCurrentReport()" class="text-[10px] text-cyber hover:text-cyber/80 border border-cyber/30 rounded px-2 py-1 transition-colors">⬇ Export</button>
+                            <button onclick="closeReportModal()" class="text-gray-600 hover:text-blood text-sm">✕</button>
+                        </div>
+                    </div>
+                    <div id="report-modal-body" class="flex-1 overflow-y-auto p-4 text-[11px] text-gray-300 font-mono leading-relaxed whitespace-pre-wrap"></div>
                 </div>
             </div>
 
@@ -932,13 +989,133 @@
             </div>
 
             <!-- ════════════════════════════════════════════════════════
+                 TAB: OP ADMIRAL (Mission Planner)
+                 ════════════════════════════════════════════════════════ -->
+            <div id="tab-opadmiral" class="tab-pane p-4 pt-3 overflow-y-auto">
+                <!-- Header -->
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-xs text-neon font-semibold tracking-wider">🎯 Op Admiral — Mission Planner</h3>
+                    <div class="flex items-center gap-2">
+                        <button onclick="clearPlan()" class="text-[10px] text-gray-600 hover:text-blood transition-colors">✕ Clear plan</button>
+                    </div>
+                </div>
+
+                <!-- Progress bar -->
+                <div id="plan-progress-container" class="hidden mb-3">
+                    <div class="flex items-center justify-between text-[9px] text-gray-600 mb-1">
+                        <span id="plan-progress-label">Progress</span>
+                        <span id="plan-progress-pct">0%</span>
+                    </div>
+                    <div class="w-full bg-deep rounded-full h-2 border border-gray-800">
+                        <div id="plan-progress-bar" class="bg-cyber h-2 rounded-full transition-all duration-500" style="width:0%"></div>
+                    </div>
+                </div>
+
+                <!-- Target description -->
+                <div class="mb-3">
+                    <label class="text-[9px] text-gray-600 uppercase tracking-wider mb-1 block">Describe el objetivo</label>
+                    <textarea id="plan-desc" rows="3"
+                        placeholder="Ej: Escanear el target, encontrar vulnerabilidades en el puerto 80, intentar subir una webshell..."
+                        class="w-full bg-deep border border-gray-800 rounded px-3 py-2 text-[11px] text-gray-300 placeholder-gray-700 focus:outline-none focus:border-neon/50 font-mono"></textarea>
+                </div>
+
+                <!-- Buttons row -->
+                <div class="flex items-center gap-2 mb-4">
+                    <button onclick="generatePlan()" id="btn-generate-plan"
+                        class="bg-cyber/10 hover:bg-cyber/20 text-cyber border border-cyber/30 px-4 py-2 rounded text-[11px] transition-all font-semibold">
+                        🎯 Generate Plan
+                    </button>
+                    <button onclick="executeAllSteps()" id="btn-execute-all" disabled
+                        class="bg-neon/10 hover:bg-neon/20 text-neon border border-neon/30 px-3 py-2 rounded text-[10px] transition-all">
+                        ▶ Execute All
+                    </button>
+                    <span id="plan-status" class="text-[10px] text-gray-700 ml-auto"></span>
+                </div>
+
+                <!-- Steps container -->
+                <div id="plan-steps" class="space-y-2">
+                    <div class="text-center text-[11px] text-gray-700 py-8" id="plan-empty">
+                        Describe the target and click "Generate Plan" to create a mission plan.
+                    </div>
+                </div>
+            </div>
+
+            <!-- ════════════════════════════════════════════════════════
+                 TAB: SWARM (Multi-Operator Pipeline)
+                 ════════════════════════════════════════════════════════ -->
+            <div id="tab-swarm" class="tab-pane p-4 pt-3 overflow-y-auto">
+                <!-- Header -->
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-xs text-neon font-semibold tracking-wider">🐝 Swarm — Multi-Operator Pipeline</h3>
+                    <div class="flex gap-2">
+                        <button onclick="swarmRefresh()" class="text-[10px] text-gray-600 hover:text-cyber transition-colors">🔄 Refresh</button>
+                        <button onclick="swarmClear()" class="text-[10px] text-gray-600 hover:text-blood transition-colors">✕ Clear</button>
+                    </div>
+                </div>
+
+                <!-- Target + Start -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+                    <div class="md:col-span-2">
+                        <label class="text-[9px] text-gray-600 uppercase tracking-wider mb-1 block">Target (IP or domain)</label>
+                        <input id="swarm-target" type="text" placeholder="192.168.1.1 or example.com"
+                            class="w-full bg-deep border border-gray-800 rounded px-3 py-2 text-[11px] text-gray-300 placeholder-gray-700 focus:outline-none focus:border-neon/50 font-mono">
+                    </div>
+                    <div class="flex items-end gap-2">
+                        <button onclick="swarmStart()" id="btn-swarm-start"
+                            class="bg-cyber/10 hover:bg-cyber/20 text-cyber border border-cyber/30 px-4 py-2 rounded text-[11px] transition-all font-semibold w-full">
+                            🚀 Start Swarm
+                        </button>
+                        <button onclick="swarmCancel()" id="btn-swarm-cancel"
+                            class="bg-blood/10 hover:bg-blood/20 text-blood border border-blood/30 px-3 py-2 rounded text-[11px] transition-all hidden">
+                            ⏹ Cancel
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Progress -->
+                <div id="swarm-progress" class="hidden mb-3">
+                    <div class="flex items-center justify-between text-[9px] text-gray-600 mb-1">
+                        <span id="swarm-progress-label">Pipeline progress</span>
+                        <span id="swarm-progress-pct">0%</span>
+                    </div>
+                    <div class="w-full bg-deep rounded-full h-2 border border-gray-800">
+                        <div id="swarm-progress-bar" class="bg-cyber h-2 rounded-full transition-all duration-500" style="width:0%"></div>
+                    </div>
+                    <div id="swarm-status-msg" class="text-[9px] text-gray-700 mt-1"></div>
+                </div>
+
+                <!-- Operator cards -->
+                <div id="swarm-operators" class="grid grid-cols-1 md:grid-cols-2 gap-2 mb-4">
+                    <!-- Dynamic cards rendered by JS -->
+                </div>
+
+                <!-- Findings -->
+                <div id="swarm-findings" class="hidden mb-3">
+                    <h4 class="text-[10px] text-gray-600 uppercase tracking-wider mb-2">📊 Findings</h4>
+                    <div id="swarm-findings-list" class="space-y-1 max-h-60 overflow-y-auto"></div>
+                </div>
+
+                <!-- Logs -->
+                <div id="swarm-logs" class="hidden mb-3">
+                    <h4 class="text-[10px] text-gray-600 uppercase tracking-wider mb-2">📋 Logs</h4>
+                    <div id="swarm-logs-content" class="bg-deep border border-gray-800 rounded p-2 h-48 overflow-y-auto font-mono text-[10px] text-gray-500"></div>
+                </div>
+
+                <!-- Sessions list -->
+                <div id="swarm-sessions" class="hidden mb-3">
+                    <h4 class="text-[10px] text-gray-600 uppercase tracking-wider mb-2">📜 Previous sessions</h4>
+                    <div id="swarm-sessions-list" class="space-y-1"></div>
+                </div>
+            </div>
+
+            <!-- ════════════════════════════════════════════════════════
                  TAB: FINDINGS
                  ════════════════════════════════════════════════════════ -->
             <div id="tab-findings" class="tab-pane p-4 pt-3 overflow-y-auto">
 
                 <!-- ── Toolbar ── -->
                 <div class="flex items-center gap-2 mb-3 flex-shrink-0 flex-wrap">
-                    <span class="text-[10px] text-gray-600 uppercase tracking-wider">🎯 Findings</span>
+                    <span class="text-[10px] text-gray-600 uppercase tracking-wider" data-i18n="findingsTitle">🎯 Findings</span>
                     <select id="findings-format"
                         class="bg-void border border-gray-800 rounded px-2 py-1 text-[10px] text-gray-300 focus:outline-none focus:border-neon/50 font-mono">
                         <option value="txt">.txt</option>
@@ -946,11 +1123,14 @@
                         <option value="html">.html</option>
                         <option value="pdf">📄 PDF</option>
                     </select>
-                    <button onclick="clearFindings()" class="bg-blood/10 hover:bg-blood/20 text-blood border border-blood/30 px-3 py-1 rounded text-[10px] transition-all">
+                    <button onclick="clearFindings()" data-i18n="clearFindings" class="bg-blood/10 hover:bg-blood/20 text-blood border border-blood/30 px-3 py-1 rounded text-[10px] transition-all">
                         ✕ Clear all
                     </button>
-                    <button onclick="exportFindings()" class="bg-neon/10 hover:bg-neon/20 text-neon border border-neon/30 px-3 py-1 rounded text-[10px] transition-all">
+                    <button onclick="exportFindings()" data-i18n="exportFindings" class="bg-neon/10 hover:bg-neon/20 text-neon border border-neon/30 px-3 py-1 rounded text-[10px] transition-all">
                         📥 Export
+                    </button>
+                    <button onclick="generateReport()" data-i18n="generateReportBtn" class="bg-cyber/10 hover:bg-cyber/20 text-cyber border border-cyber/30 px-3 py-1 rounded text-[10px] transition-all font-semibold">
+                        📊 Generate Report
                     </button>
                     <span class="w-px h-4 bg-gray-800 mx-1"></span>
                     <select id="suggest-provider"
@@ -961,8 +1141,9 @@
                         <option value="deepseek">DeepSeek 🆓</option>
                         <option value="openai">OpenAI</option>
                         <option value="anthropic">Claude</option>
+                        <option value="local">Local (Ollama) 🆓</option>
                     </select>
-                    <button onclick="suggestNextStep()" id="btn-suggest"
+                    <button onclick="suggestNextStep()" id="btn-suggest" data-i18n="suggestBtn"
                         class="bg-cyber/10 hover:bg-cyber/20 text-cyber border border-cyber/30 px-3 py-1 rounded text-[10px] transition-all">
                         🔍 Sugerir siguiente paso
                     </button>
@@ -974,8 +1155,8 @@
                         class="w-40 bg-deep border border-gray-800 rounded px-2 py-1 text-[10px] text-gray-300 placeholder-gray-700 focus:outline-none focus:border-neon/50 font-mono">
                     <input type="text" id="suggest-model" placeholder="Model (ej: gemini-2.0-flash)"
                         class="w-44 bg-deep border border-gray-800 rounded px-2 py-1 text-[10px] text-gray-300 placeholder-gray-700 focus:outline-none focus:border-neon/50 font-mono">
-                    <span class="text-gray-700">or</span>
-                    <button onclick="loadAIConfigToSuggest()" class="text-cyber/60 hover:text-cyber underline underline-offset-2 decoration-gray-800">use AI Writeup config</button>
+                    <span class="text-gray-700" data-i18n="orLabel">or</span>
+                    <button onclick="loadAIConfigToSuggest()" data-i18n="useAIConfig" class="text-cyber/60 hover:text-cyber underline underline-offset-2 decoration-gray-800">use AI Writeup config</button>
                 </div>
 
                 <!-- ── Severity filters ── -->
@@ -986,6 +1167,12 @@
                     <button class="finding-filter text-[10px] px-2.5 py-1 rounded border transition-all" data-severity="medium" style="border-color:#713f12;color:#facc15;">🟡 Medium</button>
                     <button class="finding-filter text-[10px] px-2.5 py-1 rounded border transition-all" data-severity="low" style="border-color:#1e3a5f;color:#60a5fa;">🔵 Low</button>
                     <button class="finding-filter text-[10px] px-2.5 py-1 rounded border transition-all" data-severity="info" style="border-color:#1e3a5f;color:#94a3b8;">ℹ️ Info</button>
+                </div>
+
+                <!-- ── Search / filter ── -->
+                <div class="flex items-center gap-2 mb-3">
+                    <input type="text" id="findings-search" placeholder="🔍 Search findings by text, tool, target..."
+                        class="flex-1 bg-deep border border-gray-800 rounded px-2.5 py-1.5 text-[11px] text-gray-300 placeholder-gray-700 focus:outline-none focus:border-neon/50 font-mono">
                 </div>
 
                 <!-- ── Findings list ── -->
@@ -1009,6 +1196,128 @@
 
             </div>
 
+            <!-- ════════════════════════════════════════════════════════
+                 TAB: CREDENTIALS
+                 ════════════════════════════════════════════════════════ -->
+            <div id="tab-credentials" class="tab-pane p-4 pt-3 overflow-y-auto">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-xs text-neon font-semibold tracking-wider">🔑 Credential Store</h3>
+                    <button onclick="credClearAll()" class="text-[10px] text-gray-600 hover:text-blood transition-colors">✕ Clear all</button>
+                </div>
+
+                <!-- Add form -->
+                <div class="bg-deep/50 border border-gray-800 rounded p-3 mb-3">
+                    <h4 class="text-[9px] text-gray-600 uppercase tracking-wider mb-2">➕ Add Credential</h4>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-2">
+                        <select id="cred-type" class="bg-deep border border-gray-800 rounded text-[10px] text-gray-400 px-2 py-1">
+                            <option value="password">🔑 Password</option>
+                            <option value="hash">#️⃣ Hash</option>
+                            <option value="token">🎫 Token</option>
+                            <option value="key">🗝️ Private Key</option>
+                            <option value="certificate">📜 Certificate</option>
+                            <option value="other">📦 Other</option>
+                        </select>
+                        <input id="cred-target" placeholder="Target (IP/domain)" class="bg-deep border border-gray-800 rounded px-2 py-1 text-[10px] text-gray-300 placeholder-gray-700 font-mono">
+                        <input id="cred-username" placeholder="Username" class="bg-deep border border-gray-800 rounded px-2 py-1 text-[10px] text-gray-300 placeholder-gray-700 font-mono">
+                        <input id="cred-service" placeholder="Service (e.g. ssh, mysql)" class="bg-deep border border-gray-800 rounded px-2 py-1 text-[10px] text-gray-300 placeholder-gray-700 font-mono">
+                    </div>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-2">
+                        <input id="cred-password" type="password" placeholder="Password" class="bg-deep border border-gray-800 rounded px-2 py-1 text-[10px] text-gray-300 placeholder-gray-700 font-mono">
+                        <input id="cred-hash" placeholder="Hash" class="bg-deep border border-gray-800 rounded px-2 py-1 text-[10px] text-gray-300 placeholder-gray-700 font-mono">
+                        <input id="cred-token" placeholder="Token / API Key" class="bg-deep border border-gray-800 rounded px-2 py-1 text-[10px] text-gray-300 placeholder-gray-700 font-mono">
+                        <input id="cred-port" placeholder="Port" class="bg-deep border border-gray-800 rounded px-2 py-1 text-[10px] text-gray-300 placeholder-gray-700 font-mono">
+                    </div>
+                    <div class="flex gap-2 mb-2">
+                        <input id="cred-source" placeholder="Source (tool / method used to find it)" class="flex-1 bg-deep border border-gray-800 rounded px-2 py-1 text-[10px] text-gray-300 placeholder-gray-700 font-mono">
+                    </div>
+                    <div class="flex gap-2 mb-2">
+                        <input id="cred-notes" placeholder="Notes" class="flex-1 bg-deep border border-gray-800 rounded px-2 py-1 text-[10px] text-gray-300 placeholder-gray-700 font-mono">
+                        <button onclick="credAdd()" class="bg-cyber/10 hover:bg-cyber/20 text-cyber border border-cyber/30 px-3 py-1 rounded text-[10px] transition-all">💾 Save</button>
+                    </div>
+                </div>
+
+                <!-- List -->
+                <div id="cred-list" class="space-y-1">
+                    <div class="text-[10px] text-gray-700 text-center py-4">Loading...</div>
+                </div>
+            </div>
+
+            <!-- ════════════════════════════════════════════════════════
+                 TAB: KNOWLEDGEBASE
+                 ════════════════════════════════════════════════════════ -->
+            <div id="tab-knowledgebase" class="tab-pane p-4 pt-3 overflow-y-auto">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-xs text-neon font-semibold tracking-wider">📚 KnowledgeBase — CVE / MITRE ATT&CK</h3>
+                </div>
+
+                <!-- Search bar -->
+                <div class="bg-deep/50 border border-gray-800 rounded p-3 mb-3 flex gap-2">
+                    <input id="kb-query" placeholder="Search CVE, technique, tool..." class="flex-1 bg-deep border border-gray-800 rounded px-2 py-1 text-[10px] text-gray-300 placeholder-gray-700 font-mono" onkeydown="kbSearchEnter(event)">
+                    <button onclick="kbSearch()" class="bg-neon/10 hover:bg-neon/20 text-neon border border-neon/30 px-3 py-1 rounded text-[10px] transition-all">🔍 Search</button>
+                    <button onclick="document.getElementById('kb-query').value=''; kbSearch()" class="text-gray-600 hover:text-gray-400 text-[10px] px-2">✕ Clear</button>
+                </div>
+
+                <!-- Results -->
+                <div id="kb-results" class="space-y-1">
+                    <div class="text-[10px] text-gray-700 text-center py-4">Type a query or leave empty to browse recent entries</div>
+                </div>
+            </div>
+
+            <!-- ════════════════════════════════════════════════════════
+                 TAB: CTF MODE
+                 ════════════════════════════════════════════════════════ -->
+            <div id="tab-ctf" class="tab-pane p-4 pt-3 overflow-y-auto">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-xs text-neon font-semibold tracking-wider">🏴 CTF Mode</h3>
+                    <span class="text-[9px] text-gray-700" id="ctf-score-display">Score: <span id="ctf-score-points">0</span>/<span id="ctf-score-total-pts">0</span></span>
+                </div>
+
+                <!-- Score bar -->
+                <div class="bg-deep border border-gray-800 rounded h-2 mb-4 overflow-hidden">
+                    <div id="ctf-score-bar" class="bg-cyber h-full transition-all duration-500" style="width:0%"></div>
+                </div>
+
+                <!-- Add challenge form -->
+                <div class="bg-deep/50 border border-gray-800 rounded p-3 mb-3">
+                    <h4 class="text-[9px] text-gray-600 uppercase tracking-wider mb-2">+ New Challenge</h4>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-2">
+                        <input id="ctf-title" placeholder="Challenge title" class="bg-deep border border-gray-800 rounded px-2 py-1 text-[10px] text-gray-300 placeholder-gray-700 font-mono">
+                        <select id="ctf-category" class="bg-deep border border-gray-800 rounded text-[10px] text-gray-400 px-2 py-1">
+                            <option value="web">Web</option>
+                            <option value="network">Network</option>
+                            <option value="crypto">Crypto</option>
+                            <option value="forensics">Forensics</option>
+                            <option value="reversing">Reversing</option>
+                            <option value="pwn">Pwn</option>
+                            <option value="osint">OSINT</option>
+                            <option value="privesc">PrivEsc</option>
+                            <option value="other">Other</option>
+                        </select>
+                        <select id="ctf-difficulty" class="bg-deep border border-gray-800 rounded text-[10px] text-gray-400 px-2 py-1">
+                            <option value="easy">Easy</option>
+                            <option value="medium">Medium</option>
+                            <option value="hard">Hard</option>
+                            <option value="insane">Insane</option>
+                        </select>
+                        <input id="ctf-points" type="number" value="100" min="0" max="9999" class="bg-deep border border-gray-800 rounded px-2 py-1 text-[10px] text-gray-300 placeholder-gray-700 font-mono">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 mb-2">
+                        <input id="ctf-flags" placeholder="Flags (one per line)" class="bg-deep border border-gray-800 rounded px-2 py-1 text-[10px] text-gray-300 placeholder-gray-700 font-mono">
+                        <input id="ctf-target" placeholder="Target IP (auto-fills from scope)" class="bg-deep border border-gray-800 rounded px-2 py-1 text-[10px] text-gray-300 placeholder-gray-700 font-mono">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 mb-2">
+                        <textarea id="ctf-description" placeholder="Description" rows="2" class="bg-deep border border-gray-800 rounded px-2 py-1 text-[10px] text-gray-300 placeholder-gray-700 font-mono"></textarea>
+                        <textarea id="ctf-hints" placeholder="Hints (optional)" rows="2" class="bg-deep border border-gray-800 rounded px-2 py-1 text-[10px] text-gray-300 placeholder-gray-700 font-mono"></textarea>
+                    </div>
+                    <button onclick="ctfAdd()" class="bg-cyber/10 hover:bg-cyber/20 text-cyber border border-cyber/30 px-4 py-2 rounded text-[10px] transition-all">Create Challenge</button>
+                </div>
+
+                <!-- Challenge list -->
+                <div id="ctf-list" class="space-y-1">
+                    <div class="text-[10px] text-gray-700 text-center py-4">Loading...</div>
+                </div>
+            </div>
+
         </main>
     </div>
 
@@ -1023,8 +1332,82 @@
         // ───────────────────────────────────────────────────────
     </script>
     <script src="js/dataservice.js"></script>
+    <script src="js/swarm.js"></script>
+    <script src="js/scope.js"></script>
     <script src="js/main.v2.js"></script>
+    <script src="js/credentials.js"></script>
+    <script src="js/knowledgebase.js"></script>
+    <script src="js/ctf.js"></script>
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+
+    <!-- ════════════════════════════════════════════════════════════
+         MODAL: SCOPE GUARD
+         ════════════════════════════════════════════════════════════ -->
+    <div id="scope-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm hidden">
+        <div class="bg-deep border border-gray-800 rounded-lg w-full max-w-lg max-h-[90vh] overflow-y-auto mx-4 shadow-2xl">
+            <!-- Header -->
+            <div class="flex items-center justify-between p-3 border-b border-gray-800">
+                <h3 class="text-xs text-neon font-semibold tracking-wider">🔒 Scope Guard</h3>
+                <button onclick="scopeModalClose()" class="text-gray-600 hover:text-gray-400 text-sm">✕</button>
+            </div>
+
+            <!-- Body -->
+            <div class="p-4 space-y-4">
+
+                <!-- Enable + Mode -->
+                <div class="flex items-center gap-4">
+                    <label class="flex items-center gap-2 text-[11px] text-gray-400 cursor-pointer">
+                        <input type="checkbox" id="scope-enabled" class="accent-cyber">
+                        Enable scope enforcement
+                    </label>
+                    <select id="scope-mode" class="bg-deep border border-gray-800 rounded text-[10px] text-gray-400 px-2 py-1">
+                        <option value="warn">⚠ Warn only</option>
+                        <option value="block">🔒 Block out-of-scope</option>
+                    </select>
+                </div>
+
+                <!-- Targets -->
+                <div>
+                    <label class="text-[9px] text-gray-600 uppercase tracking-wider mb-1 block">
+                        Allowed targets (one per line — IP, CIDR, domain, *.wildcard)
+                    </label>
+                    <textarea id="scope-targets" rows="5"
+                        class="w-full bg-deep border border-gray-800 rounded px-3 py-2 text-[10px] text-gray-300 placeholder-gray-700 focus:outline-none focus:border-neon/50 font-mono"
+                        placeholder="# Examples:
+192.168.1.0/24
+10.0.0.1
+example.com
+*.target.local"></textarea>
+                </div>
+
+                <!-- Save -->
+                <button onclick="scopeSaveConfig()"
+                    class="bg-cyber/10 hover:bg-cyber/20 text-cyber border border-cyber/30 px-4 py-2 rounded text-[11px] transition-all font-semibold">
+                    💾 Save Config
+                </button>
+
+                <!-- Blocked count -->
+                <div class="text-[9px] text-gray-700">
+                    <span class="text-gray-600">Blocks / Warnings:</span>
+                    <span id="scope-blocked-count" class="text-blood font-semibold">0</span>
+                </div>
+
+                <!-- History -->
+                <div>
+                    <div class="flex items-center justify-between mb-1">
+                        <h4 class="text-[10px] text-gray-600 uppercase tracking-wider">📋 Block History</h4>
+                        <button onclick="scopeClearHistory()" class="text-[9px] text-gray-700 hover:text-blood transition-colors">Clear</button>
+                    </div>
+                    <div id="scope-history-list"
+                        class="bg-deep/50 border border-gray-800 rounded p-2 h-40 overflow-y-auto font-mono">
+                        <div class="text-[10px] text-gray-700 text-center py-4">Loading...</div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
 </body>
 
 </html>
