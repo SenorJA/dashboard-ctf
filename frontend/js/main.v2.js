@@ -3093,6 +3093,15 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
     }
     restorePSSession();
 
+    // ── Auto-save Suggest + AI config on input change ──
+    function initAutosave() {
+        ['suggest-provider','suggest-key','suggest-model','ai-endpoint','ai-key','ai-model'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.addEventListener('blur', saveAIConfig);
+        });
+    }
+    initAutosave();
+
     // ============================================================
     //  N8N AUTOMATION
     // ============================================================
