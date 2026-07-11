@@ -2791,6 +2791,40 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         }).join('\n---\n');
     };
 
+    // ── Extract command from AI suggestion ──
+    window.extractCommandFromSuggestion = function (text) {
+        if (!text) return '';
+        // Priority 1: text in backticks that looks like a shell command
+        const backtickCmds = text.match(/`([^`]+)`/g);
+        if (backtickCmds) {
+            // Prefer first backtick cmd that looks shell-ish (has spaces, starts with tool name)
+            for (const m of backtickCmds) {
+                const cmd = m.slice(1, -1).trim();
+                if (/^[a-z][\w-]+\s/.test(cmd) && cmd.length < 200) return cmd;
+            }
+            // Fallback: first backtick item
+            const first = backtickCmds[0].slice(1, -1).trim();
+            if (first && first.length < 200) return first;
+        }
+        // Priority 2: lines starting with "Run " or "Use " or "$ " or "# "
+        for (const line of text.split('\n')) {
+            const trimmed = line.trim();
+            // "Run `command`" -> extract the backtick part
+            const runMatch = trimmed.match(/^Run\s+`([^`]+)`/i);
+            if (runMatch) return runMatch[1].trim();
+            // "$ command" or "# command"
+            const shellMatch = trimmed.match(/^[$#]\s+(.+)/);
+            if (shellMatch) return shellMatch[1].trim();
+            // "Use `command`"
+            const useMatch = trimmed.match(/^Use\s+`([^`]+)`/i);
+            if (useMatch) return useMatch[1].trim();
+        }
+        // Priority 3: first line, stripped of markdown bold/italic
+        const firstLine = text.split('\n')[0].replace(/[*_`#]/g, '').trim();
+        if (firstLine && firstLine.length < 100) return firstLine;
+        return '';
+    };
+
     window.suggestNextStep = async function () {
         const provider = document.getElementById('suggest-provider').value;
         const apiKey = document.getElementById('suggest-key').value.trim();
@@ -2861,8 +2895,19 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
             `;
             list.appendChild(card);
             list.scrollTop = list.scrollHeight;
-            switchTab('findings');
-            showToast('🤖 Suggestion received — check Findings tab');
+
+            // Auto-load first suggested command into terminal & switch there
+            const firstCmd = extractCommandFromSuggestion(suggestion);
+            const input = document.getElementById('cmd-input');
+            if (input && firstCmd) {
+                input.value = firstCmd;
+                switchTab('terminal');
+                input.focus();
+                showToast('▶ Command loaded — press Enter to run in Terminal');
+            } else {
+                switchTab('findings');
+                showToast('🤖 Suggestion received — check Findings tab');
+            }
         } catch (err) {
             showToast(`⚠️ ${err.message}`);
             const card = document.createElement('div');
