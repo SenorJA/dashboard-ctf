@@ -2861,7 +2861,8 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
             `;
             list.appendChild(card);
             list.scrollTop = list.scrollHeight;
-            showToast('🤖 Suggestion received');
+            switchTab('findings');
+            showToast('🤖 Suggestion received — check Findings tab');
         } catch (err) {
             showToast(`⚠️ ${err.message}`);
             const card = document.createElement('div');
