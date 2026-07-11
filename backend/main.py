@@ -156,6 +156,139 @@ async def check_n8n_status(n8n_url: str = "http://localhost:5678"):
 
 
 # ════════════════════════════════════════════════════════════════
+#  AI SUGGEST PROXY (Fase 2)
+# ════════════════════════════════════════════════════════════════
+
+class SuggestRequest(BaseModel):
+    provider: str = "openai"       # openai | gemini | anthropic | openrouter
+    api_key: str = ""
+    model: str = ""
+    target: str = ""
+    findings: str = ""
+    history: list = []              # list of {"role":"user"/"assistant","content":"..."}
+    system_prompt: str = ""
+
+def _build_suggest_prompt(target: str, findings: str) -> str:
+    """Build the system prompt for penetration testing suggestions."""
+    return f"""You are an expert penetration testing assistant integrated into VulnForge, a red team dashboard.
+
+Your role is to analyze the current findings and suggest the NEXT logical step.
+
+Target: {target}
+
+Current findings:
+{findings if findings else "No findings yet. Suggest initial reconnaissance steps."}
+
+Based on these findings, suggest the single most impactful next step. Be concise and specific:
+1. What tool/command to run
+2. Why this step is important
+3. What to look for in the output
+
+Keep suggestions actionable and technical. Focus on the most promising attack path."""
+
+def _call_llm_sync(provider: str, api_key: str, model: str, messages: list, timeout: int = 60) -> str:
+    """Synchronous LLM API call (runs in thread via asyncio). Returns the response text."""
+    if provider == "openai" or provider == "openrouter":
+        base = "https://api.openai.com/v1" if provider == "openai" else "https://openrouter.ai/api/v1"
+        if not model: model = "gpt-4o-mini"
+        url = f"{base}/chat/completions"
+        body = json.dumps({
+            "model": model,
+            "messages": messages,
+            "temperature": 0.3,
+            "max_tokens": 1024
+        }).encode("utf-8")
+        req = urllib.request.Request(url, data=body, method="POST")
+        req.add_header("Content-Type", "application/json")
+        req.add_header("Authorization", f"Bearer {api_key}")
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            choices = data.get("choices", [])
+            if choices:
+                return choices[0].get("message", {}).get("content", str(data))
+            return str(data)
+
+    elif provider == "gemini":
+        if not model: model = "gemini-2.0-flash"
+        url = f"https://generativelanguage.googleapis.com/v1/models/{model}:generateContent?key={api_key}"
+        # Convert messages to Gemini format
+        gemini_contents = []
+        for msg in messages:
+            role = "model" if msg["role"] == "assistant" else "user"
+            gemini_contents.append({
+                "role": role,
+                "parts": [{"text": msg["content"]}]
+            })
+        body = json.dumps({"contents": gemini_contents}).encode("utf-8")
+        req = urllib.request.Request(url, data=body, method="POST")
+        req.add_header("Content-Type", "application/json")
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            candidates = data.get("candidates", [])
+            if candidates:
+                parts = candidates[0].get("content", {}).get("parts", [])
+                if parts:
+                    return parts[0].get("text", str(data))
+            return str(data)
+
+    elif provider == "anthropic":
+        if not model: model = "claude-3-haiku-20240307"
+        url = "https://api.anthropic.com/v1/messages"
+        # Build Anthropic messages format
+        anthy_messages = [m for m in messages if m["role"] != "system"]
+        system = next((m["content"] for m in messages if m["role"] == "system"), "")
+        body = json.dumps({
+            "model": model,
+            "messages": anthy_messages,
+            "system": system,
+            "max_tokens": 1024,
+            "temperature": 0.3
+        }).encode("utf-8")
+        req = urllib.request.Request(url, data=body, method="POST")
+        req.add_header("Content-Type", "application/json")
+        req.add_header("x-api-key", api_key)
+        req.add_header("anthropic-version", "2023-06-01")
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            content = data.get("content", [])
+            if content:
+                return content[0].get("text", str(data))
+            return str(data)
+
+    else:
+        raise ValueError(f"Unknown provider: {provider}")
+
+@app.post("/api/suggest")
+async def suggest_next_step(req: SuggestRequest):
+    """AI-powered suggestion for the next penetration testing step."""
+    try:
+        if not req.api_key:
+            return JSONResponse({"ok": False, "error": "API key is required"}, status_code=400)
+
+        # Build messages
+        system = req.system_prompt or _build_suggest_prompt(req.target, req.findings)
+        messages = [{"role": "system", "content": system}]
+
+        # Add history
+        for h in req.history:
+            messages.append({"role": h.get("role", "user"), "content": h.get("content", "")})
+
+        # Add current context as user message
+        user_msg = f"Target: {req.target}\n\nCurrent findings:\n{req.findings if req.findings else 'None yet'}\n\nWhat should I do next?"
+        messages.append({"role": "user", "content": user_msg})
+
+        result = await asyncio.to_thread(
+            _call_llm_sync, req.provider, req.api_key, req.model, messages, 60
+        )
+
+        return JSONResponse({"ok": True, "suggestion": result})
+
+    except urllib.error.HTTPError as e:
+        return JSONResponse({"ok": False, "error": f"API error {e.code}: {e.read().decode('utf-8', errors='replace')[:500]}"}, status_code=502)
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+# ════════════════════════════════════════════════════════════════
 #  SUPABASE API ENDPOINTS
 # ════════════════════════════════════════════════════════════════
 

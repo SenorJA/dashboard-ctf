@@ -2589,6 +2589,13 @@ ${fix || 'Apply appropriate security patches and input validation.'}
             if (ep) document.getElementById('ai-endpoint').value = ep;
             if (key) document.getElementById('ai-key').value = key;
             if (model) document.getElementById('ai-model').value = model;
+            // Also load suggest config
+            const sp = localStorage.getItem('vulnforge_suggest_provider');
+            const sk = localStorage.getItem('vulnforge_suggest_key');
+            const sm = localStorage.getItem('vulnforge_suggest_model');
+            if (sp) document.getElementById('suggest-provider').value = sp;
+            if (sk) document.getElementById('suggest-key').value = sk;
+            if (sm) document.getElementById('suggest-model').value = sm;
         } catch {}
     }
 
@@ -2597,6 +2604,10 @@ ${fix || 'Apply appropriate security patches and input validation.'}
             localStorage.setItem('vulnforge_ai_endpoint', document.getElementById('ai-endpoint').value);
             localStorage.setItem('vulnforge_ai_key', document.getElementById('ai-key').value);
             localStorage.setItem('vulnforge_ai_model', document.getElementById('ai-model').value);
+            // Also save suggest config
+            localStorage.setItem('vulnforge_suggest_provider', document.getElementById('suggest-provider').value);
+            localStorage.setItem('vulnforge_suggest_key', document.getElementById('suggest-key').value);
+            localStorage.setItem('vulnforge_suggest_model', document.getElementById('suggest-model').value);
         } catch {}
     }
 
@@ -2687,6 +2698,147 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         } finally {
             status.classList.add('hidden');
             if (btnGen) btnGen.disabled = false;
+        }
+    };
+
+    // ============================================================
+    //  AI SUGGEST NEXT STEP (Fase 2)
+    // ============================================================
+
+    let suggestionHistory = [];
+
+    window.loadAIConfigToSuggest = function () {
+        const ep = document.getElementById('ai-endpoint').value;
+        const key = document.getElementById('ai-key').value;
+        const model = document.getElementById('ai-model').value;
+        // Detect provider from endpoint URL
+        let provider = 'openai';
+        if (ep.includes('gemini') || ep.includes('generativelanguage')) provider = 'gemini';
+        else if (ep.includes('anthropic') || ep.includes('claude')) provider = 'anthropic';
+        else if (ep.includes('openrouter')) provider = 'openrouter';
+        document.getElementById('suggest-provider').value = provider;
+        document.getElementById('suggest-key').value = key;
+        document.getElementById('suggest-model').value = model || 'gpt-4o-mini';
+        showToast('📋 Config loaded from AI Writeup');
+    };
+
+    window.collectFindingsText = function () {
+        // Collect findings from the findings data structure
+        const items = window.findings || window.reports || [];
+        if (items.length === 0) {
+            // Fallback: try to get from the DOM
+            const cards = document.querySelectorAll('#findings-list .finding-card');
+            return Array.from(cards).map(c => c.textContent.trim()).filter(Boolean).join('\n---\n');
+        }
+        return items.map(f => {
+            let line = `[${(f.severity || f.type || 'info').toUpperCase()}] `;
+            if (f.title) line += f.title;
+            if (f.detail) line += ` — ${f.detail}`;
+            if (f.port) line += ` (port ${f.port}/${f.protocol || 'tcp'})`;
+            if (f.path) line += ` (${f.path})`;
+            if (f.status) line += ` [${f.status}]`;
+            return line;
+        }).join('\n');
+    };
+
+    window.suggestNextStep = async function () {
+        const provider = document.getElementById('suggest-provider').value;
+        const apiKey = document.getElementById('suggest-key').value.trim();
+        const model = document.getElementById('suggest-model').value.trim();
+        const target = document.getElementById('target-ip').value.trim() || 'unknown';
+        const findings = collectFindingsText();
+        const btn = document.getElementById('btn-suggest');
+        const status = document.getElementById('suggest-status');
+        const section = document.getElementById('suggestions-section');
+        const list = document.getElementById('suggestions-list');
+
+        if (!apiKey) {
+            showToast('⚠️ Enter an API key or load from AI Writeup config');
+            return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = '⏳ Thinking...';
+        status.classList.remove('hidden');
+
+        try {
+            const resp = await fetch('/api/suggest', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    provider,
+                    api_key: apiKey,
+                    model: model || '',
+                    target,
+                    findings: findings || 'No findings yet. Suggest initial recon.',
+                    history: suggestionHistory.slice(-6) // last 6 exchanges for context
+                })
+            });
+
+            const data = await resp.json();
+            if (!data.ok) throw new Error(data.error || 'Unknown error');
+
+            const suggestion = data.suggestion;
+
+            // Add to history
+            suggestionHistory.push({ role: 'assistant', content: suggestion });
+
+            // Add to DOM
+            section.classList.remove('hidden');
+            const card = document.createElement('div');
+            card.className = 'bg-void border border-cyber/20 rounded p-2.5 text-[11px]';
+            card.innerHTML = `
+                <div class="flex items-center gap-1.5 mb-1.5">
+                    <span class="text-[9px] text-cyber/60 font-mono">${new Date().toLocaleTimeString()}</span>
+                    <span class="text-[9px] text-gray-700">·</span>
+                    <span class="text-[9px] text-gray-700 uppercase">${provider}</span>
+                </div>
+                <div class="text-gray-300 leading-relaxed whitespace-pre-wrap">${suggestion}</div>
+                <div class="flex gap-2 mt-1.5">
+                    <button onclick="sendAsCommand(\`${suggestion.split('\n')[0].replace(/[`$]/g, '\\$')}\`)"
+                        class="text-[9px] text-neon/60 hover:text-neon transition-all">▶ Run first command</button>
+                    <button onclick="copyToClipboard(this)"
+                        class="text-[9px] text-gray-600 hover:text-gray-400 transition-all">📋 Copy</button>
+                </div>
+            `;
+            list.appendChild(card);
+            list.scrollTop = list.scrollHeight;
+            showToast('🤖 Suggestion received');
+        } catch (err) {
+            showToast(`⚠️ ${err.message}`);
+            const card = document.createElement('div');
+            card.className = 'bg-void border border-blood/20 rounded p-2.5 text-[11px] text-blood';
+            card.textContent = `[!] ${err.message}`;
+            list.appendChild(card);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = '🔍 Sugerir siguiente paso';
+            status.classList.add('hidden');
+        }
+    };
+
+    window.clearSuggestions = function () {
+        suggestionHistory = [];
+        document.getElementById('suggestions-list').innerHTML = '';
+        document.getElementById('suggestions-section').classList.add('hidden');
+    };
+
+    window.sendAsCommand = function (cmd) {
+        const input = document.getElementById('cmd-input');
+        if (input) {
+            input.value = cmd;
+            input.focus();
+            // Optionally auto-send after a brief delay
+            showToast('📋 Command loaded in terminal');
+        }
+    };
+
+    window.copyToClipboard = function (btn) {
+        const text = btn.closest('.bg-void')?.querySelector('.text-gray-300')?.textContent || '';
+        if (text && navigator.clipboard) {
+            navigator.clipboard.writeText(text).then(() => {
+                showToast('📋 Copied to clipboard');
+            }).catch(() => {});
         }
     };
 
