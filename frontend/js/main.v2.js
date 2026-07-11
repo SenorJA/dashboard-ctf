@@ -421,49 +421,68 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function parseWhatwebFindings(text, target) {
         const items = [];
-        const seen = new Set(); // dedup by normalized key:val
         // whatweb output format: URL [HTTP_CODE] Key[value], Key2[value2]...
-        // Approach: find lines containing URLs, then extract all Key[value] pairs
+        // Group findings per URL into a single consolidated finding with details
         const urlLineRegex = /^(https?:\/\/\S+)\s+(.+)$/gm;
         let urlMatch;
         while ((urlMatch = urlLineRegex.exec(text)) !== null) {
             const url = urlMatch[1];
             const rest = urlMatch[2];
-            // Extract all [value] or Key[value] patterns from the rest
+
+            // Extract status code
+            const statusMatch = rest.match(/\[(\d+)\s+(.+?)\]/);
+            const statusCode = statusMatch ? statusMatch[1] : '?';
+            const statusMsg = statusMatch ? statusMatch[2] : '';
+
+            // Extract all Key[Value] pairs
             const bracketRegex = /(\w[\w-]*)?\[([^\]]+)\]/g;
             let bm;
+            const techs = [];     // technology items
+            const headers = [];   // security/response headers
+            const cookies = [];   // cookies
+            const uncommons = []; // uncommon headers
+            let server = '';
+            let title = '';
+
             while ((bm = bracketRegex.exec(rest)) !== null) {
-                const key = bm[1] || '';  // optional key before brackets
-                const rawValue = bm[2];    // content inside brackets
-                // Split comma-separated values inside single bracket group
-                // e.g. "arc-geo,astz,hpage" -> three separate items
-                const values = rawValue.split(',').map(v => v.trim()).filter(v => v.length > 0);
-                for (const val of values) {
-                    // Skip numeric IPs, short codes, numeric status codes
+                const key = bm[1] || '';
+                const rawValue = bm[2];
+                const vals = rawValue.split(',').map(v => v.trim()).filter(v => v.length > 0);
+                for (const val of vals) {
                     if (/^\d+$/.test(val) && val.length < 5) continue;
                     if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(val)) continue;
-                    if (/^\w{2,3}$/.test(val) && val === val.toUpperCase()) continue; // country codes
-        
-                    // Dedup: same (key, val) across multiple URLs
-                    const dedupKey = key + ':' + val;
-                    if (seen.has(dedupKey)) continue;
-                    seen.add(dedupKey);
-        
-                    const finding = {
-                        tool: 'whatweb',
-                        target,
-                        type: 'tech',
-                        title: key ? `${key} → ${val}` : val,
-                        detail: `${key ? key + ': ' : ''}${val}`,
-                        severity: 'info'
-                    };
-                    // Flag known vuln versions
-                    if (/Apache 2\.4\.49/i.test(val) || /Apache 2\.4\.50/i.test(val)) finding.severity = 'critical';
-                    else if (/PHP\s*5/i.test(val) || /IIS\s*6/i.test(val)) finding.severity = 'high';
-                    else if (/nginx\s*1\.\d+\.\d+/i.test(val)) finding.severity = 'medium';
-                    items.push(finding);
+                    if (/^\w{2,3}$/.test(val) && val === val.toUpperCase()) continue;
+
+                    if (key === 'HTTPServer') { server = val; }
+                    else if (key === 'Title') { title = val; }
+                    else if (key === 'Cookies') { cookies.push(val); }
+                    else if (key === 'UncommonHeaders') { uncommons.push(val); }
+                    else if (/^(X-Frame-Options|X-XSS-Protection|Strict-Transport-Security|X-Content-Type-Options)$/i.test(key)) {
+                        headers.push(`${key}: ${val}`);
+                    } else if (/^(Script|JQuery|Google-Tag-Manager|HTML5|Frame|Open-Graph-Protocol|Meta-Author)$/i.test(key)) {
+                        techs.push(key + (val && val !== key ? `[${val}]` : ''));
+                    }
                 }
             }
+
+            // Build a single consolidated finding per URL
+            const detailParts = [];
+            if (server) detailParts.push(`🖥️ Server: ${server}`);
+            if (title) detailParts.push(`📄 Title: ${title}`);
+            if (statusCode) detailParts.push(`📡 HTTP ${statusCode} ${statusMsg}`);
+            if (headers.length > 0) detailParts.push(`🛡️ Headers: ${headers.join(', ')}`);
+            if (techs.length > 0) detailParts.push(`🔧 Tech: ${techs.join(', ')}`);
+            if (cookies.length > 0) detailParts.push(`🍪 Cookies: ${cookies.join(', ')}`);
+            if (uncommons.length > 0) detailParts.push(`📎 Extras: ${uncommons.slice(0, 5).join(', ')}${uncommons.length > 5 ? ` +${uncommons.length - 5} more` : ''}`);
+
+            items.push({
+                tool: 'whatweb',
+                target,
+                type: 'tech',
+                title: `WhatWeb: ${url}`,
+                detail: detailParts.join(' | '),
+                severity: 'info'
+            });
         }
         return items;
     }
@@ -591,72 +610,81 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        container.innerHTML = list.map(f => {
-            const sev = f.severity || 'info';
-            const color = severityColor(sev);
-            const bg = severityBg(sev);
-            const badge = severityBadge(sev);
-            const icon = f.tool === 'nmap' ? '🔍' : f.tool === 'gobuster' || f.tool === 'dirb' ? '📁' :
-                         f.tool === 'ffuf' ? '🌐' : f.tool === 'nikto' ? '⚠️' :
-                         f.tool === 'whatweb' ? '🔎' : f.tool === 'wpscan' ? '📌' : '🎯';
+        container.innerHTML = list.map(f => _renderOneFinding(f)).join('');
+    }
 
-            let title = f.title || '';
-            let subtitle = '';
-
-            if (f.type === 'port') {
-                title = `${f.port}/${f.protocol} — ${f.service}`;
-                subtitle = f.version || 'no version';
-            } else if (f.type === 'directory') {
-                title = f.path;
-                subtitle = `Status: ${f.status}` + (f.status >= 400 ? ' ⚠️' : '');
-            } else if (f.type === 'vuln') {
-                title = f.title || 'Potential vulnerability';
-                subtitle = f.detail ? f.detail.substring(0, 120) : '';
-            } else if (f.type === 'tech') {
-                title = f.title;
-                // Extract key name before arrow or colon for cleaner subtitle
-                const arrowIdx = f.title.indexOf('→');
-                const colonIdx = f.title.indexOf(':');
-                const splitIdx = arrowIdx > 0 ? arrowIdx : (colonIdx > 0 ? colonIdx : -1);
-                if (splitIdx > 0 && splitIdx < 80) {
-                    subtitle = f.title.substring(0, splitIdx).trim();
-                } else {
-                    subtitle = 'Technology detected';
-                }
-            } else if (f.type === 'os') {
-                title = f.detail || 'Unknown OS';
-                subtitle = 'OS Detection';
-            } else if (f.type === 'user' || f.type === 'plugin') {
-                subtitle = f.type === 'user' ? 'User enumeration' : 'Plugin detected';
-            } else if (f.detail) {
-                // Fallback for any type with detail (generic findings)
-                subtitle = f.detail.substring(0, 150);
-            }
-
-            const isInfo = sev === 'info';
-            return `
-                <div class="finding-card rounded-lg border transition-all hover:brightness-110 ${isInfo ? 'p-1.5' : 'p-2.5'}" 
-                     style="border-color:${color}33; background:${bg};"
-                     data-severity="${sev}">
-                    <div class="flex items-start gap-1.5">
-                        <span class="${isInfo ? 'text-[11px]' : 'text-[14px]'} mt-0.5 flex-shrink-0">${icon}</span>
-                        <div class="flex-1 min-w-0">
-                            <div class="flex items-center gap-1.5">
-                                <span class="${isInfo ? 'text-[10px]' : 'text-[11px]'} font-semibold truncate" style="color:${color}">${title}</span>
-                                <span class="text-[7px] px-1 py-0.5 rounded font-bold tracking-wider flex-shrink-0" 
-                                      style="background:${color}22; color:${color}">${badge}</span>
-                            </div>
-                            ${subtitle ? `<div class="${isInfo ? 'text-[9px]' : 'text-[10px]'} text-gray-600 mt-0.5 truncate">${subtitle}</div>` : ''}
-                            <div class="flex items-center gap-1.5 mt-0.5 ${isInfo ? 'text-[7px]' : 'text-[8px]'} text-gray-700">
-                                <span>${f.tool}</span>
-                                <span>·</span>
-                                <span class="truncate max-w-[120px]">${f.target}</span>
-                            </div>
+    // ── Render a single finding card HTML (used by renderFindings + real-time append) ──
+    function _renderOneFinding(f) {
+        const sev = f.severity || 'info';
+        const color = severityColor(sev);
+        const bg = severityBg(sev);
+        const badge = severityBadge(sev);
+        const icon = f.tool === 'nmap' ? '🔍' : f.tool === 'gobuster' || f.tool === 'dirb' ? '📁' :
+                     f.tool === 'ffuf' ? '🌐' : f.tool === 'nikto' ? '⚠️' :
+                     f.tool === 'whatweb' ? '🔎' : f.tool === 'wpscan' ? '📌' : '🎯';
+        let title = f.title || '';
+        let subtitle = '';
+        if (f.type === 'port') {
+            title = `${f.port}/${f.protocol} — ${f.service}`;
+            subtitle = f.version || 'no version';
+        } else if (f.type === 'directory') {
+            title = f.path;
+            subtitle = `Status: ${f.status}` + (f.status >= 400 ? ' ⚠️' : '');
+        } else if (f.type === 'vuln') {
+            title = f.title || 'Potential vulnerability';
+            subtitle = f.detail ? f.detail.substring(0, 120) : '';
+        } else if (f.type === 'tech') {
+            title = f.title;
+            subtitle = f.detail ? f.detail.substring(0, 150) : 'Technology detected';
+        } else if (f.type === 'os') {
+            title = f.detail || 'Unknown OS';
+            subtitle = 'OS Detection';
+        } else if (f.type === 'user' || f.type === 'plugin') {
+            subtitle = f.type === 'user' ? 'User enumeration' : 'Plugin detected';
+        } else if (f.detail) {
+            subtitle = f.detail.substring(0, 150);
+        }
+        const isInfo = sev === 'info';
+        return `
+            <div class="finding-card rounded-lg border transition-all hover:brightness-110 ${isInfo ? 'p-1.5' : 'p-2.5'}"
+                 style="border-color:${color}33; background:${bg};"
+                 data-severity="${sev}">
+                <div class="flex items-start gap-1.5">
+                    <span class="${isInfo ? 'text-[11px]' : 'text-[14px]'} mt-0.5 flex-shrink-0">${icon}</span>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-1.5">
+                            <span class="${isInfo ? 'text-[10px]' : 'text-[11px]'} font-semibold truncate" style="color:${color}">${title}</span>
+                            <span class="text-[7px] px-1 py-0.5 rounded font-bold tracking-wider flex-shrink-0"
+                                  style="background:${color}22; color:${color}">${badge}</span>
+                        </div>
+                        ${subtitle ? `<div class="${isInfo ? 'text-[9px]' : 'text-[10px]'} text-gray-600 mt-0.5 truncate">${subtitle}</div>` : ''}
+                        <div class="flex items-center gap-1.5 mt-0.5 ${isInfo ? 'text-[7px]' : 'text-[8px]'} text-gray-700">
+                            <span>${f.tool}</span>
+                            <span>·</span>
+                            <span class="truncate max-w-[120px]">${f.target}</span>
                         </div>
                     </div>
                 </div>
-            `;
-        }).join('');
+            </div>`;
+    }
+
+    // ── Append a single finding card to the DOM (without re-rendering everything) ──
+    function _appendFindingCard(f) {
+        const container = document.getElementById('findings-list');
+        const empty = document.getElementById('findings-empty');
+        if (!container) return;
+        if (empty) empty.style.display = 'none';
+        // Remove "no findings" placeholder if it's the only child
+        if (container.children.length === 1 && container.children[0].id === 'findings-empty') {
+            container.innerHTML = '';
+        }
+        container.insertAdjacentHTML('afterbegin', _renderOneFinding(f));
+        updateFindingsCount();
+    }
+
+    function _currentTarget() {
+        const el = document.getElementById('target-ip');
+        return el ? el.value.trim() || 'unknown' : 'unknown';
     }
 
     function updateFindingsCount() {
@@ -1017,6 +1045,26 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } else {
             output.textContent += text + (text.endsWith('\n') ? '' : '\n');
+        }
+
+        // Real-time nmap port detection: catch open ports as they appear
+        // (not just at tool completion, since -p- can take hours)
+        if (text && (currentToolRunning === 'nmap' || pendingTool === 'nmap')) {
+            const portRegex = /(\d+)\/(tcp|udp)\s+open\s+(\S+)(?:\s+(.+))?/gi;
+            let pm;
+            while ((pm = portRegex.exec(text)) !== null) {
+                const portKey = `nmap|${pm[1]}/${pm[2]}|${pm[3] || '?'}`;
+                if (findings.some(f => f.tool === 'nmap' && f.port === pm[1])) continue;
+                const finding = {
+                    tool: 'nmap', target: _currentTarget(),
+                    type: 'port', port: pm[1], protocol: pm[2],
+                    service: pm[3] || '?', version: (pm[4] || '').trim(),
+                    severity: assignSeverity({ port: pm[1], service: pm[3] || '' }),
+                    id: _hashStr(portKey)
+                };
+                findings.unshift(finding);
+                _appendFindingCard(finding);
+            }
         }
 
         // Buffer for findings parsing (ALWAYS accumulate, regardless of currentToolRunning)
