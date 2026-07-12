@@ -11,6 +11,15 @@
     <link rel="icon" type="image/svg+xml" sizes="192x192" href="/img/icon-192.svg">
     <meta name="theme-color" content="#0a0a0f">
 
+    <script>
+        // Suppress Tailwind "not in production" warning when accessing via IP/mobile
+        window.__tailwind_play = true;
+        const _origWarn = console.warn;
+        console.warn = function(msg) {
+            if (typeof msg === 'string' && msg.includes('cdn.tailwindcss.com should not be used')) return;
+            _origWarn.apply(console, arguments);
+        };
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 
@@ -31,7 +40,7 @@
                     }
                 }
             }
-        }
+        };
     </script>
 
     <!-- 🔥 INLINE: fuerza colores ámbar por encima de cualquier cosa -->
