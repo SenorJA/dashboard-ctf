@@ -1583,9 +1583,27 @@ ${bodyHtml}
     };
 
     // ============================================================
-    //  CONNECTION MANAGER (localStorage)
+    //  CONNECTION MANAGER (DB + localStorage cache)
+    //  Offline-first: try API, fall back to localStorage.
     // ============================================================
     function loadConnections() {
+        // Try DB first
+        if (window.DataService && DataService.available) {
+            DataService.listConnections().then(list => {
+                if (list && list.length > 0) {
+                    connections = list;
+                    localStorage.setItem('vulnforge_connections', JSON.stringify(list));
+                    renderConnections();
+                    return;
+                }
+                _loadConnectionsLocal();
+            }).catch(() => _loadConnectionsLocal());
+        } else {
+            _loadConnectionsLocal();
+        }
+    }
+
+    function _loadConnectionsLocal() {
         try {
             const stored = localStorage.getItem('vulnforge_connections');
             connections = stored ? JSON.parse(stored) : [];
@@ -1597,6 +1615,16 @@ ${bodyHtml}
 
     function saveConnections() {
         localStorage.setItem('vulnforge_connections', JSON.stringify(connections));
+        // Also save to DB in background
+        if (window.DataService && DataService.available) {
+            connections.forEach(c => {
+                if (!c._dbSynced) {
+                    DataService.saveConnection(c).then(r => {
+                        if (r) c._dbSynced = true;
+                    }).catch(() => {});
+                }
+            });
+        }
         renderConnections();
     }
 
@@ -1642,8 +1670,15 @@ ${bodyHtml}
             alert('⚠️  Fill in all fields: Alias, IP, User, Pass');
             return;
         }
-        connections.push({ name, ip, port, user, pass });
+        const conn = { name, ip, port, user, pass };
+        connections.push(conn);
         saveConnections();
+        // Sync to DB in background
+        if (window.DataService && DataService.available) {
+            DataService.saveConnection(conn).then(r => {
+                if (r) conn._dbSynced = true;
+            }).catch(() => {});
+        }
         showToast(`✓ Connection "${name}" saved`);
         document.getElementById('new-conn-name').value = '';
         document.getElementById('new-conn-ip').value = '';
@@ -1676,6 +1711,10 @@ ${bodyHtml}
         if (!conn) return;
         if (!confirm(`Delete connection "${conn.name}" (${conn.ip})?`)) return;
         disconnectWS();
+        // Delete from DB if it has an id
+        if (conn.id && window.DataService && DataService.available) {
+            DataService.deleteConnection(conn.id).catch(() => {});
+        }
         connections.splice(activeConnectionId, 1);
         activeConnectionId = null;
         saveConnections();
@@ -2608,6 +2647,22 @@ echo "[+] Payload generated: rev_shell.\$TYPE"
     let savedScripts = [];
 
     function loadSavedScripts() {
+        // Try DB first
+        if (window.DataService && DataService.available) {
+            DataService.listScripts().then(list => {
+                if (list && list.length > 0) {
+                    savedScripts = list;
+                    localStorage.setItem('vulnforge_scripts', JSON.stringify(list));
+                    return;
+                }
+                _loadScriptsLocal();
+            }).catch(() => _loadScriptsLocal());
+        } else {
+            _loadScriptsLocal();
+        }
+    }
+
+    function _loadScriptsLocal() {
         try {
             const stored = localStorage.getItem('vulnforge_scripts');
             savedScripts = stored ? JSON.parse(stored) : [];
@@ -2616,6 +2671,20 @@ echo "[+] Payload generated: rev_shell.\$TYPE"
 
     function saveSavedScripts() {
         localStorage.setItem('vulnforge_scripts', JSON.stringify(savedScripts));
+        // Sync to DB in background
+        if (window.DataService && DataService.available) {
+            savedScripts.forEach(s => {
+                if (!s._dbSynced) {
+                    DataService.saveScript({
+                        name: s.name,
+                        content: s.content,
+                        language: s.language || 'bash'
+                    }).then(r => {
+                        if (r) s._dbSynced = true;
+                    }).catch(() => {});
+                }
+            });
+        }
     }
 
     window.selectScriptTemplate = function (name) {
@@ -2692,7 +2761,7 @@ echo "[+] Payload generated: rev_shell.\$TYPE"
 
         saveSavedScripts();
         document.getElementById('script-status').textContent = `✓ saved "${name}"`;
-        showToast(`💾 Script "${name}" saved locally`);
+        showToast(`💾 Script "${name}" saved`);
     };
 
     window.loadScript = function () {
@@ -3563,6 +3632,20 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
     function setHak5Payloads(arr) {
         localStorage.setItem(getHak5StorageKey(), JSON.stringify(arr));
         updateHak5SavedCount();
+        // Sync to DB in background
+        if (window.DataService && DataService.available) {
+            arr.forEach(p => {
+                if (!p._dbSynced) {
+                    DataService.savePayload({
+                        device: currentHak5Device,
+                        name: p.name,
+                        content: p.code
+                    }).then(r => {
+                        if (r) p._dbSynced = true;
+                    }).catch(() => {});
+                }
+            });
+        }
     }
 
     function updateHak5SavedCount() {
@@ -3658,7 +3741,24 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
                 document.getElementById('hak5-line-count').textContent = getLineCount(hak5Editor.value);
             });
         }
-        updateHak5SavedCount();
+        // Try to load payloads from DB
+        if (window.DataService && DataService.available) {
+            DataService.listPayloads(currentHak5Device).then(list => {
+                if (list && list.length > 0) {
+                    const mapped = list.map(p => ({
+                        name: p.name,
+                        code: p.content,
+                        device: p.device,
+                        _dbSynced: true,
+                        created: p.created_at
+                    }));
+                    localStorage.setItem(getHak5StorageKey(), JSON.stringify(mapped));
+                }
+                updateHak5SavedCount();
+            }).catch(() => updateHak5SavedCount());
+        } else {
+            updateHak5SavedCount();
+        }
     };
     // Run now (DOM is already loaded at this point since we're inside DOMContentLoaded)
     initHak5();
