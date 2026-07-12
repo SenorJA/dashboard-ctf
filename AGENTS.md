@@ -179,9 +179,13 @@ Tools that need target validation must be listed in the `needsTarget` array.
 | Mobile | `GET /api/mobile/apks`, `POST /api/mobile/upload`, `GET /api/mobile/devices`, `POST /api/mobile/frida/run` |
 | KnowledgeBase | `GET /api/knowledgebase/search`, `GET /api/knowledgebase/cve/{id}`, `GET /api/knowledgebase/mitre/{id}` |
 | Swarm | `POST /api/swarm/start`, `GET /api/swarm/{id}`, `GET /api/swarm/list`, `POST /api/swarm/{id}/cancel`, `GET /api/swarm/{id}/report` |
+| Swarm Sessions | `GET/POST /api/swarm/sessions`, `GET/DELETE /api/swarm/sessions/{id}` |
 | Scope | `GET/POST /api/scope`, `POST /api/scope/validate`, `GET /api/scope/history`, `POST /api/scope/history/clear` |
+| Scope Events | `GET/POST /api/scope/events`, `DELETE /api/scope/events` |
 | OPSEC | `GET /api/opsec/levels`, `POST /api/opsec/apply` |
 | Missions | `GET /api/missions`, `POST /api/missions/save`, `GET /api/missions/similar`, `DELETE /api/missions/{id}` |
+| Mission Plans | `GET/POST /api/plans`, `DELETE /api/plans/{id}` |
+| Secrets | `GET/POST /api/credentials/secrets/{key}`, `DELETE /api/credentials/secrets/{key}` |
 | Upload | `POST /api/upload`, `GET /api/files` |
 | Settings | `GET/POST /api/settings` |
 | n8n | `POST /api/n8n/trigger`, `GET /api/n8n/status` |
@@ -207,7 +211,8 @@ Tools that need target validation must be listed in the `needsTarget` array.
 | `mirv_opsec` | "silent" \| "covert" \| "loud" | OPSEC level (default: loud) |
 
 ### Supabase (backend persistence)
-Tables: `ssh_connections`, `scripts`, `reports`, `findings`, `hak5_payloads`, `app_settings`, `uploaded_files`, `credentials`, `ctf_challenges`, `forensics_evidence`, `mobile_apks`, `mission_history`.
+Tables: `ssh_connections`, `scripts`, `reports`, `findings`, `hak5_payloads`, `app_settings`, `uploaded_files`, `credentials`, `ctf_challenges`, `ctf_solves`, `forensics_evidence`, `mobile_apks`, `mission_history`, `scope_events`, `swarm_sessions`, `mission_plans`, `app_credentials`.
+Storage bucket: `vulnforge` for file uploads.
 Storage bucket: `vulnforge` for file uploads.
 
 ## i18n system
