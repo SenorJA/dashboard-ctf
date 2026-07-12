@@ -843,6 +843,23 @@ ${bodyHtml}
         }
     }
 
+    // ── Generic helper: save a report to DB ──
+    async function _saveReportToDB(data) {
+        try {
+            const resp = await fetch('/api/reports', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            const json = await resp.json();
+            if (json.ok) {
+                console.log('[DB] Report saved:', data.type, data.title);
+            }
+        } catch (e) {
+            console.warn('[DB] Report save failed (offline):', e.message);
+        }
+    }
+
     async function _loadFindingsFromBackend() {
         try {
             const resp = await fetch('/api/findings');
@@ -2854,6 +2871,14 @@ ${fix || 'Apply appropriate security patches and input validation.'}
         document.getElementById('bounty-preview').textContent = report;
         document.getElementById('btn-download-bounty').disabled = false;
         showToast('📋 Bounty report generated');
+        // Save to DB
+        _saveReportToDB({
+            type: 'bounty',
+            title: `Bug Bounty — ${vulnType}`,
+            target: target,
+            raw_output: report,
+            format: 'md'
+        });
     };
 
     // ============================================================
@@ -3266,6 +3291,14 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
             output.textContent = content;
             document.getElementById('btn-download-ai').disabled = false;
             showToast('🤖 Writeup generated successfully');
+            // Save to DB
+            _saveReportToDB({
+                type: 'ai_writeup',
+                title: `Writeup — ${machine}`,
+                target: machine,
+                raw_output: content,
+                format: 'md'
+            });
         } catch (err) {
             output.textContent = `[!] Error: ${err.message}`;
             showToast(`⚠️ AI generation failed: ${err.message}`);
