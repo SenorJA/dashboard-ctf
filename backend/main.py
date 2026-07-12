@@ -1719,7 +1719,7 @@ async def clear_all_credentials():
 # ════════════════════════════════════════════════════════════════
 #  KNOWLEDGE BASE API
 # ════════════════════════════════════════════════════════════════
-from knowledgebase import search_all, search_cve, search_mitre, get_cve, get_mitre
+from backend.knowledgebase import search_all, search_cve, search_mitre, get_cve, get_mitre
 
 @app.get("/api/knowledgebase/search")
 async def kb_search(query: str = ""):
