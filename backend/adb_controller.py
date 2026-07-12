@@ -60,19 +60,25 @@ def _ssh_exec(command: str, timeout: int = 30) -> str:
         return f"ERROR: {e}"
 
 
-def _ssh_sftp_upload(local_path: str, remote_path: str) -> bool:
-    """Upload a file via SFTP."""
+def _ssh_sftp_upload(local_path: str, remote_path: str) -> str:
+    """Upload a file via SFTP. Returns 'OK' on success, or an error message."""
     client = _get_ssh()
     if not client:
-        return False
+        return "No SSH connection available. Connect via Terminal tab first."
     try:
+        # Ensure remote directory exists
+        _ssh_exec(f"mkdir -p {os.path.dirname(remote_path)}", timeout=5)
         sftp = client.open_sftp()
         sftp.put(local_path, remote_path)
         sftp.close()
-        return True
+        return "OK"
+    except FileNotFoundError:
+        return f"Local script not found: {local_path}"
+    except PermissionError:
+        return f"Permission denied on Kali writing to {remote_path}"
     except Exception as e:
         logger.error("SFTP upload failed: %s", e)
-        return False
+        return f"SFTP upload error: {e}"
 
 
 # ════════════════════════════════════════════════════════════════
@@ -145,6 +151,21 @@ def get_available_scripts() -> list:
     return scripts
 
 
+def stop_frida(device_serial: str = None) -> str:
+    """
+    Kill any running Frida processes on Kali via SSH.
+    If device_serial is provided, kills only Frida targeting that device.
+    """
+    if device_serial:
+        cmd = f'pkill -f "frida.*-D {device_serial}" 2>/dev/null; echo "DONE"'
+    else:
+        cmd = 'pkill -f "frida" 2>/dev/null; echo "DONE"'
+    output = _ssh_exec(cmd, timeout=10)
+    # Also kill any lingering frida-process
+    _ssh_exec('pkill -f "frida-process" 2>/dev/null', timeout=5)
+    return output
+
+
 def run_frida_script(device_serial: str, script_name: str, target_process: str = None) -> str:
     """
     Run a Frida script on a device via Kali SSH.
@@ -159,9 +180,9 @@ def run_frida_script(device_serial: str, script_name: str, target_process: str =
 
     # Upload script if it exists locally
     if os.path.exists(script_path):
-        uploaded = _ssh_sftp_upload(script_path, remote_script)
-        if not uploaded:
-            return "ERROR: Could not upload Frida script to Kali"
+        upload_result = _ssh_sftp_upload(script_path, remote_script)
+        if upload_result != "OK":
+            return f"ERROR: Could not upload Frida script to Kali — {upload_result}"
     else:
         # Script might already be on remote — check
         check = _ssh_exec(f"test -f {remote_script} && echo OK")

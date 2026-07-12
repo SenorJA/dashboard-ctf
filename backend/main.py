@@ -83,6 +83,7 @@ from backend.mobile_analyzer import (
 from backend.adb_controller import (
     list_devices as mobile_list_devices,
     run_frida_script as mobile_run_frida_script,
+    stop_frida as mobile_stop_frida,
     get_available_scripts as mobile_get_frida_scripts,
 )
 from backend.forensics import (
@@ -1614,6 +1615,21 @@ async def mobile_run_frida_endpoint(body: dict):
     if output.startswith("ERROR"):
         return JSONResponse({"ok": False, "error": output}, status_code=500)
     return _ok({"output": output[:5000]})
+
+
+@app.post("/api/mobile/frida/stop")
+async def mobile_stop_frida_endpoint(body: dict = None):
+    """Kill any running Frida processes on Kali SSH."""
+    device = body.get("device_serial", "") if body else ""
+    await _ensure_ssh_connection()
+    output = await asyncio.to_thread(mobile_stop_frida, device)
+    return _ok({"output": output.strip()})
+
+
+@app.post("/api/mobile/frida/clear")
+async def mobile_clear_frida_endpoint():
+    """Clear Frida output — purely client-side, but endpoint exists for logging."""
+    return _ok({"cleared": True})
 
 
 # ════════════════════════════════════════════════════════════════

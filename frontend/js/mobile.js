@@ -275,6 +275,37 @@ window.mobileRunFrida = async function () {
     }
 };
 
+window.mobileStopFrida = async function () {
+    const device = document.getElementById('mobile-frida-device')?.value?.trim() || '';
+    const output = document.getElementById('mobile-frida-output');
+    if (!output) return;
+    output.textContent = '⏹ Stopping Frida...\n';
+
+    try {
+        const resp = await fetch('/api/mobile/frida/stop', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ device_serial: device }),
+        });
+        const json = await resp.json();
+        if (json.ok) {
+            output.textContent = '⏹ Frida stopped. Any running Frida processes have been terminated.';
+        } else {
+            output.textContent = 'Error: ' + (json.error || 'Unknown');
+        }
+    } catch (e) {
+        output.textContent = 'Network error: ' + e.message;
+    }
+};
+
+window.mobileClearFridaOutput = function () {
+    const output = document.getElementById('mobile-frida-output');
+    if (!output) return;
+    output.textContent = 'Console cleared. Click "Run" to execute Frida.';
+    // Also call backend for logging (non-blocking)
+    fetch('/api/mobile/frida/clear', { method: 'POST' }).catch(() => {});
+};
+
 // ── 🤖 AI Assistant ──
 
 window.mobileExplainFinding = async function (encodedFinding) {
