@@ -1,0 +1,52 @@
+2026-07-11 20:50:53,191 [INFO] ==================================================
+2026-07-11 20:50:53,191 [INFO] VulnForge starting in PRODUCTION mode
+2026-07-11 20:50:53,191 [INFO] Version: 1.0.0
+2026-07-11 20:50:53,191 [INFO] ==================================================
+2026-07-11 20:55:19,984 [INFO] ==================================================
+2026-07-11 20:55:19,986 [INFO] VulnForge starting in PRODUCTION mode
+2026-07-11 20:55:19,986 [INFO] Version: 1.0.0
+2026-07-11 20:55:19,986 [INFO] ==================================================
+2026-07-11 20:55:30,252 [INFO] ==================================================
+2026-07-11 20:55:30,260 [INFO] VulnForge starting in PRODUCTION mode
+2026-07-11 20:55:30,260 [INFO] Version: 1.0.0
+2026-07-11 20:55:30,260 [INFO] ==================================================
+2026-07-11 20:55:30,363 [INFO] VulnForge ready — production mode
+2026-07-11 20:55:30,363 [INFO] Mobile Lab initialized
+2026-07-11 21:00:13,067 [INFO] ==================================================
+2026-07-11 21:00:13,067 [INFO] VulnForge starting in PRODUCTION mode
+2026-07-11 21:00:13,067 [INFO] Version: 1.0.0
+2026-07-11 21:00:13,067 [INFO] ==================================================
+2026-07-11 21:00:13,214 [INFO] VulnForge ready — production mode
+2026-07-11 21:00:13,214 [INFO] Mobile Lab initialized
+2026-07-11 21:58:59,750 [INFO] Supabase connected: https://klkbbyqbdmuxovpbmple.supabase.co
+2026-07-11 21:59:00,620 [INFO] HTTP Request: GET https://klkbbyqbdmuxovpbmple.supabase.co/rest/v1/ssh_connections?select=id&limit=1 "HTTP/2 200 OK"
+2026-07-11 21:59:00,771 [INFO] HTTP Request: GET https://klkbbyqbdmuxovpbmple.supabase.co/rest/v1/scripts?select=id&limit=1 "HTTP/2 200 OK"
+2026-07-11 21:59:00,843 [INFO] HTTP Request: GET https://klkbbyqbdmuxovpbmple.supabase.co/rest/v1/reports?select=id&limit=1 "HTTP/2 200 OK"
+2026-07-11 21:59:00,916 [INFO] HTTP Request: GET https://klkbbyqbdmuxovpbmple.supabase.co/rest/v1/hak5_payloads?select=id&limit=1 "HTTP/2 200 OK"
+2026-07-11 21:59:01,016 [INFO] HTTP Request: GET https://klkbbyqbdmuxovpbmple.supabase.co/rest/v1/app_settings?select=id&limit=1 "HTTP/2 400 Bad Request"
+2026-07-11 21:59:01,016 [INFO] Table 'app_settings' doesn't exist — creating via REST
+2026-07-11 21:59:01,086 [INFO] HTTP Request: GET https://klkbbyqbdmuxovpbmple.supabase.co/rest/v1/uploaded_files?select=id&limit=1 "HTTP/2 200 OK"
+2026-07-11 21:59:01,156 [INFO] HTTP Request: GET https://klkbbyqbdmuxovpbmple.supabase.co/rest/v1/findings?select=id&limit=1 "HTTP/2 404 Not Found"
+2026-07-11 21:59:01,156 [INFO] Table 'findings' doesn't exist — creating via REST
+2026-07-11 21:59:01,223 [INFO] HTTP Request: GET https://klkbbyqbdmuxovpbmple.supabase.co/rest/v1/credentials?select=id&limit=1 "HTTP/2 404 Not Found"
+2026-07-11 21:59:01,223 [INFO] Table 'credentials' doesn't exist — creating via REST
+2026-07-11 21:59:01,294 [INFO] HTTP Request: GET https://klkbbyqbdmuxovpbmple.supabase.co/rest/v1/ctf_challenges?select=id&limit=1 "HTTP/2 404 Not Found"
+2026-07-11 21:59:01,294 [INFO] Table 'ctf_challenges' doesn't exist — creating via REST
+2026-07-11 21:59:01,356 [INFO] HTTP Request: GET https://klkbbyqbdmuxovpbmple.supabase.co/rest/v1/ctf_solves?select=id&limit=1 "HTTP/2 404 Not Found"
+2026-07-11 21:59:01,356 [INFO] Table 'ctf_solves' doesn't exist — creating via REST
+2026-07-11 21:59:01,422 [INFO] HTTP Request: GET https://klkbbyqbdmuxovpbmple.supabase.co/rest/v1/mobile_apks?select=id&limit=1 "HTTP/2 404 Not Found"
+2026-07-11 21:59:01,422 [INFO] Table 'mobile_apks' doesn't exist — creating via REST
+2026-07-11 21:59:01,489 [INFO] HTTP Request: GET https://klkbbyqbdmuxovpbmple.supabase.co/rest/v1/forensics_evidence?select=id&limit=1 "HTTP/2 404 Not Found"
+2026-07-11 21:59:01,489 [INFO] Table 'forensics_evidence' doesn't exist — creating via REST
+2026-07-11 21:59:01,491 [INFO] Tables verified. If missing, run the SQL from supabase_schema.sql
+2026-07-11 21:59:01,565 [INFO] HTTP Request: GET https://klkbbyqbdmuxovpbmple.supabase.co/rest/v1/findings?select=%2A&order=created_at.desc&limit=200 "HTTP/2 404 Not Found"
+2026-07-11 21:59:01,566 [ERROR] list_findings: {'message': "Could not find the table 'public.findings' in the schema cache", 'code': 'PGRST205', 'hint': "Perhaps you meant the table 'public.app_settings'", 'details': None}
+2026-07-11 21:59:01,629 [INFO] HTTP Request: GET https://klkbbyqbdmuxovpbmple.supabase.co/rest/v1/ctf_challenges?select=%2A&order=created_at.desc "HTTP/2 404 Not Found"
+2026-07-11 21:59:02,068 [INFO] HTTP Request: GET https://klkbbyqbdmuxovpbmple.supabase.co/rest/v1/mobile_apks?select=%2A&order=created_at.desc "HTTP/2 404 Not Found"
+2026-07-11 21:59:02,069 [ERROR] list_mobile_apks: {'message': "Could not find the table 'public.mobile_apks' in the schema cache", 'code': 'PGRST205', 'hint': None, 'details': None}
+2026-07-11 21:59:02,073 [INFO] HTTP Request: GET https://klkbbyqbdmuxovpbmple.supabase.co/rest/v1/forensics_evidence?select=%2A&order=created_at.desc "HTTP/2 404 Not Found"
+2026-07-11 21:59:02,082 [INFO] HTTP Request: GET https://klkbbyqbdmuxovpbmple.supabase.co/rest/v1/reports?select=%2A&order=created_at.desc "HTTP/2 200 OK"
+2026-07-11 21:59:02,082 [ERROR] list_forensics_evidence: {'message': "Could not find the table 'public.forensics_evidence' in the schema cache", 'code': 'PGRST205', 'hint': None, 'details': None}
+2026-07-11 21:59:02,148 [INFO] HTTP Request: GET https://klkbbyqbdmuxovpbmple.supabase.co/rest/v1/ctf_challenges?select=%2A "HTTP/2 404 Not Found"
+2026-07-11 21:59:02,215 [INFO] HTTP Request: GET https://klkbbyqbdmuxovpbmple.supabase.co/rest/v1/mobile_apks?select=%2A&order=created_at.desc "HTTP/2 404 Not Found"
+2026-07-11 21:59:02,217 [ERROR] list_mobile_apks: {'message': "Could not find the table 'public.mobile_apks' in the schema cache", 'code': 'PGRST205', 'hint': None, 'details': None}

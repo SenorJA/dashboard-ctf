@@ -1,4 +1,6 @@
-# 🗺️ VulnForge — Roadmap de Mejoras
+# 🗺️ M.I.R.V. — Roadmap de Mejoras
+
+> Anteriormente VulnForge — v3.0
 
 ## ✅ Completado
 
@@ -7,15 +9,63 @@
 - [x] Reconexión dinámica por WebSocket
 - [x] Gestión de conexiones guardadas (localStorage)
 - [x] Puerto personalizable (no solo 22)
-- [x] Sudo automático con `-S` + password
+- [x] Sudo automático con `-S` + password (heredoc quoteado)
 
 ### Terminal
 - [x] Prompt limpio (Powerlevel10k desactivado)
-- [x] Filtro ANSI completo (colores, títulos, DEC privados)
-- [x] Filtro Nerd Font / Powerline (caracteres PUA)
+- [x] Filtro ANSI completo (colores, OSC, DEC privados, Nerd Font/PUA)
 - [x] Manejo de `\r` en progresos tipo apt
 - [x] Click en terminal → focus en input
 - [x] Historial de comandos con flechas ↑/↓ (últimos 100)
+- [x] Botón Stop (Ctrl+C / SIGINT)
+- [x] Tab completion con detección de CWD real vía `/proc`
+- [x] Subida de archivos chunked base64 (soporta binarios >1MB)
+- [x] Responsive layout (mobile sidebar + command bar separada)
+
+### Findings Panel (Fase 1)
+- [x] Pestaña **🎯 Findings** con tarjetas de severidad
+- [x] Parser para nmap, whatweb, gobuster, dirb, ffuf, nikto, wpscan
+- [x] Detección de fin de comando por prompt pattern
+- [x] Deduplicación de hallazgos por `key:val`
+- [x] Filtros por severidad (critical/high/medium/low/info)
+- [x] Export en `.txt` / `.md` / `.html` / `📄 PDF`
+- [x] Persistencia en Supabase (CRUD via `/api/findings`)
+
+### AI Assistance (Fase 2)
+- [x] Endpoint `/api/suggest` que recibe findings y devuelve sugerencia
+- [x] Multi-proveedor: OpenAI, Anthropic, Gemini, OpenRouter, DeepSeek, Groq
+- [x] AI en 6 pestañas: Reports, Automation, Swarm, Credentials, KnowledgeBase, CTF
+- [x] Auto-guardado de API keys en localStorage
+- [x] AI Writeup para informes automáticos
+- [x] Bounty Reports con AI
+
+### Labs
+- [x] **Mobile Analysis Lab** — APK static + dynamic (ADB/Frida)
+- [x] **Forensics Lab** — memoria, disco, Sleuth Kit
+- [x] **KnowledgeBase** — CVE + MITRE ATT&CK search
+- [x] **CTF Mode** — challenges con flags y tracking
+- [x] **Credential Store** — almacenamiento de credenciales descubiertas
+
+### Multi-operador (Fase 4)
+- [x] **Swarm** — operadores Recon, Scanner, Exploiter, Report
+- [x] Coordinador con pizarra compartida
+- [x] Sesiones de swarm con reportes
+- [x] Cancelación de misiones
+
+### Infraestructura
+- [x] **MCP Server** — expone herramientas a agentes IA (Claude Code, Cursor)
+- [x] **Scope Guard** — validación de alcance (modo Warn/Block)
+- [x] Backend (9 módulos Python, 65+ endpoints REST)
+- [x] Supabase persistence (11 tablas)
+- [x] i18n (150+ traducciones EN/ES)
+- [x] Responsive + mobile sidebar
+- [x] PDF generation server-side (ReportLab)
+- [x] n8n Automation integration
+
+### Seguridad
+- [x] Credenciales eliminadas del backend/frontend
+- [x] WebSocket exige autenticación JSON obligatoria
+- [x] No fallbacks a credenciales por defecto
 
 ### Despliegue
 - [x] Backend local funcional (uvicorn + FastAPI)
@@ -25,57 +75,6 @@
 ---
 
 ## 🚧 En Progreso / Pendientes
-
----
-
-## FASE 1 — Parser de Resultados + Findings Panel
-
-**Objetivo:** Que los resultados de las herramientas no se pierdan en la terminal, sino que se estructuren y muestren en un panel visual.
-
-### Frontend
-- [ ] Nueva pestaña **"Findings"** (al lado de Reports/Bounty/AI)
-- [ ] Parsear outputs de herramientas comunes:
-  - `nmap` → puertos abiertos, servicios, versiones
-  - `gobuster`/`dirb`/`ffuf` → directorios encontrados + códigos HTTP
-  - `nikto` → vulnerabilidades detectadas
-  - `whatweb` → tecnologías detectadas
-  - `wpscan` → usuarios, plugins, vulns
-- [ ] Mostrar hallazgos en tarjetas con severidad (🔴 crítica, 🟡 alta, 🟠 media, 🔵 baja)
-- [ ] Botón "Añadir a informe" en cada hallazgo
-
-### Backend
-- [ ] Detectar fin de comando en el output del shell (patrón de prompt)
-- [ ] Canalizar output completo a la función de parseo
-- [ ] Endpoint WebSocket para enviar hallazgos estructurados
-
-### Archivos a modificar/crear
-- `frontend/index.html` — nueva pestaña Findings
-- `frontend/js/main.v2.js` — lógica de parseo + render
-- `frontend/css/style.css` — estilos de tarjetas
-- `backend/main.py` — canalización de resultados
-
----
-
-## FASE 2 — Sugerencias IA + Conexión de Hallazgos
-
-**Objetivo:** La IA en la pestaña AI Writeup recibe los hallazgos y sugiere el siguiente paso.
-
-### Frontend
-- [ ] Botón "🔍 Sugerir siguiente paso" basado en findings
-- [ ] Auto-rellenar target + findings en el prompt de la IA
-- [ ] Mostrar historial de sugerencias IA por sesión
-- [ ] Selector de proveedor IA (OpenAI, Anthropic, OpenRouter, Gemini)
-
-### Backend
-- [ ] Endpoint `/api/suggest` que recibe findings y devuelve sugerencia
-- [ ] Integración con Gemini API (ya tienes clave)
-- [ ] Integración con OpenAI / Anthropic / OpenRouter
-- [ ] Almacenar sugerencias en el historial de la misión
-
-### Archivos a modificar
-- `frontend/js/main.v2.js` — nuevo panel de sugerencias
-- `backend/main.py` — nuevo endpoint /suggest
-- `backend/requirements.txt` — añadir httpx/requests
 
 ---
 
@@ -102,32 +101,9 @@
 
 ---
 
-## FASE 4 — Multi-Operador (Swarm)
-
-**Objetivo:** Varios roles de agente trabajando en paralelo, como T3MP3ST.
-
-### Roles
-- [ ] **Recon** → enumeración inicial (nmap, whatweb, dnsrecon)
-- [ ] **Scanner** → búsqueda de vulnerabilidades (nikto, wpscan, nuclei)
-- [ ] **Exploiter** → explotación de hallazgos (metasploit, sqlmap)
-- [ ] **Report** → generación de informe final
-
-### Backend
-- [ ] Sistema de colas de tareas por rol
-- [ ] Pizarra compartida entre agentes (hallazgos compartidos)
-- [ ] Coordinador que evita conflictos
-- [ ] Logs de cada operador por separado
-
-### Archivos a crear
-- `backend/operators/` — directorio con cada operador
-- `backend/swarm.py` — coordinador del swarm
-- `frontend/js/swarm.js` — visualización del swarm
-
----
-
 ## FASE 5 — Hallazgos Persistentes + Reportes Automáticos
 
-**Objetivo:** Los hallazgos no se pierden al recargar. La IA genera informes automáticos.
+**Objetivo:** Informes automáticos compilados con IA.
 
 ### Frontend
 - [ ] Hallazgos guardados en localStorage + exportables
@@ -135,14 +111,10 @@
 - [ ] Exportar informe completo en MD/HTML/PDF con un clic
 
 ### Backend
-- [ ] API REST para hallazgos (CRUD)
-- [ ] Almacenamiento persistente (SQLite)
-- [ ] Endpoint `/api/report/generate` que compila informe
-
-### Archivos a crear
-- `backend/findings_db.py` — base de datos de hallazgos
-- `backend/report_generator.py` — generador de informes
-- `frontend/js/reports_v2.js` — nueva UI de informes
+- [x] API REST para hallazgos (CRUD)
+- [x] Almacenamiento persistente (Supabase)
+- [x] Endpoint `/api/report/generate` que compila informe
+- [ ] Integración IA en generación de informes
 
 ---
 
@@ -151,13 +123,10 @@
 **Objetivo:** Evitar que las herramientas escaneen hosts fuera del objetivo.
 
 ### Backend
-- [ ] Configuración de alcance (IP/rango/dominio)
-- [ ] Proxy wrapper que intercepta comandos y bloquea off-scope
-- [ ] Modo "solo target" y "red local permitida"
-
-### Archivos a crear
-- `backend/scope_guard.py` — validador de alcance
-- `frontend/js/scope.js` — UI de configuración de alcance
+- [x] Configuración de alcance (IP/rango/dominio)
+- [x] Proxy wrapper que intercepta comandos y bloquea off-scope
+- [x] Modo "solo target" y "red local permitida"
+- [ ] UI mejorada para gestión de scope
 
 ---
 
@@ -177,30 +146,45 @@
 
 ---
 
+## 📝 Pendientes menores
+
+- [ ] Probar findings con todos los parsers (nikto, dirb, ffuf, etc.)
+- [ ] Payload Studio: botón "Abrir en nueva pestaña" (X-Frame-Options bloquea iframe)
+- [ ] Verificar contador de modules loaded (banner dice 15, debería ser 51)
+- [ ] Hak5 Payload AI integration
+- [ ] Self-improvement loop (aprender de misiones pasadas)
+- [ ] OPSEC Levels (Silent/Covert/Loud)
+- [ ] Evidence Vault (screenshots, requests, outputs)
+
+---
+
 ## ✅ Bugs Corregidos (Julio 2026)
 
-- [x] **Duplicación de findings (Fase 1):** Race condition entre safety timer (30s) y detector de prompt causaba parseo doble. Añadida deduplicación por clave compuesta (tool+target+tipo+contenido) e IDs determinísticos via hash. Todos los parsers limpiados.
-- [x] **Terminal: flechas ↑/↓:** Añadido `focus()` + `setSelectionRange()` tras navegar historial para forzar actualización visual del input.
-- [x] **Upload file (>1MB):** Substituido heredoc por subida chunked en base64 con `printf '%s'` que soporta cualquier tamaño y tipo de archivo (binarios incluidos).
-- [x] **Reconexión prompt limpio:** Añadido `await asyncio.sleep(0.3)` tras `invoke_shell()` para que el shell esté listo antes de enviar `p10k disable`.
-- [x] **sudo -S caracteres especiales:** Substituido envío directo por heredoc con delimitador quoteado (`<< 'SUDOEOF'`) que evita expansión de `$`, `` ` ``, `\` por el shell.
-- [x] **Auto-scroll:** Substituido `requestAnimationFrame` por `setTimeout(0)` con debounce, más fiable para scroll durante ráfagas de output.
+- [x] **Duplicación de findings:** Race condition entre safety timer (30s) y detector de prompt. Añadida deduplicación por clave compuesta + `_toolParsed` flag.
+- [x] **Findings no aparecían:** `currentToolRunning` solo se asignaba para nmap/gobuster. Fix: añadidos whatweb y otros 12 tools.
+- [x] **Buffer vacío al parsear:** Timer de 800ms se disparaba antes de que llegara el output real. Fix: prompt detection + `pendingTool` que sobrevive al timer.
+- [x] **Terminal: flechas ↑/↓:** Añadido `focus()` + `setSelectionRange()`.
+- [x] **Upload file (>1MB):** Substituido heredoc por subida chunked base64.
+- [x] **Reconexión prompt limpio:** `asyncio.sleep(0.3)` tras `invoke_shell()`.
+- [x] **sudo -S caracteres especiales:** Heredoc con delimitador quoteado.
+- [x] **Auto-scroll:** `setTimeout(0)` con debounce en vez de `requestAnimationFrame`.
 
 ---
 
 ## 📊 Resumen
 
-| Fase | Descripción | Prioridad | Esfuerzo |
-|------|------------|-----------|----------|
-| Fase 1 | Parser de resultados + Findings Panel | 🔴 Alta | 3-4 días |
-| Fase 2 | Sugerencias IA | 🔴 Alta | 2-3 días |
-| Fase 3 | Op Admiral (planificador) | 🟡 Media | 5-7 días |
-| Fase 4 | Multi-operador (Swarm) | 🟡 Media | 7-10 días |
-| Fase 5 | Hallazgos persistentes + informes | 🟢 Baja | 3-4 días |
-| Fase 6 | Contención de alcance | 🟢 Baja | 1-2 días |
-| Fase 7 | Producción (dominio + tunnel) | 🟡 Media | 1 día |
-| Bugs | Correcciones pendientes | 🔴 Alta | 1-2 días |
+| Fase | Descripción | Estado |
+|------|------------|--------|
+| Fase 1 | Parser de resultados + Findings Panel | ✅ Completado |
+| Fase 2 | Sugerencias IA | ✅ Completado |
+| Fase 3 | Op Admiral (planificador) | 🚧 Pendiente |
+| Fase 4 | Multi-operador (Swarm) | ✅ Completado |
+| Fase 5 | Hallazgos persistentes + informes | 🚧 Parcial |
+| Fase 6 | Contención de alcance | 🟡 Parcial (backend listo, UI falta) |
+| Fase 7 | Producción (dominio + tunnel) | 🚧 Pendiente |
+| Labs | Mobile + Forensics + KB + CTF + Creds | ✅ Completado |
+| MCP | Server para agentes IA | ✅ Completado |
 
 ---
 
-*Última actualización: Julio 2026*
+*Última actualización: Julio 2026 — M.I.R.V. v3.0*

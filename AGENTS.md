@@ -1,25 +1,37 @@
-# AGENTS.md — VulnForge CTF Dashboard
+# AGENTS.md — M.I.R.V. (Multi-platform Incident Response & Vulnerabilities)
 
 ## Architecture
 
-Two-tier app: **FastAPI backend** serves static frontend + WebSocket SSH proxy.
+Two-tier app: **FastAPI backend** serves static frontend + WebSocket SSH proxy + REST API.
 
 ```
 Browser → WS (localhost:8000/ws) → FastAPI → Paramiko → Kali SSH
          ↑
    serves /static/* from frontend/
+   REST API (65+ endpoints) → Supabase (PostgreSQL)
 ```
 
 ```
 C:\Users\34678\Desktop\Proyecto ciber\
 ├── backend/
-│   └── main.py          # FastAPI app (single-file, ~130 lines)
+│   ├── main.py              # FastAPI app (~1912 lines, 65+ endpoints)
+│   ├── database.py           # Supabase CRUD layer
+│   ├── mcp_server.py         # MCP Server for AI agents
+│   ├── swarm.py              # Multi-operator coordinator
+│   ├── mobile_analyzer.py    # APK static + dynamic analysis
+│   ├── forensics.py          # Digital forensics analysis
+│   ├── knowledgebase.py      # CVE + MITRE ATT&CK DB
+│   ├── scope_guard.py        # Scope validation (Warn/Block)
+│   ├── adb_controller.py     # ADB device controller
+│   └── requirements.txt
 ├── frontend/
-│   ├── index.html       # SPA (Tailwind CDN, 5 tabs, 31 modules, ~854 lines)
-│   ├── js/main.js       # All frontend logic (~1480 lines)
-│   └── css/style.css    # Hacker theme + monochrome override (~636 lines)
-└── .opencode/
-    └── agents/architect.md  # Primary orchestrator agent definition
+│   ├── index.html           # SPA (Tailwind CDN, 15 tabs, ~1673 lines)
+│   ├── js/main.v2.js       # All frontend logic (~4716 lines)
+│   ├── js/dataservice.js    # Supabase REST client
+│   └── css/style.css        # Signal Intelligence + Monochrome theme (~873 lines)
+├── .opencode/
+│   └── agents/              # OpenCode agent definitions
+└── docs: README.md, ROADMAP.md, PRODUCTION_PLAN.md, VULNFORGE_VS_T3MP3ST.md
 ```
 
 ## How to run
@@ -31,157 +43,214 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 # Open http://localhost:8000
 ```
 
-**Dependencies:** `fastapi`, `uvicorn`, `websockets`, `paramiko`.
+**Dependencies:** `fastapi`, `uvicorn`, `gunicorn`, `websockets`, `paramiko`, `supabase`, `reportlab`, `python-dotenv`, `python-multipart`.
+
+## Backend modules (main.py + 8 modules)
+
+| File | Lines | Purpose |
+|------|-------|---------|
+| `main.py` | ~1912 | FastAPI app, WebSocket SSH proxy, 65+ REST endpoints |
+| `database.py` | ~500 | Supabase CRUD (connections, scripts, reports, findings, payloads, credentials, CTF, forensics, mobile) |
+| `mcp_server.py` | ~600 | MCP Server exposes tools to AI agents (Claude Code, Cursor, etc.) |
+| `swarm.py` | ~250 | Multi-operator swarm coordinator (Recon, Scanner, Exploiter, Report) |
+| `mobile_analyzer.py` | ~800 | APK static analysis (apktool, jadx, mobsf) + dynamic (ADB/Frida) |
+| `forensics.py` | ~350 | Digital forensics (memory, disk, Sleuth Kit) |
+| `knowledgebase.py` | ~500 | CVE database + MITRE ATT&CK techniques |
+| `scope_guard.py` | ~270 | Scope validation (Warn/Block modes) |
+| `adb_controller.py` | ~220 | ADB device detection + Frida scripts |
 
 ## Backend quirks (main.py)
 
-- **First WS message must be JSON auth** or backend falls back to hardcoded defaults:
-  ```json
-  {"type": "auth", "ip": "192.168.1.x", "user": "kali", "pass": "kali"}
-  ```
-- If first message is not valid JSON, backend treats it as an SSH command using defaults.
-- Static files mount: `app.mount("/static", ...)` serves `frontend/` directory on `/static/` path.
-- Only one WebSocket endpoint: `GET /ws`.
-- Default credentials (`KALI_IP=192.168.214.142`, `KALI_USER=javi`, `KALI_PASS=javi`) are hardcoded fallbacks.
+- **First WS message must be JSON auth**: `{"type":"auth","ip":"...","port":22,"user":"...","pass":"..."}`
+- SSH uses `invoke_shell()` for interactive PTY session.
+- `p10k disable` sent on connect → Powerlevel10k prompt disabled.
+- sudo commands intercepted with `sudo -S` + password piped via heredoc.
+- Static files mount: `app.mount("/static", ...)`.
+- `asyncio.to_thread()` for non-blocking SSH operations.
+- AI chat endpoint: `/api/ai/chat` (OpenAI-compatible, supports multiple providers).
+- AI suggestions: `/api/suggest` (receives findings, returns next-step suggestions).
 
-## Frontend structure
+## Frontend structure (15 tabs)
 
-- **Single HTML file** (`index.html`) — no build step, no bundler.
-- **Tailwind loaded via CDN** (`https://cdn.tailwindcss.com`). Custom colors (`neon`, `cyber`, `deep`, `void`, `blood`) defined in inline `<script>` in `<head>`.
-- **All JS in one file** (`main.js`) — DOMContentLoaded closure, global functions on `window`.
-- **No framework** (vanilla JS), no router, no package.json for frontend.
+| Tab | ID | Purpose |
+|-----|----|---------| 
+| Terminal | `tab-terminal` | SSH interactive shell + command bar |
+| Reports | `tab-reports` | Saved scan reports + export |
+| Scripts | `tab-scripts` | Script builder + deploy to /tmp/ |
+| Bounty | `tab-bounty` | Bug bounty report generator |
+| AI Writeup | `tab-aiwriteup` | AI-powered vulnerability writeups |
+| Findings | `tab-findings` | Parsed tool findings with severity filters |
+| Op Admiral | `tab-opadmiral` | AI mission planner |
+| Automation | `tab-automation` | n8n workflow integration |
+| Swarm | `tab-swarm` | Multi-operator swarm visualization |
+| Credentials | `tab-credentials` | Credential store (discovered creds) |
+| KnowledgeBase | `tab-knowledgebase` | CVE + MITRE ATT&CK search |
+| CTF | `tab-ctf` | CTF challenges with flag tracking |
+| Mobile | `tab-mobile` | APK analysis lab (static + dynamic) |
+| Forensics | `tab-forensics` | Digital forensics lab |
+| Payload Studio | (external link) | Hak5 payload editor (opens new tab, X-Frame-Options blocked) |
+
+- **Single HTML file** (`index.html`) — no build step, no bundler, no framework.
+- **Tailwind via CDN** (`https://cdn.tailwindcss.com`). Custom colors: `neon`, `cyber`, `deep`, `void`, `blood`.
+- **All JS in one file** (`main.v2.js`) — DOMContentLoaded closure, functions on `window.*`.
+- **Vanilla JS**, no router, no package.json for frontend.
 
 ## Key JS globals (window.*)
 
 | Function | Purpose |
 |---|---|
-| `launchTool(toolId)` | Main dispatcher — validates target, builds command, sends via WS |
+| `launchTool(toolId)` | Main dispatcher — validates target, builds command, sends via WS, sets `currentToolRunning` |
 | `sendPredefinedCmd(cmd)` | Sends command to WS with `▶` prefix |
 | `sendCommand()` | Reads manual input and sends |
-| `appendOutput(text)` | Terminal output + scroll-to-bottom |
-| `switchTab(name)` | Toggles among 5 panes: terminal/reports/scripts/bounty/aiwriteup |
+| `appendOutput(text)` | Terminal output (ANSI strip, \r handling, buffer accumulation, prompt detection) |
+| `switchTab(name)` | Toggles among 15 panes |
 | `toggleTheme()` | Toggles `body.monochrome` class, persists to localStorage |
 | `switchLanguage()` | Toggles `window.currentLang` (en/es), calls `applyLanguage()` |
 | `toggleCategory(header)` | Collapses/expands sidebar category groups |
-| `generateBountyReport()` | Builds Markdown from form, enables download |
+| `exportFindings()` | Exports findings as `.txt`/`.md`/`.html`/PDF (reads `#findings-format`) |
+| `clearFindings()` | Clears all findings |
+| `generateBountyReport()` | Builds Markdown from form |
 | `downloadBountyReport()` | Exports bounty report as MD/HTML/PDF (reads `#bounty-format`) |
-| `generateAIWriteup()` | Calls OpenAI-compatible API, renders result |
+| `generateAIWriteup()` | Calls AI API, renders result |
 | `downloadAIWriteup()` | Exports AI writeup as MD/HTML/PDF (reads `#ai-format`) |
-| `exportScanReport(index, format)` | Exports a single scan report (`'md'|'html'|'pdf'`) |
-| `exportAllReports()` | Exports all scan reports in selected format (reads `#reports-format`) |
-| `deployScript()` | Writes script-editor content to `/tmp/` on Kali via SSH |
+| `exportScanReport(index, format)` | Exports a single scan report |
+| `exportAllReports()` | Exports all scan reports (reads `#reports-format`) |
+| `deployScript()` | Writes script to `/tmp/` on Kali via SSH |
 | `switchHak5Device(id)` | Switches between Bunny/OMG/M5/Shack payload editor |
-| `saveHak5Payload()` | Saves payload to localStorage per device (`vulnforge_hak5_*`) |
-| `loadHak5Payload()` | Loads a saved payload by number prompt |
-| `listHak5Payloads()` | Lists all saved payloads for active device |
-| `clearHak5Editor()` | Clears the payload editor |
-| `clearTerminal()` | Clears the terminal output (`#terminal-output`) |
-| `handleFileUpload(input)` | Reads a plain-text file and uploads it to /tmp/ on Kali via SSH |
-| `filterArsenal(query)` | Filters arsenal tools by name/description in real-time |
-| `connectPayloadStudio()` | Shows Payload Studio login form / loads saved creds |
-| `doPayloadStudioLogin()` | Saves Payload Studio credentials to localStorage, navigates iframe |
-| `disconnectPayloadStudio()` | Clears saved creds, resets iframe to login page |
+| `saveHak5Payload()` | Saves payload to localStorage per device (`mirv_hak5_*`) |
+| `clearTerminal()` | Clears terminal output |
+| `handleFileUpload(input)` | Reads file and uploads to /tmp/ via SSH (chunked base64) |
+| `filterArsenal(query)` | Filters arsenal tools by name/description |
+
+## Findings parsing system
+
+**Tools with parsers:** nmap, gobuster, dirb, ffuf, nikto, whatweb, wpscan, wfuzz, feroxbuster, cewl, dnsrecon, curl.
+
+**Flow:**
+1. `launchTool(toolId)` sets `currentToolRunning = tool` and `pendingTool = tool`
+2. `appendOutput()` ALWAYS accumulates to `outputBuffer` (regardless of `currentToolRunning`)
+3. Prompt detection: regex `with\s+\S+\s+at\s+\d{1,2}:\d{2}:\d{2}` triggers `finishToolOutput()`
+4. `_toolParsed` flag prevents duplicate parsing per tool launch
+5. Safety timer (30s) as fallback if prompt not detected
+6. `parseToolOutput(tool, buf, target)` dispatches to tool-specific parser
+7. Findings deduplicated by `key:val` (whatweb) or path (gobuster) etc.
+
+**Parsers:**
+- `parseNmapFindings` → ports, services, versions, OS
+- `parseGobusterFindings` → directories with HTTP status
+- `parseFfufFindings` → directories with status codes
+- `parseNiktoFindings` → vulnerabilities
+- `parseWhatwebFindings` → technologies (deduped across URLs)
+- `parseWpscanFindings` → users, plugins
 
 ## Arsenal module system
 
-53 modules: 44 SSH tools + 9 external resource links.
-
-**Categories:**
-| Category | Count | Tools |
-|----------|-------|-------|
-| Web Recon | 9 | gobuster, dirb, wfuzz, ffuf, **feroxbuster**, nikto, whatweb, wpscan, **cewl** |
-| Network | 6 | nmap, masscan, netcat, dnsrecon, **curl**, **socat** |
-| SMB / Windows | 8 | enum4linux, smbclient, **evil-winrm**, **impacket**, **smbmap**, **ldapsearch**, **bloodhound** |
-| Pivoting | 5 | ligolo, nc-listener, **chisel-client**, **proxychains** |
-| Crypto / Decode | 4 | jwt-decode, b64-encode, b64-decode, john, hashcat |
-| Exploitation | 6 | hydra-ssh, hydra-ftp, sqlmap, searchsploit, **responder**, **burpsuite** |
-| Resources | 8 | links to HackTricks, PortSwigger, PayloadsAllTheThings, Chisel, RevShells, Exploit-DB, BurpSuite, GTFOBins |
-| Utilities | 1 | CyberChef |
-| Extract / Compress | **7** | **unzip, tar-gz, tar-xz, 7z-extract, unrar, gunzip, bunzip2** |
-
-New tools in **bold**.
+51+ modules. Tool IDs must match between HTML `onclick="launchTool('my-id')"` and JS `case 'my-id':`.
 
 **Adding a new tool requires changes in 2 files:**
 1. `index.html` — add button in the appropriate Arsenal category
-2. `main.js` — add `case 'toolId':` in the `launchTool` switch
+2. `main.v2.js` — add `case 'toolId':` in the `launchTool` switch
 
-Tool IDs must match between HTML `onclick="launchTool('my-id')"` and JS `case 'my-id':`.
+Tools that need target validation must be listed in the `needsTarget` array.
 
-Tools that need target validation must be listed in the `needsTarget` array (~line 270 in main.js).
+## REST API (65+ endpoints)
 
-## WebSocket protocol
+| Category | Endpoints |
+|----------|-----------|
+| WebSocket | `GET /ws` |
+| AI | `POST /api/ai/chat`, `POST /api/suggest` |
+| Connections | `GET/POST/DELETE /api/connections` |
+| Reports | `GET/POST/DELETE /api/reports`, `POST /api/report/generate`, `POST /api/generate-pdf` |
+| Scripts | `GET/POST/DELETE /api/scripts` |
+| Findings | `GET/POST/DELETE /api/findings`, `POST /api/findings/bulk`, `GET /api/findings/stats` |
+| Payloads | `GET/POST/DELETE /api/payloads` |
+| Credentials | `GET/POST/DELETE /api/credentials` |
+| CTF | `GET/POST/DELETE /api/ctf/challenges`, `POST /api/ctf/challenges/{id}/solve`, `GET /api/ctf/score` |
+| Forensics | `GET /api/forensics/list`, `POST /api/forensics/upload`, `GET/POST /api/forensics/analyze/{id}` |
+| Mobile | `GET /api/mobile/apks`, `POST /api/mobile/upload`, `GET /api/mobile/devices`, `POST /api/mobile/frida/run` |
+| KnowledgeBase | `GET /api/knowledgebase/search`, `GET /api/knowledgebase/cve/{id}`, `GET /api/knowledgebase/mitre/{id}` |
+| Swarm | `POST /api/swarm/start`, `GET /api/swarm/{id}`, `GET /api/swarm/list`, `POST /api/swarm/{id}/cancel`, `GET /api/swarm/{id}/report` |
+| Scope | `GET/POST /api/scope`, `POST /api/scope/validate`, `GET /api/scope/history`, `POST /api/scope/history/clear` |
+| Upload | `POST /api/upload`, `GET /api/files` |
+| Settings | `GET/POST /api/settings` |
+| n8n | `POST /api/n8n/trigger`, `GET /api/n8n/status` |
+| Health | `GET /api/health` |
 
-- Backend sends plain text (SSH stdout/stderr).
-- JSON protocol messages (`{"type":"connected"|"error", "message":"..."}`) are parsed client-side.
-- Tools that produce parseable output (`nmap`, `gobuster`) set `currentToolRunning` to buffer output, parsed when a new prompt pattern is detected.
+## Persistent storage
 
-## Persistent storage (localStorage keys)
-
+### localStorage keys (frontend)
 | Key | Type | Purpose |
 |---|---|---|
-| `vulnforge_connections` | JSON array | SSH connection profiles |
-| `vulnforge_scripts` | JSON array | Saved RCE scripts |
-| `vulnforge_ai_endpoint` | string | AI API URL |
-| `vulnforge_ai_key` | string | AI API key |
-| `vulnforge_ai_model` | string | AI model name |
-| `vulnforge_theme` | "neon" \| "mono" | Color theme |
-| `vulnforge_lang` | "en" \| "es" | Language |
-| `vulnforge_hak5_bunny` | JSON array | Bash Bunny saved payloads |
-| `vulnforge_hak5_omg` | JSON array | OMG Cable saved payloads |
-| `vulnforge_hak5_m5` | JSON array | M5 Stack saved payloads |
-| `vulnforge_hak5_shack` | JSON array | Shack Jack saved payloads |
-| `vulnforge_ps_creds` | JSON object | Payload Studio credentials (email/password) |
+| `mirv_connections` | JSON array | SSH connection profiles (legacy: `vulnforge_connections`) |
+| `mirv_scripts` | JSON array | Saved RCE scripts |
+| `mirv_ai_endpoint` | string | AI API URL |
+| `mirv_ai_key` | string | AI API key |
+| `mirv_ai_model` | string | AI model name |
+| `mirv_theme` | "neon" \| "mono" | Color theme |
+| `mirv_lang` | "en" \| "es" | Language |
+| `mirv_hak5_bunny` | JSON array | Bash Bunny saved payloads |
+| `mirv_hak5_omg` | JSON array | OMG Cable saved payloads |
+| `mirv_hak5_m5` | JSON array | M5 Stack saved payloads |
+| `mirv_hak5_shack` | JSON array | Shack Jack saved payloads |
+| `mirv_ps_creds` | JSON object | Payload Studio credentials |
+
+### Supabase (backend persistence)
+Tables: `ssh_connections`, `scripts`, `reports`, `findings`, `hak5_payloads`, `app_settings`, `uploaded_files`, `credentials`, `ctf_challenges`, `forensics_evidence`, `mobile_apks`.
+Storage bucket: `vulnforge` for file uploads.
 
 ## i18n system
 
-- Translations object in `main.js` with ~60 entries.
-- Elements marked with `data-i18n="key"` get auto-updated by `applyLanguage()`.
-- Placeholders (target IP, command input, connection form) updated directly in `applyLanguage()`.
+- 150+ translation entries in `main.v2.js` `translations` object.
+- Elements with `data-i18n="key"` auto-updated by `applyLanguage()`.
+- Placeholders updated directly in `applyLanguage()`.
 - Language default: `en`. Toggle in header button.
-
-## Theme system
-
-- **Neon** (default): Dark with green/cyan/red accents, CRT scanlines, matrix BG.
-- **Monochrome**: `body.monochrome` class, ~80 CSS overrides in `style.css` that force all colors to grayscale and hide decorative effects.
+- State persisted in `localStorage` (`mirv_lang`).
 
 ## Report export system (MD / HTML / PDF)
 
-Three report types → each has a format selector (`#bounty-format`, `#ai-format`, `#reports-format`):
+Format selectors: `#findings-format`, `#bounty-format`, `#ai-format`, `#reports-format`.
 
 ```
-<select id="bounty-format">
+<select id="findings-format">
+  <option value="txt">.txt</option>
   <option value="md">.md</option>
   <option value="html">.html</option>
   <option value="pdf">📄 PDF</option>
 </select>
 ```
 
-**How each format works:**
-- **MD** — downloads a `.md` file directly via Blob
-- **HTML** — generates a self-contained HTML doc with inline dark-theme styles, downloads as `.html`
-- **PDF** — generates the same styled HTML, opens it in a new popup window, then triggers `window.print()` → user selects "Save as PDF"
+- **MD** — downloads `.md` file via Blob
+- **TXT** — plain text format (findings only)
+- **HTML** — self-contained HTML doc with inline dark-theme styles
+- **PDF** — HTML → popup → `window.print()` → "Save as PDF"
 
-**Key JS functions (not on `window.*`):**
-- `mdToBasicHTML(text)` — converts markdown-like syntax (#, **, `, -, ---) to HTML
-- `buildExportHTML(content, title, type)` — wraps content in a full HTML5 document with print/display CSS
-- `openPDFPreview(htmlContent, title)` — popup + `print()` workflow
-- `downloadString(content, filename, mimeType)` — generic Blob download
-- `exportReport(content, filename, format, title, type)` — central dispatcher
-
-**Scan reports** get per-export buttons (`.md`, `.html`, `.pdf`) next to each card, plus a bulk "Export all" using the shared format selector.
+**Key export functions:** `downloadString()`, `mdToBasicHTML()`, `buildExportHTML()`, `openPDFPreview()`, `exportReport()`.
 
 ## Notable constraints
 
-- **Git push fails** (403) — remote `origin` at `https://github.com/SenorJA/dashboard-ctf.git` needs PAT auth.
-- **No test files** exist anywhere in the repo.
+- **Backend assumes Kali Linux** is reachable on LAN.
+- **No test files** in the repo.
 - **No CI/CD**, no linter, no formatter config.
-- **Backend assumes Kali Linux** is reachable on the LAN. Default IP is `192.168.214.142`.
-- `backend/main.py` uses `asyncio.to_thread()` for SSH connections (non-blocking).
-- Script builder deploys to `/tmp/` on the SSH target.
+- `backend/main.py` uses `asyncio.to_thread()` for SSH (non-blocking).
+- Script builder deploys to `/tmp/` on SSH target.
+- `PRODUCTION_PLAN.md` describes Cloudflare Tunnel setup for remote access.
 
 ## Style conventions
 
-- Python: Single file, docstrings, `await websocket.send_text()` for all output.
-- JS: All functions on `window.*`, `const`/`let`, template literals, `camelCase`.
-- HTML: Tailwind utility classes, `data-i18n` for translations, `onclick` for events.
-- CSS: Custom properties for colors, `!important` used in monochrome overrides.
+- **Python**: Single files, docstrings, `await websocket.send_text()`, type hints where useful.
+- **JS**: Functions on `window.*`, `const`/`let`, template literals, `camelCase`.
+- **HTML**: Tailwind utility classes, `data-i18n` for translations, `onclick` for events.
+- **CSS**: Custom properties for colors, `!important` in monochrome overrides.
+
+## OpenCode agents
+
+| File | Role |
+|---|---|
+| `agents/architect.md` | 🏗️ Orchestrator principal |
+| `agents/backend-dev.md` | ⚙️ Backend Senior (FastAPI + Supabase) |
+| `agents/frontend-dev.md` | 🖥️ Frontend Senior (Vanilla JS + Tailwind) |
+| `agents/ui-auditor.md` | 🎨 Auditor de UI/contraste Signal Intelligence |
+| `agents/cibersecurity_expert.md` | 🔐 Experto en ciberseguridad |
+| `agents/security.md` | 🛡️ Seguridad |
+| `agents/reviewer.md` | 👀 Revisor de código |
+| `agents/traslator.md` | 🌐 Traductor |

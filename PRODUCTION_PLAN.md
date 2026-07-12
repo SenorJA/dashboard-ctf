@@ -1,10 +1,12 @@
-# 🚀 Plan de Producción — VulnForce (Windows)
+# 🚀 Plan de Producción — M.I.R.V. (Windows)
+
+> Anteriormente VulnForge
 
 ## Escenario
 
 ```
 Portátil (cualquier sitio)
-  └─ https://vulnforge.TU-DOMINIO.com
+  └─ https://mirv.TU-DOMINIO.com
        └─ Cloudflare (SSL + WAF + CDN)
             └─ Cloudflare Tunnel (cloudflared.exe)
                  └─ Windows — localhost:8000 (uvicorn)
@@ -62,7 +64,7 @@ Se abrirá el navegador. Inicia sesión en Cloudflare y autoriza el túnel. Se g
 ## Paso 4 — Crear el túnel
 
 ```cmd
-C:\cloudflared\cloudflared.exe tunnel create vulnforge
+C:\cloudflared\cloudflared.exe tunnel create mirv
 ```
 
 Esto devuelve un **ID de túnel** (UUID) y crea un archivo JSON en:
@@ -77,37 +79,37 @@ Guarda el UUID. Lo necesitas para los siguientes pasos.
 Editar `C:\Users\TU_USUARIO\.cloudflared\config.yml`:
 
 ```yaml
-tunnel: vulnforge
+tunnel: mirv
 credentials-file: C:\Users\TU_USUARIO\.cloudflared\UUID.json
 
 ingress:
-  - hostname: vulnforge.TU-DOMINIO.com
+  - hostname: mirv.TU-DOMINIO.com
     service: http://localhost:8000
   - service: http_status:404
 ```
-
-También tienes una plantilla en `scripts/cloudflared.yml` — puedes copiarla y rellenar los valores.
 
 ---
 
 ## Paso 6 — Enrutar DNS
 
 ```cmd
-C:\cloudflared\cloudflared.exe tunnel route dns vulnforge vulnforge.TU-DOMINIO.com
+C:\cloudflared\cloudflared.exe tunnel route dns mirv mirv.TU-DOMINIO.com
 ```
 
-Cloudflare crea automáticamente un registro CNAME desde `vulnforge.TU-DOMINIO.com` a tu túnel.
+Cloudflare crea automáticamente un registro CNAME desde `mirv.TU-DOMINIO.com` a tu túnel.
 
 ---
 
 ## Paso 7 — Probar el túnel
 
 ```cmd
-C:\cloudflared\cloudflared.exe tunnel run vulnforge
+C:\cloudflared\cloudflared.exe tunnel run mirv
 ```
 
 Abre `http://localhost:8000` para verificar que funciona en local.
-Abre `https://vulnforge.TU-DOMINIO.com` para verificar que funciona por el túnel.
+Abre `https://mirv.TU-DOMINIO.com` para verificar que funciona por el túnel.
+
+**Nota:** El WebSocket usará `wss://` automáticamente cuando la página se cargue por HTTPS.
 
 ---
 
@@ -130,7 +132,7 @@ Este script:
 ### Opción B: Task Scheduler (arranque automático al iniciar sesión)
 
 1. Abrir **Task Scheduler** (taskschd.msc)
-2. Crear tarea → "VulnForge Production"
+2. Crear tarea → "M.I.R.V. Production"
    - **Trigger:** "At log on"
    - **Action:** Start a program → `scripts\start_production.bat`
    - **Run whether user is logged on or not:** Sí
@@ -148,11 +150,11 @@ Añade una pantalla de login ANTES del dashboard:
 
 1. Panel Cloudflare → Zero Trust → Access → Applications
 2. Crear aplicación → Self-hosted
-3. Domain: `vulnforge.TU-DOMINIO.com`
+3. Domain: `mirv.TU-DOMINIO.com`
 4. Policy → Email OTP (código de un solo uso al email)
 5. Guardar
 
-Ahora, al abrir `https://vulnforge.TU-DOMINIO.com`, Cloudflare pedirá tu email y te enviará un código antes de dejarte pasar.
+Ahora, al abrir `https://mirv.TU-DOMINIO.com`, Cloudflare pedirá tu email y te enviará un código antes de dejarte pasar.
 
 ### WAF Rules
 
@@ -173,6 +175,7 @@ En Cloudflare → Security → WAF, puedes crear reglas para:
 | Error 526 / SSL | Cloudflare → SSL/TLS → Full (strict) |
 | Quiero cambiar el dominio | `cloudflared tunnel route dns` de nuevo |
 | El túnel se cae solo | Revisar conexión a internet / VPN |
+| WebSocket no conecta por HTTPS | Verificar que usa `wss://` (automático) |
 
 ---
 
@@ -180,16 +183,16 @@ En Cloudflare → Security → WAF, puedes crear reglas para:
 
 ```cmd
 :: Probar túnel
-C:\cloudflared\cloudflared.exe tunnel run vulnforge
+C:\cloudflared\cloudflared.exe tunnel run mirv
 
 :: Listar túneles
 C:\cloudflared\cloudflared.exe tunnel list
 
 :: Eliminar túnel
-C:\cloudflared\cloudflared.exe tunnel delete vulnforge
+C:\cloudflared\cloudflared.exe tunnel delete mirv
 
 :: Ver logs
-type "backend\logs\vulnforge.log"
+type "backend\logs\mirv.log"
 ```
 
 ---
