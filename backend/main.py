@@ -118,13 +118,25 @@ else:
 
 logger = logging.getLogger("vulnforge")
 
-# ── Middleware: force no-cache on everything (kill browser cache) ──
+# ── Middleware: force no-cache + CSP for Tailwind CDN ──
 class NoCacheMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         response = await call_next(request)
         response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
+        # CSP: allow Tailwind CDN (needs 'unsafe-eval' for JIT engine)
+        # This is a local pentest dashboard — not a public website
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' "
+            "https://cdn.tailwindcss.com https://*.tailwindcss.com; "
+            "style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; "
+            "connect-src 'self' ws://* http://* https://*; "
+            "img-src 'self' data: blob:; "
+            "font-src 'self' data:; "
+            "frame-src 'self' http://* https://*;"
+        )
         return response
 
 app.add_middleware(NoCacheMiddleware)
