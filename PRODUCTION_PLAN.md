@@ -28,6 +28,8 @@ Portátil (cualquier sitio)
 | Dominio (Namecheap / Cloudflare Registrar) | 3-5€/año | ❌ Pendiente compra |
 | DNS apuntando a Cloudflare | 0€ | ❌ Pendiente config |
 
+> **Nota:** El backend local ya funciona ✅. La app es completamente funcional en localhost:8000. Solo falta comprar el dominio y configurar el túnel Cloudflare para acceso remoto.
+
 ---
 
 ## Paso 1 — Descargar cloudflared
@@ -197,6 +199,17 @@ type "backend\logs\mirv.log"
 
 ---
 
+## 📚 Documentación relacionada
+
+| Documento | Descripción |
+|-----------|-------------|
+| [`AGENTS.md`](AGENTS.md) | Arquitectura técnica completa (80+ endpoints, 17 tablas, frontend JS) |
+| [`PERSISTENCE_AUDIT.md`](PERSISTENCE_AUDIT.md) | Auditoría de persistencia de datos |
+| [`ROADMAP.md`](ROADMAP.md) | Roadmap de desarrollo y mejoras |
+| [`README.md`](README.md) | Documentación principal del proyecto |
+
+---
+
 ## Diagrama final
 
 ```
@@ -204,6 +217,8 @@ type "backend\logs\mirv.log"
 │  Portátil    │────>│ Cloudflare  │────>│  Windows         │────>│ Kali VM  │
 │  (navegador) │     │ (SSL+WAF)   │     │  localhost:8000  │     │  SSH:22  │
 └──────────────┘     └─────────────┘     │  + cloudflared   │     └──────────┘
-                                          │  + uvicorn       │
-                                          └──────────────────┘
+                                           │  + uvicorn       │
+                                           └──────────────────┘
 ```
+
+*Última actualización: Julio 2026 — M.I.R.V. v3.0 — Pendiente: comprar dominio + descargar cloudflared + configurar túnel*

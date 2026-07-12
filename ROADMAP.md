@@ -55,8 +55,8 @@
 ### Infraestructura
 - [x] **MCP Server** — expone herramientas a agentes IA (Claude Code, Cursor)
 - [x] **Scope Guard** — validación de alcance (modo Warn/Block)
-- [x] Backend (9 módulos Python, 65+ endpoints REST)
-- [x] Supabase persistence (11 tablas)
+- [x] Backend (11 módulos Python, 80+ endpoints REST)
+- [x] Supabase persistence (17 tablas)
 - [x] i18n (150+ traducciones EN/ES)
 - [x] Responsive + mobile sidebar
 - [x] PDF generation server-side (ReportLab)
@@ -177,6 +177,46 @@
 
 - [ ] Probar findings con todos los parsers (nikto, dirb, ffuf, wpscan, etc.)
 - [ ] Payload Studio: botón "Abrir en nueva pestaña" (X-Frame-Options bloquea iframe)
+- [ ] Dockerizar backend + frontend (ver Fase 8 abajo)
+- [ ] Tests automatizados (pytest para backend, vitest/cypress para frontend)
+- [ ] CI/CD con GitHub Actions
+
+---
+
+## FASE 8 — Docker, Tests, CI/CD (Próximo gran hito) 🚧
+
+**Objetivo:** Contenerizar, automatizar pruebas, pipeline CI/CD.
+
+### Backend
+- [ ] Dockerfile para uvicorn + dependencias
+- [ ] docker-compose.yml (backend + Supabase local opcional)
+- [ ] pytest con fixtures para endpoints REST + WebSocket
+- [ ] Cobertura de tests > 70%
+
+### Frontend
+- [ ] Dockerfile nginx para SPA estática
+- [ ] Tests de integración (Cypress/Playwright)
+- [ ] Validación de parsers de findings
+
+### CI/CD
+- [ ] GitHub Actions: lint + test + build
+- [ ] GitHub Actions: deploy a VPS o Docker Hub
+- [ ] Escaneo de seguridad (bandit, safety)
+
+---
+
+## ✅ Persistence Audit & Fixes (Julio 2026)
+
+- [x] **Auditoría completa de persistencia:** Documentados todos los gaps en `PERSISTENCE_AUDIT.md`
+- [x] **DB bootstrap:** `_ensure_tables()` ahora crea tablas con 3 estrategias (psycopg2 directa, Mgmt API, fallback graceful)
+- [x] **Schema sincronizado:** 17 tablas con índices en `supabase_schema.sql` y `SCHEMA_SQL` en `database.py`
+- [x] **3 APIs muertas conectadas:** SSH connections (`/api/connections`), scripts (`/api/scripts`), payloads (`/api/payloads`) — offline-first pattern con localStorage fallback
+- [x] **Bounty reports + AI writeups:** Auto-guardado en `reports` table via `_saveReportToDB()`
+- [x] **15 nuevos endpoints:** `/api/plans` (CRUD), `/api/scope/events` (CRUD+clear), `/api/swarm/sessions` (CRUD), `/api/credentials/secrets` (CRUD)
+- [x] **Scope events persistence:** `scope_guard.log_block()` ahora persiste a `scope_events` via `save_scope_event()` fire-and-forget
+- [x] **Swarm sessions persistence:** `run_pipeline()` guarda sesión completa al finalizar
+- [x] **Secrets fuera de localStorage:** AI keys y Payload Studio creds migradas a `app_credentials` via `/api/credentials/secrets`; caché en localStorage se limpia tras migración exitosa
+- [x] **`backend/__init__.py` fix:** Añadido `sys.path` para evitar `ModuleNotFoundError` en subprocess de uvicorn reloader
 
 ---
 
@@ -204,10 +244,12 @@
 | Fase 5 | Hallazgos persistentes + informes | ✅ Completado |
 | Fase 6 | Contención de alcance | ✅ Completado |
 | Fase 7 | Producción (dominio + tunnel) | 🚧 Pendiente (infraestructura) |
+| Fase 8 | Docker + Tests + CI/CD | ⏳ Próximo hito |
 | Labs | Mobile + Forensics + KB + CTF + Creds | ✅ Completado |
 | MCP | Server para agentes IA | ✅ Completado |
 | OPSEC | Levels (Silent/Covert/Loud) | ✅ Completado |
 | Self-Improvement | Mission History + AI context | ✅ Completado |
+| Persistence Audit | 17 tablas, 15 endpoints, offline-first | ✅ Completado |
 
 ---
 

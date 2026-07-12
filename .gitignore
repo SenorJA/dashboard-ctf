@@ -23,3 +23,12 @@ nul
 .idea/
 *.swp
 *.swo
+
+# Logs
+*.log
+backend/logs/
+
+# Temp files
+C:*
+c:*
+/tmp/
