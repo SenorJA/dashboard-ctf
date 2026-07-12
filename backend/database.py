@@ -235,35 +235,151 @@ CREATE TABLE IF NOT EXISTS mission_history (
 CREATE INDEX IF NOT EXISTS idx_mission_history_target ON mission_history(target);
 CREATE INDEX IF NOT EXISTS idx_mission_history_os      ON mission_history(os_detected);
 CREATE INDEX IF NOT EXISTS idx_mission_history_score   ON mission_history(success_score DESC);
+
+-- scope_events (audit log for scope guard blocks/warnings)
+CREATE TABLE IF NOT EXISTS scope_events (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    target TEXT NOT NULL,
+    action TEXT NOT NULL,
+    tool TEXT DEFAULT '',
+    reason TEXT DEFAULT '',
+    mode TEXT DEFAULT 'warn',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_scope_events_target ON scope_events(target);
+CREATE INDEX IF NOT EXISTS idx_scope_events_created ON scope_events(created_at DESC);
+
+-- swarm_sessions (multi-operator pipeline results)
+CREATE TABLE IF NOT EXISTS swarm_sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    target TEXT NOT NULL,
+    mode TEXT DEFAULT 'auto',
+    status TEXT DEFAULT 'running',
+    phases JSONB DEFAULT '[]',
+    total_findings INT DEFAULT 0,
+    report_id UUID,
+    error TEXT DEFAULT '',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    completed_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_swarm_target ON swarm_sessions(target);
+CREATE INDEX IF NOT EXISTS idx_swarm_status ON swarm_sessions(status);
+
+-- mission_plans (Op Admiral saved plans)
+CREATE TABLE IF NOT EXISTS mission_plans (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    target TEXT NOT NULL,
+    name TEXT DEFAULT '',
+    steps JSONB DEFAULT '[]',
+    total_steps INT DEFAULT 0,
+    completed_steps INT DEFAULT 0,
+    status TEXT DEFAULT 'active',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_plans_target ON mission_plans(target);
+CREATE INDEX IF NOT EXISTS idx_plans_status ON mission_plans(status);
+
+-- app_credentials (encrypted secrets storage)
+CREATE TABLE IF NOT EXISTS app_credentials (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    description TEXT DEFAULT '',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
 """
 
 
 def _ensure_tables():
-    """Create all tables if they don't exist."""
+    """Create all tables if they don't exist.
+
+    Attempts three strategies in order:
+    1. Direct PostgreSQL connection via ``psycopg2`` (requires
+       ``SUPABASE_DB_PASSWORD`` env var — most reliable).
+    2. Supabase Management API query endpoint if a management token
+       is available (``SUPABASE_MGMT_TOKEN``).
+    3. Gentle check-and-warn — the Supabase SQL editor or
+       ``supabase_schema.sql`` must be run manually.
+    """
     if not _supabase:
         return
-    try:
-        # Supabase-py doesn't support raw SQL directly.
-        # We use the REST API to execute SQL via the 'sql' endpoint.
-        # Alternative: use the management API or run via psql.
-        # For now, we check tables exist by trying a simple query.
 
+    url = os.getenv("SUPABASE_URL", "")
+    db_password = os.getenv("SUPABASE_DB_PASSWORD", "")
+
+    # ── Strategy 1: Direct PostgreSQL (psycopg2) ─────────────────
+    if url and db_password:
+        try:
+            import psycopg2
+            project_ref = url.replace("https://", "").replace(".supabase.co", "").strip()
+            host = f"db.{project_ref}.supabase.co"
+            conn = psycopg2.connect(
+                host=host, port=5432,
+                database="postgres",
+                user="postgres",
+                password=db_password,
+                connect_timeout=5,
+            )
+            with conn:
+                with conn.cursor() as cur:
+                    cur.execute(SCHEMA_SQL)
+            conn.close()
+            logger.info("All tables created/verified via direct PostgreSQL connection")
+            return
+        except ImportError:
+            logger.debug("psycopg2 not installed — skipping direct DB bootstrap")
+        except Exception as e:
+            logger.warning("Direct PostgreSQL bootstrap failed: %s", e)
+
+    # ── Strategy 2: Supabase Management API (pg_dump endpoint) ──
+    mgmt_token = os.getenv("SUPABASE_MGMT_TOKEN", "")
+    if url and mgmt_token:
+        try:
+            project_ref = url.replace("https://", "").replace(".supabase.co", "").strip()
+            import urllib.request
+            import json as _json
+            mgmt_url = f"https://api.supabase.com/v1/projects/{project_ref}/database/query"
+            req = urllib.request.Request(
+                mgmt_url,
+                data=_json.dumps({"query": SCHEMA_SQL}).encode(),
+                headers={
+                    "Authorization": f"Bearer {mgmt_token}",
+                    "Content-Type": "application/json",
+                },
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                logger.info("Tables created via Management API (status %s)", resp.status)
+                return
+        except Exception as e:
+            logger.warning("Management API bootstrap failed: %s", e)
+
+    # ── Strategy 3: Gentle check + instructions ─────────────────
+    try:
         tables = [
             "ssh_connections", "scripts", "reports",
             "hak5_payloads", "app_settings", "uploaded_files",
             "findings", "credentials", "ctf_challenges", "ctf_solves",
             "mobile_apks", "forensics_evidence", "mission_history",
+            "scope_events", "swarm_sessions", "mission_plans", "app_credentials",
         ]
+        missing = []
         for table in tables:
             try:
                 _supabase.table(table).select("id").limit(1).execute()
             except Exception:
-                logger.info("Table '%s' doesn't exist — creating via REST", table)
-                # We can't CREATE TABLE via REST API easily.
-                # User must run the SQL manually or we use the management endpoint.
-                pass
+                missing.append(table)
 
-        logger.info("Tables verified. If missing, run the SQL from supabase_schema.sql")
+        if missing:
+            logger.info(
+                "Tables missing (%s). To create them automatically, set "
+                "SUPABASE_DB_PASSWORD env var (PostgreSQL direct connection) "
+                "or run supabase_schema.sql in the Supabase SQL editor.",
+                ", ".join(missing),
+            )
+        else:
+            logger.info("All %d tables verified in Supabase", len(tables))
     except Exception as e:
         logger.warning("Table check failed: %s", e)
 
