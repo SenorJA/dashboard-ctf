@@ -284,14 +284,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.appendBanner = function () {
         appendOutput('');
-        appendOutput('  ██╗   ██╗██╗   ██╗██╗     ███╗   ██╗███████╗ ██████╗ ██████╗  ██████╗ ███████╗');
-        appendOutput('  ██║   ██║██║   ██║██║     ████╗  ██║██╔════╝██╔═══██╗██╔══██╗██╔════╝ ██╔════╝');
-        appendOutput('  ██║   ██║██║   ██║██║     ██╔██╗ ██║█████╗  ██║   ██║██████╔╝██║  ███╗█████╗  ');
-        appendOutput('  ╚██╗ ██╔╝██║   ██║██║     ██║╚██╗██║██╔══╝  ██║   ██║██╔══██╗██║   ██║██╔══╝  ');
-        appendOutput('   ╚████╔╝ ╚██████╔╝███████╗██║ ╚████║██║     ╚██████╔╝██║  ██║╚██████╔╝███████╗');
-        appendOutput('    ╚═══╝   ╚═════╝ ╚══════╝╚═╝  ╚═══╝╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝');
+        appendOutput('  ███╗   ███╗██╗██████╗ ██╗   ██╗');
+        appendOutput('  ████╗ ████║██║██╔══██╗██║   ██║');
+        appendOutput('  ██╔████╔██║██║██████╔╝██║   ██║');
+        appendOutput('  ██║╚██╔╝██║██║██╔══██╗╚██╗ ██╔╝');
+        appendOutput('  ██║ ╚═╝ ██║██║██║  ██║ ╚████╔╝ ');
+        appendOutput('  ╚═╝     ╚═╝╚═╝╚═╝  ╚═╝  ╚═══╝  ');
         appendOutput('  ───────────────────────────────────────────────────────────────────────────────');
-        appendOutput('  🌐 Red Team Dashboard  |  🔗 vulnforge.local  |  ⚡ 36 modules loaded');
+        appendOutput('  🌐 M.I.R.V. — Multi-platform Incident Response & Vulnerabilities  |  ⚡ 51 modules loaded');
         appendOutput('  ───────────────────────────────────────────────────────────────────────────────');
         appendOutput('');
     };
