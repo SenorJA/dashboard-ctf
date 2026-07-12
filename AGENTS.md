@@ -14,8 +14,8 @@ Browser → WS (localhost:8000/ws) → FastAPI → Paramiko → Kali SSH
 ```
 C:\Users\34678\Desktop\Proyecto ciber\
 ├── backend/
-│   ├── main.py              # FastAPI app (~1912 lines, 65+ endpoints)
-│   ├── database.py           # Supabase CRUD layer
+│   ├── main.py              # FastAPI app (~2270 lines, 80+ endpoints)
+│   ├── database.py           # Supabase CRUD layer (17 tables)
 │   ├── mcp_server.py         # MCP Server for AI agents
 │   ├── swarm.py              # Multi-operator coordinator
 │   ├── mobile_analyzer.py    # APK static + dynamic analysis
@@ -23,15 +23,27 @@ C:\Users\34678\Desktop\Proyecto ciber\
 │   ├── knowledgebase.py      # CVE + MITRE ATT&CK DB
 │   ├── scope_guard.py        # Scope validation (Warn/Block)
 │   ├── adb_controller.py     # ADB device controller
+│   ├── opsec.py              # OPSEC levels (30 tools)
+│   ├── mission_store.py      # Self-Improvement Loop
 │   └── requirements.txt
 ├── frontend/
-│   ├── index.html           # SPA (Tailwind CDN, 15 tabs, ~1673 lines)
-│   ├── js/main.v2.js       # All frontend logic (~4716 lines)
-│   ├── js/dataservice.js    # Supabase REST client
-│   └── css/style.css        # Signal Intelligence + Monochrome theme (~873 lines)
+│   ├── index.html           # SPA (Tailwind CDN, 15 tabs, ~1750 lines)
+│   ├── css/
+│   │   └── style.css         # Signal Intelligence + Monochrome theme (~873 lines)
+│   ├── img/
+│   │   ├── logo.svg           # Full logo (hexagon + radar + typography)
+│   │   ├── favicon.svg        # Browser favicon
+│   │   └── icon-192.svg       # PWA/desktop app icon
+│   └── js/
+│       ├── main.v2.js         # All frontend logic (~5370 lines)
+│       ├── main.js            # Legacy version
+│       ├── dataservice.js     # Supabase REST client
+│       ├── mobile.js          # Mobile analysis UI
+│       ├── forensics.js       # Forensics UI
+│       └── swarm.js           # Swarm UI
 ├── .opencode/
 │   └── agents/              # OpenCode agent definitions
-└── docs: README.md, ROADMAP.md, PRODUCTION_PLAN.md, VULNFORGE_VS_T3MP3ST.md
+└── docs: README.md, ROADMAP.md, PRODUCTION_PLAN.md, PERSISTENCE_AUDIT.md, MIRV_DESKTOP_PLAN.md, VULNFORGE_VS_T3MP3ST.md
 ```
 
 ## How to run
@@ -67,7 +79,8 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 - SSH uses `invoke_shell()` for interactive PTY session.
 - `p10k disable` sent on connect → Powerlevel10k prompt disabled.
 - sudo commands intercepted with `sudo -S` + password piped via heredoc.
-- Static files mount: `app.mount("/static", ...)`.
+- Static files served via `/css/`, `/js/`, and `/img/` routes (path traversal protected).
+- `/favicon.ico` serves SVG favicon as fallback.
 - `asyncio.to_thread()` for non-blocking SSH operations.
 - AI chat endpoint: `/api/ai/chat` (OpenAI-compatible, supports multiple providers).
 - AI suggestions: `/api/suggest` (receives findings, returns next-step suggestions).

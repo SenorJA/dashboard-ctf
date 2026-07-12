@@ -211,6 +211,28 @@ Características: pipeline secuencial, cancelación, logging en tiempo real, per
 - **Hak5 Payload Editor**: Bash Bunny, OMG Cable, M5 Stack, Shark Jack
 - **Toast notifications**: feedback visual no obstructivo
 
+### 🏷️ Branding y logo
+
+El logo de M.I.R.V. sigue la estética **Signal Intelligence** con un diseño táctico/militar:
+
+| Elemento | Archivo | Propósito |
+|----------|---------|-----------|
+| **Logo completo** | [`frontend/img/logo.svg`](frontend/img/logo.svg) | Hexágono + ondas de radar + tipografía "M.I.R.V." + tagline |
+| **Favicon** | [`frontend/img/favicon.svg`](frontend/img/favicon.svg) | Icono de pestaña del navegador (16×16–32×32) |
+| **App Icon** | [`frontend/img/icon-192.svg`](frontend/img/icon-192.svg) | Icono para PWA / Tauri / escritorio (192×192) |
+
+**Símbolo:** Hexágono con arcos de señal de radar concéntricos y un punto central — representa detección, análisis y respuesta.
+
+**Paleta:**
+| Color | Código | Uso |
+|-------|:------:|-----|
+| Ámbar | `#d4a843` | Acento principal, texto M.I.R.V., trazos |
+| Ámbar oscuro | `#b8922e` | Degradado, hover |
+| Teal | `#3b8f8a` | Acento secundario, bordes sutiles |
+| Fondo oscuro | `#0a0a0f` | Fondo del logo, theme-color del navegador |
+
+El logo se renderiza inline en el header del dashboard y también se sirve como archivo estático via `/img/*`. El favicon se muestra en la pestaña del navegador y es compatible con iOS (apple-touch-icon).
+
 ### 🔒 OPSEC Levels
 | Nivel | Color | Comportamiento |
 |-------|:-----:|----------------|
@@ -557,7 +579,11 @@ C:\Users\34678\Desktop\Proyecto ciber\
 ├── frontend/
 │   ├── index.html           # SPA (Tailwind CDN, 15 tabs)
 │   ├── css/
-│   │   └── style.css        # Signal Intelligence + Monochrome
+│   │   └── style.css         # Signal Intelligence + Monochrome
+│   ├── img/
+│   │   ├── logo.svg           # Logo completo (hexágono + radar + tipografía)
+│   │   ├── favicon.svg        # Favicon del navegador
+│   │   └── icon-192.svg       # App icon para PWA/Tauri
 │   └── js/
 │       ├── main.v2.js       # Toda la lógica frontend (~5200 lines)
 │       ├── main.js          # Versión anterior
