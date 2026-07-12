@@ -61,17 +61,17 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `main.py` | ~1912 | FastAPI app, WebSocket SSH proxy, 70+ REST endpoints |
-| `database.py` | ~500 | Supabase CRUD (connections, scripts, reports, findings, payloads, credentials, CTF, forensics, mobile) |
-| `mcp_server.py` | ~600 | MCP Server exposes tools to AI agents (Claude Code, Cursor, etc.) |
+| `main.py` | ~2299 | FastAPI app, WebSocket SSH proxy, 85+ REST endpoints + CSP middleware |
+| `database.py` | ~1344 | Supabase CRUD (connections, scripts, reports, findings, payloads, credentials, CTF, forensics, mobile) |
+| `mcp_server.py` | ~620 | MCP Server exposes tools to AI agents (Claude Code, Cursor, etc.) |
 | `swarm.py` | ~250 | Multi-operator swarm coordinator (Recon, Scanner, Exploiter, Report) |
-| `mobile_analyzer.py` | ~800 | APK static analysis (apktool, jadx, mobsf) + dynamic (ADB/Frida) |
-| `forensics.py` | ~350 | Digital forensics (memory, disk, Sleuth Kit) |
-| `knowledgebase.py` | ~500 | CVE database + MITRE ATT&CK techniques |
-| `scope_guard.py` | ~270 | Scope validation (Warn/Block modes) |
-| `adb_controller.py` | ~220 | ADB device detection + Frida scripts |
+| `mobile_analyzer.py` | ~707 | APK static analysis (apktool, jadx, mobsf) + dynamic (ADB/Frida) |
+| `forensics.py` | ~253 | Digital forensics (memory, disk, Sleuth Kit) |
+| `knowledgebase.py` | ~210 | CVE database + MITRE ATT&CK techniques |
+| `scope_guard.py` | ~261 | Scope validation (Warn/Block modes) |
+| `adb_controller.py` | ~205 | ADB device detection + Frida scripts (run/stop/clear) |
 | `opsec.py` | ~400 | OPSEC Levels — 30 tools with Silent/Covert/Loud modifiers |
-| `mission_store.py` | ~270 | Self-Improvement Loop — mission history + AI context |
+| `mission_store.py` | ~356 | Self-Improvement Loop — mission history + AI context |
 
 ## Backend quirks (main.py)
 
@@ -105,9 +105,13 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 | Forensics | `tab-forensics` | Digital forensics lab |
 | Payload Studio | (external link) | Hak5 payload editor (opens new tab, X-Frame-Options blocked) |
 
-- **Single HTML file** (`index.html`) — no build step, no bundler, no framework.
+- **Single HTML file** (`index.html`, ~1764 lines) — no build step, no bundler, no framework.
 - **Tailwind via CDN** (`https://cdn.tailwindcss.com`). Custom colors: `neon`, `cyber`, `deep`, `void`, `blood`.
-- **All JS in one file** (`main.v2.js`) — DOMContentLoaded closure, functions on `window.*`.
+- **All JS in one file** (`main.v2.js`, ~5371 lines) — DOMContentLoaded closure, functions on `window.*`.
+- **Mobile JS** (`mobile.js`, ~395 lines) — APK analysis + Frida console (run/stop/clear).
+- **Forensics JS** (`forensics.js`, ~306 lines) — memory, disk, file analysis.
+- **Swarm JS** (`swarm.js`, ~283 lines) — multi-operator pipeline UI.
+- **DataService JS** (`dataservice.js`, ~228 lines) — Supabase REST client.
 - **Vanilla JS**, no router, no package.json for frontend.
 
 ## Key JS globals (window.*)
@@ -189,7 +193,7 @@ Tools that need target validation must be listed in the `needsTarget` array.
 | Credentials | `GET/POST/DELETE /api/credentials` |
 | CTF | `GET/POST/DELETE /api/ctf/challenges`, `POST /api/ctf/challenges/{id}/solve`, `GET /api/ctf/score` |
 | Forensics | `GET /api/forensics/list`, `POST /api/forensics/upload`, `GET/POST /api/forensics/analyze/{id}` |
-| Mobile | `GET /api/mobile/apks`, `POST /api/mobile/upload`, `GET /api/mobile/devices`, `POST /api/mobile/frida/run` |
+| Mobile | `GET /api/mobile/apks`, `POST /api/mobile/upload`, `GET /api/mobile/devices`, `POST /api/mobile/frida/run`, `POST /api/mobile/frida/stop`, `POST /api/mobile/frida/clear` |
 | KnowledgeBase | `GET /api/knowledgebase/search`, `GET /api/knowledgebase/cve/{id}`, `GET /api/knowledgebase/mitre/{id}` |
 | Swarm | `POST /api/swarm/start`, `GET /api/swarm/{id}`, `GET /api/swarm/list`, `POST /api/swarm/{id}/cancel`, `GET /api/swarm/{id}/report` |
 | Swarm Sessions | `GET/POST /api/swarm/sessions`, `GET/DELETE /api/swarm/sessions/{id}` |

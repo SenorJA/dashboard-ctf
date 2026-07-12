@@ -165,7 +165,8 @@ Funcionalidades IA:
 
 ### 📱 Mobile Analysis Lab
 - **Análisis estático**: apktool, jadx, mobsf (descompilación, permisos, componentes)
-- **Análisis dinámico**: ADB + Frida (scripting, hooking)
+- **Análisis dinámico**: ADB + Frida (scripting, hooking, stop/clear console)
+- **Consola Frida**: botones ▶ Run, ⏹ Stop (mata procesos en Kali), ✕ Clear (limpia output)
 - **Detección**: WebView inseguro, ofuscación, root detection, crypto débil
 - **Dashboard**: lista de APKs, resumen de severidad, detalle de hallazgos
 
@@ -441,6 +442,8 @@ Todas son opcionales. Sin Supabase, la app funciona en modo offline.
 | POST | `/api/mobile/upload` | Subir + analizar |
 | GET | `/api/mobile/devices` | Dispositivos ADB |
 | POST | `/api/mobile/frida/run` | Ejecutar script Frida |
+| POST | `/api/mobile/frida/stop` | Matar procesos Frida en Kali |
+| POST | `/api/mobile/frida/clear` | Clear consola (endpoint logging) |
 
 ### KnowledgeBase
 | Método | Ruta | Descripción |
@@ -608,17 +611,17 @@ C:\Users\34678\Desktop\Proyecto ciber\
 
 | Módulo | Líneas | Propósito |
 |--------|:------:|-----------|
-| `main.py` | ~2250 | FastAPI app, WebSocket SSH, 80+ endpoints |
-| `database.py` | ~1300 | CRUD para 17 tablas Supabase |
-| `opsec.py` | 401 | OPSEC Levels para 30 herramientas |
-| `mission_store.py` | 357 | Auto-mejora: historial de misiones |
-| `mcp_server.py` | ~600 | MCP Server para Claude/Cursor/agentes |
-| `swarm.py` | ~250 | Pipeline multi-operador |
-| `mobile_analyzer.py` | ~800 | Análisis APK (apktool, jadx, mobsf) |
-| `forensics.py` | ~350 | Forense (memoria, disco, archivos) |
+| `main.py` | ~2299 | FastAPI app, WebSocket SSH, 85+ endpoints |
+| `database.py` | ~1344 | CRUD para 17 tablas Supabase |
+| `opsec.py` | 400 | OPSEC Levels para 30 herramientas |
+| `mission_store.py` | 356 | Auto-mejora: historial de misiones |
+| `mcp_server.py` | 620 | MCP Server para Claude/Cursor/agentes |
+| `swarm.py` | 250 | Pipeline multi-operador |
+| `mobile_analyzer.py` | 707 | Análisis APK (apktool, jadx, mobsf) |
+| `forensics.py` | 253 | Forense (memoria, disco, archivos) |
 | `knowledgebase.py` | 210 | Base de datos de CVEs + MITRE |
-| `scope_guard.py` | ~270 | Validación de alcance Warn/Block |
-| `adb_controller.py` | ~220 | ADB + Frida scripting |
+| `scope_guard.py` | 261 | Validación de alcance Warn/Block |
+| `adb_controller.py` | 205 | ADB + Frida scripting (stop/run/clear) |
 
 ---
 
@@ -695,6 +698,7 @@ Para más detalles, ver [`PERSISTENCE_AUDIT.md`](PERSISTENCE_AUDIT.md).
 | **Sin defaults** | No hay credenciales por defecto en backend/frontend |
 | **Secretos en DB** | API keys almacenadas en backend (no localStorage) |
 | **CORS** | Middleware configurable para origen del frontend |
+| **CSP** | Content-Security-Policy explícita que permite Tailwind CDN + WebSocket |
 | **Path traversal** | sys.path protegido contra imports maliciosos |
 | **Flags-only OPSEC** | Modificadores nunca reemplazan el target |
 

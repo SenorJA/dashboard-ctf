@@ -203,6 +203,17 @@
 
 ---
 
+## ✅ Mejoras Mobile: Frida Stop + Clear (Julio 2026)
+
+- [x] **Botón Stop Frida** — mata procesos Frida en Kali vía `pkill` desde el frontend
+- [x] **Botón Clear consola** — limpia el output de la consola Frida al instante
+- [x] **Endpoint `POST /api/mobile/frida/stop`** — ejecuta `pkill -f "frida"` con/sin device serial
+- [x] **Endpoint `POST /api/mobile/frida/clear`** — logging backend (acción de cliente)
+- [x] **Mensajes de error mejorados** — `_ssh_sftp_upload()` ahora devuelve la causa exacta del fallo (SSH no conectado, archivo local no encontrado, permiso denegado en Kali, error SFTP)
+- [x] **Content-Security-Policy (CSP)** — cabecera explícita que permite Tailwind CDN (con `unsafe-eval`), WebSocket, imágenes, y conexiones externas. Elimina el error de consola "Refused to execute code due to CSP"
+
+---
+
 ## ✅ Persistence Audit & Fixes (Julio 2026)
 
 - [x] **Auditoría completa de persistencia:** Documentados todos los gaps en `PERSISTENCE_AUDIT.md`
@@ -219,6 +230,9 @@
 ---
 
 ## ✅ Bugs Corregidos (Julio 2026)
+
+- [x] **CSP bloqueaba Tailwind CDN:** Añadida cabecera `Content-Security-Policy` explícita con `script-src 'unsafe-eval'` y permisos para WebSocket, imágenes, conexiones externas.
+- [x] **Frida upload sin diagnóstico:** `_ssh_sftp_upload()` ahora devuelve el motivo exacto del fallo en lugar de un genérico "Could not upload".
 
 - [x] **Duplicación de findings:** Race condition entre safety timer (30s) y detector de prompt. Añadida deduplicación por clave compuesta + `_toolParsed` flag.
 - [x] **Findings no aparecían:** `currentToolRunning` solo se asignaba para nmap/gobuster. Fix: añadidos whatweb y otros 12 tools.
@@ -248,6 +262,7 @@
 | OPSEC | Levels (Silent/Covert/Loud) | ✅ Completado |
 | Self-Improvement | Mission History + AI context | ✅ Completado |
 | Persistence Audit | 17 tablas, 15 endpoints, offline-first | ✅ Completado |
+| Frida Stop/Clear | Stop + Clear console, CSP fix, error msgs | ✅ Completado |
 
 ---
 
