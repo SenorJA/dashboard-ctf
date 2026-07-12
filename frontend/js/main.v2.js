@@ -70,6 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let outputBuffer = '';           // accumulated output for parsing
     let pendingTool = null;          // tool pending prompt-based parsing (survives timer expiry)
     let _toolParsed = false;         // true once finishToolOutput has run for this tool
+    let toolsUsedThisSession = [];   // [{tool, command}] — track for Mission History
 
     window.reports = reports; // expose for debugging
 
@@ -1784,6 +1785,12 @@ ${bodyHtml}
             appendOutput('[!] Connect to Kali first before launching modules.');
             return;
         }
+        // Track tools used in this session for Mission History (Self-Improvement Loop)
+        try {
+            if (cmd && !toolsUsedThisSession.some(t => t.command === cmd)) {
+                toolsUsedThisSession.push({ tool: currentToolRunning || 'manual', command: cmd });
+            }
+        } catch {}
         appendOutput(`\n▶ ${cmd}`);
         ws.send(cmd);
     };
@@ -2088,7 +2095,7 @@ ${bodyHtml}
         }
     }
 
-    window.launchTool = function (tool) {
+    window.launchTool = async function (tool) {
         const target = targetInput.value.trim();
         const extraFlags = document.getElementById('extra-flags').value.trim();
         const needsTarget = [
@@ -2377,8 +2384,32 @@ ${bodyHtml}
         appendOutput(`  🎯 ${target || '(no target needed)'}`);
         if (extraFlags) appendOutput(`  🚩 extra: ${extraFlags}`);
         appendOutput(`  \$ ${finalCommand}`);
-        appendOutput(`${sep}`);
 
+        // ── OPSEC: apply level modifications / blocking ──
+        if (window.opsecLevel && window.opsecLevel !== 'loud') {
+            try {
+                const opsecResult = await window.opsecApply(tool, finalCommand, target);
+                if (opsecResult.blocked) {
+                    appendOutput(`\n[OPSEC] ⛔ ${opsecResult.reason}\n`);
+                    appendOutput(`${sep}`);
+                    showToast('⛔ Blocked by OPSEC level ' + window.opsecLevel);
+                    return; // abort launch
+                }
+                if (opsecResult.modified_command && opsecResult.modified_command !== finalCommand) {
+                    appendOutput(`  [OPSEC] Modified → ${opsecResult.modified_command}`);
+                    appendOutput(`${sep}`);
+                    finalCommand = opsecResult.modified_command;
+                }
+                if (opsecResult.reason === 'warn') {
+                    showToast('⚠️ ' + tool + ' is noisy for ' + window.opsecLevel + ' mode');
+                }
+            } catch (e) {
+                // Never block tool launch on OPSEC failure — just log
+                console.warn('[OPSEC] apply error:', e);
+            }
+        }
+
+        appendOutput(`${sep}`);
         window.sendPredefinedCmd(finalCommand);
 
         // Auto-focus extra flags for next use
@@ -3926,6 +3957,173 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
     }
 
     // ============================================================
+    //  OPSEC LEVELS (Silent / Covert / Loud)
+    //  Controls how noisy tools are on the target.
+    //  Backend: GET /api/opsec/levels · POST /api/opsec/apply
+    // ============================================================
+    window.opsecLevel = localStorage.getItem('mirv_opsec') || 'loud';
+
+    // Local fallback mapping used when backend /api/opsec/apply is unreachable.
+    // Mirrors backend apply_opsec() modifiers — flags-only, never full command rewrite.
+    // Tool → { silent: 'BLOCKED' | flags | null, covert: 'BLOCKED' | flags | null }
+    // (null = no modification, run as-is)
+    const _OPSEC_RULES = {
+        // ─── Recon / web scanners ───
+        nmap:        { silent: '-sS -T2 -n --max-rate 50 -sV --data-length 24 -g 53', covert: '-sS -T3 -n --max-rate 200 -sV' },
+        masscan:     { silent: 'BLOCKED', covert: '--rate=100 --wait 5' },
+        nuclei:      { silent: 'BLOCKED', covert: '--rate-limit 10 --concurrency 5' },
+        nikto:       { silent: 'BLOCKED', covert: '-evasion 1 -timeout 5' },
+        whatweb:     { silent: '-a 1',    covert: '-a 3' },
+        gobuster:    { silent: '--delay 500ms -t 5 -q', covert: '-t 20 -q' },
+        ffuf:        { silent: '-t 2 -rate 10', covert: '-t 10 -rate 50' },
+        dirb:        { silent: '-r -S',   covert: '-r' },
+        wpscan:      { silent: 'BLOCKED', covert: '--stealthy' },
+        feroxbuster: { silent: 'BLOCKED', covert: '-t 5 --depth 2 --rate 10 --quiet' },
+        wfuzz:       { silent: 'BLOCKED', covert: '--hc 404 --hl 0 -t 5' },
+        cewl:        { silent: '-d 1 -m 5', covert: '-d 2 -m 5' },
+        dnsrecon:    { silent: '-d --type std', covert: null, loud: '-a' },
+
+        // ─── Bruteforce / exploit ───
+        hydra:       { silent: 'BLOCKED', covert: '-t 1 -W 5 -f' },
+        'hydra-ssh': { silent: 'BLOCKED', covert: '-t 1 -W 5 -f' },
+        'hydra-ftp': { silent: 'BLOCKED', covert: '-t 1 -W 5 -f' },
+        sqlmap:      { silent: 'BLOCKED', covert: '--batch --random-agent --delay 2 --risk 1 --level 1' },
+        xsstrike:    { silent: 'BLOCKED', covert: '--delay 2 --timeout 5' },
+        dalfox:      { silent: 'BLOCKED', covert: '--delay 2 --only-poc r' },
+
+        // ─── Network / port utilities ───
+        netcat:      { silent: 'BLOCKED', covert: '-zv -w 2' },
+
+        // ─── Enum / SMB / LDAP / AD ───
+        enum4linux:  { silent: 'BLOCKED', covert: '-s -M -l' },
+        smbclient:   { silent: 'BLOCKED', covert: '-N -l' },
+        smbmap:      { silent: 'BLOCKED', covert: '-R . --depth 1' },
+        ldapsearch:  { silent: '-x -s base', covert: '-x -s sub -z 100' },
+        bloodhound:  { silent: 'BLOCKED', covert: '-c Group,Computers --2025collection' },
+
+        // ─── Sniffing / LLMNR / NTLM relay ───
+        responder:   { silent: 'BLOCKED', covert: 'BLOCKED' },
+
+        // ─── TLS / WAF / headers ───
+        testssl:     { silent: 'BLOCKED', covert: '--quiet --fast --parallel 1' },
+        wafw00f:     { silent: '-b',      covert: null, loud: '-a' },
+        'cors-check':{ silent: 'BLOCKED', covert: null },
+
+        // ─── Misc ───
+        curl:        { silent: "-s -I -L --user-agent 'Mozilla/5.0'", covert: null },
+        searchsploit:{ silent: null, covert: null },
+        'evil-winrm':{ silent: null, covert: null },
+    };
+
+    function _opsecFallback(tool, command, level) {
+        // Returns {blocked, reason, modified_command}
+        const lc = tool.toLowerCase();
+        const rule = _OPSEC_RULES[lc];
+        if (!rule) return { blocked: false, reason: 'ok', modified_command: command };
+
+        const action = rule[level];
+        if (action === 'BLOCKED') {
+            return { blocked: true, reason: `${tool} is blocked at ${level} level`, modified_command: command };
+        }
+        if (!action) {
+            // null = no modification (allowed to run as-is).
+            // For covert on tools that historically warned (masscan/nikto/nuclei/hydra-*),
+            // preserve 'warn' reason so the UI shows the alert.
+            const warnCovert = ['masscan', 'nikto', 'nuclei', 'hydra', 'hydra-ssh', 'hydra-ftp'];
+            if (level === 'covert' && warnCovert.includes(lc)) {
+                return { blocked: false, reason: 'warn', modified_command: command };
+            }
+            return { blocked: false, reason: 'ok', modified_command: command };
+        }
+        // flags-only append (mirrors backend apply_opsec — never replace command).
+        return { blocked: false, reason: 'ok', modified_command: `${command} ${action.trim()}` };
+    }
+
+    function _opsecUpdateBadge(level) {
+        const badge = document.getElementById('opsec-badge');
+        if (!badge) return;
+        const map = {
+            silent: { text: '🟢 SILENT', color: '#3b8f8a', border: '#3b8f8a44', bg: '#3b8f8a11', title: 'OPSEC Level: Silent' },
+            covert: { text: '🟡 COVERT', color: '#d4a843', border: '#d4a84344', bg: '#d4a84311', title: 'OPSEC Level: Covert' },
+            loud:   { text: '🔴 LOUD',   color: '#dc2828', border: '#dc282844', bg: '#dc282811', title: 'OPSEC Level: Loud (default)' }
+        };
+        const c = map[level] || map.loud;
+        badge.textContent = c.text;
+        badge.title = c.title;
+        badge.style.borderColor = c.border;
+        badge.style.color = c.color;
+        badge.style.background = c.bg;
+    }
+
+    window.opsecModalOpen = function () {
+        const modal = document.getElementById('opsec-modal');
+        if (!modal) return;
+        modal.classList.remove('hidden');
+        // Pre-select current level
+        const radios = document.getElementsByName('opsec-level');
+        for (const r of radios) {
+            r.checked = (r.value === window.opsecLevel);
+        }
+    };
+
+    window.opsecModalClose = function () {
+        const modal = document.getElementById('opsec-modal');
+        if (modal) modal.classList.add('hidden');
+    };
+
+    window.opsecSave = function () {
+        const checked = document.querySelector('input[name="opsec-level"]:checked');
+        const level = checked ? checked.value : 'loud';
+        localStorage.setItem('mirv_opsec', level);
+        window.opsecLevel = level;
+        _opsecUpdateBadge(level);
+        window.opsecModalClose();
+        showToast(`✅ OPSEC level: ${level}`);
+    };
+
+    // Apply OPSEC level to a command before it is sent over WS.
+    // Returns { blocked:bool, reason:string, modified_command:string }.
+    window.opsecApply = async function (tool, command, target) {
+        const level = window.opsecLevel || 'loud';
+        if (level === 'loud') {
+            return { blocked: false, reason: 'loud', modified_command: command };
+        }
+        // Optional target — fall back to current #target-ip input if not supplied.
+        const tgt = (typeof target === 'string' && target.trim()) ||
+                    document.getElementById('target-ip')?.value?.trim() || '';
+        try {
+            const resp = await fetch('/api/opsec/apply', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tool, command, level, target: tgt })
+            });
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            const data = await resp.json();
+            // Expect { blocked, reason, modified_command }
+            return {
+                blocked: !!data.blocked,
+                reason: data.reason || 'ok',
+                modified_command: data.modified_command || command
+            };
+        } catch (e) {
+            console.warn('[OPSEC] fallback local — backend unavailable:', e.message);
+            return _opsecFallback(tool, command, level);
+        }
+    };
+
+    // Close OPSEC modal on Escape / backdrop click
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') window.opsecModalClose();
+    });
+    document.addEventListener('click', function (e) {
+        const modal = document.getElementById('opsec-modal');
+        if (modal && e.target === modal) window.opsecModalClose();
+    });
+
+    // Init badge on load
+    _opsecUpdateBadge(window.opsecLevel);
+
+    // ============================================================
     //  THEME TOGGLE (Monochrome Mode)
     // ============================================================
     window.toggleTheme = function () {
@@ -4061,6 +4259,10 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         planEmptyDesc:     { en: 'Describe the target and click "Generate Plan" to create a mission plan.', es: 'Describe el objetivo y pulsa "Generate Plan" para crear un plan de misión.' },
         planDescLabel:     { en: 'Describe the target…', es: 'Describe el objetivo…' },
         planDescPlaceholder:{ en: 'Ej: Escanear el target, encontrar vulnerabilidades en el puerto 80, intentar subir una webshell…', es: 'Ej: Escanear el target, encontrar vulnerabilidades en el puerto 80, intentar subir una webshell…' },
+        // ── Mission History (Self-Improvement) ──
+        missionHistoryTitle: { en: '📚 Mission History', es: '📚 Historial de Misiones' },
+        saveMissionBtn:    { en: '💾 Save Mission',      es: '💾 Guardar Misión' },
+        missionEmpty:      { en: 'No missions saved yet. Complete a scan and click "Save Mission".', es: 'Aún no hay misiones guardadas. Completa un escaneo y pulsa "Save Mission".' },
 
         // ── Swarm ──
         swarmTitle:        { en: '🐝 Swarm — Multi-Operator Pipeline', es: '🐝 Enjambre — Pipeline Multi-Operador' },
@@ -4186,6 +4388,14 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         scriptGenerate:   { en: '🤖 Generate',        es: '🤖 Generar' },
         scriptSave:       { en: '💾 Save',            es: '💾 Guardar' },
         scriptLoad:       { en: '📂 Load',            es: '📂 Cargar' },
+
+        // ── OPSEC Levels ──
+        opsecModalTitle:   { en: '🎯 OPSEC Level',      es: '🎯 Nivel OPSEC' },
+        opsecModalDesc:    { en: 'Controls how much noise tools make on the target.', es: 'Controla cuánto ruido generan las herramientas en el target.' },
+        opsecSilentDesc:   { en: 'Passive only. No scan that generates logs.', es: 'Solo pasivo. Sin escaneos que generen logs.' },
+        opsecCovertDesc:   { en: 'Slow & stealthy. Rate-limited scans.', es: 'Lento y sigiloso. Escaneos con rate-limit.' },
+        opsecLoudDesc:     { en: 'Maximum speed. Noisy. For labs/CTF.', es: 'Máxima velocidad. Ruidoso. Para labs/CTF.' },
+        save:              { en: 'Save',                es: 'Guardar' },
     };
 
     window.currentLang = localStorage.getItem('vulnforge_lang') || 'en';
@@ -4666,6 +4876,215 @@ Reglas:
         }).catch(() => {
             showToast('⚠️ Failed to copy command');
         });
+    };
+
+    // ============================================================
+    //  MISSION HISTORY — Self-Improvement Loop
+    //  (POST /api/missions/save, GET /api/missions)
+    // ============================================================
+    let _missionHistoryCache = [];
+
+    // OS detection catalog — matches web server banners, service banners,
+    // direct OS strings, and appliances/networking gear. Returns the first
+    // match acotado a 60-80 chars (no 120 — eso captura ruido de líneas largas).
+    const OS_PATTERNS = [
+        // ── Web servers / proxies ──
+        /Apache-Coyote\/[\d.]+/i, /Apache-Tomcat\/[\d.]+/i, /Tomcat\/[\d.]+/i,
+        /Jetty\([\w.\d\s]+\)/i, /OpenResty\/[\d.]+/i, /Tengine\/[\d.]+/i,
+        /LiteSpeed/i, /\bcaddy\/[\d.]+/i, /Traefik\/[\d.]+/i, /\bH2O\/[\d.]+/i,
+        /lighttpd\/[\d.]+/i, /gunicorn\/[\d.]+/i, /Werkzeug\/[\d.]+/i,
+        /\bExpress\/[\d.]+/i, /Microsoft-HTTPAPI\/[\d.]+/i,
+        /Microsoft-WebDAV-Mini-Redir/i, /Microsoft-IIS\/[\d.]+/i,
+        /Apache\/[\d.]+/i, /nginx\/[\d.]+/i,
+
+        // ── Service banners revealing OS ──
+        /OpenSSH_[\d.]+p\d+(?:\s+Ubuntu-[\d.]+)?/i, /vsftpd\s+[\d.]+/i,
+        /ProFTPD\s+[\d.a-zA-Z]+/i, /Microsoft FTP Service/i, /Serv-U FTP/i,
+        /Samba\s+[\d.]+/i, /smbd\s+[\d.]+/i, /MySQL[\s\/][\d.]+/i,
+        /PostgreSQL\s+[\d.]+/i, /Redis[\s=v]+[\d.]+/i,
+        /\bMongoDB\s+[\d.]+/i,
+
+        // ── Direct OS strings ──
+        /\bWindows\s+Server\s+[\d.R]{1,20}/i,
+        /\bWindows\s+(?:10|11|8\.1|8|7|XP|Vista)\b/i,
+        /\bMicrosoft Windows\b/i,
+        /\bLinux\s+[\d.]+\S*\s+\(([^)]+)\)/i,
+        /\b(Ubuntu|Debian|CentOS|RHEL|Red Hat|Fedora|Alpine|Arch)\s*[\d.]*/i,
+        /\bDarwin\s+[\d.]+/i, /\bFreeBSD\s+[\d.]+/i, /\bOpenBSD\s+[\d.]+/i,
+        /\bSunOS\s+[\d.]+/i, /\bSolaris\s+[\d.]+/i, /\bAIX\s+[\d.]+/i,
+        /\bAndroid\s+[\d.]+/i, /\b(iOS|iPhone OS)\s+[\d.]+/i,
+
+        // ── Appliances / networking gear ──
+        /\bMikroTik RouterOS\s+[\d.]+/i, /\bCisco-IOS.+?[\d.]+/i,
+        /\bFortiOS\s+[\d.]+/i, /\bF5 BIG-IP\s+[\d.]+/i, /\bAirOS\s+[\d.]+/i,
+        /\bJuniper\b/i, /\bRouterOS\b/i,
+    ];
+
+    function _detectOSFromFindings(finds) {
+        if (!Array.isArray(finds)) return null;
+
+        // Priority 1: explicit nmap OS detection (finding.type === 'os').
+        const osFinding = finds.find(f => f && f.type === 'os' && f.detail);
+        if (osFinding) {
+            const s = String(osFinding.detail).slice(0, 80).trim();
+            if (s) return s;
+        }
+
+        // Priority 2: catalog-based matching across all findings.
+        for (const f of finds) {
+            if (!f) continue;
+            const txt = `${f.title || ''} ${f.detail || ''} ${f.service || ''} ${f.version || ''} ${f.banner || ''}`;
+            for (const re of OS_PATTERNS) {
+                const m = txt.match(re);
+                if (m) {
+                    // Use full matched substring (most informative), clipped to 80 chars.
+                    const hit = (m[1] || m[0]).trim();
+                    if (hit) return hit.slice(0, 80);
+                }
+            }
+        }
+        return null;
+    }
+
+    function _computeSuccessScore(finds) {
+        if (!Array.isArray(finds) || finds.length === 0) return 0;
+        const weights = { critical: 100, high: 50, medium: 20, low: 10, info: 5 };
+        let score = 0;
+        for (const f of finds) {
+            const sev = (f.severity || 'info').toLowerCase();
+            const w = weights[sev];
+            if (w && w >= 50) score += w;     // only meaningful severities accumulate
+            else if (w) score += 2;          // low/info contribute marginally
+        }
+        return Math.max(0, Math.min(100, score));
+    }
+
+    function _buildFindingsSummary(finds, top = 5) {
+        if (!Array.isArray(finds) || finds.length === 0) return [];
+        // Sort by severity weight desc
+        const weights = { critical: 4, high: 3, medium: 2, low: 1, info: 0 };
+        const sorted = [...findings].sort((a, b) =>
+            (weights[(b.severity || 'info').toLowerCase()] || 0) -
+            (weights[(a.severity || 'info').toLowerCase()] || 0)
+        );
+        return sorted.slice(0, top).map(f => ({
+            severity: f.severity || 'info',
+            tool: f.tool || 'unknown',
+            title: (f.title || f.detail || f.path || f.service || 'finding').toString().slice(0, 120)
+        }));
+    }
+
+    window.saveMission = async function () {
+        const target = document.getElementById('target-ip')?.value?.trim() || 'unknown';
+        const finds = window.findings || [];
+        try {
+            const payload = {
+                target,
+                os_detected: _detectOSFromFindings(finds) || 'unknown',
+                tools_used: toolsUsedThisSession.slice(-20),  // last 20 tool invocations
+                findings_count: finds.length,
+                findings_summary: _buildFindingsSummary(finds, 5),
+                plan_steps: (typeof missionPlan !== 'undefined' && Array.isArray(missionPlan)) ? missionPlan.length : 0,
+                success_score: _computeSuccessScore(finds)
+            };
+            const resp = await fetch('/api/missions/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const data = await resp.json();
+            showToast(`💾 Mission saved to history (score ${payload.success_score})`);
+            // Auto-refresh list
+            try { await window.loadMissionHistory(); } catch {}
+            return data;
+        } catch (err) {
+            showToast(`⚠️ Save mission failed: ${err.message}`);
+            return null;
+        }
+    };
+
+    window.loadMissionHistory = async function () {
+        const list = document.getElementById('mission-history-list');
+        if (!list) return;
+        try {
+            const resp = await fetch('/api/missions?limit=20');
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const data = await resp.json();
+            const missions = Array.isArray(data) ? data : (data.data || data.missions || []);
+            _missionHistoryCache = missions;
+            if (!missions.length) {
+                list.innerHTML = `<div class="text-center text-[10px] text-gray-700 py-4" data-i18n="missionEmpty">${translations.missionEmpty[window.currentLang] || 'No missions saved yet. Complete a scan and click "Save Mission".'}</div>`;
+                return;
+            }
+            const scoreBadge = (score) => {
+                score = Number(score) || 0;
+                let cls = 'bg-red-900/40 text-red-400';
+                if (score > 50) cls = 'bg-green-900/40 text-green-400';
+                else if (score >= 20) cls = 'bg-amber-900/40 text-amber-400';
+                return `<span class="text-[8px] px-1.5 py-0.5 rounded ${cls}">⭐ ${score}</span>`;
+            };
+            const fmtDate = (iso) => {
+                try {
+                    const d = new Date(iso);
+                    return d.toLocaleDateString() + ' ' + d.toLocaleTimeString().slice(0, 5);
+                } catch { return iso || ''; }
+            };
+            list.innerHTML = missions.map(m => `
+                <div onclick="viewMissionDetails('${m.id}')"
+                     class="bg-void border border-gray-800 hover:border-cyber/40 rounded p-2 cursor-pointer transition-all">
+                    <div class="flex items-center justify-between gap-2 mb-1">
+                        <span class="text-[10px] text-gray-300 font-mono truncate flex-1">📍 ${m.target || 'unknown'}</span>
+                        ${scoreBadge(m.success_score)}
+                    </div>
+                    <div class="flex items-center gap-2 text-[9px] text-gray-700">
+                        <span>🗂️ ${m.os_detected ? m.os_detected.slice(0, 28) : '—'}</span>
+                        <span>·</span>
+                        <span>📊 ${m.findings_count || 0}</span>
+                        <span>·</span>
+                        <span>📋 ${m.plan_steps || 0}</span>
+                        <span class="ml-auto">${fmtDate(m.created_at)}</span>
+                    </div>
+                </div>
+            `).join('');
+        } catch (err) {
+            list.innerHTML = `<div class="text-center text-[10px] text-gray-700 py-4">⚠️ Backend unavailable — /api/missions</div>`;
+        }
+    };
+
+    window.viewMissionDetails = async function (missionId) {
+        const m = _missionHistoryCache.find(x => x.id === missionId || x.id === String(missionId));
+        if (!m) {
+            showToast('⚠️ Mission not found in cache — refresh list');
+            return;
+        }
+        // Print structured info to terminal for inspection (offline-first, no extra fetch)
+        let lines = [];
+        lines.push('\n═══════ MISSION DETAILS ═══════');
+        lines.push(`  ID:         ${m.id}`);
+        lines.push(`  Target:     ${m.target || 'unknown'}`);
+        lines.push(`  OS/Tech:    ${m.os_detected || '—'}`);
+        lines.push(`  Findings:   ${m.findings_count || 0}`);
+        lines.push(`  Plan steps: ${m.plan_steps || 0}`);
+        lines.push(`  Score:      ${m.success_score || 0}/100`);
+        lines.push(`  Created:    ${m.created_at || '—'}`);
+        if (Array.isArray(m.tools_used) && m.tools_used.length) {
+            lines.push('  Tools used:');
+            for (const t of m.tools_used.slice(0, 15)) {
+                const cmd = (t.command || '').slice(0, 100);
+                lines.push(`    • [${t.tool || 'manual'}] ${cmd}`);
+            }
+            if (m.tools_used.length > 15) lines.push(`    ... +${m.tools_used.length - 15} more`);
+        }
+        if (Array.isArray(m.findings_summary) && m.findings_summary.length) {
+            lines.push('  Top findings:');
+            for (const f of m.findings_summary) {
+                lines.push(`    • [${(f.severity || 'info').toUpperCase()}] (${f.tool || '?'}) ${f.title || ''}`);
+            }
+        }
+        lines.push('═══════════════════════════════\n');
+        try { window.appendOutput(lines.join('\n')); } catch {}
+        showToast(`📋 Mission details printed to terminal`);
     };
 
     // ── 🤖 Reports: Executive Summary ──

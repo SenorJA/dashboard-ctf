@@ -219,6 +219,22 @@ CREATE TABLE IF NOT EXISTS forensics_evidence (
     error TEXT DEFAULT '',
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- mission_history (self-improvement loop — see PLAN_SELFIMPROVEMENT.md)
+CREATE TABLE IF NOT EXISTS mission_history (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    target TEXT NOT NULL,
+    os_detected TEXT DEFAULT '',
+    tools_used JSONB DEFAULT '[]',
+    findings_count INT DEFAULT 0,
+    findings_summary JSONB DEFAULT '[]',
+    plan_steps INT DEFAULT 0,
+    success_score INT DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_mission_history_target ON mission_history(target);
+CREATE INDEX IF NOT EXISTS idx_mission_history_os      ON mission_history(os_detected);
+CREATE INDEX IF NOT EXISTS idx_mission_history_score   ON mission_history(success_score DESC);
 """
 
 
@@ -236,7 +252,7 @@ def _ensure_tables():
             "ssh_connections", "scripts", "reports",
             "hak5_payloads", "app_settings", "uploaded_files",
             "findings", "credentials", "ctf_challenges", "ctf_solves",
-            "mobile_apks", "forensics_evidence",
+            "mobile_apks", "forensics_evidence", "mission_history",
         ]
         for table in tables:
             try:
@@ -907,4 +923,77 @@ def delete_forensics_evidence(ev_id: str) -> bool:
         return True
     except Exception as e:
         logger.error("delete_forensics_evidence: %s", e)
+        return False
+
+
+# ════════════════════════════════════════════════════════════════
+#  MISSION HISTORY (self-improvement loop — see PLAN_SELFIMPROVEMENT.md)
+# ════════════════════════════════════════════════════════════════
+
+def save_mission_history(data: dict):
+    """Insert one completed mission row into ``mission_history``.
+
+    Purpose: record the outcome of a pentest engagement (target, OS,
+    tools used, top findings, success score) so future missions on
+    similar targets can reuse the playbook. Returns the inserted row,
+    or ``None`` when Supabase is not configured / the insert failed.
+    """
+    tbl = _table("mission_history")
+    if tbl is None:
+        return None
+    target = (data.get("target") or "").strip()
+    if not target:
+        logger.warning("save_mission_history: empty target — refusing")
+        return None
+    try:
+        row = {
+            "target":          target,
+            "os_detected":     data.get("os_detected", ""),
+            "tools_used":      json.dumps(data.get("tools_used", [])),
+            "findings_count":  int(data.get("findings_count", 0) or 0),
+            "findings_summary": json.dumps(data.get("findings_summary", [])),
+            "plan_steps":      int(data.get("plan_steps", 0) or 0),
+            "success_score":   int(data.get("success_score", 0) or 0),
+        }
+        resp = tbl.insert(row).execute()
+        return dict(resp.data[0]) if resp.data else None
+    except Exception as e:
+        logger.error("save_mission_history: %s", e)
+        return None
+
+
+def list_mission_history(limit: int = 50, target: str = None):
+    """List missions newest-first, optionally filtered by target.
+
+    Returns ``[]`` when the DB is unavailable so the API layer can flag
+    ``fallback=True`` without crashing.
+    """
+    tbl = _table("mission_history")
+    if tbl is None:
+        return None
+    try:
+        q = tbl.select("*").order("created_at", desc=True)
+        if target:
+            q = q.eq("target", target)
+        resp = q.limit(int(limit or 50)).execute()
+        return [dict(r) for r in resp.data] if resp.data else []
+    except Exception as e:
+        logger.error("list_mission_history: %s", e)
+        return []
+
+
+def delete_mission_history(mission_id: str):
+    """Delete a single mission row by UUID.
+
+    Returns ``True`` on success, ``False`` if the DB is unavailable or
+    the delete failed.
+    """
+    tbl = _table("mission_history")
+    if tbl is None:
+        return False
+    try:
+        tbl.delete().eq("id", mission_id).execute()
+        return True
+    except Exception as e:
+        logger.error("delete_mission_history: %s", e)
         return False

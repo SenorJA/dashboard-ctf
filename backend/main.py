@@ -51,6 +51,18 @@ import paramiko
 # ── Supabase Database Layer ──
 from backend import database as db
 
+# ── OPSEC Levels (command stealth rewriting) ──
+from backend.opsec import apply_opsec as opsec_apply, LEVELS_INFO
+
+# ── Mission History (self-improvement loop) ──
+from backend.mission_store import (
+    save_mission,
+    list_missions,
+    find_similar,
+    get_suggestion_context,
+)
+from backend import database as _db_module  # alias used by mission delete endpoint
+
 # ── Mobile Lab Modules ──
 from backend.mobile_analyzer import (
     analyze_apk as mobile_analyze_apk,
@@ -421,13 +433,34 @@ def _call_llm_sync(provider: str, api_key: str, model: str, messages: list, time
 
 @app.post("/api/suggest")
 async def suggest_next_step(req: SuggestRequest):
-    """AI-powered suggestion for the next penetration testing step."""
+    """AI-powered suggestion for the next penetration testing step.
+
+    Self-improvement loop: looks up similar past missions (via
+    ``mission_store.get_suggestion_context``) and injects them into the
+    system prompt as a ``## Mission History Context`` section so the LLM
+    grounds its next-step recommendation on what worked previously.
+    The lookup is wrapped defensively: any failure degrades to the
+    original (context-less) prompt — the suggest endpoint must never
+    crash because of the memory layer.
+    """
     try:
         if not req.api_key and req.provider != "local":
             return JSONResponse({"ok": False, "error": "API key is required"}, status_code=400)
 
         # Build messages
         system = req.system_prompt or _build_suggest_prompt(req.target, req.findings)
+
+        # ── Mission history context (self-improvement) ──
+        # Non-ASCII chars are stripped later by _clean_text, so the
+        # context block is safe to embed.
+        try:
+            context = get_suggestion_context(req.findings)
+        except Exception as e:
+            logger.warning("[suggest] mission context lookup failed: %s", e)
+            context = ""
+        if context:
+            system = f"{system}\n\n{context}"
+
         messages = [{"role": "system", "content": _clean_text(system)}]
 
         # Add history
@@ -1880,6 +1913,134 @@ async def forensics_delete_endpoint(ev_id: str):
     if not ok:
         return JSONResponse({"ok": False, "error": "Evidence not found"}, status_code=404)
     return JSONResponse({"ok": True})
+
+
+# ════════════════════════════════════════════════════════════════
+#  OPSEC LEVELS API (Silent / Covert / Loud)
+# ════════════════════════════════════════════════════════════════
+
+@app.get("/api/opsec/levels")
+async def opsec_levels():
+    """List the three OPSEC levels and their descriptions.
+
+    Consumed by the frontend header selector and the MCP server / AI
+    suggest loop to know which stealth mode is active.
+    """
+    return JSONResponse({"ok": True, "levels": LEVELS_INFO})
+
+
+class OpsecApplyRequest(BaseModel):
+    tool: str
+    command: str
+    level: str = "loud"
+    target: str = ""  # optional; only used by legacy full-replacement modifiers
+
+
+@app.post("/api/opsec/apply")
+async def opsec_apply_endpoint(req: OpsecApplyRequest):
+    """Apply OPSEC transformations to a tool command.
+
+    Returns ``{"ok": True, "blocked": bool, "reason": str,
+    "modified_command": str}``. When ``blocked`` is true the caller
+    (frontend, MCP, n8n) must NOT launch the command.
+
+    The optional ``target`` field is only consulted when a modifier is a
+    full-replacement command (rare — all shipped modifiers are
+    flags-only). Passing an empty/None target is safe: the endpoint
+    falls back to passthrough rather than risk a localhost scan.
+    """
+    try:
+        result = opsec_apply(req.tool, req.command, req.level, req.target or None)
+        return JSONResponse({"ok": True, **result})
+    except Exception as e:
+        logger.error("[opsec/apply] %s", e)
+        return JSONResponse(
+            {"ok": False, "error": f"opsec apply failed: {e}"},
+            status_code=500,
+        )
+
+
+# ════════════════════════════════════════════════════════════════
+#  MISSION HISTORY API (self-improvement loop)
+# ════════════════════════════════════════════════════════════════
+
+class MissionSaveRequest(BaseModel):
+    target: str
+    os_detected: str = ""
+    tools_used: list = []
+    findings_count: int = 0
+    findings_summary: list = []
+    plan_steps: int = 0
+    success_score: int = 0
+
+
+@app.get("/api/missions")
+async def missions_list(limit: int = 50, target: str = ""):
+    """List past missions, newest first, optionally filtered by target."""
+    try:
+        data = list_missions(limit=limit, target=target or None)
+        if data is None:
+            # Supabase not configured → empty list so UI doesn't crash
+            return JSONResponse({"ok": True, "data": [], "fallback": True})
+        return JSONResponse({"ok": True, "data": data})
+    except Exception as e:
+        logger.error("[missions list] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/missions/save")
+async def missions_save(req: MissionSaveRequest):
+    """Persist a completed mission for the self-improvement loop."""
+    try:
+        row = await asyncio.to_thread(
+            save_mission, req.model_dump()
+        )
+        if row is None:
+            # DB not configured OR empty target — graceful degradation
+            return JSONResponse(
+                {"ok": False, "error": "Database not configured or target empty"},
+                status_code=503,
+            )
+        return JSONResponse({"ok": True, "data": row})
+    except Exception as e:
+        logger.error("[missions save] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.delete("/api/missions/{mission_id}")
+async def missions_delete(mission_id: str):
+    """Delete a single mission by UUID."""
+    try:
+        ok = await asyncio.to_thread(
+            _db_module.delete_mission_history, mission_id
+        )
+        return _delete_ok(ok)
+    except Exception as e:
+        logger.error("[missions delete] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/missions/similar")
+async def missions_similar(target_os: str = "", tools: str = "", limit: int = 5):
+    """Find past missions similar to the current engagement.
+
+    Query params:
+      - ``target_os`` — OS / banner substring to match (ilike)
+      - ``tools``     — comma-separated list of already-run tools
+      - ``limit``     — max results (default 5)
+    """
+    try:
+        tool_list = [t.strip() for t in tools.split(",") if t.strip()] if tools else []
+        rows = await asyncio.to_thread(
+            find_similar,
+            target_os or None,
+            tool_list or None,
+            limit,
+        )
+        return JSONResponse({"ok": True, "data": rows})
+    except Exception as e:
+        logger.error("[missions similar] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 
 
 # ════════════════════════════════════════════════════════════════
