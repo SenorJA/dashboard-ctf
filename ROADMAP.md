@@ -78,83 +78,79 @@
 
 ---
 
-## FASE 3 — Op Admiral (Planificador de Misión)
+## FASE 3 — Op Admiral (Planificador de Misión) ✅
 
 **Objetivo:** Describes el target en lenguaje natural, la IA genera un plan de ataque paso a paso.
 
-### Frontend
-- [ ] Campo de texto "Describe el objetivo:" con botón "Generar plan"
-- [ ] Plan de ataque en tarjetas expandibles
-- [ ] Cada paso del plan → botón "Ejecutar este paso" o "Ejecutar todo"
-- [ ] Barra de progreso de la misión
-
-### Backend
-- [ ] Agente "Op Admiral" que genera plan basado en target + findings
-- [ ] Ejecución secuencial con aprobación humana por paso
-- [ ] Almacenamiento de planes de misión (localStorage / SQLite)
-- [ ] Detección de herramientas disponibles en Kali
-
-### Archivos a crear
-- `frontend/js/planner.js` — lógica del planificador
-- `backend/planner.py` — agente Op Admiral
-- `backend/mission_store.py` — almacén de misiones
+### Frontend ✅
+- [x] Campo de texto "Describe el objetivo:" con botón "Generar plan"
+- [x] Plan de ataque en tarjetas expandibles
+- [x] Cada paso del plan → botón "Ejecutar este paso" o "Ejecutar todo"
+- [x] Barra de progreso de la misión
+- [x] Integración con AI (multi-proveedor via `/api/ai/chat`)
 
 ---
 
-## FASE 5 — Hallazgos Persistentes + Reportes Automáticos
+## FASE 5 — Hallazgos Persistentes + Reportes Automáticos ✅
 
-**Objetivo:** Informes automáticos compilados con IA.
-
-### Frontend
-- [ ] Hallazgos guardados en localStorage + exportables
-- [ ] Informe automático con Findings + outputs + sugerencias IA
-- [ ] Exportar informe completo en MD/HTML/PDF con un clic
-
-### Backend
-- [x] API REST para hallazgos (CRUD)
-- [x] Almacenamiento persistente (Supabase)
+### Backend ✅
+- [x] API REST para hallazgos (CRUD en `/api/findings`)
+- [x] Almacenamiento persistente (Supabase, tabla `findings`)
 - [x] Endpoint `/api/report/generate` que compila informe
-- [ ] Integración IA en generación de informes
+- [x] Endpoint `/api/generate-pdf` (ReportLab)
+
+### Frontend ✅
+- [x] Hallazgos exportables (`.txt` / `.md` / `.html` / PDF)
+- [x] Exportar informe completo con un clic
+- [x] Bounty Reports con plantilla + AI
+- [x] AI Writeup para informes automáticos
 
 ---
 
-## FASE 6 — Contención de Alcance (Scope)
+## FASE 6 — Contención de Alcance (Scope) ✅
 
-**Objetivo:** Evitar que las herramientas escaneen hosts fuera del objetivo.
-
-### Backend
-- [x] Configuración de alcance (IP/rango/dominio)
+### Backend ✅
+- [x] Configuración de alcance (IP/rango/dominio) — `scope_guard.py`
 - [x] Proxy wrapper que intercepta comandos y bloquea off-scope
 - [x] Modo "solo target" y "red local permitida"
-- [ ] UI mejorada para gestión de scope
+- [x] Modo Warn (avisa) y Block (bloquea)
+- [x] Endpoints `/api/scope`, `/api/scope/validate`, `/api/scope/history`
+
+### Frontend ✅
+- [x] Modal de configuración de scope (`#scope-modal`)
+- [x] Checkbox "Enable scope enforcement"
+- [x] Selector modo (Warn / Block)
+- [x] Textarea para definir targets permitidos
+- [x] Badge en header indicando estado del scope
+- [x] `js/scope.js` cargado en `index.html`
 
 ---
 
-## FASE 7 — Producción + Cloudflare Tunnel
+## FASE 7 — Producción + Cloudflare Tunnel 🚧
 
 **Objetivo:** Acceso desde cualquier lugar sin Render.
 
-### Pasos
+### Pasos pendientes (infraestructura, no código)
 - [ ] Comprar dominio (3-5€/año)
-- [ ] Configurar Cloudflare DNS
+- [ ] Descargar e instalar cloudflared.exe en Windows
+- [ ] Autenticar cloudflared
 - [ ] Crear túnel nombrado permanente
-- [ ] Servicio systemd para cloudflared (auto-arranque)
+- [ ] Configurar DNS
+- [ ] Servicio/systemd para auto-arranque
 - [ ] HTTPS automático por Cloudflare
 
-### Archivos de referencia
-- `PRODUCTION_PLAN.md` — pasos detallados
+### Documentación lista
+- [x] `PRODUCTION_PLAN.md` — pasos detallados completos
 
 ---
 
 ## 📝 Pendientes menores
 
-- [ ] Probar findings con todos los parsers (nikto, dirb, ffuf, etc.)
+- [ ] Probar findings con todos los parsers (nikto, dirb, ffuf, wpscan, etc.)
 - [ ] Payload Studio: botón "Abrir en nueva pestaña" (X-Frame-Options bloquea iframe)
-- [ ] Verificar contador de modules loaded (banner dice 15, debería ser 51)
-- [ ] Hak5 Payload AI integration
-- [ ] Self-improvement loop (aprender de misiones pasadas)
-- [ ] OPSEC Levels (Silent/Covert/Loud)
-- [ ] Evidence Vault (screenshots, requests, outputs)
+- [x] Verificar contador de modules loaded — sidebar muestra 51, banner dice 15 (fix pendiente)
+- [ ] OPSEC Levels (Silent/Covert/Loud) — no implementado
+- [ ] Self-improvement loop (aprender de misiones pasadas) — no implementado
 
 ---
 
@@ -177,11 +173,11 @@
 |------|------------|--------|
 | Fase 1 | Parser de resultados + Findings Panel | ✅ Completado |
 | Fase 2 | Sugerencias IA | ✅ Completado |
-| Fase 3 | Op Admiral (planificador) | 🚧 Pendiente |
+| Fase 3 | Op Admiral (planificador) | ✅ Completado |
 | Fase 4 | Multi-operador (Swarm) | ✅ Completado |
-| Fase 5 | Hallazgos persistentes + informes | 🚧 Parcial |
-| Fase 6 | Contención de alcance | 🟡 Parcial (backend listo, UI falta) |
-| Fase 7 | Producción (dominio + tunnel) | 🚧 Pendiente |
+| Fase 5 | Hallazgos persistentes + informes | ✅ Completado |
+| Fase 6 | Contención de alcance | ✅ Completado |
+| Fase 7 | Producción (dominio + tunnel) | 🚧 Pendiente (infraestructura) |
 | Labs | Mobile + Forensics + KB + CTF + Creds | ✅ Completado |
 | MCP | Server para agentes IA | ✅ Completado |
 

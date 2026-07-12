@@ -1576,7 +1576,7 @@ ${bodyHtml}
         appendOutput('   ╚████╔╝ ╚██████╔╝███████╗██║ ╚████║██║     ╚██████╔╝██║  ██║╚██████╔╝███████╗');
         appendOutput('    ╚═══╝   ╚═════╝ ╚══════╝╚═╝  ╚═══╝╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝');
         appendOutput('  ───────────────────────────────────────────────────────────────────────────────');
-        appendOutput('  🌐 M.I.R.V. — Multi-platform Incident Response & Vulnerabilities  |  ⚡ 15 modules loaded');
+        appendOutput('  🌐 M.I.R.V. — Multi-platform Incident Response & Vulnerabilities  |  ⚡ 51 modules loaded');
         appendOutput('  ───────────────────────────────────────────────────────────────────────────────');
         appendOutput('');
     };
