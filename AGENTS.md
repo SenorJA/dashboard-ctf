@@ -49,7 +49,7 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `main.py` | ~1912 | FastAPI app, WebSocket SSH proxy, 65+ REST endpoints |
+| `main.py` | ~1912 | FastAPI app, WebSocket SSH proxy, 70+ REST endpoints |
 | `database.py` | ~500 | Supabase CRUD (connections, scripts, reports, findings, payloads, credentials, CTF, forensics, mobile) |
 | `mcp_server.py` | ~600 | MCP Server exposes tools to AI agents (Claude Code, Cursor, etc.) |
 | `swarm.py` | ~250 | Multi-operator swarm coordinator (Recon, Scanner, Exploiter, Report) |
@@ -58,6 +58,8 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 | `knowledgebase.py` | ~500 | CVE database + MITRE ATT&CK techniques |
 | `scope_guard.py` | ~270 | Scope validation (Warn/Block modes) |
 | `adb_controller.py` | ~220 | ADB device detection + Frida scripts |
+| `opsec.py` | ~400 | OPSEC Levels — 30 tools with Silent/Covert/Loud modifiers |
+| `mission_store.py` | ~270 | Self-Improvement Loop — mission history + AI context |
 
 ## Backend quirks (main.py)
 
@@ -121,6 +123,13 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 | `clearTerminal()` | Clears terminal output |
 | `handleFileUpload(input)` | Reads file and uploads to /tmp/ via SSH (chunked base64) |
 | `filterArsenal(query)` | Filters arsenal tools by name/description |
+| `opsecModalOpen()` | Opens OPSEC level selector modal |
+| `opsecModalClose()` | Closes OPSEC modal |
+| `opsecSave()` | Saves OPSEC level to localStorage + updates badge |
+| `opsecApply(tool, command, target)` | Applies OPSEC transformations via backend (with local fallback) |
+| `saveMission()` | Saves current mission (findings + tools + score) to history |
+| `loadMissionHistory()` | Loads and renders mission history cards |
+| `viewMissionDetails(id)` | Prints mission details to terminal |
 
 ## Findings parsing system
 
@@ -171,6 +180,8 @@ Tools that need target validation must be listed in the `needsTarget` array.
 | KnowledgeBase | `GET /api/knowledgebase/search`, `GET /api/knowledgebase/cve/{id}`, `GET /api/knowledgebase/mitre/{id}` |
 | Swarm | `POST /api/swarm/start`, `GET /api/swarm/{id}`, `GET /api/swarm/list`, `POST /api/swarm/{id}/cancel`, `GET /api/swarm/{id}/report` |
 | Scope | `GET/POST /api/scope`, `POST /api/scope/validate`, `GET /api/scope/history`, `POST /api/scope/history/clear` |
+| OPSEC | `GET /api/opsec/levels`, `POST /api/opsec/apply` |
+| Missions | `GET /api/missions`, `POST /api/missions/save`, `GET /api/missions/similar`, `DELETE /api/missions/{id}` |
 | Upload | `POST /api/upload`, `GET /api/files` |
 | Settings | `GET/POST /api/settings` |
 | n8n | `POST /api/n8n/trigger`, `GET /api/n8n/status` |
@@ -193,9 +204,10 @@ Tools that need target validation must be listed in the `needsTarget` array.
 | `mirv_hak5_m5` | JSON array | M5 Stack saved payloads |
 | `mirv_hak5_shack` | JSON array | Shack Jack saved payloads |
 | `mirv_ps_creds` | JSON object | Payload Studio credentials |
+| `mirv_opsec` | "silent" \| "covert" \| "loud" | OPSEC level (default: loud) |
 
 ### Supabase (backend persistence)
-Tables: `ssh_connections`, `scripts`, `reports`, `findings`, `hak5_payloads`, `app_settings`, `uploaded_files`, `credentials`, `ctf_challenges`, `forensics_evidence`, `mobile_apks`.
+Tables: `ssh_connections`, `scripts`, `reports`, `findings`, `hak5_payloads`, `app_settings`, `uploaded_files`, `credentials`, `ctf_challenges`, `forensics_evidence`, `mobile_apks`, `mission_history`.
 Storage bucket: `vulnforge` for file uploads.
 
 ## i18n system

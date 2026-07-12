@@ -100,10 +100,29 @@
 - WebSocket exige autenticación JSON
 - Scope Guard (modo Warn / Block)
 - No fallbacks a credenciales por defecto
+- **OPSEC Levels** — 3 modos que controlan el ruido de las herramientas (Silent/Covert/Loud)
+- **Self-Improvement Loop** — la IA aprende de misiones pasadas para mejorar sugerencias
+
+### 🔴 OPSEC Levels (Silent / Covert / Loud)
+- 30 tools mapeadas con modificaciones flags-only por nivel
+- Silent: bloquea tools ruidosas (masscan, nikto, hydra, responder, wpscan)
+- Covert: rate limiting + timing bajo (nmap `-T3`, gobuster `-t 20`, etc.)
+- Loud: máximo rendimiento (comportamiento por defecto, ideal para labs/CTF)
+- Badge en header + modal de configuración
+- Persistencia en `localStorage.mirv_opsec`
+- Endpoints: `GET /api/opsec/levels`, `POST /api/opsec/apply`
+
+### 🧠 Self-Improvement Loop
+- Historial de misiones completadas en Supabase (`mission_history`)
+- Detección automática de OS del target (50+ patrones)
+- Cálculo de success_score (0-100 basado en severidad de findings)
+- `/api/suggest` inyecta contexto de misiones previas al system prompt de la IA
+- UI Mission History en Op Admiral tab con tarjetas y scores
+- Endpoints: `GET /api/missions`, `POST /api/missions/save`, `GET /api/missions/similar`, `DELETE /api/missions/{id}`
 
 ### 🗄️ Backend
 - **FastAPI** + **Supabase** (PostgreSQL)
-- **65+ endpoints REST**
+- **70+ endpoints REST**
 - MCP Server (`backend/mcp_server.py`) — expone herramientas a agentes IA
 - PDF generation server-side con ReportLab
 - n8n proxy para automatización
@@ -141,7 +160,7 @@ uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
 
 ```
 ├── backend/
-│   ├── main.py              # FastAPI + WebSocket + SSH proxy (~1900 lines, 65+ endpoints)
+│   ├── main.py              # FastAPI + WebSocket + SSH proxy (~1900 lines, 70+ endpoints)
 │   ├── database.py           # Capa Supabase (CRUD)
 │   ├── mcp_server.py         # MCP Server para agentes IA
 │   ├── swarm.py              # Coordinador multi-operador
@@ -150,6 +169,8 @@ uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
 │   ├── knowledgebase.py      # CVE + MITRE ATT&CK
 │   ├── scope_guard.py        # Validación de alcance
 │   ├── adb_controller.py     # Controlador ADB
+│   ├── opsec.py              # OPSEC Levels (Silent/Covert/Loud)
+│   ├── mission_store.py      # Self-Improvement Loop (mission history)
 │   ├── requirements.txt
 │   └── supabase_schema.sql   # Schema SQL
 ├── frontend/

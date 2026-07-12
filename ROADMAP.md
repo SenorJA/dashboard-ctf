@@ -144,13 +144,39 @@
 
 ---
 
+## 🔴 OPSEC Levels (Silent / Covert / Loud) ✅
+
+- [x] `backend/opsec.py` — 30 tools mapeadas con modifiers flags-only
+- [x] `apply_opsec(tool, command, level, target)` preserva el target del operador
+- [x] Bloqueo de tools no stealth (masscan, nikto, hydra, wpscan, responder...)
+- [x] Endpoints `/api/opsec/levels`, `/api/opsec/apply` (con target opcional)
+- [x] Badge en header (🟢/🟡/🔴) + modal con 3 niveles
+- [x] `launchTool` ahora es async, aplica OPSEC antes de ejecutar
+- [x] Fallback local `_OPSEC_RULES` si backend no responde
+- [x] Persistencia en `localStorage.mirv_opsec`
+- [x] i18n EN/ES (opsecModalTitle/Desc, opsecSilentDesc/CovertDesc/LoudDesc)
+
+---
+
+## 🧠 Self-Improvement Loop ✅
+
+- [x] `backend/mission_store.py` — save_mission, list_missions, find_similar
+- [x] Tabla `mission_history` en Supabase (con índices)
+- [x] `get_suggestion_context()` — genera contexto de misiones previas para IA
+- [x] `/api/suggest` ahora inyecta "Mission History Context" al system prompt
+- [x] Endpoints `/api/missions`, `/api/missions/save`, `/api/missions/similar`, `DELETE /api/missions/{id}`
+- [x] UI Mission History en Op Admiral tab (cards con score badges)
+- [x] Tracking de tools usadas por sesión (`toolsUsedThisSession`)
+- [x] `_detectOSFromFindings` con 50+ patrones (Apache, IIS, OpenSSH, Samba, Windows, Ubuntu, macOS, Cisco...)
+- [x] Score calc: critical=100, high=50, medium=20, low=10, info=5 (clamped 0-100)
+- [x] i18n EN/ES (missionHistoryTitle, saveMissionBtn, missionEmpty)
+
+---
+
 ## 📝 Pendientes menores
 
 - [ ] Probar findings con todos los parsers (nikto, dirb, ffuf, wpscan, etc.)
 - [ ] Payload Studio: botón "Abrir en nueva pestaña" (X-Frame-Options bloquea iframe)
-- [x] Verificar contador de modules loaded — sidebar muestra 51, banner dice 15 (fix pendiente)
-- [ ] OPSEC Levels (Silent/Covert/Loud) — no implementado
-- [ ] Self-improvement loop (aprender de misiones pasadas) — no implementado
 
 ---
 
@@ -180,6 +206,8 @@
 | Fase 7 | Producción (dominio + tunnel) | 🚧 Pendiente (infraestructura) |
 | Labs | Mobile + Forensics + KB + CTF + Creds | ✅ Completado |
 | MCP | Server para agentes IA | ✅ Completado |
+| OPSEC | Levels (Silent/Covert/Loud) | ✅ Completado |
+| Self-Improvement | Mission History + AI context | ✅ Completado |
 
 ---
 

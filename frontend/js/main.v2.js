@@ -4963,7 +4963,7 @@ Reglas:
         if (!Array.isArray(finds) || finds.length === 0) return [];
         // Sort by severity weight desc
         const weights = { critical: 4, high: 3, medium: 2, low: 1, info: 0 };
-        const sorted = [...findings].sort((a, b) =>
+        const sorted = [...finds].sort((a, b) =>
             (weights[(b.severity || 'info').toLowerCase()] || 0) -
             (weights[(a.severity || 'info').toLowerCase()] || 0)
         );

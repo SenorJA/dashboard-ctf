@@ -107,7 +107,7 @@
 | **Scope Guard** | ✅ En WebSocket + endpoints | ✅ Egress scope (on by default) |
 | **Modo Warn** | ✅ | ❌ (solo block) |
 | **Modo Block** | ✅ | ✅ |
-| **OPSEC Levels** | ❌ No tiene | ✅ Silent/Covert/Loud |
+| **OPSEC Levels** | ✅ Silent/Covert/Loud | ✅ Silent/Covert/Loud |
 | **Detection tracking** | ❌ No tiene | ✅ Detection events + cooldown |
 | **IOC tracking** | ❌ No tiene | ✅ |
 | **Credential store** | ❌ No tiene | ✅ |
