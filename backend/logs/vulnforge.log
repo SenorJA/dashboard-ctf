@@ -50,3 +50,15 @@
 2026-07-11 21:59:02,148 [INFO] HTTP Request: GET https://klkbbyqbdmuxovpbmple.supabase.co/rest/v1/ctf_challenges?select=%2A "HTTP/2 404 Not Found"
 2026-07-11 21:59:02,215 [INFO] HTTP Request: GET https://klkbbyqbdmuxovpbmple.supabase.co/rest/v1/mobile_apks?select=%2A&order=created_at.desc "HTTP/2 404 Not Found"
 2026-07-11 21:59:02,217 [ERROR] list_mobile_apks: {'message': "Could not find the table 'public.mobile_apks' in the schema cache", 'code': 'PGRST205', 'hint': None, 'details': None}
+2026-07-12 13:48:27,813 [INFO] ==================================================
+2026-07-12 13:48:27,813 [INFO] VulnForge starting in PRODUCTION mode
+2026-07-12 13:48:27,813 [INFO] Version: 1.0.0
+2026-07-12 13:48:27,813 [INFO] ==================================================
+2026-07-12 13:48:51,927 [INFO] ==================================================
+2026-07-12 13:48:51,928 [INFO] VulnForge starting in PRODUCTION mode
+2026-07-12 13:48:51,928 [INFO] Version: 1.0.0
+2026-07-12 13:48:51,928 [INFO] ==================================================
+2026-07-12 13:49:22,261 [INFO] ==================================================
+2026-07-12 13:49:22,261 [INFO] VulnForge starting in PRODUCTION mode
+2026-07-12 13:49:22,262 [INFO] Version: 1.0.0
+2026-07-12 13:49:22,262 [INFO] ==================================================

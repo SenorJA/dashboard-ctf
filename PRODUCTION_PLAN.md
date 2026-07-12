@@ -1,7 +1,5 @@
 # 🚀 Plan de Producción — M.I.R.V. (Windows)
 
-> Anteriormente VulnForge
-
 ## Escenario
 
 ```

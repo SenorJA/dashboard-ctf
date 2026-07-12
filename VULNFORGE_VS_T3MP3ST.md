@@ -1,6 +1,6 @@
 # ⚔️ M.I.R.V. vs T3MP3ST — Comparativa y GAP Analysis
 
-> Comparación objetiva entre **M.I.R.V.** v3.0 (anteriormente VulnForge) y **T3MP3ST** (v1.0, GitHub @elder-plinius/T3MP3ST).
+> Comparación objetiva entre **M.I.R.V.** v3.0 y **T3MP3ST** (v1.0, GitHub @elder-plinius/T3MP3ST).
 > Fecha del análisis: Julio 2026
 
 ---

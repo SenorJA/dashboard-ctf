@@ -1,7 +1,5 @@
 # 🗺️ M.I.R.V. — Roadmap de Mejoras
 
-> Anteriormente VulnForge — v3.0
-
 ## ✅ Completado
 
 ### Conexión SSH

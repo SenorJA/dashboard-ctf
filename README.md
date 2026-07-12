@@ -51,7 +51,7 @@ M.I.R.V. es una **plataforma modular todo-en-uno** para operaciones de cibersegu
 - **OPSEC Levels** para controlar el ruido en el target
 - **Self-Improvement Loop** que aprende de misiones pasadas
 
-> **Versión:** v3.0 (anteriormente VulnForge v2.0)
+> **Versión:** v3.0
 
 ---
 
@@ -713,7 +713,7 @@ M.I.R.V. está diseñado para:
 
 <div align="center">
 
-**M.I.R.V. v3.0** — anteriormente VulnForge
+**M.I.R.V. v3.0**
 
 [Reportar bug](https://github.com/SenorJA/dashboard-ctf/issues) · [Sugerir mejora](https://github.com/SenorJA/dashboard-ctf/issues) · [Documentación](AGENTS.md)
 
