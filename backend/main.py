@@ -126,15 +126,19 @@ class NoCacheMiddleware(BaseHTTPMiddleware):
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
         # CSP: allow Tailwind CDN (needs 'unsafe-eval' for JIT engine)
+        # + Google Fonts for the Signal Intelligence typography
         # This is a local pentest dashboard — not a public website
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
             "script-src 'self' 'unsafe-inline' 'unsafe-eval' "
             "https://cdn.tailwindcss.com https://*.tailwindcss.com; "
-            "style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; "
+            "style-src 'self' 'unsafe-inline' "
+            "https://cdn.tailwindcss.com "
+            "https://fonts.googleapis.com; "
             "connect-src 'self' ws://* http://* https://*; "
             "img-src 'self' data: blob:; "
-            "font-src 'self' data:; "
+            "font-src 'self' data: "
+            "https://fonts.gstatic.com; "
             "frame-src 'self' http://* https://*;"
         )
         return response
