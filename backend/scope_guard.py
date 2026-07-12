@@ -227,11 +227,11 @@ def validate_command(command: str) -> Optional[dict]:
     return None
 
 
-# ── Block history (in-memory, limited) ──
-_block_history = []  # list of dicts
+# ── Block history (in-memory + DB persistence) ──
+_block_history = []  # list of dicts (in-memory fallback + fast access)
 
 def log_block(block_info: dict):
-    """Record a blocked/warned command."""
+    """Record a blocked/warned command (in-memory + DB)."""
     entry = {
         **block_info,
         "timestamp": datetime.utcnow().isoformat(),
@@ -239,6 +239,19 @@ def log_block(block_info: dict):
     _block_history.append(entry)
     if len(_block_history) > 100:
         _block_history.pop(0)
+
+    # Also persist to Supabase if available (fire-and-forget)
+    try:
+        from backend.database import save_scope_event
+        save_scope_event({
+            "target": block_info.get("target", ""),
+            "action": block_info.get("action", block_info.get("result", "block")),
+            "tool":   block_info.get("tool", ""),
+            "reason": block_info.get("reason", ""),
+            "mode":   block_info.get("mode", "warn"),
+        })
+    except Exception:
+        pass  # offline — in-memory is sufficient for basic operation
 
 def get_block_history(limit: int = 50) -> list:
     """Get recent block/warn history."""

@@ -191,6 +191,19 @@ class SwarmCoordinator:
                 self.add_log(
                     f"✅ Swarm complete — {len(self.findings)} total findings"
                 )
+                # Persist to DB (fire-and-forget)
+                try:
+                    from backend.database import save_swarm_session
+                    save_swarm_session({
+                        "id": self.session_id,
+                        "target": self.target,
+                        "mode": "auto",
+                        "status": "completed",
+                        "phases": [{"name": o.name, "status": o.status, "findings_count": len(o.findings)} for o in self.operators],
+                        "total_findings": len(self.findings),
+                    })
+                except Exception:
+                    pass  # offline — session lives in memory
 
         except Exception as e:
             self.status = "error"
