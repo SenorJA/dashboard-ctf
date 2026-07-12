@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="fg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#d4a843"/>
+      <stop offset="100%" stop-color="#b8922e"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Hexagon -->
+  <polygon points="32,2 59,17 59,47 32,62 5,47 5,17"
+           fill="#0a0a0f" stroke="url(#fg)" stroke-width="2.5"/>
+  <polygon points="32,8 54,20 54,44 32,56 10,44 10,20"
+           fill="none" stroke="url(#fg)" stroke-width="1.2" opacity="0.3"/>
+
+  <!-- Signal arcs -->
+  <path d="M 18,32 A 14,14 0 0,1 46,32"
+        fill="none" stroke="url(#fg)" stroke-width="3" stroke-linecap="round"/>
+  <path d="M 23,32 A 9,9 0 0,1 41,32"
+        fill="none" stroke="url(#fg)" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+  <path d="M 13,32 A 19,19 0 0,1 51,32"
+        fill="none" stroke="#3b8f8a" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+
+  <!-- Center dot -->
+  <circle cx="32" cy="32" r="4.5" fill="#d4a843"/>
+  <circle cx="32" cy="32" r="2" fill="#0a0a0f"/>
+</svg>

@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 120" width="400" height="120">
+  <defs>
+    <linearGradient id="amberGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#d4a843"/>
+      <stop offset="100%" stop-color="#b8922e"/>
+    </linearGradient>
+    <linearGradient id="tealAccent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3b8f8a"/>
+      <stop offset="100%" stop-color="#2d706c"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Radar / Signal Icon -->
+  <g transform="translate(60, 60)">
+    <!-- Hexagon outline -->
+    <polygon points="0,-38 33,-19 33,19 0,38 -33,19 -33,-19"
+             fill="none" stroke="url(#amberGlow)" stroke-width="2.5" opacity="0.6"/>
+    <polygon points="0,-30 26,-15 26,15 0,30 -26,15 -26,-15"
+             fill="none" stroke="url(#amberGlow)" stroke-width="1.5" opacity="0.3"/>
+
+    <!-- Signal arcs -->
+    <path d="M -22,0 A 22,22 0 0,1 22,0"
+          fill="none" stroke="url(#amberGlow)" stroke-width="3" stroke-linecap="round"/>
+    <path d="M -30,0 A 30,30 0 0,1 30,0"
+          fill="none" stroke="url(#tealAccent)" stroke-width="2" stroke-linecap="round" opacity="0.7"/>
+    <path d="M -16,0 A 16,16 0 0,1 16,0"
+          fill="none" stroke="url(#amberGlow)" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
+
+    <!-- Center dot -->
+    <circle cx="0" cy="0" r="4" fill="#d4a843"/>
+    <circle cx="0" cy="0" r="2" fill="#0a0a0f"/>
+
+    <!-- Crosshair subtle lines -->
+    <line x1="0" y1="-12" x2="0" y2="-8" stroke="#d4a843" stroke-width="1.5" opacity="0.4"/>
+    <line x1="0" y1="8" x2="0" y2="12" stroke="#d4a843" stroke-width="1.5" opacity="0.4"/>
+    <line x1="-12" y1="0" x2="-8" y2="0" stroke="#d4a843" stroke-width="1.5" opacity="0.4"/>
+    <line x1="8" y1="0" x2="12" y2="0" stroke="#d4a843" stroke-width="1.5" opacity="0.4"/>
+  </g>
+
+  <!-- Text -->
+  <g transform="translate(120, 50)">
+    <!-- M.I.R.V. -->
+    <text x="0" y="0"
+          font-family="'Courier New', 'Consolas', monospace"
+          font-size="32"
+          font-weight="bold"
+          letter-spacing="4"
+          fill="url(#amberGlow)">
+      M.I.R.V.
+    </text>
+
+    <!-- Version badge -->
+    <rect x="180" y="-22" width="32" height="16" rx="3"
+          fill="none" stroke="#3b8f8a" stroke-width="1" opacity="0.7"/>
+    <text x="196" y="-10"
+          font-family="sans-serif"
+          font-size="9"
+          fill="#3b8f8a"
+          text-anchor="middle"
+          opacity="0.8">
+      v3
+    </text>
+
+    <!-- Tagline -->
+    <text x="0" y="22"
+          font-family="sans-serif"
+          font-size="11"
+          letter-spacing="2"
+          fill="#888">
+      MULTI-PLATFORM INCIDENT RESPONSE &amp; VULNERABILITIES
+    </text>
+
+    <!-- Decorative line -->
+    <line x1="0" y1="32" x2="260" y2="32"
+          stroke="url(#tealAccent)" stroke-width="0.5" opacity="0.4"/>
+  </g>
+</svg>

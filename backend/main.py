@@ -205,6 +205,18 @@ async def js_file(filepath: str):
         return FileResponse(file_path)
     return JSONResponse({"detail": "Not Found"}, status_code=404)
 
+@app.get("/img/{filepath:path}")
+async def img_file(filepath: str):
+    img_dir = os.path.normpath(os.path.join(frontend_dir, "img"))
+    file_path = os.path.normpath(os.path.join(img_dir, filepath))
+    if not file_path.startswith(img_dir):
+        return JSONResponse({"detail": "Forbidden"}, status_code=403)
+    if os.path.isfile(file_path):
+        ext = os.path.splitext(file_path)[1].lower()
+        media_types = {".svg": "image/svg+xml", ".png": "image/png", ".ico": "image/x-icon"}
+        return FileResponse(file_path, media_type=media_types.get(ext))
+    return JSONResponse({"detail": "Not Found"}, status_code=404)
+
 # ════════════════════════════════════════════════════════════════
 #  RESPONSE HELPERS
 # ════════════════════════════════════════════════════════════════
@@ -1063,6 +1075,10 @@ async def favicon():
     favicon_path = os.path.join(frontend_dir, "favicon.ico")
     if os.path.isfile(favicon_path):
         return FileResponse(favicon_path, media_type="image/x-icon")
+    # Fallback to SVG favicon
+    svg_path = os.path.join(frontend_dir, "img", "favicon.svg")
+    if os.path.isfile(svg_path):
+        return FileResponse(svg_path, media_type="image/svg+xml")
     return JSONResponse({"detail": "Not Found"}, status_code=404)
 
 

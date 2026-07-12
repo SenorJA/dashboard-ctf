@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
+  <defs>
+    <linearGradient id="fg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#d4a843"/>
+      <stop offset="100%" stop-color="#b8922e"/>
+    </linearGradient>
+    <radialGradient id="bg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#1a1a24"/>
+      <stop offset="100%" stop-color="#0a0a0f"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Background circle -->
+  <circle cx="96" cy="96" r="96" fill="url(#bg)"/>
+
+  <!-- Hexagon -->
+  <polygon points="96,10 170,53 170,139 96,182 22,139 22,53"
+           fill="none" stroke="url(#fg)" stroke-width="6"/>
+  <polygon points="96,24 158,63 158,129 96,168 34,129 34,63"
+           fill="none" stroke="url(#fg)" stroke-width="3" opacity="0.3"/>
+
+  <!-- Signal arcs -->
+  <path d="M 42,96 A 54,54 0 0,1 150,96"
+        fill="none" stroke="url(#fg)" stroke-width="8" stroke-linecap="round"/>
+  <path d="M 56,96 A 40,40 0 0,1 136,96"
+        fill="none" stroke="url(#fg)" stroke-width="5" stroke-linecap="round" opacity="0.6"/>
+  <path d="M 28,96 A 68,68 0 0,1 164,96"
+        fill="none" stroke="#3b8f8a" stroke-width="4" stroke-linecap="round" opacity="0.5"/>
+
+  <!-- Center dot -->
+  <circle cx="96" cy="96" r="12" fill="#d4a843"/>
+  <circle cx="96" cy="96" r="5" fill="#0a0a0f"/>
+</svg>

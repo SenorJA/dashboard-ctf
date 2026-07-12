@@ -6,6 +6,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>M.I.R.V. — Incident Response & Vulnerability Framework</title>
 
+    <link rel="icon" type="image/svg+xml" href="/img/favicon.svg">
+    <link rel="apple-touch-icon" href="/img/favicon.svg">
+    <link rel="icon" type="image/svg+xml" sizes="192x192" href="/img/icon-192.svg">
+    <meta name="theme-color" content="#0a0a0f">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 
@@ -62,9 +67,22 @@
                     <line x1="3" y1="18" x2="21" y2="18"/>
                 </svg>
             </button>
-            <h1 class="text-base sm:text-lg font-bold tracking-[0.15em] sm:tracking-[0.2em]">
+            <h1 class="text-base sm:text-lg font-bold tracking-[0.15em] sm:tracking-[0.2em] flex items-center gap-2">
+                <!-- Logo icon -->
+                <svg width="22" height="22" viewBox="0 0 64 64" class="flex-shrink-0">
+                    <polygon points="32,2 59,17 59,47 32,62 5,47 5,17"
+                             fill="#0a0a0f" stroke="#d4a843" stroke-width="2.5"/>
+                    <polygon points="32,8 54,20 54,44 32,56 10,44 10,20"
+                             fill="none" stroke="#d4a843" stroke-width="1" opacity="0.3"/>
+                    <path d="M 18,32 A 14,14 0 0,1 46,32"
+                          fill="none" stroke="#d4a843" stroke-width="3" stroke-linecap="round"/>
+                    <path d="M 23,32 A 9,9 0 0,1 41,32"
+                          fill="none" stroke="#d4a843" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+                    <circle cx="32" cy="32" r="4.5" fill="#d4a843"/>
+                    <circle cx="32" cy="32" r="2" fill="#0a0a0f"/>
+                </svg>
                 <span class="text-neon" data-i18n="appName">M.I.R.V.</span>
-                <span class="text-xs text-gray-600 ml-1 sm:ml-2 font-light tracking-wider">v3.0</span>
+                <span class="text-xs text-gray-600 font-light tracking-wider">v3.0</span>
             </h1>
             <span class="text-[10px] text-gray-600 tracking-widest uppercase hidden md:inline font-sans" data-i18n="headerTag">/* Multi-platform Incident Response & Vulnerabilities */</span>
         </div>
