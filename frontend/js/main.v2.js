@@ -3174,22 +3174,58 @@ ${fix || 'Apply appropriate security patches and input validation.'}
     // ============================================================
     let lastAIWriteup = '';
 
-    // Load saved API config
+    // Load saved API config (tries backend first, falls back to localStorage migration)
     function loadAIConfig() {
         try {
+            // Try loading AI key from backend (more secure — not in localStorage)
+            if (window.DataService && DataService.available) {
+                fetch('/api/credentials/secrets/ai_key').then(r => {
+                    if (r.ok) {
+                        // Key exists on server — clear from localStorage
+                        localStorage.removeItem('vulnforge_ai_key');
+                    } else {
+                        // Try localStorage migration
+                        const localKey = localStorage.getItem('vulnforge_ai_key');
+                        if (localKey) {
+                            // Migrate to backend
+                            fetch('/api/credentials/secrets', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ key: 'ai_key', value: localKey, description: 'AI API key' })
+                            }).then(() => localStorage.removeItem('vulnforge_ai_key')).catch(() => {});
+                        }
+                    }
+                }).catch(() => {});
+                // Similar for suggest key
+                fetch('/api/credentials/secrets/suggest_key').then(r => {
+                    if (r.ok) localStorage.removeItem('vulnforge_suggest_key');
+                }).catch(() => {});
+                // Similar for payload studio creds
+                fetch('/api/credentials/secrets/ps_creds').then(r => {
+                    if (r.ok) localStorage.removeItem('vulnforge_ps_creds');
+                }).catch(() => {});
+            }
+
+            // Load UI preferences from localStorage (non-secret)
             const ep = localStorage.getItem('vulnforge_ai_endpoint');
-            const key = localStorage.getItem('vulnforge_ai_key');
             const model = localStorage.getItem('vulnforge_ai_model');
             if (ep) document.getElementById('ai-endpoint').value = ep;
-            if (key) document.getElementById('ai-key').value = key;
             if (model) document.getElementById('ai-model').value = model;
+            // Key: only from localStorage if backend is unavailable
+            const key = localStorage.getItem('vulnforge_ai_key');
+            if (key && !document.getElementById('ai-key').value) {
+                document.getElementById('ai-key').value = key;
+            }
+
             // Also load suggest config
             const sp = localStorage.getItem('vulnforge_suggest_provider');
-            const sk = localStorage.getItem('vulnforge_suggest_key');
             const sm = localStorage.getItem('vulnforge_suggest_model');
             if (sp) document.getElementById('suggest-provider').value = sp;
-            if (sk) document.getElementById('suggest-key').value = sk;
             if (sm) document.getElementById('suggest-model').value = sm;
+            const sk = localStorage.getItem('vulnforge_suggest_key');
+            if (sk && !document.getElementById('suggest-key').value) {
+                document.getElementById('suggest-key').value = sk;
+            }
             // Apply local provider key field state on load
             if (sp === 'local') {
                 const keyEl = document.getElementById('suggest-key');
@@ -3200,13 +3236,54 @@ ${fix || 'Apply appropriate security patches and input validation.'}
 
     function saveAIConfig() {
         try {
+            // Save UI preferences to localStorage (non-secret)
             localStorage.setItem('vulnforge_ai_endpoint', document.getElementById('ai-endpoint').value);
-            localStorage.setItem('vulnforge_ai_key', document.getElementById('ai-key').value);
             localStorage.setItem('vulnforge_ai_model', document.getElementById('ai-model').value);
-            // Also save suggest config
             localStorage.setItem('vulnforge_suggest_provider', document.getElementById('suggest-provider').value);
-            localStorage.setItem('vulnforge_suggest_key', document.getElementById('suggest-key').value);
             localStorage.setItem('vulnforge_suggest_model', document.getElementById('suggest-model').value);
+
+            // Save secrets to backend (NOT localStorage)
+            const aiKey = document.getElementById('ai-key').value.trim();
+            if (aiKey && window.DataService && DataService.available) {
+                fetch('/api/credentials/secrets', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ key: 'ai_key', value: aiKey, description: 'AI API key' })
+                }).then(r => {
+                    if (r.ok) localStorage.removeItem('vulnforge_ai_key');
+                }).catch(() => {
+                    // Fallback: keep in localStorage
+                    localStorage.setItem('vulnforge_ai_key', aiKey);
+                });
+            }
+
+            const suggestKey = document.getElementById('suggest-key').value.trim();
+            if (suggestKey && window.DataService && DataService.available) {
+                fetch('/api/credentials/secrets', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ key: 'suggest_key', value: suggestKey, description: 'AI Suggest key' })
+                }).then(r => {
+                    if (r.ok) localStorage.removeItem('vulnforge_suggest_key');
+                }).catch(() => {
+                    localStorage.setItem('vulnforge_suggest_key', suggestKey);
+                });
+            }
+
+            // Handle Payload Studio credentials
+            const psEmail = document.getElementById('ps-email')?.value?.trim();
+            const psPass = document.getElementById('ps-pass')?.value?.trim();
+            if (psEmail && psPass && window.DataService && DataService.available) {
+                fetch('/api/credentials/secrets', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ key: 'ps_creds', value: JSON.stringify({ email: psEmail, password: psPass }), description: 'Payload Studio credentials' })
+                }).then(r => {
+                    if (r.ok) localStorage.removeItem('vulnforge_ps_creds');
+                }).catch(() => {
+                    localStorage.setItem('vulnforge_ps_creds', JSON.stringify({ email: psEmail, password: psPass }));
+                });
+            }
         } catch {}
     }
 
@@ -3800,15 +3877,41 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
     //  PAYLOAD STUDIO CONNECTION
     // ============================================================
     function getPSCreds() {
+        // Try backend first, fall back to localStorage
+        if (window.DataService && DataService.available) {
+            // Async — return localStorage sync for now, background fetch will update UI
+            this._psFetching = true;
+            fetch('/api/credentials/secrets/ps_creds').then(r => {
+                if (r.ok) {
+                    // Exists on server — migrate away from localStorage
+                    localStorage.removeItem('vulnforge_ps_creds');
+                    this._psFetching = false;
+                }
+            }).catch(() => { this._psFetching = false; });
+        }
         try { return JSON.parse(localStorage.getItem('vulnforge_ps_creds') || 'null'); } catch { return null; }
     }
 
     function setPSCreds(creds) {
         localStorage.setItem('vulnforge_ps_creds', JSON.stringify(creds));
+        // Save to backend in background
+        if (window.DataService && DataService.available) {
+            fetch('/api/credentials/secrets', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key: 'ps_creds', value: JSON.stringify(creds), description: 'Payload Studio credentials' })
+            }).then(r => {
+                if (r.ok) localStorage.removeItem('vulnforge_ps_creds');
+            }).catch(() => {});
+        }
     }
 
     function clearPSCreds() {
         localStorage.removeItem('vulnforge_ps_creds');
+        // Delete from backend
+        if (window.DataService && DataService.available) {
+            fetch('/api/credentials/secrets/ps_creds', { method: 'DELETE' }).catch(() => {});
+        }
     }
 
     function updatePSStatus(connected) {
