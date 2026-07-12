@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VulnForge — Red Team Dashboard</title>
+    <title>M.I.R.V. — Incident Response & Vulnerability Framework</title>
 
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -63,10 +63,10 @@
                 </svg>
             </button>
             <h1 class="text-base sm:text-lg font-bold tracking-[0.15em] sm:tracking-[0.2em]">
-                <span class="text-neon" data-i18n="appName">VULNFORGE</span>
-                <span class="text-xs text-gray-600 ml-1 sm:ml-2 font-light tracking-wider">v2.0</span>
+                <span class="text-neon" data-i18n="appName">M.I.R.V.</span>
+                <span class="text-xs text-gray-600 ml-1 sm:ml-2 font-light tracking-wider">v3.0</span>
             </h1>
-            <span class="text-[10px] text-gray-600 tracking-widest uppercase hidden md:inline font-sans" data-i18n="headerTag">/* Red Team Framework */</span>
+            <span class="text-[10px] text-gray-600 tracking-widest uppercase hidden md:inline font-sans" data-i18n="headerTag">/* Multi-platform Incident Response & Vulnerabilities */</span>
         </div>
         <div class="flex items-center space-x-3">
             <!-- Theme Toggle -->
@@ -304,7 +304,7 @@
             <div class="mt-auto p-3 border-t border-[#1a1f2e]">
                 <p class="text-[9px] text-gray-700 flex items-center gap-1">
                     <span class="text-neon/50">◆</span> <span id="tool-count">51</span> <span data-i18n="modulesLoaded">modules loaded</span>
-                    <span class="ml-auto text-[8px] text-gray-800">root@vulnforge</span>
+                    <span class="ml-auto text-[8px] text-gray-800">root@mirv</span>
                 </p>
                 <p class="text-[8px] text-gray-800 flex items-center gap-1 mt-1">
                     <span id="db-status-dot" class="inline-block w-1.5 h-1.5 rounded-full bg-gray-800"></span>
@@ -381,8 +381,9 @@
             <!-- ════════════════════════════════════════════════════════
                  TAB: TERMINAL
                  ════════════════════════════════════════════════════════ -->
-            <div id="tab-terminal" class="tab-pane active p-4 pt-3 space-y-3">
-                <div class="flex space-x-3 flex-shrink-0">
+            <div id="tab-terminal" class="tab-pane active p-4 pt-3 flex flex-col space-y-3">
+                <!-- Connection buttons (mobile: wrap) -->
+                <div class="flex items-center gap-2 sm:gap-3 flex-wrap flex-shrink-0">
                     <button id="btn-connect"
                         class="bg-neon/10 hover:bg-neon/20 text-neon border border-neon/30 px-4 py-1.5 rounded text-[11px] font-semibold transition-all duration-200 hover:shadow-[0_0_12px_rgba(212,168,67,0.15)]">
                         &gt; Connect
@@ -399,19 +400,21 @@
                         class="bg-blood/10 hover:bg-blood/20 text-blood border border-blood/30 px-3 py-1.5 rounded text-[11px] transition-all duration-200 font-semibold">
                         ⏹ Stop
                     </button>
-                    <div class="flex-1 flex relative">
-                        <input type="text" id="cmd-input" autocomplete="off" spellcheck="false"
-                            placeholder="$  enter command..."
-                            class="terminal flex-1 bg-void border border-gray-800 rounded-l px-3 py-1.5 text-xs text-neon placeholder-gray-700 focus:outline-none focus:border-neon/50 tracking-wider">
-                        <div id="tab-completions"
-                            class="absolute left-0 right-0 hidden z-[9999] border border-neon/40 rounded-lg overflow-y-auto"
-                            style="background:#0d111f; box-shadow:0 -4px 24px rgba(212,168,67,0.15), 0 0 0 1px rgba(212,168,67,0.08); max-height:180px;">
-                        </div>
-                        <button id="btn-send"
-                            class="bg-void border border-gray-800 border-l-0 rounded-r px-4 text-[11px] text-gray-500 hover:text-neon hover:border-neon/30 transition-all font-semibold">
-                            ⏎
-                        </button>
+                </div>
+
+                <!-- 📱 Command bar (separate row — works on mobile) -->
+                <div class="flex relative flex-shrink-0">
+                    <input type="text" id="cmd-input" autocomplete="off" spellcheck="false"
+                        placeholder="$  enter command..."
+                        class="terminal flex-1 min-w-0 bg-void border border-gray-800 rounded-l px-3 py-1.5 text-xs text-neon placeholder-gray-700 focus:outline-none focus:border-neon/50 tracking-wider">
+                    <div id="tab-completions"
+                        class="absolute left-0 right-0 hidden z-[9999] border border-neon/40 rounded-lg overflow-y-auto"
+                        style="background:#0d111f; box-shadow:0 -4px 24px rgba(212,168,67,0.15), 0 0 0 1px rgba(212,168,67,0.08); max-height:180px;">
                     </div>
+                    <button id="btn-send" title="Send"
+                        class="bg-void border border-gray-800 border-l-0 rounded-r px-4 text-[11px] text-gray-500 hover:text-neon hover:border-neon/30 transition-all font-semibold flex-shrink-0">
+                        ⏎
+                    </button>
                 </div>
 
                 <div class="flex-1 bg-deep rounded-lg border border-gray-800 terminal-glow relative flex flex-col overflow-hidden">
@@ -420,7 +423,7 @@
                         <span class="w-2 h-2 rounded-full bg-yellow-500/50"></span>
                         <span class="w-2 h-2 rounded-full bg-neon/50"></span>
                         <span id="terminal-title" class="text-[10px] text-gray-700 tracking-wider ml-2 font-mono">
-                            ─╼ root@vulnforge ╾─────────────────────────────────────
+                            ─╼ root@mirv ╾─────────────────────────────────────
                         </span>
                         <span id="conn-badge" class="text-[9px] text-gray-700">disconnected</span>
                         <span id="fdbg" class="ml-2 text-[9px] text-yellow-700"></span>
