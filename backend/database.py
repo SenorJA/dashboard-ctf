@@ -1113,3 +1113,232 @@ def delete_mission_history(mission_id: str):
     except Exception as e:
         logger.error("delete_mission_history: %s", e)
         return False
+
+
+# ════════════════════════════════════════════════════════════════
+#  MISSION PLANS (Op Admiral — saved attack plans)
+# ════════════════════════════════════════════════════════════════
+
+def save_mission_plan(data: dict) -> dict | None:
+    """Save or update an Op Admiral mission plan.
+
+    If ``data`` has an ``id`` that already exists, it is updated;
+    otherwise a new row is inserted. Returns the saved row or ``None``.
+    """
+    tbl = _table("mission_plans")
+    if tbl is None:
+        return None
+    try:
+        if data.get("id"):
+            # Update existing
+            row_id = data.pop("id")
+            data["updated_at"] = datetime.utcnow().isoformat()
+            resp = tbl.update(data).eq("id", row_id).execute()
+        else:
+            data["steps"] = json.dumps(data.get("steps", []))
+            resp = tbl.insert(data).execute()
+        return dict(resp.data[0]) if resp.data else None
+    except Exception as e:
+        logger.error("save_mission_plan: %s", e)
+        return None
+
+
+def list_mission_plans(limit: int = 20, target: str = None):
+    """List mission plans newest-first, optionally filtered by target."""
+    tbl = _table("mission_plans")
+    if tbl is None:
+        return None
+    try:
+        q = tbl.select("*").order("updated_at", desc=True)
+        if target:
+            q = q.eq("target", target)
+        resp = q.limit(int(limit or 20)).execute()
+        return [dict(r) for r in resp.data] if resp.data else []
+    except Exception as e:
+        logger.error("list_mission_plans: %s", e)
+        return []
+
+
+def delete_mission_plan(plan_id: str) -> bool:
+    """Delete a mission plan by UUID."""
+    tbl = _table("mission_plans")
+    if tbl is None:
+        return False
+    try:
+        tbl.delete().eq("id", plan_id).execute()
+        return True
+    except Exception as e:
+        logger.error("delete_mission_plan: %s", e)
+        return False
+
+
+# ════════════════════════════════════════════════════════════════
+#  SCOPE EVENTS (audit log for scope guard blocks/warnings)
+# ════════════════════════════════════════════════════════════════
+
+def save_scope_event(data: dict) -> dict | None:
+    """Log a scope guard event (block/warn/allow)."""
+    tbl = _table("scope_events")
+    if tbl is None:
+        return None
+    try:
+        resp = tbl.insert({
+            "target":  data.get("target", ""),
+            "action":  data.get("action", "block"),
+            "tool":    data.get("tool", ""),
+            "reason":  data.get("reason", ""),
+            "mode":    data.get("mode", "warn"),
+        }).execute()
+        return dict(resp.data[0]) if resp.data else None
+    except Exception as e:
+        logger.error("save_scope_event: %s", e)
+        return None
+
+
+def list_scope_events(limit: int = 100):
+    """List scope events newest-first."""
+    tbl = _table("scope_events")
+    if tbl is None:
+        return None
+    try:
+        resp = tbl.select("*").order("created_at", desc=True).limit(int(limit or 100)).execute()
+        return [dict(r) for r in resp.data] if resp.data else []
+    except Exception as e:
+        logger.error("list_scope_events: %s", e)
+        return []
+
+
+def clear_scope_events() -> bool:
+    """Delete all scope events."""
+    tbl = _table("scope_events")
+    if tbl is None:
+        return False
+    try:
+        tbl.delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
+        return True
+    except Exception as e:
+        logger.error("clear_scope_events: %s", e)
+        return False
+
+
+# ════════════════════════════════════════════════════════════════
+#  SWARM SESSIONS (multi-operator pipeline)
+# ════════════════════════════════════════════════════════════════
+
+def save_swarm_session(data: dict) -> dict | None:
+    """Create or update a swarm session."""
+    tbl = _table("swarm_sessions")
+    if tbl is None:
+        return None
+    try:
+        if data.get("id"):
+            row_id = data.pop("id")
+            if "phases" in data:
+                data["phases"] = json.dumps(data["phases"])
+            resp = tbl.update(data).eq("id", row_id).execute()
+        else:
+            data["phases"] = json.dumps(data.get("phases", []))
+            resp = tbl.insert(data).execute()
+        return dict(resp.data[0]) if resp.data else None
+    except Exception as e:
+        logger.error("save_swarm_session: %s", e)
+        return None
+
+
+def list_swarm_sessions(limit: int = 20):
+    """List swarm sessions newest-first."""
+    tbl = _table("swarm_sessions")
+    if tbl is None:
+        return None
+    try:
+        resp = tbl.select("*").order("created_at", desc=True).limit(int(limit or 20)).execute()
+        return [dict(r) for r in resp.data] if resp.data else []
+    except Exception as e:
+        logger.error("list_swarm_sessions: %s", e)
+        return []
+
+
+def get_swarm_session(session_id: str) -> dict | None:
+    """Get a single swarm session by UUID."""
+    tbl = _table("swarm_sessions")
+    if tbl is None:
+        return None
+    try:
+        resp = tbl.select("*").eq("id", session_id).limit(1).execute()
+        return dict(resp.data[0]) if resp.data else None
+    except Exception as e:
+        logger.error("get_swarm_session: %s", e)
+        return None
+
+
+def delete_swarm_session(session_id: str) -> bool:
+    """Delete a swarm session by UUID."""
+    tbl = _table("swarm_sessions")
+    if tbl is None:
+        return False
+    try:
+        tbl.delete().eq("id", session_id).execute()
+        return True
+    except Exception as e:
+        logger.error("delete_swarm_session: %s", e)
+        return False
+
+
+# ════════════════════════════════════════════════════════════════
+#  APP CREDENTIALS (encrypted secrets: AI keys, etc.)
+# ════════════════════════════════════════════════════════════════
+
+def save_app_credential(key: str, value: str, description: str = "") -> bool:
+    """Store a credential/secret in ``app_credentials``.
+
+    This is a simple key-value store for secrets like AI API keys.
+    In production, ``value`` should be encrypted before storage.
+    """
+    tbl = _table("app_credentials")
+    if tbl is None:
+        return False
+    try:
+        # Upsert: insert or update
+        existing = tbl.select("key").eq("key", key).limit(1).execute()
+        if existing.data:
+            tbl.update({
+                "value": value,
+                "description": description,
+                "updated_at": datetime.utcnow().isoformat()
+            }).eq("key", key).execute()
+        else:
+            tbl.insert({
+                "key": key,
+                "value": value,
+                "description": description
+            }).execute()
+        return True
+    except Exception as e:
+        logger.error("save_app_credential: %s", e)
+        return False
+
+
+def get_app_credential(key: str) -> str | None:
+    """Retrieve a stored credential value by key."""
+    tbl = _table("app_credentials")
+    if tbl is None:
+        return None
+    try:
+        resp = tbl.select("value").eq("key", key).limit(1).execute()
+        return resp.data[0]["value"] if resp.data else None
+    except Exception as e:
+        logger.error("get_app_credential: %s", e)
+        return None
+
+
+def delete_app_credential(key: str) -> bool:
+    """Delete a stored credential by key."""
+    tbl = _table("app_credentials")
+    if tbl is None:
+        return False
+    try:
+        tbl.delete().eq("key", key).execute()
+        return True
+    except Exception as e:
+        logger.error("delete_app_credential: %s", e)
+        return False

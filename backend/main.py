@@ -63,6 +63,14 @@ from backend.mission_store import (
 )
 from backend import database as _db_module  # alias used by mission delete endpoint
 
+# ── New CRUD functions (Phases 7-10: plans, events, swarm, secrets) ──
+from backend.database import (
+    save_mission_plan, list_mission_plans, delete_mission_plan,
+    save_scope_event, list_scope_events, clear_scope_events,
+    save_swarm_session, list_swarm_sessions, get_swarm_session, delete_swarm_session,
+    save_app_credential, get_app_credential, delete_app_credential,
+)
+
 # ── Mobile Lab Modules ──
 from backend.mobile_analyzer import (
     analyze_apk as mobile_analyze_apk,
@@ -2041,6 +2049,180 @@ async def missions_similar(target_os: str = "", tools: str = "", limit: int = 5)
     except Exception as e:
         logger.error("[missions similar] %s", e)
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+# ════════════════════════════════════════════════════════════════
+#  MISSION PLANS API (Op Admiral)
+# ════════════════════════════════════════════════════════════════
+
+@app.get("/api/plans")
+async def plans_list(target: str = "", limit: int = 20):
+    """List saved mission plans."""
+    try:
+        data = list_mission_plans(limit=limit, target=target or None)
+        return JSONResponse({"ok": True, "data": data or []})
+    except Exception as e:
+        logger.error("[plans list] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+class MissionPlanSaveRequest(BaseModel):
+    id: str = ""
+    target: str = ""
+    name: str = ""
+    steps: list = []
+    total_steps: int = 0
+    completed_steps: int = 0
+    status: str = "active"
+
+
+@app.post("/api/plans")
+async def plans_save(req: MissionPlanSaveRequest):
+    """Save or update a mission plan."""
+    try:
+        row = await asyncio.to_thread(save_mission_plan, req.model_dump())
+        return JSONResponse({"ok": True, "data": row}) if row else JSONResponse(
+            {"ok": False, "error": "Save failed"}, status_code=503)
+    except Exception as e:
+        logger.error("[plans save] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.delete("/api/plans/{plan_id}")
+async def plans_delete(plan_id: str):
+    """Delete a mission plan."""
+    ok = delete_mission_plan(plan_id)
+    if ok is None:
+        return JSONResponse({"ok": False, "error": "DB unavailable"}, status_code=503)
+    return JSONResponse({"ok": ok})
+
+
+# ════════════════════════════════════════════════════════════════
+#  SCOPE EVENTS API (audit log)
+# ════════════════════════════════════════════════════════════════
+
+@app.get("/api/scope/events")
+async def scope_events_list(limit: int = 100):
+    """List scope guard events."""
+    try:
+        data = list_scope_events(limit=limit)
+        return JSONResponse({"ok": True, "data": data or []})
+    except Exception as e:
+        logger.error("[scope events list] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/scope/events")
+async def scope_events_save(event: dict):
+    """Log a scope guard event."""
+    try:
+        row = await asyncio.to_thread(save_scope_event, event)
+        return JSONResponse({"ok": True, "data": row}) if row else JSONResponse(
+            {"ok": False, "error": "Save failed"}, status_code=503)
+    except Exception as e:
+        logger.error("[scope events save] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.delete("/api/scope/events")
+async def scope_events_clear():
+    """Clear all scope events."""
+    ok = clear_scope_events()
+    if ok is None:
+        return JSONResponse({"ok": False, "error": "DB unavailable"}, status_code=503)
+    return JSONResponse({"ok": ok})
+
+
+# ════════════════════════════════════════════════════════════════
+#  SWARM SESSIONS API
+# ════════════════════════════════════════════════════════════════
+
+@app.get("/api/swarm/sessions")
+async def swarm_sessions_list(limit: int = 20):
+    """List swarm sessions."""
+    try:
+        data = list_swarm_sessions(limit=limit)
+        return JSONResponse({"ok": True, "data": data or []})
+    except Exception as e:
+        logger.error("[swarm sessions list] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/swarm/sessions/{session_id}")
+async def swarm_sessions_get(session_id: str):
+    """Get a single swarm session."""
+    row = get_swarm_session(session_id)
+    if not row:
+        return JSONResponse({"ok": False, "error": "Not found"}, status_code=404)
+    return JSONResponse({"ok": True, "data": row})
+
+
+class SwarmSessionSaveRequest(BaseModel):
+    target: str = ""
+    mode: str = "auto"
+    status: str = "running"
+    phases: list = []
+    total_findings: int = 0
+    error: str = ""
+
+
+@app.post("/api/swarm/sessions")
+async def swarm_sessions_save(req: SwarmSessionSaveRequest):
+    """Save a swarm session."""
+    try:
+        row = await asyncio.to_thread(save_swarm_session, req.model_dump())
+        return JSONResponse({"ok": True, "data": row}) if row else JSONResponse(
+            {"ok": False, "error": "Save failed"}, status_code=503)
+    except Exception as e:
+        logger.error("[swarm sessions save] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.delete("/api/swarm/sessions/{session_id}")
+async def swarm_sessions_delete(session_id: str):
+    """Delete a swarm session."""
+    ok = delete_swarm_session(session_id)
+    if ok is None:
+        return JSONResponse({"ok": False, "error": "DB unavailable"}, status_code=503)
+    return JSONResponse({"ok": ok})
+
+
+# ════════════════════════════════════════════════════════════════
+#  APP CREDENTIALS API (encrypted secrets)
+# ════════════════════════════════════════════════════════════════
+
+@app.get("/api/credentials/secrets/{key}")
+async def secret_get(key: str):
+    """Retrieve a stored credential (use only for server-side reads)."""
+    value = get_app_credential(key)
+    if value is None:
+        return JSONResponse({"ok": False, "error": "Not found"}, status_code=404)
+    # Never return the actual value to the frontend — only confirm existence
+    return JSONResponse({"ok": True, "stored": True})
+
+
+class SecretSaveRequest(BaseModel):
+    key: str
+    value: str
+    description: str = ""
+
+
+@app.post("/api/credentials/secrets")
+async def secret_save(req: SecretSaveRequest):
+    """Store a credential. WARNING: value is stored as-is (not encrypted)."""
+    ok = save_app_credential(req.key, req.value, req.description)
+    if not ok:
+        return JSONResponse({"ok": False, "error": "DB unavailable"}, status_code=503)
+    return JSONResponse({"ok": True})
+
+
+@app.delete("/api/credentials/secrets/{key}")
+async def secret_delete(key: str):
+    """Delete a stored credential."""
+    ok = delete_app_credential(key)
+    if ok is None:
+        return JSONResponse({"ok": False, "error": "DB unavailable"}, status_code=503)
+    return JSONResponse({"ok": ok})
 
 
 # ════════════════════════════════════════════════════════════════
