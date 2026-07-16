@@ -335,11 +335,46 @@ cloudflared tunnel route dns mirv-tunnel tu-dominio.com
 cloudflared tunnel run mirv-tunnel
 ```
 
-### Opción 3: Docker (próximamente)
+### Opción 3: Docker + kali-mcp (recomendado — no requiere Kali VM)
 
-```dockerfile
-# Pendiente de implementar — ver ROADMAP.md
+M.I.R.V. se integra con **[kali-mcp](https://github.com/pabpereza/kali-mcp)** para ejecutar herramientas de seguridad en un contenedor Docker Kali Linux, eliminando la necesidad de una VM Kali separada.
+
+```bash
+# 1. Asegúrate de tener Docker Desktop + WSL2
+# 2. Desde la raíz del proyecto:
+docker compose up -d --build
+
+# 3. Abrir:
+#    Dashboard: http://localhost:8000
+#    kali-mcp:  http://localhost:666/mcp (para agentes IA)
 ```
+
+**Arquitectura Docker:**
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  docker-compose.yml                                      │
+│                                                          │
+│  ┌─────────────────────┐    ┌─────────────────────────┐ │
+│  │  kali-mcp           │    │  mirv-backend           │ │
+│  │  ─────────          │    │  ────────────           │ │
+│  │  Kali Linux + 50+   │◄──►│  FastAPI + WebSocket    │ │
+│  │  tools (nmap,       │    │  + REST API             │ │
+│  │  gobuster, nikto...)│    │  + Findings Panel       │ │
+│  │                     │    │                         │ │
+│  │  Port 666 (MCP)     │    │  Port 8000 (UI + API)   │ │
+│  └─────────────────────┘    └─────────────────────────┘ │
+└─────────────────────────────────────────────────────────┘
+```
+
+**¿Qué aporta kali-mcp?**
+- 🐳 Kali Linux en Docker — sin VM, sin SSH
+- 🔧 50+ herramientas pre-instaladas (nmap, gobuster, nikto, sqlmap, hydra...)
+- 🤖 MCP Server para agentes IA (Claude Code, Gemini CLI, OpenCode...)
+- 📂 SecLists + rockyou.txt incluidos
+- 🔄 Sesiones persistentes en disco
+
+**Detección automática:** Cuando `KALI_MCP_URL=http://localhost:666/mcp` está configurado, MIRV detecta kali-mcp al arrancar y lo expone en `/api/kali-mcp/*` para ejecutar comandos sin SSH.
 
 ---
 
@@ -352,8 +387,11 @@ cloudflared tunnel run mirv-tunnel
 | `SUPABASE_DB_PASSWORD` | ❌ | — | Password de la DB PostgreSQL para bootstrap automático |
 | `SUPABASE_MGMT_TOKEN` | ❌ | — | Management API token para bootstrap alternativo |
 | `PORT` | ❌ | `8000` | Puerto del servidor HTTP |
+| `KALI_MCP_URL` | ❌ | — | URL del kali-mcp MCP server (ej: `http://localhost:666/mcp`) |
+| `KALI_MCP_PORT` | ❌ | `666` | Puerto para kali-mcp en docker-compose |
+| `MIRV_PORT` | ❌ | `8000` | Puerto para MIRV backend en docker-compose |
 
-Todas son opcionales. Sin Supabase, la app funciona en modo offline.
+Todas son opcionales. Sin Supabase, la app funciona en modo offline. Sin `KALI_MCP_URL`, la ejecución de herramientas usa SSH a Kali.
 
 ---
 
@@ -513,6 +551,13 @@ Todas son opcionales. Sin Supabase, la app funciona en modo offline.
 | POST | `/api/credentials/secrets` | Guardar secreto |
 | DELETE | `/api/credentials/secrets/{key}` | Eliminar |
 
+### kali-mcp (Docker Kali alternativo)
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/api/kali-mcp/status` | Estado del contenedor kali-mcp |
+| POST | `/api/kali-mcp/exec` | Ejecutar comando en kali-mcp |
+| GET | `/api/kali-mcp/tools` | Listar herramientas MCP disponibles |
+
 ### Utilidades
 | Método | Ruta | Descripción |
 |--------|------|-------------|
@@ -522,7 +567,7 @@ Todas son opcionales. Sin Supabase, la app funciona en modo offline.
 | POST | `/api/settings` | Guardar setting |
 | POST | `/api/n8n/trigger` | Disparar workflow n8n |
 | GET | `/api/n8n/status` | Estado n8n |
-| GET | `/api/health` | Health check |
+| GET | `/api/health` | Health check (+ status kali-mcp) |
 
 ---
 

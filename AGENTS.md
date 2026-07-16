@@ -14,9 +14,10 @@ Browser → WS (localhost:8000/ws) → FastAPI → Paramiko → Kali SSH
 ```
 C:\Users\34678\Desktop\Proyecto ciber\
 ├── backend/
-│   ├── main.py              # FastAPI app (~2270 lines, 80+ endpoints)
+│   ├── main.py              # FastAPI app (~2332 lines, 88+ endpoints)
 │   ├── database.py           # Supabase CRUD layer (17 tables)
 │   ├── mcp_server.py         # MCP Server for AI agents
+│   ├── kali_mcp_client.py    # Client for kali-mcp Docker integration
 │   ├── swarm.py              # Multi-operator coordinator
 │   ├── mobile_analyzer.py    # APK static + dynamic analysis
 │   ├── forensics.py          # Digital forensics analysis
@@ -25,6 +26,7 @@ C:\Users\34678\Desktop\Proyecto ciber\
 │   ├── adb_controller.py     # ADB device controller
 │   ├── opsec.py              # OPSEC levels (30 tools)
 │   ├── mission_store.py      # Self-Improvement Loop
+│   ├── Dockerfile            # Container image for mirv-backend
 │   └── requirements.txt
 ├── frontend/
 │   ├── index.html           # SPA (Tailwind CDN, 15 tabs, ~1750 lines)
@@ -61,9 +63,10 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `main.py` | ~2299 | FastAPI app, WebSocket SSH proxy, 85+ REST endpoints + CSP middleware |
+| `main.py` | ~2332 | FastAPI app, WebSocket SSH proxy, 88+ REST endpoints + CSP middleware |
 | `database.py` | ~1344 | Supabase CRUD (connections, scripts, reports, findings, payloads, credentials, CTF, forensics, mobile) |
 | `mcp_server.py` | ~620 | MCP Server exposes tools to AI agents (Claude Code, Cursor, etc.) |
+| `kali_mcp_client.py` | ~130 | Client for kali-mcp Docker integration (MCP over HTTP) |
 | `swarm.py` | ~250 | Multi-operator swarm coordinator (Recon, Scanner, Exploiter, Report) |
 | `mobile_analyzer.py` | ~707 | APK static analysis (apktool, jadx, mobsf) + dynamic (ADB/Frida) |
 | `forensics.py` | ~253 | Digital forensics (memory, disk, Sleuth Kit) |
@@ -206,7 +209,8 @@ Tools that need target validation must be listed in the `needsTarget` array.
 | Upload | `POST /api/upload`, `GET /api/files` |
 | Settings | `GET/POST /api/settings` |
 | n8n | `POST /api/n8n/trigger`, `GET /api/n8n/status` |
-| Health | `GET /api/health` |
+| kali-mcp | `GET /api/kali-mcp/status`, `POST /api/kali-mcp/exec`, `GET /api/kali-mcp/tools` |
+| Health | `GET /api/health` (+ kali-mcp status) |
 
 ## Persistent storage
 

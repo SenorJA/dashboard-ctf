@@ -1,0 +1,25 @@
+# ── kali-mcp standalone ───────────────────────────────────
+# Run alongside MIRV for zero-VM Kali access.
+#   docker compose -f docker/kali-mcp.yml up -d
+# AI agents connect to http://localhost:666/mcp
+# MIRV auto-detects it via KALI_MCP_URL
+# ────────────────────────────────────────────────────────────
+services:
+  kali-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: kali-mcp
+    ports:
+      - "666:8000"
+    restart: unless-stopped
+    cap_add:
+      - NET_RAW
+      - NET_ADMIN
+    sysctls:
+      - net.ipv4.ping_group_range=0 2147483647
+    volumes:
+      - kali-mcp-sessions:/tmp/workspace/sessions
+
+volumes:
+  kali-mcp-sessions:

@@ -203,6 +203,20 @@
 
 ---
 
+## ✅ Integración kali-mcp (Julio 2026)
+
+- [x] **Docker Compose full stack** — `docker-compose.yml` con kali-mcp + MIRV backend
+- [x] **kali-mcp Dockerfile adaptado** — `docker/kali-mcp.Dockerfile` + entrypoint
+- [x] **MIRV backend Dockerfile** — `backend/Dockerfile` para contenerizar el dashboard
+- [x] **Cliente MCP** — `backend/kali_mcp_client.py` que habla con kali-mcp vía HTTP
+- [x] **Detección automática** — `KALI_MCP_URL` env var, health check al arrancar
+- [x] **3 nuevos endpoints**: `GET /api/kali-mcp/status`, `POST /api/kali-mcp/exec`, `GET /api/kali-mcp/tools`
+- [x] **Integración en health check** — `/api/health` reporta estado de kali-mcp
+- [x] **Script de inicio** — `start_docker.bat` para Windows (docker compose up)
+- [x] **Documentación** — README con arquitectura Docker + variables de entorno
+
+---
+
 ## ✅ Mejoras Mobile: Frida Stop + Clear (Julio 2026)
 
 - [x] **Botón Stop Frida** — mata procesos Frida en Kali vía `pkill` desde el frontend
@@ -256,7 +270,7 @@
 | Fase 5 | Hallazgos persistentes + informes | ✅ Completado |
 | Fase 6 | Contención de alcance | ✅ Completado |
 | Fase 7 | Producción (dominio + tunnel) | 🚧 Pendiente (infraestructura) |
-| Fase 8 | Docker + Tests + CI/CD | ⏳ Próximo hito |
+| Fase 8 | Docker + Tests + CI/CD | 🚧 En progreso (Docker listo, faltan tests) |
 | Labs | Mobile + Forensics + KB + CTF + Creds | ✅ Completado |
 | MCP | Server para agentes IA | ✅ Completado |
 | OPSEC | Levels (Silent/Covert/Loud) | ✅ Completado |

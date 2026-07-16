@@ -96,6 +96,33 @@ from backend.forensics import (
 
 app = FastAPI(title="VulnForge", version=VERSION)
 
+# ── kali-mcp integration ──
+# When KALI_MCP_URL is set, MIRV can delegate tool execution to
+# a kali-mcp Docker container instead of SSH to a remote Kali VM.
+KALI_MCP_URL = os.getenv("KALI_MCP_URL", "")
+_kali_mcp_available = False
+
+
+@app.on_event("startup")
+async def _check_kali_mcp():
+    global _kali_mcp_available
+    if KALI_MCP_URL:
+        try:
+            import httpx
+            health_url = KALI_MCP_URL.replace("/mcp", "/health")
+            async with httpx.AsyncClient(timeout=3) as client:
+                r = await client.get(health_url)
+                if r.status_code == 200:
+                    _kali_mcp_available = True
+                    logger.info("✅ kali-mcp detected at %s", KALI_MCP_URL)
+                else:
+                    logger.warning("⚠ kali-mcp at %s returned status %d", KALI_MCP_URL, r.status_code)
+        except Exception as e:
+            logger.warning("⚠ kali-mcp not available at %s: %s", KALI_MCP_URL, e)
+    else:
+        logger.info("ℹ KALI_MCP_URL not set — using SSH for tool execution")
+
+
 # ── Production logging ──
 if PRODUCTION:
     log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
@@ -642,6 +669,8 @@ async def api_health():
         "uptime_seconds": uptime_seconds,
         "supabase": ok,
         "database": "supabase" if ok else "localstorage (fallback)",
+        "kali_mcp_url": KALI_MCP_URL or None,
+        "kali_mcp_available": _kali_mcp_available,
     })
 
 # Record startup time
@@ -655,6 +684,47 @@ async def _record_startup():
     else:
         logger.info("VulnForge ready — development mode (--reload)")
     logger.info("Mobile Lab initialized")
+
+# ── kali-mcp API ──
+
+@app.get("/api/kali-mcp/status")
+async def kali_mcp_status():
+    """Check if kali-mcp container is reachable."""
+    return JSONResponse({
+        "ok": True,
+        "configured": bool(KALI_MCP_URL),
+        "available": _kali_mcp_available,
+        "url": KALI_MCP_URL or None,
+    })
+
+
+@app.post("/api/kali-mcp/exec")
+async def kali_mcp_exec(body: dict):
+    """Execute a command via kali-mcp (bypasses SSH)."""
+    if not _kali_mcp_available:
+        return JSONResponse({"ok": False, "error": "kali-mcp not available"}, status_code=503)
+
+    command = body.get("command", "")
+    if not command:
+        return JSONResponse({"ok": False, "error": "command is required"}, status_code=400)
+
+    from backend.kali_mcp_client import execute_command
+    output = await execute_command(command)
+    if output.startswith("ERROR"):
+        return JSONResponse({"ok": False, "error": output}, status_code=500)
+    return JSONResponse({"ok": True, "output": output})
+
+
+@app.get("/api/kali-mcp/tools")
+async def kali_mcp_tools():
+    """List available MCP tools from kali-mcp."""
+    if not _kali_mcp_available:
+        return JSONResponse({"ok": False, "error": "kali-mcp not available"}, status_code=503)
+
+    from backend.kali_mcp_client import list_available_tools
+    tools = await list_available_tools()
+    return JSONResponse({"ok": True, "tools": tools})
+
 
 # ── Reports ──
 

@@ -8,3 +8,4 @@ reportlab
 python-dotenv
 python-multipart
 psycopg2-binary  # optional — for automatic DB bootstrap (set SUPABASE_DB_PASSWORD)
+httpx            # optional — for kali-mcp integration (set KALI_MCP_URL)
