@@ -337,14 +337,28 @@ cloudflared tunnel run mirv-tunnel
 
 ### Opción 3: Docker (recomendado — no requiere Kali VM)
 
-M.I.R.V. corre en Docker con un **contenedor Kali Linux** que incluye 50+ herramientas de seguridad pre-instaladas. Elimina la necesidad de una VM Kali separada — todo funciona con un solo comando.
+M.I.R.V. corre en Docker con un **contenedor Kali Linux** que incluye 50+ herramientas de seguridad pre-instaladas. **Elimina la necesidad de una VM Kali separada** — todo funciona con un solo comando.
+
+**¿Cómo cambia respecto a la VM de Kali?**
+
+| | Antes (VM Kali) | Ahora (Docker) |
+|---|---|---|
+| **Requisitos** | VMware/VirtualBox + ISO Kali | Docker Desktop |
+| **Setup** | Instalar VM, configurar red, SSH | `docker compose up -d --build` |
+| **Tiempo primera vez** | 30-45 min | ~20 min (build auto) |
+| **Recursos** | 4-8 GB RAM dedicados | ~2 GB RAM bajo demanda |
+| **Mantenimiento** | Actualizar tools manualmente | Reconstruir imagen |
+| **Portabilidad** | Solo en tu PC | Cualquier PC con Docker |
+
+**Un comando levanta todo:**
 
 ```bash
-# 1. Asegúrate de tener Docker Desktop (v24+) instalado
+# 1. Asegúrate de tener Docker Desktop (v24+) instalado y corriendo
 # 2. Desde la raíz del proyecto:
 docker compose up -d --build
 
-# 3. El primer build tarda ~15-20 min (descarga Kali + instala tools)
+# 3. El primer build tarda ~15-20 min (descarga Kali + instala 50+ tools)
+#    Las siguientes veces es instantáneo (caché)
 # 4. Abrir dashboard: http://localhost:8000
 ```
 
@@ -376,37 +390,94 @@ docker compose up -d --build
 
 **Conexión automática:** Docker Compose pasa `KALI_IP=kali-tools`, `KALI_PORT=22`, `KALI_USER=root`, `KALI_PASS=mirv` al backend. El dashboard se conecta por SSH al contenedor.
 
-### Probar el stack Docker
+### Probar el stack Docker — paso a paso
 
+#### Paso 1: Verificar que Docker está corriendo
 ```bash
-# Verificar contenedores:
+docker version
+```
+Si ves `Server: Docker Desktop` en la salida, seguimos. Si no, abre Docker Desktop y espera a que diga "running".
+
+#### Paso 2: Levantar todo el stack (un comando)
+```bash
+# Desde la raíz del proyecto (C:\Users\34678\Desktop\Proyecto ciber\)
+docker compose up -d --build
+```
+La **primera vez** tarda ~20 min (descarga Kali + instala 50+ herramientas). Las siguientes es instantáneo.
+
+#### Paso 3: Verificar contenedores
+```bash
 docker ps
+```
+Debes ver **dos contenedores**:
+- `mirv-kali-tools` → Status: `Up (healthy)` → Puerto 2222
+- `mirv-backend` → Status: `Up (healthy)` → Puerto 8000
 
-# Verificar health backend:
+#### Paso 4: Verificar health del backend
+```bash
 curl http://localhost:8000/api/health
+```
+Devuelve: `{"status":"ok","supabase":true,"database":"supabase",...}`
 
-# Probar SSH al Kali container:
-ssh root@localhost -p 2222          # password: mirv
-nmap --version
-gobuster --help
+#### Paso 5: Abrir el dashboard
+```
+http://localhost:8000
+```
 
-# Ver logs en vivo:
+#### Paso 6: Conectar al Kali del contenedor
+En el dashboard:
+1. Ve a la pestaña **Connections** (icono de enlace en el sidebar)
+2. Añade una conexión nueva:
+   - **Name:** `Kali Docker`
+   - **IP:** `localhost`
+   - **Port:** `2222` *(¡importante! 2222, no 22)*
+   - **Username:** `root`
+   - **Password:** `mirv`
+3. Click **Connect**
+4. ¡Terminal lista!
+
+> ⚠️ **Nota:** El **Puerto es 2222** (NO 22). Docker mapea el 2222 del host al 22 del contenedor. Si pones 22 no conectará.
+
+#### Paso 7: Probar herramientas desde el terminal
+```bash
+# Escaneo de puertos:
+nmap -sV -Pn scanme.nmap.org
+
+# Detección de tecnologías web:
+whatweb example.com
+
+# Enumeración de directorios:
+gobuster dir -u http://example.com -w /usr/share/seclists/Discovery/Web-Content/common.txt -q
+
+# Escaneo de vulnerabilidades web:
+nikto -h http://example.com
+```
+Los findings se parsean automáticamente y aparecen en el panel **🎯 Findings**.
+
+#### Paso 8: Ver logs en vivo (opcional)
+```bash
 docker compose logs -f
 ```
 
-En el dashboard:
-1. Abre http://localhost:8000
-2. Connections → no necesitas añadir nada (configurado por env vars)
-3. Lanza herramientas desde el Arsenal (nmap, gobuster, etc.)
-4. Los findings se parsean automáticamente y se guardan en Supabase
-
-### Parar / reiniciar
-
+### Parar / reiniciar el stack
 ```bash
-docker compose down          # parar
-docker compose up -d         # arrancar (sin rebuild)
-docker compose up -d --build # reconstruir tras cambios
+docker compose down          # parar (no se borra nada)
+docker compose up -d         # arrancar (instantáneo, sin rebuild)
+docker compose up -d --build # reconstruir tras cambios en el código
 ```
+
+### Resumen en un golpe
+```bash
+# 1. Levantar todo:
+docker compose up -d --build
+
+# 2. Abrir en el navegador:
+#    http://localhost:8000
+
+# 3. Conectar en el dashboard:
+#    IP: localhost  Port: 2222  User: root  Pass: mirv
+```
+Sin VM, sin VirtualBox, sin configurar redes. Un comando y ya.
 
 ---
 
