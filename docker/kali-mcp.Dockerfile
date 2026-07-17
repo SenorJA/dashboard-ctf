@@ -1,13 +1,11 @@
 # ── kali-mcp adapted for M.I.R.V. ─────────────────────────
-# Based on pabpereza/kali-mcp with MIRV integration extras
-# Build: docker build -f docker/kali-mcp.Dockerfile -t mirv-kali-mcp .
+# Lightweight Kali container with 50+ security tools.
+# MIRV executes commands via docker exec (no MCP server needed).
 # ────────────────────────────────────────────────────────────
 FROM kalilinux/kali-rolling
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    # --- MCP Server ---
-    kali-server-mcp \
     # --- Core Utilities ---
     curl \
     wget \
@@ -78,20 +76,19 @@ RUN if [ -f /usr/share/wordlists/rockyou.txt.gz ]; then \
 RUN searchsploit -u || true && \
     nuclei -update-templates || true
 
-# Install supergateway for MCP HTTP transport
-RUN apt-get install -y nodejs npm && \
-    npm install -g supergateway && \
+# Simple HTTP health endpoint
+RUN apt-get install -y openssh-server && \
+    mkdir -p /var/run/sshd && \
+    echo "root:mirv" | chpasswd && \
+    sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config && \
     apt-get clean
-
-COPY docker/kali-mcp-entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
 
 RUN mkdir -p /tmp/workspace
 WORKDIR /tmp/workspace
 
-EXPOSE 8000
+EXPOSE 22
 
-HEALTHCHECK --interval=10s --timeout=5s --start-period=30s --retries=5 \
-  CMD curl -sf http://localhost:5000/health || exit 1
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD sshd -t || exit 1
 
-ENTRYPOINT ["/entrypoint.sh"]
+CMD ["/usr/sbin/sshd", "-D", "-e"]

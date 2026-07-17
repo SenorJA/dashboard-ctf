@@ -1,20 +1,20 @@
-# ── M.I.R.V. + kali-mcp Full Stack ────────────────────────
-#   docker compose up -d
+# ── M.I.R.V. + Kali Container Full Stack ──────────────────
+#   docker compose up -d --build
 #   Open http://localhost:8000 (MIRV dashboard)
-#   AI agents connect to http://localhost:666/mcp (kali-mcp)
+#   Kali tools available without a separate VM
 # ────────────────────────────────────────────────────────────
 services:
 
-  # ── Kali MCP Server ──
-  # Provides 50+ security tools via MCP protocol
-  # Auto-detected by MIRV backend when KALI_MCP_URL is set
-  kali-mcp:
+  # ── Kali Linux (Tools Container) ──
+  # 50+ security tools pre-installed.
+  # MIRV connects via SSH (auto-configured).
+  kali-tools:
     build:
       context: .
       dockerfile: docker/kali-mcp.Dockerfile
-    container_name: mirv-kali-mcp
+    container_name: mirv-kali-tools
     ports:
-      - "${KALI_MCP_PORT:-666}:8000"
+      - "${KALI_SSH_PORT:-2222}:22"
     restart: unless-stopped
     cap_add:
       - NET_RAW
@@ -22,13 +22,14 @@ services:
     sysctls:
       - net.ipv4.ping_group_range=0 2147483647
     volumes:
-      - kali-mcp-sessions:/tmp/workspace/sessions
+      - kali-sessions:/tmp/workspace/sessions
+      - kali-wordlists:/usr/share/wordlists
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:5000/health"]
+      test: ["CMD", "sshd", "-t"]
       interval: 15s
       timeout: 5s
-      retries: 5
-      start_period: 60s
+      retries: 10
+      start_period: 20s
 
   # ── M.I.R.V. Backend (FastAPI) ──
   # Dashboard web + SSH proxy + findings + REST API
@@ -41,15 +42,15 @@ services:
       - "${MIRV_PORT:-8000}:8000"
     restart: unless-stopped
     depends_on:
-      kali-mcp:
+      kali-tools:
         condition: service_healthy
     environment:
-      - KALI_MCP_URL=http://kali-mcp:8000/mcp
+      - KALI_IP=kali-tools
+      - KALI_PORT=22
+      - KALI_USER=root
+      - KALI_PASS=mirv
       - SUPABASE_URL=${SUPABASE_URL:-}
       - SUPABASE_KEY=${SUPABASE_KEY:-}
-      - KALI_IP=${KALI_IP:-}
-      - KALI_USER=${KALI_USER:-}
-      - KALI_PASS=${KALI_PASS:-}
     volumes:
       - mirv-logs:/app/backend/logs
     healthcheck:
@@ -60,5 +61,6 @@ services:
       start_period: 15s
 
 volumes:
-  kali-mcp-sessions:
+  kali-sessions:
+  kali-wordlists:
   mirv-logs:

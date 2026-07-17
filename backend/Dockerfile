@@ -8,11 +8,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy project
+# Copy project (use .dockerignore to control what gets copied)
 COPY backend/ /app/backend/
 COPY frontend/ /app/frontend/
 COPY scripts/ /app/scripts/
-COPY .env /app/.env 2>/dev/null || true
+# .env is excluded by .dockerignore; pass via env vars in compose
 
 # Install Python deps
 RUN pip install --no-cache-dir -r /app/backend/requirements.txt
