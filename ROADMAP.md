@@ -204,6 +204,19 @@
 
 ---
 
+## ✅ Arsenal ampliado: OSINT + Pentest Labs + Bug Bounty (Julio 2026)
+
+- [x] **6 herramientas OSINT CLI** con auto-instalación: TheHarvester, Mr.Holmes, Infoooze, BBOT, LinkedIn2Username, SpiderFoot
+- [x] **8 enlaces OSINT web**: Flare.io, Lenso AI, OSINT Framework, SpiderFoot, Shodan, Censys, VirusTotal, HaveIBeenPwned
+- [x] **10 Pentest Labs**: DockerLabs, HackTheBox, TryHackMe, VulnHub, Proving Grounds, HackMyVM, PortSwigger Academy, OverTheWire, PicoCTF, RootMe
+- [x] **8 Bug Bounty platforms**: HackerOne, Bugcrowd, Intigriti, YesWeHack, Secur0, Open Bug Bounty, Synack, Grey Hack
+- [x] **3 nuevas categorías sidebar**: OSINT, Pentest Labs, Bug Bounty
+- [x] **i18n**: catOsint, catPentest, catBugbounty (EN/ES)
+- [x] **Función `renderSiteButton`** con badges dinámicos (TOP/GRATIS/FREEMIUM/ES/PAGO/JUEGO)
+- [x] **Total arsenal**: 51 → 83+ módulos (32 nuevos)
+
+---
+
 ## ✅ Integración Kali Docker (Julio 2026)
 
 - [x] **Docker Compose full stack** — `docker-compose.yml` con kali-tools + MIRV backend
@@ -278,6 +291,7 @@
 | Self-Improvement | Mission History + AI context | ✅ Completado |
 | Persistence Audit | 17 tablas, 15 endpoints, offline-first | ✅ Completado |
 | Frida Stop/Clear | Stop + Clear console, CSP fix, error msgs | ✅ Completado |
+| Arsenal OSINT | 6 tools OSINT + 8 web links + 10 labs + 8 BB platforms | ✅ Completado |
 
 ---
 

@@ -174,13 +174,31 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 ## Arsenal module system
 
-51+ modules. Tool IDs must match between HTML `onclick="launchTool('my-id')"` and JS `case 'my-id':`.
+83+ modules. Tool IDs must match between HTML `onclick="launchTool('my-id')"` and JS `case 'my-id':`.
+
+**Arsenal categories:**
+| Category | Type | Items |
+|----------|------|-------|
+| Web Recon | Tools (CLI) | 11 |
+| Network | Tools (CLI) | 7 |
+| SMB/Windows | Tools (CLI) | 7 |
+| Pivoting | Tools (CLI) | 4 |
+| Crypto/Decode | Tools (CLI) | 5 |
+| Exploitation | Tools (CLI) | 9 |
+| OSINT | Tools (CLI) | 6 (theHarvester, Mr.Holmes, Infoooze, BBOT, LinkedIn2Username, SpiderFoot) |
+| Extract/Compress | Tools (CLI) | 7 |
+| Resources | Links | 8 (HackTricks, PortSwigger, PayloadsAllTheThings, etc.) |
+| Utilities | Links | 1 (CyberChef) |
+| OSINT Web | Links | 8 (Flare.io, Lenso AI, Shodan, Censys, VirusTotal, etc.) |
+| Pentest Labs | Sites (with badges) | 10 (DockerLabs, HTB, THM, VulnHub, PG, HackMyVM, etc.) |
+| Bug Bounty | Sites (with badges) | 8 (HackerOne, Bugcrowd, Intigriti, YesWeHack, Secur0, etc.) |
+| Hardware Stores | Sites (with badges) | 10 (Hak5, Flipper Zero, Lab 401, etc.) |
 
 **Adding a new tool requires changes in 2 files:**
-1. `index.html` — add button in the appropriate Arsenal category
-2. `main.v2.js` — add `case 'toolId':` in the `launchTool` switch
+1. `index.html` — add button in the appropriate Arsenal category (or add new `<div id="arsenal-{id}">`)
+2. `main.v2.js` — add `case 'toolId':` in the `launchTool` switch + add to `ARSENAL_GROUPS` (or new array) + add to `needsTarget` if applicable
 
-Tools that need target validation must be listed in the `needsTarget` array.
+For new "category of links" (like Pentest Labs), create an array (e.g. `PENTEST_SITES`), add a `renderSiteButton()` function, add to `renderArsenal()`, and create `<div id="arsenal-pentest">` in HTML.
 
 ## REST API (65+ endpoints)
 

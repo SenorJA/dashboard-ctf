@@ -132,7 +132,7 @@ M.I.R.V. es una **plataforma modular todo-en-uno** para operaciones de cibersegu
 | **Export** | `.txt` · `.md` · `.html` · `📄 PDF` (vía `window.print()`) |
 | **Persistencia** | Supabase + sincronización automática cada 2s |
 
-### 🛠️ Arsenal (51+ herramientas)
+### 🛠️ Arsenal (83+ módulos)
 | Categoría | Herramientas |
 |-----------|-------------|
 | **Web Recon** | gobuster, dirb, wfuzz, ffuf, feroxbuster, nikto, whatweb, wpscan, cewl, nuclei |
@@ -141,10 +141,15 @@ M.I.R.V. es una **plataforma modular todo-en-uno** para operaciones de cibersegu
 | **Pivoting** | ligolo, nc-listener, chisel-client, proxychains |
 | **Crypto** | jwt-decode, b64-encode, b64-decode, john, hashcat |
 | **Exploitation** | hydra (SSH/FTP), sqlmap, searchsploit, responder, xsstrike, dalfox, cors-check |
+| **OSINT** | TheHarvester, Mr.Holmes, Infoooze, BBOT, LinkedIn2Username, SpiderFoot |
 | **WAF/TLS** | wafw00f, testssl |
 | **Extract/Compress** | unzip, tar-gz, tar-xz, 7z-extract, unrar, gunzip, bunzip2 |
 | **Resources** | HackTricks, PortSwigger, PayloadsAllTheThings, Chisel, RevShells, Exploit-DB, GTFOBins |
 | **Utilities** | CyberChef |
+| **OSINT Web** | Flare.io, Lenso AI, OSINT Framework, SpiderFoot, Shodan, Censys, VirusTotal, HaveIBeenPwned |
+| **Pentest Labs** | DockerLabs, HackTheBox, TryHackMe, VulnHub, Proving Grounds, HackMyVM, PortSwigger Academy, OverTheWire, PicoCTF, RootMe |
+| **Bug Bounty** | HackerOne, Bugcrowd, Intigriti, YesWeHack, Secur0, Open Bug Bounty, Synack, Grey Hack |
+| **Hardware Stores** | Hak5, Flipper Zero, Great Scott Gadgets, M5Stack, Lab 401, Hacker Warehouse, HackmoD, KSEC Labs, Firewire Revolution, SAPSAN |
 
 ### 🤖 IA Multi-Proveedor
 | Proveedor | Endpoint por defecto | Modelo |
@@ -169,6 +174,51 @@ Funcionalidades IA:
 - **Consola Frida**: botones ▶ Run, ⏹ Stop (mata procesos en Kali), ✕ Clear (limpia output)
 - **Detección**: WebView inseguro, ofuscación, root detection, crypto débil
 - **Dashboard**: lista de APKs, resumen de severidad, detalle de hallazgos
+
+### 🔍 OSINT Toolkit
+6 herramientas CLI con auto-instalación + 8 enlaces web:
+
+| Herramienta | Tipo | Comando | Auto-instala |
+|-------------|------|---------|:------------:|
+| **TheHarvester** | CLI | `theHarvester -d <target> -b google,bing,linkedin` | Pre-instalado en Kali |
+| **Mr.Holmes** | CLI | `MrHolmes.py --username <target>` | `git clone` + `install.sh` |
+| **Infoooze** | CLI | `infoooze -s <target>` | `npm install -g infoooze` |
+| **BBOT** | CLI | `bbot -t <target> -p subdomain-enum` | `pip install bbot` |
+| **LinkedIn2Username** | CLI | `linkedin2username.py -c <company>` | `git clone` + `pip install` |
+| **SpiderFoot** | CLI | `spiderfoot -s <target> -t INTERNET_NAME` | `pip install spiderfoot` |
+
+**Enlaces OSINT web:** Flare.io, Lenso AI, OSINT Framework, SpiderFoot, Shodan, Censys, VirusTotal, HaveIBeenPwned
+
+### 🎯 Pentest Labs (10 plataformas)
+Acceso directo desde el arsenal a las mejores plataformas de práctica:
+
+| Plataforma | URL | Badge |
+|------------|-----|-------|
+| DockerLabs | `dockerlabs.es` | GRATIS |
+| HackTheBox | `hackthebox.com` | FREEMIUM |
+| TryHackMe | `tryhackme.com` | FREEMIUM |
+| VulnHub | `vulnhub.com` | GRATIS |
+| Proving Grounds | `offsec.com/labs` | PAGO |
+| HackMyVM | `hackmyvm.eu` | GRATIS |
+| PortSwigger Academy | `portswigger.net/web-security` | GRATIS |
+| OverTheWire | `overthewire.org` | GRATIS |
+| PicoCTF | `picoctf.org` | GRATIS |
+| RootMe | `root-me.org` | FREEMIUM |
+
+### 💰 Bug Bounty (8 plataformas)
+| Plataforma | URL | Badge |
+|------------|-----|-------|
+| HackerOne | `hackerone.com` | TOP |
+| Bugcrowd | `bugcrowd.com` | TOP |
+| Intigriti | `intigriti.com` | TOP |
+| YesWeHack | `yeswehack.com` | TOP |
+| Secur0 | `app.secur0.com` | ES |
+| Open Bug Bounty | `openbugbounty.org` | GRATIS |
+| Synack | `synack.com` | PAGO |
+| Grey Hack | `store.steampowered.com` (juego MMO) | JUEGO |
+
+### 🛒 Hardware Stores (10 tiendas)
+Hak5, Flipper Zero, Great Scott Gadgets, M5Stack (oficiales) + Lab 401, Hacker Warehouse, HackmoD, KSEC Labs, Firewire Revolution, SAPSAN (re-sellers) — para comprar gear de pentesting (Rubber Ducky, WiFi Pineapple, HackRF, Flipper, etc.)
 
 ### 🔍 Forensics Lab
 - **Análisis de archivos**: strings, binwalk, foremost, exiftool, hexdump
