@@ -1929,6 +1929,17 @@ ${bodyHtml}
             ]
         },
         {
+            id: 'osint', label: 'OSINT', color: 'text-orange-400',
+            tools: [
+                { id: 'theharvester',  name: 'TheHarvester',       desc: 'emails, subdominios, hosts (google,bing,linkedin)' },
+                { id: 'mr-holmes',     name: 'Mr.Holmes',          desc: 'OSINT email/user/teléfono + dorks' },
+                { id: 'infoooze',      name: 'Infoooze',          desc: 'subdominios, IG, whois, DNS, EXIF (17 módulos)' },
+                { id: 'bbot',          name: 'BBOT',              desc: 'framework recon (subdomain-enum preset)' },
+                { id: 'linkedin2user', name: 'Linkedin2Username', desc: 'genera wordlists usernames de LinkedIn' },
+                { id: 'spiderfoot',    name: 'SpiderFoot',        desc: 'automatiza OSINT (100+ módulos)' },
+            ]
+        },
+        {
             id: 'extract', label: 'Extract / Compress', color: 'text-emerald-400',
             tools: [
                 { id: 'unzip',     name: 'Unzip',   desc: 'descomprimir .zip' },
@@ -1955,6 +1966,41 @@ ${bodyHtml}
 
     const ARSENAL_UTILITIES = [
         { name: 'CyberChef',            url: 'https://gchq.github.io/CyberChef/',                               icon: '🔗' },
+    ];
+
+    const OSINT_WEB = [
+        { name: 'Flare.io',           url: 'https://try.flare.io/free-trial/',                  icon: '🔥' },
+        { name: 'Lenso AI',           url: 'https://lenso.ai',                                  icon: '🔍' },
+        { name: 'OSINT Framework',    url: 'https://osintframework.com',                        icon: '🕸' },
+        { name: 'SpiderFoot',        url: 'https://www.spiderfoot.net',                        icon: '🕷' },
+        { name: 'Shodan',            url: 'https://www.shodan.io',                             icon: '🛰' },
+        { name: 'Censys',            url: 'https://search.censys.io',                           icon: '📊' },
+        { name: 'VirusTotal',         url: 'https://www.virustotal.com',                        icon: '🦠' },
+        { name: 'HaveIBeenPwned',     url: 'https://haveibeenpwned.com',                       icon: '💀' },
+    ];
+
+    const PENTEST_SITES = [
+        { name: 'DockerLabs',         url: 'https://dockerlabs.es',          icon: '🐳', desc: 'Máquinas Docker gratuitas (ES)',                     badge: 'GRATIS' },
+        { name: 'HackTheBox',        url: 'https://www.hackthebox.com',     icon: '🟢', desc: 'Máquinas vulnerables + Pro Labs',                   badge: 'FREEMIUM' },
+        { name: 'TryHackMe',         url: 'https://tryhackme.com',         icon: '🟣', desc: 'Aprendizaje gamificado con AttackBox',              badge: 'FREEMIUM' },
+        { name: 'VulnHub',           url: 'https://www.vulnhub.com',       icon: '🟠', desc: 'VMs descargables offline',                          badge: 'GRATIS' },
+        { name: 'Proving Grounds',   url: 'https://www.offsec.com/labs/',  icon: '🔴', desc: 'Labs tipo OSCP (OffSec)',                           badge: 'PAGO' },
+        { name: 'HackMyVM',          url: 'https://hackmyvm.eu',           icon: '🟡', desc: 'Máquinas estilo HTB, comunidad ES',                 badge: 'GRATIS' },
+        { name: 'PortSwigger Acad.', url: 'https://portswigger.net/web-security', icon: '🔓', desc: 'Labs web gratuitos (Burp Suite)',              badge: 'GRATIS' },
+        { name: 'OverTheWire',       url: 'https://overthewire.org',       icon: '⚡', desc: 'Wargames por SSH desde cero',                       badge: 'GRATIS' },
+        { name: 'PicoCTF',           url: 'https://picoctf.org',           icon: '🎯', desc: 'CTF educativo (Carnegie Mellon)',                   badge: 'GRATIS' },
+        { name: 'RootMe',            url: 'https://www.root-me.org',       icon: '👾', desc: 'Retos clasificados (FR)',                           badge: 'FREEMIUM' },
+    ];
+
+    const BUGBOUNTY_SITES = [
+        { name: 'HackerOne',         url: 'https://www.hackerone.com',       icon: '🟢', desc: 'Mayor plataforma global de bug bounty',              badge: 'TOP' },
+        { name: 'Bugcrowd',          url: 'https://www.bugcrowd.com',        icon: '🐜', desc: '2ª mayor, pública + privada',                        badge: 'TOP' },
+        { name: 'Intigriti',         url: 'https://www.intigriti.com',       icon: '🇧🇪', desc: 'Plataforma europea premium',                         badge: 'TOP' },
+        { name: 'YesWeHack',         url: 'https://www.yeswehack.com',      icon: '🇫🇷', desc: 'Plataforma europea (Francia)',                       badge: 'TOP' },
+        { name: 'Secur0',            url: 'https://app.secur0.com',          icon: '🇪🇸', desc: 'VDP/bug bounty española (DockerLabs)',                badge: 'ES' },
+        { name: 'Open Bug Bounty',   url: 'https://www.openbugbounty.org',  icon: '🔓', desc: 'Bug bounty abierto y gratuito',                      badge: 'GRATIS' },
+        { name: 'Synack',            url: 'https://www.synack.com',         icon: '🛡', desc: 'Bug bounty privado (aprueba selección)',             badge: 'PAGO' },
+        { name: 'Grey Hack',         url: 'https://store.steampowered.com/app/605230/Grey_Hack/', icon: '🎮', desc: 'MMO de hacking simulado (Steam)',     badge: 'JUEGO' },
     ];
 
     const HARDWARE_STORES = [
@@ -2005,6 +2051,26 @@ ${bodyHtml}
         </a>`;
     }
 
+    function renderSiteButton(s) {
+        const badgeColor = s.badge === 'TOP' ? 'text-neon border-neon/30' :
+                           s.badge === 'GRATIS' ? 'text-green-400 border-green-400/30' :
+                           s.badge === 'FREEMIUM' ? 'text-cyan-400 border-cyan-400/30' :
+                           s.badge === 'ES' || s.badge === '🇪🇸' ? 'text-amber-400 border-amber-400/30' :
+                           'text-gray-500 border-gray-500/30';
+        return `<a href="${s.url}" target="_blank" rel="noopener"
+            class="tool-btn flex items-center gap-2 w-full bg-deep/50 hover:bg-deep px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-orange-400/40 group">
+            <span class="text-orange-400/70 group-hover:text-orange-400 shrink-0">${s.icon}</span>
+            <div class="flex-1 min-w-0">
+                <span class="flex items-center gap-1.5">
+                    <span class="text-gray-400 group-hover:text-gray-200 truncate">${s.name}</span>
+                    <span class="text-[7px] uppercase tracking-wider border px-1 rounded shrink-0 ${badgeColor}">${s.badge}</span>
+                </span>
+                <span class="block text-[8px] text-gray-700 leading-tight">${s.desc}</span>
+            </div>
+            <span class="text-[8px] text-gray-700 shrink-0">↗</span>
+        </a>`;
+    }
+
     function renderArsenal() {
         ARSENAL_GROUPS.forEach(g => {
             const container = document.getElementById(`arsenal-${g.id}`);
@@ -2016,7 +2082,13 @@ ${bodyHtml}
         if (utilContainer) utilContainer.innerHTML = ARSENAL_UTILITIES.map(renderLinkButton).join('');
         const hwContainer = document.getElementById('arsenal-hardware');
         if (hwContainer) hwContainer.innerHTML = HARDWARE_STORES.map(renderStoreButton).join('');
-        const totalItems = ARSENAL_GROUPS.reduce((s, g) => s + g.tools.length, 0) + ARSENAL_LINKS.length + ARSENAL_UTILITIES.length + HARDWARE_STORES.length;
+        const osintContainer = document.getElementById('arsenal-osint-links');
+        if (osintContainer) osintContainer.innerHTML = OSINT_WEB.map(renderLinkButton).join('');
+        const pentestContainer = document.getElementById('arsenal-pentest');
+        if (pentestContainer) pentestContainer.innerHTML = PENTEST_SITES.map(renderSiteButton).join('');
+        const bugbountyContainer = document.getElementById('arsenal-bugbounty');
+        if (bugbountyContainer) bugbountyContainer.innerHTML = BUGBOUNTY_SITES.map(renderSiteButton).join('');
+        const totalItems = ARSENAL_GROUPS.reduce((s, g) => s + g.tools.length, 0) + ARSENAL_LINKS.length + ARSENAL_UTILITIES.length + HARDWARE_STORES.length + OSINT_WEB.length + PENTEST_SITES.length + BUGBOUNTY_SITES.length;
         const totalSpan = document.getElementById('arsenal-total-count');
         if (totalSpan) totalSpan.textContent = `[${totalItems}]`;
         const toolCountSpan = document.getElementById('tool-count');
@@ -2159,7 +2231,8 @@ ${bodyHtml}
             'nmap','masscan','netcat','dnsrecon','curl','socat','testssl',
             'enum4linux','smbclient','smbmap','ldapsearch','bloodhound','evil-winrm','impacket',
             'hydra-ssh','hydra-ftp','sqlmap','responder','burpsuite',
-            'xsstrike','dalfox','nuclei'
+            'xsstrike','dalfox','nuclei',
+            'theharvester','mr-holmes','infoooze','bbot','linkedin2user','spiderfoot'
         ];
         if (needsTarget.includes(tool) && !target) {
             alert('⚠️  Enter a target IP/domain in the "Target_" field first.');
@@ -2405,6 +2478,32 @@ ${bodyHtml}
             case 'nuclei':
                 command = `echo "╔═ Nuclei Guide ═╗\n\n# Quick scan (critical + high):\nnuclei -u http://${target} -severity critical,high\n\n# Full scan with all templates:\nnuclei -u http://${target} -t ~/nuclei-templates/ -json -o /tmp/nuclei_${target}.json\n\n# CORS misconfiguration check:\nnuclei -u http://${target} -id cors-misconfiguration\n\n# XSS scan:\nnuclei -u http://${target} -id xss-reflected,xss-stored\n\n# Technology + vulnerability fingerprint:\nnuclei -u http://${target} -tags tech,config"`;
                 description = 'Nuclei — template-based vulnerability scanner';
+                break;
+
+            // ── OSINT ──
+            case 'theharvester':
+                command = `theHarvester -d ${target} -b google,bing,linkedin 2>&1 | head -200`;
+                description = 'TheHarvester — emails, subdomains, hosts';
+                break;
+            case 'mr-holmes':
+                command = `if [ ! -d /opt/Mr.Holmes ]; then echo "Instalando Mr.Holmes..."; git clone https://github.com/Lucksi/Mr.Holmes /opt/Mr.Holmes 2>&1 && cd /opt/Mr.Holmes && sudo bash install.sh 2>&1; fi && cd /opt/Mr.Holmes && sudo python3 MrHolmes.py --username ${target} 2>&1 | head -150`;
+                description = 'Mr.Holmes — OSINT email/user/phone + dorks';
+                break;
+            case 'infoooze':
+                command = `if ! command -v infoooze &>/dev/null; then npm install -g infoooze 2>&1; fi && infoooze -s ${target} 2>&1 | head -100`;
+                description = 'Infoooze — subdomains, IG, whois, DNS, EXIF';
+                break;
+            case 'bbot':
+                command = `if ! command -v bbot &>/dev/null; then pip install bbot 2>&1; fi && bbot -t ${target} -p subdomain-enum 2>&1 | tail -80`;
+                description = 'BBOT — recon framework (subdomain-enum preset)';
+                break;
+            case 'linkedin2user':
+                command = `if [ ! -d /opt/linkedin2username ]; then git clone https://github.com/initroot/linkedin2username /opt/linkedin2username 2>&1 && pip3 install -r /opt/linkedin2username/requirements.txt 2>&1; fi && python3 /opt/linkedin2username/linkedin2username.py -c ${target} -n /tmp/${target}_users.txt 2>&1 | head -100`;
+                description = 'Linkedin2Username — username wordlists from LinkedIn';
+                break;
+            case 'spiderfoot':
+                command = `if ! command -v spiderfoot &>/dev/null; then pip install spiderfoot 2>&1; fi && spiderfoot -s ${target} -t INTERNET_NAME 2>&1 | head -150`;
+                description = 'SpiderFoot — automated OSINT (100+ modules)';
                 break;
 
             default:
@@ -4401,6 +4500,9 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         catExploitation:   { en: 'Exploitation',     es: 'Explotación' },
         catResources:      { en: 'Resources',        es: 'Recursos' },
         catUtilities:      { en: 'Utilities',        es: 'Utilidades' },
+        catOsint:          { en: 'OSINT',            es: 'OSINT' },
+        catPentest:        { en: 'Pentest Labs',     es: 'Labs Pentest' },
+        catBugbounty:      { en: 'Bug Bounty',       es: 'Bug Bounty' },
         tabTerminal:       { en: '⌨ Terminal',       es: '⌨ Terminal' },
         tabReports:        { en: '📊 Reports',       es: '📊 Informes' },
         tabScripts:        { en: '⚡ Scripts',       es: '⚡ Scripts' },
