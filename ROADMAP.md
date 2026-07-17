@@ -186,34 +186,35 @@
 **Objetivo:** Contenerizar, automatizar pruebas, pipeline CI/CD.
 
 ### Backend
-- [ ] Dockerfile para uvicorn + dependencias
-- [ ] docker-compose.yml (backend + Supabase local opcional)
+- [x] Dockerfile para uvicorn + dependencias ✅
+- [x] docker-compose.yml (backend + kali-tools container) ✅
+- [x] Imagen Kali con 50+ herramientas + SecLists + rockyou ✅
 - [ ] pytest con fixtures para endpoints REST + WebSocket
 - [ ] Cobertura de tests > 70%
 
 ### Frontend
-- [ ] Dockerfile nginx para SPA estática
+- [x] El frontend se sirve estáticamente desde el contenedor backend ✅
 - [ ] Tests de integración (Cypress/Playwright)
 - [ ] Validación de parsers de findings
 
 ### CI/CD
 - [ ] GitHub Actions: lint + test + build
 - [ ] GitHub Actions: deploy a VPS o Docker Hub
-- [ ] Escaneo de seguridad (bandit, safety)
+- [x] Escaneo de seguridad (bandit, safety) — pendiente de integrar
 
 ---
 
-## ✅ Integración kali-mcp (Julio 2026)
+## ✅ Integración Kali Docker (Julio 2026)
 
-- [x] **Docker Compose full stack** — `docker-compose.yml` con kali-mcp + MIRV backend
-- [x] **kali-mcp Dockerfile adaptado** — `docker/kali-mcp.Dockerfile` + entrypoint
+- [x] **Docker Compose full stack** — `docker-compose.yml` con kali-tools + MIRV backend
+- [x] **Imagen Kali personalizada** — `docker/kali-mcp.Dockerfile` con 50+ herramientas + SSH
 - [x] **MIRV backend Dockerfile** — `backend/Dockerfile` para contenerizar el dashboard
-- [x] **Cliente MCP** — `backend/kali_mcp_client.py` que habla con kali-mcp vía HTTP
-- [x] **Detección automática** — `KALI_MCP_URL` env var, health check al arrancar
-- [x] **3 nuevos endpoints**: `GET /api/kali-mcp/status`, `POST /api/kali-mcp/exec`, `GET /api/kali-mcp/tools`
-- [x] **Integración en health check** — `/api/health` reporta estado de kali-mcp
-- [x] **Script de inicio** — `start_docker.bat` para Windows (docker compose up)
-- [x] **Documentación** — README con arquitectura Docker + variables de entorno
+- [x] **Cliente Kali** — `backend/kali_mcp_client.py` (modo SSH + modo MCP experimental)
+- [x] **Detección automática** — health check al arrancar, integrado en `/api/health`
+- [x] **Configuración auto-vía-env-vars** — `KALI_IP=kali-tools`, `KALI_PORT=22`, `KALI_USER=root`, `KALI_PASS=mirv`
+- [x] **SecLists + rockyou.txt** incluidos en el contenedor
+- [x] **Contenedores probados y funcionando** — ambos Up (kali-tools healthy, backend production)
+- [x] **Documentación completa** — README con arquitectura, comandos de prueba, troubleshooting
 
 ---
 
@@ -270,7 +271,7 @@
 | Fase 5 | Hallazgos persistentes + informes | ✅ Completado |
 | Fase 6 | Contención de alcance | ✅ Completado |
 | Fase 7 | Producción (dominio + tunnel) | 🚧 Pendiente (infraestructura) |
-| Fase 8 | Docker + Tests + CI/CD | 🚧 En progreso (Docker listo, faltan tests) |
+| Fase 8 | Docker + Tests + CI/CD | 🚧 En progreso (Docker OK, faltan tests) |
 | Labs | Mobile + Forensics + KB + CTF + Creds | ✅ Completado |
 | MCP | Server para agentes IA | ✅ Completado |
 | OPSEC | Levels (Silent/Covert/Loud) | ✅ Completado |

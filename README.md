@@ -335,46 +335,78 @@ cloudflared tunnel route dns mirv-tunnel tu-dominio.com
 cloudflared tunnel run mirv-tunnel
 ```
 
-### Opción 3: Docker + kali-mcp (recomendado — no requiere Kali VM)
+### Opción 3: Docker (recomendado — no requiere Kali VM)
 
-M.I.R.V. se integra con **[kali-mcp](https://github.com/pabpereza/kali-mcp)** para ejecutar herramientas de seguridad en un contenedor Docker Kali Linux, eliminando la necesidad de una VM Kali separada.
+M.I.R.V. corre en Docker con un **contenedor Kali Linux** que incluye 50+ herramientas de seguridad pre-instaladas. Elimina la necesidad de una VM Kali separada — todo funciona con un solo comando.
 
 ```bash
-# 1. Asegúrate de tener Docker Desktop + WSL2
+# 1. Asegúrate de tener Docker Desktop (v24+) instalado
 # 2. Desde la raíz del proyecto:
 docker compose up -d --build
 
-# 3. Abrir:
-#    Dashboard: http://localhost:8000
-#    kali-mcp:  http://localhost:666/mcp (para agentes IA)
+# 3. El primer build tarda ~15-20 min (descarga Kali + instala tools)
+# 4. Abrir dashboard: http://localhost:8000
 ```
 
 **Arquitectura Docker:**
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│  docker-compose.yml                                      │
-│                                                          │
-│  ┌─────────────────────┐    ┌─────────────────────────┐ │
-│  │  kali-mcp           │    │  mirv-backend           │ │
-│  │  ─────────          │    │  ────────────           │ │
-│  │  Kali Linux + 50+   │◄──►│  FastAPI + WebSocket    │ │
-│  │  tools (nmap,       │    │  + REST API             │ │
-│  │  gobuster, nikto...)│    │  + Findings Panel       │ │
-│  │                     │    │                         │ │
-│  │  Port 666 (MCP)     │    │  Port 8000 (UI + API)   │ │
-│  └─────────────────────┘    └─────────────────────────┘ │
-└─────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│  docker-compose.yml                                          │
+│                                                              │
+│  ┌─────────────────────┐    SSH     ┌─────────────────────┐ │
+│  │  kali-tools         │◄──────────►│  mirv-backend       │ │
+│  │  ─────────          │  Puerto 22 │  ────────────       │ │
+│  │  Kali Linux + 50+  │            │  FastAPI + WebSocket │ │
+│  │  tools (nmap,       │            │  + REST API (88+)   │ │
+│  │  gobuster, nikto,   │            │  + Findings Panel   │ │
+│  │  sqlmap, hydra...) │            │                     │ │
+│  │                     │            │                     │ │
+│  │  Port 2222 → 22     │            │  Port 8000          │ │
+│  │  SSH root:mirv      │            │                     │ │
+│  │  SecLists + rockyou │            │  → Supabase (nube)  │ │
+│  └─────────────────────┘            └─────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-**¿Qué aporta kali-mcp?**
-- 🐳 Kali Linux en Docker — sin VM, sin SSH
-- 🔧 50+ herramientas pre-instaladas (nmap, gobuster, nikto, sqlmap, hydra...)
-- 🤖 MCP Server para agentes IA (Claude Code, Gemini CLI, OpenCode...)
-- 📂 SecLists + rockyou.txt incluidos
-- 🔄 Sesiones persistentes en disco
+**El contenedor Kali incluye:**
+- 🔧 **50+ herramientas**: nmap, masscan, gobuster, ffuf, nikto, whatweb, wpscan, nuclei, sqlmap, hydra, john, hashcat, enum4linux, crackmapexec, smbclient, impacket, responder, commix, arjun, wfuzz, theHarvester, dnsrecon, amass, sublist3r, wafw00f, cewl, crunch, binwalk, foremost, steghide, exiftool, tshark, tcpdump...
+- 📂 **SecLists + rockyou.txt** incluidos
+- 🔑 **SSH root:mirv** — el dashboard se conecta automáticamente
 
-**Detección automática:** Cuando `KALI_MCP_URL=http://localhost:666/mcp` está configurado, MIRV detecta kali-mcp al arrancar y lo expone en `/api/kali-mcp/*` para ejecutar comandos sin SSH.
+**Conexión automática:** Docker Compose pasa `KALI_IP=kali-tools`, `KALI_PORT=22`, `KALI_USER=root`, `KALI_PASS=mirv` al backend. El dashboard se conecta por SSH al contenedor.
+
+### Probar el stack Docker
+
+```bash
+# Verificar contenedores:
+docker ps
+
+# Verificar health backend:
+curl http://localhost:8000/api/health
+
+# Probar SSH al Kali container:
+ssh root@localhost -p 2222          # password: mirv
+nmap --version
+gobuster --help
+
+# Ver logs en vivo:
+docker compose logs -f
+```
+
+En el dashboard:
+1. Abre http://localhost:8000
+2. Connections → no necesitas añadir nada (configurado por env vars)
+3. Lanza herramientas desde el Arsenal (nmap, gobuster, etc.)
+4. Los findings se parsean automáticamente y se guardan en Supabase
+
+### Parar / reiniciar
+
+```bash
+docker compose down          # parar
+docker compose up -d         # arrancar (sin rebuild)
+docker compose up -d --build # reconstruir tras cambios
+```
 
 ---
 
@@ -387,11 +419,13 @@ docker compose up -d --build
 | `SUPABASE_DB_PASSWORD` | ❌ | — | Password de la DB PostgreSQL para bootstrap automático |
 | `SUPABASE_MGMT_TOKEN` | ❌ | — | Management API token para bootstrap alternativo |
 | `PORT` | ❌ | `8000` | Puerto del servidor HTTP |
-| `KALI_MCP_URL` | ❌ | — | URL del kali-mcp MCP server (ej: `http://localhost:666/mcp`) |
-| `KALI_MCP_PORT` | ❌ | `666` | Puerto para kali-mcp en docker-compose |
-| `MIRV_PORT` | ❌ | `8000` | Puerto para MIRV backend en docker-compose |
+| `KALI_IP` | ❌ | — | IP del Kali Linux (VM o `kali-tools` en Docker) |
+| `KALI_PORT` | ❌ | `22` | Puerto SSH de Kali (`2222` en Docker local) |
+| `KALI_USER` | ❌ | `javi` | Usuario SSH de Kali (`root` en Docker) |
+| `KALI_PASS` | ❌ | `javi` | Contraseña SSH (`mirv` en Docker) |
+| `KALI_MCP_URL` | ❌ | — | URL del kali-mcp MCP server (experimental, ej: `http://localhost:666/mcp`) |
 
-Todas son opcionales. Sin Supabase, la app funciona en modo offline. Sin `KALI_MCP_URL`, la ejecución de herramientas usa SSH a Kali.
+Todas son opcionales. Sin Supabase, la app funciona en modo offline. En Docker Compose, las credenciales SSH se pasan automáticamente.
 
 ---
 
