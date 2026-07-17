@@ -4459,6 +4459,183 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
     _opsecUpdateBadge(window.opsecLevel);
 
     // ============================================================
+    //  DOCKER CONTROL — start/stop/clean/build stack
+    //  Backend: GET /api/docker/status · POST /api/docker/start · /stop · /clean · /build
+    // ============================================================
+
+    let _dockerPollTimer = null;
+
+    async function _dockerApi(endpoint, method = 'GET') {
+        try {
+            const r = await fetch(endpoint, { method });
+            return await r.json();
+        } catch (e) {
+            return { ok: false, error: e.message };
+        }
+    }
+
+    function _dockerUpdateBadge(status) {
+        const dot = document.getElementById('docker-dot');
+        const text = document.getElementById('docker-text');
+        const badge = document.getElementById('docker-badge');
+        if (!dot || !text || !badge) return;
+
+        if (!status || !status.installed) {
+            dot.className = 'inline-block w-1.5 h-1.5 rounded-full bg-gray-700';
+            text.textContent = 'Docker N/A';
+            badge.title = 'Docker not installed';
+            return;
+        }
+        if (status.running) {
+            dot.className = 'inline-block w-1.5 h-1.5 rounded-full bg-neon';
+            text.textContent = '🐳 Stack UP';
+            badge.title = `Containers: ${(status.containers || []).map(c => c.name).join(', ') || 'none'}`;
+        } else {
+            dot.className = 'inline-block w-1.5 h-1.5 rounded-full bg-gray-600';
+            text.textContent = '🐳 Stack DOWN';
+            badge.title = 'Stack stopped. Click to start.';
+        }
+    }
+
+    function _dockerUpdateModal(status) {
+        const statusEl = document.getElementById('docker-modal-status');
+        const listEl = document.getElementById('docker-container-list');
+        if (!statusEl || !listEl) return;
+
+        const btns = ['docker-btn-start', 'docker-btn-stop', 'docker-btn-clean', 'docker-btn-build']
+            .map(id => document.getElementById(id));
+
+        if (!status || !status.installed) {
+            statusEl.textContent = '❌ Docker not installed';
+            statusEl.className = 'text-blood';
+            listEl.innerHTML = '<div class="text-gray-600">Install Docker Desktop first.</div>';
+            btns.forEach(b => { if (b) b.disabled = true; });
+            return;
+        }
+
+        if (status.running) {
+            statusEl.textContent = '🟢 Running';
+            statusEl.className = 'text-cyber';
+            btns[0].disabled = true;  // start
+            btns[1].disabled = false; // stop
+            btns[2].disabled = false; // clean
+            btns[3].disabled = false; // build
+
+            const containers = (status.containers || []).filter(c => c.name && c.name !== '?');
+            if (containers.length === 0) {
+                listEl.innerHTML = '<div class="text-gray-600">No MIRV containers found.</div>';
+            } else {
+                listEl.innerHTML = containers.map(c =>
+                    `<div class="flex justify-between">
+                        <span class="text-gray-400">${c.service || c.name}</span>
+                        <span class="${c.state === 'running' ? 'text-cyber' : 'text-gray-600'}">${c.state}</span>
+                    </div>`
+                ).join('');
+            }
+        } else {
+            statusEl.textContent = '🔴 Stopped';
+            statusEl.className = 'text-blood';
+            btns[0].disabled = false; // start
+            btns[1].disabled = true;  // stop
+            btns[2].disabled = true;  // clean
+            btns[3].disabled = true;  // build
+            listEl.innerHTML = '<div class="text-gray-600">Stack is stopped.</div>';
+        }
+    }
+
+    async function _dockerRefresh() {
+        const data = await _dockerApi('/api/docker/status');
+        _dockerUpdateBadge(data);
+        const modal = document.getElementById('docker-modal');
+        if (modal && !modal.classList.contains('hidden')) {
+            _dockerUpdateModal(data);
+        }
+        return data;
+    }
+
+    function _dockerLog(msg, isError = false) {
+        const log = document.getElementById('docker-log');
+        if (!log) return;
+        const line = document.createElement('div');
+        line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+        line.className = isError ? 'text-blood' : 'text-gray-500';
+        log.appendChild(line);
+        log.scrollTop = log.scrollHeight;
+    }
+
+    async function _dockerAction(endpoint, actionLabel, btnId) {
+        const btn = document.getElementById(btnId);
+        if (btn) { btn.disabled = true; btn.textContent = '⏳...'; }
+        _dockerLog(`⏳ ${actionLabel}...`);
+
+        const result = await _dockerApi(endpoint, 'POST');
+        if (result.ok) {
+            _dockerLog(`✅ ${actionLabel} — OK`);
+            showToast(`🐳 ${actionLabel} — OK`);
+        } else {
+            _dockerLog(`❌ ${actionLabel} — ${result.error || 'failed'}`, true);
+            showToast(`🐳 ${actionLabel} — ${result.error || 'failed'}`);
+        }
+
+        if (btn) { btn.disabled = false; btn.textContent = actionLabel.split(' ')[0]; }
+        // Refresh status after action
+        setTimeout(_dockerRefresh, 1500);
+    }
+
+    window.dockerStatus = _dockerRefresh;
+
+    window.dockerModalOpen = function () {
+        const modal = document.getElementById('docker-modal');
+        if (!modal) return;
+        modal.classList.remove('hidden');
+        _dockerRefresh(); // populate modal
+    };
+
+    window.dockerModalClose = function () {
+        const modal = document.getElementById('docker-modal');
+        if (modal) modal.classList.add('hidden');
+    };
+
+    window.dockerStart = function () {
+        _dockerAction('/api/docker/start', 'Start stack', 'docker-btn-start');
+    };
+
+    window.dockerStop = function () {
+        _dockerAction('/api/docker/stop', 'Stop stack', 'docker-btn-stop');
+    };
+
+    window.dockerClean = function () {
+        if (!confirm('⚠️ This will REMOVE ALL VOLUMES (kali-sessions, wordlists, logs). Continue?')) return;
+        _dockerAction('/api/docker/clean', 'Clean stack', 'docker-btn-clean');
+    };
+
+    window.dockerBuild = function () {
+        if (!confirm('⚠️ Rebuild images from scratch (no cache). This takes 10+ minutes. Continue?')) return;
+        _dockerAction('/api/docker/build', 'Rebuild stack', 'docker-btn-build');
+    };
+
+    // Close on Escape / backdrop click
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') window.dockerModalClose();
+    });
+    document.addEventListener('click', function (e) {
+        const modal = document.getElementById('docker-modal');
+        if (modal && e.target === modal) window.dockerModalClose();
+    });
+
+    // Poll Docker status every 30s
+    async function _dockerPollLoop() {
+        try {
+            await _dockerRefresh();
+        } catch (e) {
+            console.warn('[Docker] poll error:', e);
+        }
+        _dockerPollTimer = setTimeout(_dockerPollLoop, 30000);
+    }
+    // Start polling after a small delay
+    setTimeout(_dockerPollLoop, 2000);
+
+    // ============================================================
     //  THEME TOGGLE (Monochrome Mode)
     // ============================================================
     window.toggleTheme = function () {
@@ -4734,6 +4911,14 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         opsecCovertDesc:   { en: 'Slow & stealthy. Rate-limited scans.', es: 'Lento y sigiloso. Escaneos con rate-limit.' },
         opsecLoudDesc:     { en: 'Maximum speed. Noisy. For labs/CTF.', es: 'Máxima velocidad. Ruidoso. Para labs/CTF.' },
         save:              { en: 'Save',                es: 'Guardar' },
+
+        // ── Docker Control ──
+        dockerModalTitle:  { en: 'Docker Stack',          es: 'Stack Docker' },
+        dockerStatus:      { en: 'Status',                es: 'Estado' },
+        dockerStart:       { en: '▶ Start',               es: '▶ Iniciar' },
+        dockerStop:        { en: '■ Stop',                es: '■ Parar' },
+        dockerClean:       { en: '🗑 Clean',              es: '🗑 Limpiar' },
+        dockerBuild:       { en: '⚡ Rebuild',            es: '⚡ Reconstruir' },
     };
 
     window.currentLang = localStorage.getItem('vulnforge_lang') || 'en';

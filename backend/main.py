@@ -726,6 +726,102 @@ async def kali_mcp_tools():
     return JSONResponse({"ok": True, "tools": tools})
 
 
+# ════════════════════════════════════════════════════════════════
+#  DOCKER CONTROL API — start/stop/clean the MIRV+Kali stack
+# ════════════════════════════════════════════════════════════════
+
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+async def _docker_compose(*args, timeout: int = 300) -> dict:
+    """Run `docker compose <args>` from the project root. Returns {ok, exit, stdout, stderr}."""
+    cmd = ["docker", "compose", *args]
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            *cmd, cwd=_PROJECT_ROOT,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout_b, stderr_b = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+        return {
+            "ok": proc.returncode == 0,
+            "exit": proc.returncode,
+            "stdout": stdout_b.decode("utf-8", errors="replace").strip()[-2000:],
+            "stderr": stderr_b.decode("utf-8", errors="replace").strip()[-2000:],
+        }
+    except FileNotFoundError:
+        return {"ok": False, "exit": -1, "stdout": "", "stderr": "Docker not installed"}
+    except asyncio.TimeoutError:
+        return {"ok": False, "exit": -2, "stdout": "", "stderr": f"Timeout after {timeout}s"}
+    except Exception as e:
+        return {"ok": False, "exit": -3, "stdout": "", "stderr": str(e)}
+
+
+@app.get("/api/docker/status")
+async def docker_status():
+    """Check if Docker Desktop is running and which containers are up."""
+    # 1. docker daemon reachable?
+    check = await _docker_compose("ps", "--format", "json", timeout=10)
+    if not check["ok"] and "Docker not installed" in (check.get("stderr", "") or ""):
+        return JSONResponse({"ok": True, "installed": False, "running": False, "containers": [], "error": "Docker not installed"})
+    if not check["ok"]:
+        return JSONResponse({"ok": True, "installed": True, "running": False, "containers": [], "error": "Docker daemon not reachable (start Docker Desktop)"})
+
+    # 2. parse container list (compose ps --format json returns one JSON per line)
+    containers = []
+    for line in (check.get("stdout", "") or "").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            obj = json.loads(line)
+            containers.append({
+                "name": obj.get("Name") or obj.get("name") or "?",
+                "service": obj.get("Service") or obj.get("service") or "?",
+                "state": obj.get("State") or obj.get("state") or "?",
+                "ports": obj.get("Ports") or obj.get("ports") or "",
+            })
+        except json.JSONDecodeError:
+            continue
+
+    return JSONResponse({
+        "ok": True,
+        "installed": True,
+        "running": any(c["state"].lower() in ("running", "up") for c in containers),
+        "containers": containers,
+    })
+
+
+@app.post("/api/docker/start")
+async def docker_start():
+    """Start the MIRV + Kali stack via `docker compose up -d`. Does NOT rebuild."""
+    if not os.path.exists(os.path.join(_PROJECT_ROOT, "docker-compose.yml")):
+        return JSONResponse({"ok": False, "error": "docker-compose.yml not found in project root"}, status_code=404)
+    result = await _docker_compose("up", "-d", timeout=120)
+    return JSONResponse(result, status_code=200 if result["ok"] else 500)
+
+
+@app.post("/api/docker/stop")
+async def docker_stop():
+    """Stop the stack via `docker compose down`. Keeps volumes + images."""
+    result = await _docker_compose("down", timeout=60)
+    return JSONResponse(result, status_code=200 if result["ok"] else 500)
+
+
+@app.post("/api/docker/clean")
+async def docker_clean():
+    """Stop stack + remove volumes (kali-sessions, kali-wordlists, mirv-logs). WARNING: data loss."""
+    result = await _docker_compose("down", "-v", timeout=60)
+    return JSONResponse(result, status_code=200 if result["ok"] else 500)
+
+
+@app.post("/api/docker/build")
+async def docker_build():
+    """Rebuild images from scratch (no cache). Long-running — 10 min+."""
+    result = await _docker_compose("up", "-d", "--build", "--no-cache", timeout=1200)
+    return JSONResponse(result, status_code=200 if result["ok"] else 500)
+
+
 # ── Reports ──
 
 @app.get("/api/reports")
