@@ -1871,6 +1871,8 @@ ${bodyHtml}
                 { id: 'cors-check',  name: 'CORS Check',  desc: 'prueba CORS misconfiguration (Origin)' },
                 { id: 'headers-scan', name: 'Headers Scan', desc: 'audita headers HTTP seguridad A-F' },
                 { id: 'secrets-scan', name: 'Secrets Scan', desc: 'detecta API keys, tokens, passwords expuestos' },
+                { id: 'port-scan',      name: 'Port Scan',      desc: 'escaneo TCP asíncrono (~300 puertos)' },
+                { id: 'subdomain-scan', name: 'Subdomain Scan', desc: 'enumera subdominios vía DNS (~700 prefijos)' },
             ]
         },
         {
@@ -2205,6 +2207,8 @@ ${bodyHtml}
         // ── Headers ──
         'headers-scan': 'timeout=5 (por defecto 10s)',
         'secrets-scan': 'raw=mi_texto_aqui (escanear texto directo)',
+        'port-scan': 'banner (intentar banner grab), o "22,80,443" (puertos custom)',
+        'subdomain-scan': 'timeout=5 (por defecto 3s), concurrency=100 (por defecto 50)',
     };
 
     window.clearExtraFlags = function () {
@@ -2232,7 +2236,7 @@ ${bodyHtml}
         const target = targetInput.value.trim();
         const extraFlags = document.getElementById('extra-flags').value.trim();
         const needsTarget = [
-            'gobuster','dirb','wfuzz','ffuf','feroxbuster','nikto','whatweb','wpscan','cewl','wafw00f','cors-check','headers-scan','secrets-scan',
+            'gobuster','dirb','wfuzz','ffuf','feroxbuster','nikto','whatweb','wpscan','cewl','wafw00f','cors-check','headers-scan','secrets-scan','port-scan','subdomain-scan',
             'nmap','masscan','netcat','dnsrecon','curl','socat','testssl',
             'enum4linux','smbclient','smbmap','ldapsearch','bloodhound','evil-winrm','impacket',
             'hydra-ssh','hydra-ftp','sqlmap','responder','burpsuite',
@@ -2517,6 +2521,12 @@ ${bodyHtml}
             case 'secrets-scan':
                 description = 'Secrets Scan — detect API keys, tokens, passwords in web pages';
                 break;
+            case 'port-scan':
+                description = 'Port Scan — async TCP port scanner (~300 common ports)';
+                break;
+            case 'subdomain-scan':
+                description = 'Subdomain Scan — DNS-based subdomain enumeration (~700 prefixes)';
+                break;
 
             default:
                 appendOutput(`[!] Unknown tool: "${tool}"`);
@@ -2599,6 +2609,105 @@ ${bodyHtml}
                 appendOutput(`${sep}`);
                 if (data.secrets_found > 0) showToast(`🔑 ${data.secrets_found} secret(s) detected!`);
                 else showToast('🟢 No secrets found');
+            } catch (e) {
+                appendOutput(`  ❌ Fetch error: ${e.message}`);
+                appendOutput(`${sep}`);
+            }
+            return; // done — skip SSH
+        }
+
+        if (tool === 'port-scan') {
+            const sep = '─'.repeat(52);
+            appendOutput(`\n${sep}`);
+            appendOutput(`  🚀 ${description}`);
+            appendOutput(`  🎯 ${target}`);
+            appendOutput(`${sep}`);
+            try {
+                let url = `/api/port/scan?target=${encodeURIComponent(target)}&timeout=2.0&concurrency=100`;
+                if (extraFlags) {
+                    // extraFlags can specify custom ports: "22,80,443,8080" or "banner"
+                    if (extraFlags.includes('banner')) {
+                        url += '&banner=true';
+                    }
+                    const portMatch = extraFlags.match(/\d+(?:,\d+)*/);
+                    if (portMatch) {
+                        url += `&ports=${encodeURIComponent(portMatch[0])}`;
+                    }
+                }
+                const resp = await fetch(url);
+                const data = await resp.json();
+                if (!data.ok) {
+                    appendOutput(`  ❌ Error: ${data.error}`);
+                    appendOutput(`${sep}`);
+                    return;
+                }
+                appendOutput(`  ℹ️  Target: ${data.target} (${data.resolved_ip})`);
+                appendOutput(`  ℹ️  Ports scanned: ${data.ports_scanned}`);
+                const icon = data.open_ports > 0 ? '🔴' : '🟢';
+                appendOutput(`  ${icon} Open ports: ${data.open_ports}`);
+                appendOutput(`  ⏱  Duration: ${data.duration_seconds}s`);
+                appendOutput(`${sep}`);
+                if (data.results && data.results.length > 0) {
+                    appendOutput(`  📋 ${data.results.length} open port(s):`);
+                    data.results.forEach((r, i) => {
+                        const sevIcon = r.port <= 1024 ? '🔴' : r.port <= 49151 ? '🟠' : '🟡';
+                        const bannerInfo = r.banner ? ` — ${r.banner}` : '';
+                        appendOutput(`    ${sevIcon} ${r.port}/${r.service}${bannerInfo}`);
+                    });
+                    if (typeof window.addFindings === 'function') {
+                        window.addFindings(data.findings);
+                    }
+                } else {
+                    appendOutput('  ✅ No open ports found.');
+                }
+                appendOutput(`${sep}`);
+                if (data.open_ports > 5) showToast(`🔴 ${data.open_ports} open ports!`);
+                else if (data.open_ports > 0) showToast(`📡 ${data.open_ports} open port(s) detected`);
+                else showToast('🟢 No open ports');
+            } catch (e) {
+                appendOutput(`  ❌ Fetch error: ${e.message}`);
+                appendOutput(`${sep}`);
+            }
+            return; // done — skip SSH
+        }
+
+        if (tool === 'subdomain-scan') {
+            const sep = '─'.repeat(52);
+            appendOutput(`\n${sep}`);
+            appendOutput(`  🚀 ${description}`);
+            appendOutput(`  🎯 ${target}`);
+            appendOutput(`${sep}`);
+            try {
+                const resp = await fetch(`/api/subdomain/scan?domain=${encodeURIComponent(target)}&timeout=3.0&concurrency=50`);
+                const data = await resp.json();
+                if (!data.ok) {
+                    appendOutput(`  ❌ Error: ${data.error}`);
+                    appendOutput(`${sep}`);
+                    return;
+                }
+                appendOutput(`  ℹ️  Domain: ${data.domain}`);
+                appendOutput(`  ℹ️  Checked: ${data.total_checked} subdomain prefixes`);
+                const icon = data.found > 0 ? '🔴' : '🟢';
+                appendOutput(`  ${icon} Found: ${data.found} subdomains`);
+                appendOutput(`  ⏱  Duration: ${data.duration_seconds}s`);
+                appendOutput(`${sep}`);
+                if (data.results && data.results.length > 0) {
+                    appendOutput(`  📋 ${data.results.length} subdomain(s):`);
+                    data.results.forEach((r, i) => {
+                        const ips = (r.ips || []).join(", ");
+                        const cname = r.cname ? ` → ${r.cname}` : "";
+                        appendOutput(`    🌐 ${r.full_domain} (${ips})${cname}`);
+                    });
+                    if (typeof window.addFindings === 'function') {
+                        window.addFindings(data.findings);
+                    }
+                } else {
+                    appendOutput('  ✅ No subdomains found.');
+                }
+                appendOutput(`${sep}`);
+                if (data.found > 10) showToast(`🔴 ${data.found} subdomains found!`);
+                else if (data.found > 0) showToast(`🌐 ${data.found} subdomain(s) found`);
+                else showToast('🟢 No subdomains found');
             } catch (e) {
                 appendOutput(`  ❌ Fetch error: ${e.message}`);
                 appendOutput(`${sep}`);
@@ -4440,6 +4549,8 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         'cors-check':{ silent: 'BLOCKED', covert: null },
         'headers-scan':{ silent: null, covert: null },
         'secrets-scan':{ silent: null, covert: null },
+        'port-scan':   { silent: null, covert: null },
+        'subdomain-scan':{ silent: null, covert: null },
 
         // ─── Misc ───
         curl:        { silent: "-s -I -L --user-agent 'Mozilla/5.0'", covert: null },

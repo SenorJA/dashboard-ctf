@@ -663,6 +663,12 @@ from backend.headers_scanner import scan as headers_scan, report_to_mirv_finding
 
 from backend.secrets_scanner import scan_url as secrets_scan_url, scan_text as secrets_scan_text, report_to_mirv_findings as secrets_to_mirv
 
+# ════════════════════════════════════════════════════════════════
+#  PORT SCANNER
+# ════════════════════════════════════════════════════════════════
+
+from backend.port_scanner import scan as port_scan, report_to_mirv_findings as port_to_mirv
+
 @app.get("/api/secrets/scan")
 async def api_secrets_scan(url: str = None, raw: str = None):
     """
@@ -693,6 +699,109 @@ async def api_secrets_scan(url: str = None, raw: str = None):
         "secrets_found": len(findings),
         "findings": findings,
     })
+
+
+# ════════════════════════════════════════════════════════════════
+#  PORT SCANNER
+# ════════════════════════════════════════════════════════════════
+
+@app.get("/api/port/scan")
+async def api_port_scan(target: str, ports: str = None, timeout: float = 2.0, concurrency: int = 100, banner: bool = False):
+    """
+    Scan a target host for open TCP ports.
+
+    Query params:
+      - target (required): IP or hostname to scan
+      - ports (optional): Comma-separated port list (e.g. "22,80,443"). Default: ~300 common ports
+      - timeout (optional): Seconds per connect attempt (default 2.0)
+      - concurrency (optional): Max simultaneous connections (default 100)
+      - banner (optional): Attempt banner grabbing (default false)
+    """
+    try:
+        port_list = None
+        if ports:
+            try:
+                port_list = [int(p.strip()) for p in ports.split(",") if p.strip()]
+            except ValueError:
+                return JSONResponse({"ok": False, "error": "Invalid port list. Use comma-separated integers."}, status_code=422)
+
+        report = await port_scan(
+            host=target,
+            ports=port_list,
+            timeout=timeout,
+            concurrency=concurrency,
+            grab_banner=banner,
+        )
+        findings = port_to_mirv(report)
+        return JSONResponse({
+            "ok": True,
+            "target": report.target,
+            "resolved_ip": report.resolved_ip,
+            "ports_scanned": report.ports_scanned,
+            "open_ports": report.open_ports,
+            "duration_seconds": report.duration_seconds,
+            "results": [
+                {
+                    "port": r.port,
+                    "service": r.service,
+                    "state": r.state,
+                    "banner": r.banner,
+                }
+                for r in sorted(report.results, key=lambda x: x.port)
+            ],
+            "findings": findings,
+        })
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=502)
+
+
+# ════════════════════════════════════════════════════════════════
+#  SUBDOMAIN SCANNER
+# ════════════════════════════════════════════════════════════════
+
+from backend.subdomain_scanner import scan as subdomain_scan, report_to_mirv_findings as subdomain_to_mirv
+
+@app.get("/api/subdomain/scan")
+async def api_subdomain_scan(domain: str, timeout: float = 3.0, concurrency: int = 50):
+    """
+    Enumerate subdomains of a domain via DNS resolution.
+
+    Query params:
+      - domain (required): Domain to scan (e.g. "example.com")
+      - timeout (optional): Seconds per DNS query (default 3.0)
+      - concurrency (optional): Max simultaneous lookups (default 50)
+    """
+    from urllib.parse import urlparse
+
+    # Strip scheme/path if user passes a URL
+    domain = domain.strip().lower()
+    if domain.startswith(("http://", "https://")):
+        domain = urlparse(domain).hostname or domain
+    if not domain or "." not in domain:
+        return JSONResponse({"ok": False, "error": "Invalid domain. Use a valid domain like 'example.com'"}, status_code=422)
+
+    try:
+        report = await subdomain_scan(domain, timeout=timeout, concurrency=concurrency)
+        findings = subdomain_to_mirv(report)
+        return JSONResponse({
+            "ok": True,
+            "domain": report.domain,
+            "total_checked": report.total_checked,
+            "found": report.found,
+            "duration_seconds": report.duration_seconds,
+            "results": [
+                {
+                    "subdomain": r.subdomain,
+                    "full_domain": r.full_domain,
+                    "ips": r.resolved_ips,
+                    "cname": r.cname_target,
+                }
+                for r in sorted(report.results, key=lambda x: x.subdomain)
+            ],
+            "findings": findings,
+        })
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=502)
 
 
 # ════════════════════════════════════════════════════════════════
