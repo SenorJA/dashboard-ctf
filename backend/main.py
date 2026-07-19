@@ -657,6 +657,50 @@ async def findings_stats():
 
 from backend.headers_scanner import scan as headers_scan, report_to_mirv_findings
 
+# ════════════════════════════════════════════════════════════════
+#  SECRETS SCANNER
+# ════════════════════════════════════════════════════════════════
+
+from backend.secrets_scanner import scan_url as secrets_scan_url, scan_text as secrets_scan_text, report_to_mirv_findings as secrets_to_mirv
+
+@app.get("/api/secrets/scan")
+async def api_secrets_scan(url: str = None, raw: str = None):
+    """
+    Scan a URL or raw text for hardcoded secrets, API keys, tokens.
+
+    Provide EITHER:
+      - url: URL to fetch and scan
+      - raw: raw text to scan directly
+    """
+    if url:
+        if not url.startswith(("http://", "https://")):
+            return JSONResponse({"ok": False, "error": "URL must include http:// or https://"}, status_code=422)
+        try:
+            report = await secrets_scan_url(url)
+        except Exception as e:
+            return JSONResponse({"ok": False, "error": str(e)}, status_code=502)
+    elif raw:
+        report = secrets_scan_text(raw, source="raw_input")
+    else:
+        return JSONResponse({"ok": False, "error": "Provide either 'url' or 'raw' parameter"}, status_code=422)
+
+    findings = secrets_to_mirv(report)
+    return JSONResponse({
+        "ok": True,
+        "source": report.source,
+        "content_length": report.content_length,
+        "lines_scanned": report.lines_scanned,
+        "secrets_found": len(findings),
+        "findings": findings,
+    })
+
+
+# ════════════════════════════════════════════════════════════════
+#  HTTP HEADERS SCANNER
+# ════════════════════════════════════════════════════════════════
+
+from backend.headers_scanner import scan as headers_scan, report_to_mirv_findings
+
 @app.get("/api/headers/scan")
 async def api_headers_scan(url: str, timeout: float = 10.0):
     """

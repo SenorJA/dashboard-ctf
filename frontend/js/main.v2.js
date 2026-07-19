@@ -1870,6 +1870,7 @@ ${bodyHtml}
                 { id: 'wafw00f',     name: 'Wafw00f',     desc: 'detección WAF / IDS fingerprint' },
                 { id: 'cors-check',  name: 'CORS Check',  desc: 'prueba CORS misconfiguration (Origin)' },
                 { id: 'headers-scan', name: 'Headers Scan', desc: 'audita headers HTTP seguridad A-F' },
+                { id: 'secrets-scan', name: 'Secrets Scan', desc: 'detecta API keys, tokens, passwords expuestos' },
             ]
         },
         {
@@ -2203,6 +2204,7 @@ ${bodyHtml}
         nuclei: '-severity critical,high -json -o /tmp/nuclei.json -t ~/nuclei-templates/',
         // ── Headers ──
         'headers-scan': 'timeout=5 (por defecto 10s)',
+        'secrets-scan': 'raw=mi_texto_aqui (escanear texto directo)',
     };
 
     window.clearExtraFlags = function () {
@@ -2230,7 +2232,7 @@ ${bodyHtml}
         const target = targetInput.value.trim();
         const extraFlags = document.getElementById('extra-flags').value.trim();
         const needsTarget = [
-            'gobuster','dirb','wfuzz','ffuf','feroxbuster','nikto','whatweb','wpscan','cewl','wafw00f','cors-check','headers-scan',
+            'gobuster','dirb','wfuzz','ffuf','feroxbuster','nikto','whatweb','wpscan','cewl','wafw00f','cors-check','headers-scan','secrets-scan',
             'nmap','masscan','netcat','dnsrecon','curl','socat','testssl',
             'enum4linux','smbclient','smbmap','ldapsearch','bloodhound','evil-winrm','impacket',
             'hydra-ssh','hydra-ftp','sqlmap','responder','burpsuite',
@@ -2512,6 +2514,9 @@ ${bodyHtml}
             case 'headers-scan':
                 description = 'Headers Scan — HTTP security headers audit A-F';
                 break;
+            case 'secrets-scan':
+                description = 'Secrets Scan — detect API keys, tokens, passwords in web pages';
+                break;
 
             default:
                 appendOutput(`[!] Unknown tool: "${tool}"`);
@@ -2554,6 +2559,46 @@ ${bodyHtml}
                 if (data.grade === 'A') showToast('🟢 Grade A — excellent security headers!');
                 else if (data.grade === 'F') showToast('🔴 Grade F — critical headers missing!');
                 else showToast(`📊 Grade ${data.grade} — score ${data.score}/100`);
+            } catch (e) {
+                appendOutput(`  ❌ Fetch error: ${e.message}`);
+                appendOutput(`${sep}`);
+            }
+            return; // done — skip SSH
+        }
+
+        if (tool === 'secrets-scan') {
+            const sep = '─'.repeat(52);
+            appendOutput(`\n${sep}`);
+            appendOutput(`  🚀 ${description}`);
+            appendOutput(`  🎯 ${target}`);
+            appendOutput(`${sep}`);
+            try {
+                const resp = await fetch(`/api/secrets/scan?url=${encodeURIComponent(target)}`);
+                const data = await resp.json();
+                if (!data.ok) {
+                    appendOutput(`  ❌ Error: ${data.error}`);
+                    appendOutput(`${sep}`);
+                    return;
+                }
+                appendOutput(`  📄 Scanned: ${data.source}`);
+                appendOutput(`  📏 Lines: ${data.lines_scanned}`);
+                appendOutput(`  ${data.secrets_found > 0 ? '🔴' : '🟢'} Secrets found: ${data.secrets_found}`);
+                appendOutput(`${sep}`);
+                if (data.findings && data.findings.length > 0) {
+                    appendOutput(`  📋 ${data.findings.length} finding(s):`);
+                    data.findings.forEach((f, i) => {
+                        const icon = f.severity === 'high' ? '🔴' : f.severity === 'medium' ? '🟠' : f.severity === 'low' ? '🟡' : '⚪';
+                        appendOutput(`    ${icon} [${f.severity}] ${f.title}`);
+                    });
+                    if (typeof window.addFindings === 'function') {
+                        window.addFindings(data.findings);
+                    }
+                } else {
+                    appendOutput('  ✅ No secrets detected.');
+                }
+                appendOutput(`${sep}`);
+                if (data.secrets_found > 0) showToast(`🔑 ${data.secrets_found} secret(s) detected!`);
+                else showToast('🟢 No secrets found');
             } catch (e) {
                 appendOutput(`  ❌ Fetch error: ${e.message}`);
                 appendOutput(`${sep}`);
@@ -4394,6 +4439,7 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         wafw00f:     { silent: '-b',      covert: null, loud: '-a' },
         'cors-check':{ silent: 'BLOCKED', covert: null },
         'headers-scan':{ silent: null, covert: null },
+        'secrets-scan':{ silent: null, covert: null },
 
         // ─── Misc ───
         curl:        { silent: "-s -I -L --user-agent 'Mozilla/5.0'", covert: null },
