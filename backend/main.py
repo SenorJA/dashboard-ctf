@@ -871,6 +871,49 @@ async def api_dns_reverse(ip: str):
 
 
 # ════════════════════════════════════════════════════════════════
+#  HASH CRACKER
+# ════════════════════════════════════════════════════════════════
+
+from backend.hash_cracker import crack as hash_crack, report_to_mirv_findings as hash_to_mirv
+
+@app.get("/api/hash/crack")
+async def api_hash_crack(hash: str = "", hashes: str = "", identify_only: bool = False):
+    """
+    Identify and/or crack hash(es) using a built-in rainbow table.
+
+    Query params:
+      - hash (optional): Single hash to crack
+      - hashes (optional): Comma-separated list of hashes to crack
+      - identify_only (optional): If true, only identify types (default: false)
+    """
+    raw = hash or hashes
+    if not raw or not raw.strip():
+        return JSONResponse({"ok": False, "error": "Provide 'hash' or 'hashes' parameter"}, status_code=422)
+    try:
+        report = await hash_crack(raw, identify_only=identify_only)
+        findings = hash_to_mirv(report)
+        return JSONResponse({
+            "ok": True,
+            "total": report.total,
+            "cracked": report.cracked,
+            "duration_seconds": report.duration_seconds,
+            "results": [
+                {
+                    "hash": r.hash_value,
+                    "types": r.identified_types,
+                    "cracked": r.cracked,
+                    "plaintext": r.plaintext,
+                    "method": r.crack_method,
+                }
+                for r in report.hashes
+            ],
+            "findings": findings,
+        })
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=502)
+
+
+# ════════════════════════════════════════════════════════════════
 #  HTTP HEADERS SCANNER
 # ════════════════════════════════════════════════════════════════
 
