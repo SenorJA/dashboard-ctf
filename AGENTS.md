@@ -150,6 +150,13 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 | `saveMission()` | Saves current mission (findings + tools + score) to history |
 | `loadMissionHistory()` | Loads and renders mission history cards |
 | `viewMissionDetails(id)` | Prints mission details to terminal |
+| `dockerStatus()` | Refreshes Docker badge and modal |
+| `dockerModalOpen()` | Opens Docker control modal |
+| `dockerModalClose()` | Closes Docker modal |
+| `dockerStart()` | Starts kali-tools container |
+| `dockerStop()` | Stops kali-tools container |
+| `dockerClean()` | Removes kali-tools container + volumes |
+| `dockerBuild()` | Rebuilds images in background |
 
 ## Findings parsing system
 
@@ -228,6 +235,7 @@ For new "category of links" (like Pentest Labs), create an array (e.g. `PENTEST_
 | Settings | `GET/POST /api/settings` |
 | n8n | `POST /api/n8n/trigger`, `GET /api/n8n/status` |
 | kali-mcp | `GET /api/kali-mcp/status`, `POST /api/kali-mcp/exec`, `GET /api/kali-mcp/tools` |
+| Docker | `GET /api/docker/status`, `POST /api/docker/start`, `POST /api/docker/stop`, `POST /api/docker/clean`, `POST /api/docker/build`, `GET /api/docker/task/{task_id}` |
 | Health | `GET /api/health` (+ kali-mcp status) |
 
 ## Persistent storage
@@ -290,6 +298,9 @@ Format selectors: `#findings-format`, `#bounty-format`, `#ai-format`, `#reports-
 - `backend/main.py` uses `asyncio.to_thread()` for SSH (non-blocking).
 - Script builder deploys to `/tmp/` on SSH target.
 - `PRODUCTION_PLAN.md` describes Cloudflare Tunnel setup for remote access.
+- **Docker-in-Docker**: Docker commands run from inside `mirv-backend` via mounted `/var/run/docker.sock`. All compose commands use `-p proyectociber` to match the host's project name.
+- **Container-safe operations**: Start/stop/clean only affect `kali-tools` (never self-destruct `mirv-backend`). Build runs in background (does not restart). Full restart requires terminal: `docker compose up -d`.
+- `DOCKER_GUIDE.md` has full Spanish documentation of the Docker architecture, problems, and solutions.
 
 ## Style conventions
 

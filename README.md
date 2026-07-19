@@ -516,6 +516,27 @@ docker compose up -d         # arrancar (instantáneo, sin rebuild)
 docker compose up -d --build # reconstruir tras cambios en el código
 ```
 
+### 🎮 Control de Docker desde el Dashboard
+
+M.I.R.V. incluye un **panel de control Docker** en el propio dashboard. Puedes gestionar el stack sin abrir una terminal:
+
+- **Insignia en el header** — punto verde (UP) / gris (DOWN) + texto "🐳 Stack UP/DOWN"
+- **Modal de control** — haz clic en la insignia para abrirlo
+- **4 botones**: Start, Stop, Clean, Build
+- **Log de operaciones** — historial de acciones realizadas
+- **Polling automático** — el estado se refresca cada 30 segundos
+
+| Acción | ¿Qué hace? | ¿A quién afecta? |
+|--------|-----------|:-----------------:|
+| **▶ Start** | Arranca kali-tools | Solo kali-tools |
+| **⏹ Stop** | Detiene kali-tools | Solo kali-tools |
+| **🧹 Clean** | Detiene + borra volúmenes de kali-tools | Solo kali-tools (⚠️ pérdida de datos) |
+| **🔨 Rebuild** | Reconstruye imágenes en background (sin reiniciar) | No afecta contenedores corriendo |
+
+> ⚠️ **Importante:** Los botones del UI **nunca afectan a mirv-backend** (el contenedor que ejecuta el dashboard). Para reiniciar el backend (por ejemplo, tras rebuild), usa la terminal: `docker compose up -d`
+
+Para documentación técnica detallada (arquitectura, problemas encontrados, soluciones, API, frontend), consulta [`DOCKER_GUIDE.md`](DOCKER_GUIDE.md).
+
 ### Resumen en un golpe
 ```bash
 # 1. Levantar todo:
@@ -528,6 +549,8 @@ docker compose up -d --build
 #    IP: localhost  Port: 2222  User: root  Pass: mirv
 ```
 Sin VM, sin VirtualBox, sin configurar redes. Un comando y ya.
+
+> 📖 **Documentación técnica completa del stack Docker** (arquitectura, problemas encontrados, soluciones, API, componentes frontend) en [`DOCKER_GUIDE.md`](DOCKER_GUIDE.md).
 
 ---
 
@@ -705,6 +728,16 @@ Todas son opcionales. Sin Supabase, la app funciona en modo offline. En Docker C
 | GET | `/api/credentials/secrets/{key}` | Verificar existencia |
 | POST | `/api/credentials/secrets` | Guardar secreto |
 | DELETE | `/api/credentials/secrets/{key}` | Eliminar |
+
+### Docker Control
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/api/docker/status` | Estado del stack Docker (síncrono) |
+| POST | `/api/docker/start` | Arranca kali-tools (síncrono) |
+| POST | `/api/docker/stop` | Detiene kali-tools (síncrono) |
+| POST | `/api/docker/clean` | Elimina kali-tools + volúmenes (síncrono) |
+| POST | `/api/docker/build` | Reconstruye imágenes en background (asíncrono) |
+| GET | `/api/docker/task/{task_id}` | Estado de tarea asíncrona (build) |
 
 ### kali-mcp (Docker Kali alternativo)
 | Método | Ruta | Descripción |
@@ -922,7 +955,8 @@ Para más detalles, ver [`PERSISTENCE_AUDIT.md`](PERSISTENCE_AUDIT.md).
 | 5 | ✅ | AI multi-proveedor + Automation (n8n) |
 | 6 | ✅ | Mobile responsive + i18n (EN/ES) |
 | 7 | ✅ | OPSEC Levels + Self-Improvement Loop |
-| **8** | 🚧 **Próximo** | **Docker, tests automatizados, CI/CD** |
+| **8** | ✅ | **Docker**: stack Docker + panel de control desde el UI |
+| **9** | 🚧 **Próximo** | **Tests automatizados, CI/CD** |
 
 Para detalles, ver [`ROADMAP.md`](ROADMAP.md).
 
