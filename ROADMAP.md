@@ -171,11 +171,47 @@
 
 ---
 
+## ✅ 9 Módulos desde Cybersecurity-Projects (Julio 2026)
+
+- [x] **#1 HTTP Headers Scanner** — `headers_scanner.py` + `GET /api/headers/scan`
+- [x] **#2 Secrets Scanner** — `secrets_scanner.py` + `GET /api/secrets/scan`
+- [x] **#3 Port Scanner** — `port_scanner.py` + `GET /api/port/scan`
+- [x] **#4 Subdomain Scanner** — `subdomain_scanner.py` + `GET /api/subdomain/scan`
+- [x] **#5 DNS Lookup** — `dns_lookup.py` + `GET /api/dns/lookup` + reverse
+- [x] **#6 Hash Cracker** — `hash_cracker.py` + `GET /api/hash/crack`
+- [x] **#7 Steganography Tool** — `stego_tool.py` + `POST /api/stego/analyze`
+- [x] **#8 Security News Scraper** — `news_scraper.py` + `GET /api/news`
+- [x] **#9 API Security Scanner** — `api_scanner.py` + `GET /api/apiscan`
+- [x] **Documentación:** `docs/MODULOS_NUEVOS.md` con endpoints, clases, tests
+- [x] **UI Arsenal:** Botones API-based, categorías colapsables, badges, Run All
+- [x] **Integración:** Todos los endpoints registrados en `main.py`
+
+## ✅ Modernización UI (Julio 2026)
+
+- [x] **Categorías colapsables** — comienzan cerradas, toggle por categoría
+- [x] **Master toggle** — Expand All / Collapse All
+- [x] **Run All** — botón por categoría para ejecutar todas las tools API
+- [x] **Badges** — contadores de herramientas por categoría
+- [x] **Filter** — búsqueda en tiempo real con auto-expand/collapse
+- [x] **Fix OSINT** — unificación de cat-body duplicado
+
+## ✅ Event Delegation (Julio 2026)
+
+- [x] **126 onclick** en `index.html` → `data-*` attributes
+- [x] **7 onclick + 1 onchange** en `main.v2.js` → `data-*` attributes
+- [x] **ACTION_MAP** centralizado (~90 entradas) para todas las acciones
+- [x] **Event delegation** en `#app` (click + change)
+- [x] **0 onclick** en toda la aplicación
+- [x] **Documentación:** `docs/EVENTOS.md` con mapeo completo
+- [x] **Backup** pre-refactor en `frontend/index.html.bak`
+
+---
+
 ## 📝 Pendientes menores
 
 - [ ] Probar findings con todos los parsers (nikto, dirb, ffuf, wpscan, etc.)
 - [ ] Payload Studio: botón "Abrir en nueva pestaña" (X-Frame-Options bloquea iframe)
-- [ ] Dockerizar backend + frontend (ver Fase 8 abajo)
+- [ ] Rebuild + test post-refactor (docker compose build --no-cache + up -d)
 - [ ] Tests automatizados (pytest para backend, vitest/cypress para frontend)
 - [ ] CI/CD con GitHub Actions
 
@@ -292,6 +328,9 @@
 | Persistence Audit | 17 tablas, 15 endpoints, offline-first | ✅ Completado |
 | Frida Stop/Clear | Stop + Clear console, CSP fix, error msgs | ✅ Completado |
 | Arsenal OSINT | 6 tools OSINT + 8 web links + 10 labs + 8 BB platforms | ✅ Completado |
+| 9 Cybersecurity Modules | #1–#9 desde CarterPerez-dev/Cybersecurity-Projects | ✅ Completado |
+| UI Modernization | Categorías colapsables, master toggle, Run All, badges, filter | ✅ Completado |
+| Event Delegation | 0 onclick en toda la app, ACTION_MAP centralizado | ✅ Completado |
 
 ---
 

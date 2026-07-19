@@ -161,14 +161,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="text-[9px] text-gray-700 mt-0.5">📍 ${r.target || 'no target'} · 📊 ${total} findings</div>
                     </div>
                     <div class="flex items-center gap-1 flex-shrink-0">
-                        <button onclick="viewReport(${reports.indexOf(r)})" class="text-[9px] text-cyber/70 hover:text-cyber border border-cyber/20 rounded px-2 py-0.5 transition-colors">👁 View</button>
-                        <select onchange="exportReport(${reports.indexOf(r)}, this.value)" class="bg-void border border-gray-800 rounded px-1 py-0.5 text-[8px] text-gray-400">
+                        <button data-action="report-view" data-idx="${reports.indexOf(r)}" class="text-[9px] text-cyber/70 hover:text-cyber border border-cyber/20 rounded px-2 py-0.5 transition-colors">👁 View</button>
+                        <select data-action="report-export" data-idx="${reports.indexOf(r)}" class="bg-void border border-gray-800 rounded px-1 py-0.5 text-[8px] text-gray-400">
                             <option value="">⬇ Export</option>
                             <option value="md">.md</option>
                             <option value="html">.html</option>
                             <option value="pdf">📄 PDF</option>
                         </select>
-                        <button onclick="deleteReport(${reports.indexOf(r)})" class="text-[9px] text-gray-700 hover:text-blood transition-colors">✕</button>
+                        <button data-action="report-delete" data-idx="${reports.indexOf(r)}" class="text-[9px] text-gray-700 hover:text-blood transition-colors">✕</button>
                     </div>
                 </div>
             </div>`;
@@ -2028,7 +2028,7 @@ ${bodyHtml}
     ];
 
     function renderToolButton(t) {
-        return `<button onclick="launchTool('${t.id}')"
+        return `<button data-tool="${t.id}"
             class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
             <span class="text-neon/70 group-hover:text-neon">#</span>
             <span class="text-gray-400 group-hover:text-gray-200">${t.name}</span>
@@ -3244,6 +3244,229 @@ ${bodyHtml}
     };
 
     // ============================================================
+    //  EVENT DELEGATION SYSTEM (Modern addEventListener)
+    // ============================================================
+    // Centraliza todos los eventos de la UI. Reemplaza onclick en HTML.
+    // Usa data-* attributes + event delegation para performance y claridad.
+    // ============================================================
+
+    const ACTION_MAP = {
+        // ── Navigation ──
+        'tab':            (el) => { if (window.switchTab) switchTab(el.dataset.tab); },
+
+        // ── Sidebar ──
+        'sidebar':        ()   => { if (window.toggleSidebar) toggleSidebar(); },
+        'theme':          ()   => { if (window.toggleTheme) toggleTheme(); },
+        'lang':           ()   => { if (window.switchLanguage) switchLanguage(); },
+        'toggle-category':(el) => { if (window.toggleCategory) toggleCategory(el); },
+        'toggle-all':     ()   => { if (window.toggleAllCategories) toggleAllCategories(); },
+        'run-all':        (el) => { if (window.runAllInCategory) runAllInCategory(el.dataset.category); },
+
+        // ── Connection ──
+        'add-conn':       ()   => { if (window.showAddConnection) showAddConnection(); },
+        'del-conn':       ()   => { if (window.deleteActiveConnection) deleteActiveConnection(); },
+        'disconnect':     ()   => { if (window.disconnectConn) disconnectConn(); },
+        'save-conn':      ()   => { if (window.saveConnection) saveConnection(); },
+        'cancel-conn':    ()   => { if (window.toggleAddConnection) toggleAddConnection(); },
+
+        // ── Terminal ──
+        'clear-terminal': ()   => { if (window.clearTerminal) clearTerminal(); },
+        'stop-cmd':       ()   => { if (window.stopCommand) stopCommand(); },
+        'file-upload':    ()   => { const inp = document.getElementById('file-upload-input'); if (inp) inp.click(); },
+
+        // ── Reports ──
+        'generate-report':()   => { if (window.generateReport) generateReport(); },
+        'export-reports': ()   => { if (window.exportAllReports) exportAllReports(); },
+        'clear-reports':  ()   => { if (window.clearReports) clearReports(); },
+        'reports-ask-ai': ()   => { if (window.reportsAskAI) reportsAskAI(); },
+        'export-report':  ()   => { if (window.exportCurrentReport) exportCurrentReport(); },
+        'close-modal':    ()   => { if (window.closeReportModal) closeReportModal(); },
+        'report-view':    (el) => { const i = parseInt(el.dataset.idx); if (!isNaN(i) && window.viewReport) viewReport(i); },
+        'report-delete':  (el) => { const i = parseInt(el.dataset.idx); if (!isNaN(i) && window.deleteReport) deleteReport(i); },
+        'report-export':  (el) => { /* handled via change event delegation */ },
+
+        // ── Scripts ──
+        'deploy':         ()   => { if (window.deployScript) deployScript(); },
+        'save-script':    ()   => { if (window.saveScript) saveScript(); },
+        'load-script':    ()   => { if (window.loadScript) loadScript(); },
+        'ai-script':      ()   => { if (window.aiGenerateScript) aiGenerateScript(); },
+
+        // ── Bounty ──
+        'gen-bounty':     ()   => { if (window.generateBountyReport) generateBountyReport(); },
+        'ai-bounty':      ()   => { if (window.aiEnhanceBounty) aiEnhanceBounty(); },
+        'dl-bounty':      ()   => { if (window.downloadBountyReport) downloadBountyReport(); },
+
+        // ── AI Writeup ──
+        'gen-aiwriteup':  ()   => { if (window.generateAIWriteup) generateAIWriteup(); },
+        'dl-aiwriteup':   ()   => { if (window.downloadAIWriteup) downloadAIWriteup(); },
+
+        // ── Payload Studio ──
+        'ps-creds':       ()   => { if (window.togglePSCreds) togglePSCreds(); },
+        'ps-disconnect':  ()   => { if (window.disconnectPayloadStudio) disconnectPayloadStudio(); },
+        'ps-login':       ()   => { if (window.doPayloadStudioLogin) doPayloadStudioLogin(); },
+
+        // ── Hak5 ──
+        'save-hak5':      ()   => { if (window.saveHak5Payload) saveHak5Payload(); },
+        'load-hak5':      ()   => { if (window.loadHak5Payload) loadHak5Payload(); },
+        'list-hak5':      ()   => { if (window.listHak5Payloads) listHak5Payloads(); },
+        'clear-hak5':     ()   => { if (window.clearHak5Editor) clearHak5Editor(); },
+        'ai-hak5':        ()   => { if (window.aiGeneratePayload) aiGeneratePayload(); },
+
+        // ── n8n ──
+        'n8n-status':     ()   => { if (window.checkN8nStatus) checkN8nStatus(); },
+        'n8n-trigger':    ()   => { if (window.triggerN8nScan) triggerN8nScan(); },
+        'n8n-workflow':   ()   => { if (window.aiGenerateWorkflow) aiGenerateWorkflow(); },
+        'n8n-clear':      ()   => { if (window.clearN8nLog) clearN8nLog(); },
+        'auto-ask-ai':    ()   => { if (window.automationAskAI) automationAskAI(); },
+
+        // ── Op Admiral ──
+        'clear-plan':     ()   => { if (window.clearPlan) clearPlan(); },
+        'gen-plan':       ()   => { if (window.generatePlan) generatePlan(); },
+        'exec-plan':      ()   => { if (window.executeAllSteps) executeAllSteps(); },
+        'save-mission':   ()   => { if (window.saveMission) saveMission(); },
+        'load-missions':  ()   => { if (window.loadMissionHistory) loadMissionHistory(); },
+        'plan-copy-cmd':  (el) => { const i = parseInt(el.dataset.idx); if (!isNaN(i) && window.copyPlanCommand) copyPlanCommand(i); },
+        'plan-exec-step': (el) => { const i = parseInt(el.dataset.idx); if (!isNaN(i) && window.executeStep) executeStep(i); },
+        'view-mission':   (el) => { const id = el.dataset.missionId; if (id && window.viewMissionDetails) viewMissionDetails(id); },
+
+        // ── Swarm ──
+        'swarm-refresh':  ()   => { if (window.swarmRefresh) swarmRefresh(); },
+        'swarm-clear':    ()   => { if (window.swarmClear) swarmClear(); },
+        'swarm-start':    ()   => { if (window.swarmStart) swarmStart(); },
+        'swarm-cancel':   ()   => { if (window.swarmCancel) swarmCancel(); },
+
+        // ── Findings ──
+        'clear-findings': ()   => { if (window.clearFindings) clearFindings(); },
+        'export-findings':()   => { if (window.exportFindings) exportFindings(); },
+        'suggest':        ()   => { if (window.suggestNextStep) suggestNextStep(); },
+        'use-ai-config':  ()   => { if (window.loadAIConfigToSuggest) loadAIConfigToSuggest(); },
+        'clear-suggestions':() => { if (window.clearSuggestions) clearSuggestions(); },
+        'copy-clipboard': (el) => { if (window.copyToClipboard) copyToClipboard(el); },
+
+        // ── Scope ──
+        'scope':          ()   => { if (window.scopeModalOpen) scopeModalOpen(); },
+        'scope-close':    ()   => { if (window.scopeModalClose) scopeModalClose(); },
+        'scope-save':     ()   => { if (window.scopeSaveConfig) scopeSaveConfig(); },
+        'scope-clear':    ()   => { if (window.scopeClearHistory) scopeClearHistory(); },
+
+        // ── OPSEC ──
+        'opsec':          ()   => { if (window.opsecModalOpen) opsecModalOpen(); },
+        'opsec-close':    ()   => { if (window.opsecModalClose) opsecModalClose(); },
+        'opsec-save':     ()   => { if (window.opsecSave) opsecSave(); },
+
+        // ── Docker ──
+        'docker':         ()   => { if (window.dockerModalOpen) dockerModalOpen(); },
+        'docker-start':   ()   => { if (window.dockerStart) dockerStart(); },
+        'docker-stop':    ()   => { if (window.dockerStop) dockerStop(); },
+        'docker-clean':   ()   => { if (window.dockerClean) dockerClean(); },
+        'docker-build':   ()   => { if (window.dockerBuild) dockerBuild(); },
+        'docker-close':   ()   => { if (window.dockerModalClose) dockerModalClose(); },
+
+        // ── Forensics ──
+        'forensics-upload':() => { if (window.forensicsUpload) forensicsUpload(); },
+        'forensics-ask-ai':() => { if (window.forensicsAskAI) forensicsAskAI(); },
+
+        // ── Mobile ──
+        'mobile-upload':  ()   => { if (window.mobileUpload) mobileUpload(); },
+        'mobile-list':    ()   => { if (window.mobileListDevices) mobileListDevices(); },
+        'mobile-run':     ()   => { if (window.mobileRunFrida) mobileRunFrida(); },
+        'mobile-stop':    ()   => { if (window.mobileStopFrida) mobileStopFrida(); },
+        'mobile-clear':   ()   => { if (window.mobileClearFridaOutput) mobileClearFridaOutput(); },
+        'mobile-ask-ai':  ()   => { if (window.mobileAskAI) mobileAskAI(); },
+
+        // ── Credentials ──
+        'cred-add':       ()   => { if (window.credAdd) credAdd(); },
+        'cred-ask-ai':    ()   => { if (window.credAskAI) credAskAI(); },
+        'cred-clear':     ()   => { if (window.credClearAll) credClearAll(); },
+
+        // ── CTF ──
+        'ctf-add':        ()   => { if (window.ctfAdd) ctfAdd(); },
+        'ctf-ask-ai':     ()   => { if (window.ctfAskAI) ctfAskAI(); },
+
+        // ── KnowledgeBase ──
+        'kb-search':      ()   => { if (window.kbSearch) kbSearch(); },
+        'kb-ask-ai':      ()   => { if (window.kbAskAI) kbAskAI(); },
+        'kb-clear':       ()   => { const inp = document.getElementById('kb-query'); if (inp) { inp.value = ''; if (window.kbSearch) kbSearch(); } },
+    };
+
+    function initEventListeners() {
+        // Delegación principal: un solo listener en #app captura todos los clicks
+        const app = document.getElementById('app');
+        if (!app) return;
+
+        app.addEventListener('click', (e) => {
+            // ── data-action buttons ──
+            const actionEl = e.target.closest('[data-action]');
+            if (actionEl) {
+                const action = actionEl.dataset.action;
+                const handler = ACTION_MAP[action];
+                if (handler) {
+                    handler(actionEl);
+                    e.preventDefault();
+                    return;
+                }
+            }
+
+            // ── data-tool buttons (arsenal tool buttons) ──
+            const toolBtn = e.target.closest('[data-tool]');
+            if (toolBtn) {
+                const toolId = toolBtn.dataset.tool;
+                if (toolId && window.launchTool) {
+                    launchTool(toolId);
+                    e.preventDefault();
+                    return;
+                }
+            }
+
+            // ── data-tab buttons ──
+            const tabBtn = e.target.closest('[data-tab]');
+            if (tabBtn && !tabBtn.closest('[data-action]')) {
+                const tab = tabBtn.dataset.tab;
+                if (tab && window.switchTab) {
+                    switchTab(tab);
+                    e.preventDefault();
+                    return;
+                }
+            }
+
+            // ── data-script buttons (script templates) ──
+            const scriptBtn = e.target.closest('[data-script]');
+            if (scriptBtn) {
+                const tmpl = scriptBtn.dataset.script;
+                if (tmpl && window.selectScriptTemplate) {
+                    selectScriptTemplate(tmpl);
+                    e.preventDefault();
+                    return;
+                }
+            }
+
+            // ── data-device buttons (Hak5 device switcher) ──
+            const deviceBtn = e.target.closest('[data-device]');
+            if (deviceBtn) {
+                const device = deviceBtn.dataset.device;
+                if (device && window.switchHak5Device) {
+                    switchHak5Device(device);
+                    e.preventDefault();
+                    return;
+                }
+            }
+        });
+
+        // Delegación de cambio (change) para selects con data-action="report-export"
+        app.addEventListener('change', (e) => {
+            const sel = e.target.closest('select[data-action="report-export"]');
+            if (sel) {
+                const idx = parseInt(sel.dataset.idx);
+                if (!isNaN(idx) && sel.value && window.exportReport) {
+                    exportReport(idx, sel.value);
+                    sel.value = ''; // reset after export
+                    e.preventDefault();
+                }
+            }
+        });
+    }
+
+    // ============================================================
     //  SCRIPT BUILDER — Templates
     // ============================================================
     const SCRIPT_TEMPLATES = {
@@ -4332,7 +4555,7 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
                 <div class="flex gap-2 mt-1.5">
                     <button data-cmd="${extractCommandFromSuggestion(suggestion).replace(/"/g, '&quot;')}"
                         class="suggest-run-cmd text-[9px] text-neon/60 hover:text-neon transition-all">▶ Run first command</button>
-                    <button onclick="copyToClipboard(this)"
+                    <button data-action="copy-clipboard"
                         class="text-[9px] text-gray-600 hover:text-gray-400 transition-all">📋 Copy</button>
                 </div>
             `;
@@ -5751,6 +5974,7 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
     loadAIConfig();
     renderArsenal();
     window.collapseAllCategories(); // start collapsed
+    initEventListeners();
     window.appendBanner();
     // Load persistent findings from backend
     _loadFindingsFromBackend();
@@ -5862,12 +6086,12 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
                         <span class="text-[11px] text-gray-300 font-semibold">${escapeHTML(step.title)}</span>
                     </div>
                     <div class="flex items-center gap-1">
-                        <button onclick="copyPlanCommand(${i})"
+                        <button data-action="plan-copy-cmd" data-idx="${i}"
                             class="text-[9px] text-gray-600 hover:text-cyber transition-colors px-1.5 py-0.5 rounded hover:bg-cyber/10"
                             ${copyDisabled ? 'disabled title="No command"' : ''}>
                             📋 Copy
                         </button>
-                        <button onclick="executeStep(${i})"
+                        <button data-action="plan-exec-step" data-idx="${i}"
                             class="text-[9px] text-neon/60 hover:text-neon transition-colors px-1.5 py-0.5 rounded hover:bg-neon/10"
                             ${execDisabled ? 'disabled title="Complete previous steps first"' : ''}>
                             ▶ Execute
@@ -6203,7 +6427,7 @@ Reglas:
                 } catch { return iso || ''; }
             };
             list.innerHTML = missions.map(m => `
-                <div onclick="viewMissionDetails('${m.id}')"
+                <div data-action="view-mission" data-mission-id="${m.id}"
                      class="bg-void border border-gray-800 hover:border-cyber/40 rounded p-2 cursor-pointer transition-all">
                     <div class="flex items-center justify-between gap-2 mb-1">
                         <span class="text-[10px] text-gray-300 font-mono truncate flex-1">📍 ${m.target || 'unknown'}</span>
