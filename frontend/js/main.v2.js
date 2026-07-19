@@ -4486,10 +4486,21 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
             badge.title = 'Docker not installed';
             return;
         }
-        if (status.running) {
+        const kaliRuns = status.kali_running;
+        const backRuns = status.backend_running;
+
+        if (kaliRuns && backRuns) {
             dot.className = 'inline-block w-1.5 h-1.5 rounded-full bg-neon';
             text.textContent = '🐳 Stack UP';
-            badge.title = `Containers: ${(status.containers || []).map(c => c.name).join(', ') || 'none'}`;
+            badge.title = `Both running. Containers: ${(status.containers || []).map(c => c.name).join(', ') || 'none'}`;
+        } else if (backRuns && !kaliRuns) {
+            dot.className = 'inline-block w-1.5 h-1.5 rounded-full bg-amber-500';
+            text.textContent = '🐳 Kali DOWN';
+            badge.title = 'Kali tools stopped. Click to start.';
+        } else if (status.running) {
+            dot.className = 'inline-block w-1.5 h-1.5 rounded-full bg-amber-500';
+            text.textContent = '🐳 Degraded';
+            badge.title = 'Some containers down.';
         } else {
             dot.className = 'inline-block w-1.5 h-1.5 rounded-full bg-gray-600';
             text.textContent = '🐳 Stack DOWN';
@@ -4513,33 +4524,36 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
             return;
         }
 
-        if (status.running) {
-            statusEl.textContent = '🟢 Running';
-            statusEl.className = 'text-cyber';
-            btns[0].disabled = true;  // start
-            btns[1].disabled = false; // stop
-            btns[2].disabled = false; // clean
-            btns[3].disabled = false; // build
+        const kaliRunning = status.kali_running || false;
+        const backendRunning = status.backend_running || false;
 
-            const containers = (status.containers || []).filter(c => c.name && c.name !== '?');
-            if (containers.length === 0) {
-                listEl.innerHTML = '<div class="text-gray-600">No MIRV containers found.</div>';
-            } else {
-                listEl.innerHTML = containers.map(c =>
-                    `<div class="flex justify-between">
-                        <span class="text-gray-400">${c.service || c.name}</span>
-                        <span class="${c.state === 'running' ? 'text-cyber' : 'text-gray-600'}">${c.state}</span>
-                    </div>`
-                ).join('');
-            }
+        if (status.running) {
+            statusEl.textContent = backendRunning ? '🟢 Running' : '🔴 Degraded';
+            statusEl.className = backendRunning ? 'text-cyber' : 'text-amber-500';
         } else {
             statusEl.textContent = '🔴 Stopped';
             statusEl.className = 'text-blood';
-            btns[0].disabled = false; // start
-            btns[1].disabled = true;  // stop
-            btns[2].disabled = true;  // clean
-            btns[3].disabled = true;  // build
-            listEl.innerHTML = '<div class="text-gray-600">Stack is stopped.</div>';
+        }
+
+        // Start: enabled only when kali-tools is NOT running
+        btns[0].disabled = kaliRunning;
+        // Stop: enabled only when kali-tools IS running
+        btns[1].disabled = !kaliRunning || !backendRunning;
+        // Clean: enabled only when kali-tools IS running (or was running)
+        btns[2].disabled = !kaliRunning && !status.running;
+        // Build: enabled when backend is running
+        btns[3].disabled = !backendRunning;
+
+        const containers = (status.containers || []).filter(c => c.name && c.name !== '?');
+        if (containers.length === 0) {
+            listEl.innerHTML = '<div class="text-gray-600">No MIRV containers found.</div>';
+        } else {
+            listEl.innerHTML = containers.map(c =>
+                `<div class="flex justify-between">
+                    <span class="text-gray-400">${c.service || c.name}</span>
+                    <span class="${c.state === 'running' ? 'text-cyber' : 'text-gray-600'}">${c.state}</span>
+                </div>`
+            ).join('');
         }
     }
 

@@ -809,10 +809,13 @@ async def docker_status():
         except json.JSONDecodeError:
             continue
 
+    running_containers = {c["name"]: c["state"].lower() in ("running", "up") for c in containers}
     return JSONResponse({
         "ok": True,
         "installed": True,
-        "running": any(c["state"].lower() in ("running", "up") for c in containers),
+        "running": any(running_containers.values()),
+        "kali_running": running_containers.get("mirv-kali-tools", False),
+        "backend_running": running_containers.get("mirv-backend", False),
         "containers": containers,
     })
 

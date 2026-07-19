@@ -56,6 +56,8 @@ services:
       - mirv-logs:/app/backend/logs
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./docker-compose.yml:/app/docker-compose.yml:ro
+      - ./docker:/app/docker:ro
+      - ./scripts:/app/scripts:ro
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:8000/api/health"]
       interval: 30s
