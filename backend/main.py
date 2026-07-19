@@ -733,6 +733,28 @@ async def kali_mcp_tools():
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
+async def _run_docker_cmd(cmd: list, timeout: int = 300) -> dict:
+    """Run any docker command. Returns {ok, exit, stdout, stderr}."""
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout_b, stderr_b = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+        return {
+            "ok": proc.returncode == 0,
+            "exit": proc.returncode,
+            "stdout": stdout_b.decode("utf-8", errors="replace").strip(),
+            "stderr": stderr_b.decode("utf-8", errors="replace").strip(),
+        }
+    except FileNotFoundError:
+        return {"ok": False, "exit": -1, "stdout": "", "stderr": "Docker not installed"}
+    except asyncio.TimeoutError:
+        return {"ok": False, "exit": -2, "stdout": "", "stderr": f"Timeout after {timeout}s"}
+    except Exception as e:
+        return {"ok": False, "exit": -3, "stdout": "", "stderr": str(e)}
+
 async def _docker_compose(*args, timeout: int = 300) -> dict:
     """Run `docker compose <args>` from the project root. Returns {ok, exit, stdout, stderr}."""
     cmd = ["docker", "compose", *args]
@@ -760,14 +782,15 @@ async def _docker_compose(*args, timeout: int = 300) -> dict:
 @app.get("/api/docker/status")
 async def docker_status():
     """Check if Docker Desktop is running and which containers are up."""
-    # 1. docker daemon reachable?
-    check = await _docker_compose("ps", "--format", "json", timeout=10)
-    if not check["ok"] and "Docker not installed" in (check.get("stderr", "") or ""):
-        return JSONResponse({"ok": True, "installed": False, "running": False, "containers": [], "error": "Docker not installed"})
+    # Try `docker ps` directly (works without compose file, lists all containers)
+    check = await _run_docker_cmd(["docker", "ps", "--format", "json"], timeout=10)
     if not check["ok"]:
+        stderr = check.get("stderr", "") or ""
+        if "Docker not installed" in stderr or "command not found" in stderr or "not found" in stderr:
+            return JSONResponse({"ok": True, "installed": False, "running": False, "containers": [], "error": "Docker not installed"})
         return JSONResponse({"ok": True, "installed": True, "running": False, "containers": [], "error": "Docker daemon not reachable (start Docker Desktop)"})
 
-    # 2. parse container list (compose ps --format json returns one JSON per line)
+    # 2. parse container list (json per line)
     containers = []
     for line in (check.get("stdout", "") or "").splitlines():
         line = line.strip()
@@ -776,8 +799,8 @@ async def docker_status():
         try:
             obj = json.loads(line)
             containers.append({
-                "name": obj.get("Name") or obj.get("name") or "?",
-                "service": obj.get("Service") or obj.get("service") or "?",
+                "name": obj.get("Names") or obj.get("Name") or obj.get("name") or "?",
+                "service": obj.get("Names") or obj.get("Service") or obj.get("service") or "?",
                 "state": obj.get("State") or obj.get("state") or "?",
                 "ports": obj.get("Ports") or obj.get("ports") or "",
             })
