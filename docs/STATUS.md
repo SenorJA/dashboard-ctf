@@ -128,31 +128,57 @@ app.addEventListener('change', (e) => {
 ### Event Delegation (Julio 2026)
 - Migración completa de `onclick` → `addEventListener`
 - Sistema centralizado `ACTION_MAP` con ~90 entradas
-- Event delegation en `#app` para elementos estáticos y dinámicos
+- Event delegation en `document.body` para elementos estáticos y dinámicos
 - `window.*` se conserva para compatibilidad (consola, IA, llamadas externas)
+- **Bugfix**: Iba dirigido a `#app` (no existía) → cambiado a `document.body`
 
 ---
 
+## Tests (pytest) — Julio 2026
+
+| Archivo | Tests | Cobertura |
+|---------|:-----:|-----------|
+| `test_headers_scanner.py` | 32 | Grade A–F, score boundaries, live scan, MIRV findings format |
+| `test_secrets_scanner.py` | 33 | 25 regex patterns, valid/invalid input, URL fetch |
+| `test_port_scanner.py` | 18 | scanme.nmap.org, invalid targets, default ports, edge cases |
+| `test_subdomain_scanner.py` | 11 | DNS enum, custom lists, result shape, MIRV findings |
+| `test_dns_lookup.py` | 9 | A/MX/NS records, reverse DNS, NXDOMAIN, multiple record types |
+| `test_hash_cracker.py` | 58 | 20 hash types identification, rainbow crack, MIRV format |
+| `test_stego_tool.py` | 28 | PNG/BMP LSB, trailing data, invalid input, capacity estimation |
+| `test_news_scraper.py` | 8 | 9 RSS feeds, article format, sorting, source consistency |
+| `test_api_scanner.py` | 31 | httpbin/example.com scans, 65+ paths, CORS, headers |
+| `test_api_endpoints.py` | 160 | 88+ endpoints REST (health, scope, settings, swarm, etc.) |
+| **Total Tests Backend** | **388** | **0 fallos — 39% cobertura global (+8%)** |
+
+## Tests Frontend — Playwright (Julio 2026)
+
+| Archivo | Tests | Descripción |
+|---------|:-----:|-------------|
+| `smoke.spec.js` | 24 | Page load, 13 tabs, arsenal sidebar + filter, theme toggle, connection modal, i18n toggle, responsive 1024px + 375px |
+| **Total Tests Frontend** | **24** | **0 fallos — Chromium** |
+
+**Gran total: 412 tests, 0 fallos.**
+
+## CI/CD — GitHub Actions
+
+| Job | Descripción |
+|-----|-------------|
+| **lint** | Ruff (check + format) sobre `backend/` |
+| **test-backend** | pytest con 388 tests en Python 3.11 |
+| **test-frontend** | Playwright + 24 tests con Chromium (backend server inline) |
+| **docker-build** | Buildx + push a Docker Hub (solo `main`) |
+| **deploy** | SSH deploy a VPS (solo `main`) |
+
+Secrets requeridos: `DOCKER_USERNAME`, `DOCKER_TOKEN`, `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`
+
 ## Pendientes
 
-### Prioridad Alta
-- [ ] **Rebuild + test**: `docker compose build --no-cache mirv-backend && docker compose up -d` y verificar:
-  - [ ] Todos los tabs funcionan
-  - [ ] Run All ejecuta correctamente
-  - [ ] Findings se parsean
-  - [ ] Export funciona
-  - [ ] OPSEC, Scope, Docker modales
-  - [ ] Report-export selects
-
 ### Prioridad Media
-- [ ] **Tests**: pytest para backend (endpoints #1–#9)
-- [ ] **CI/CD**: GitHub Actions (lint + test + build)
-- [ ] **Documentación**: Tests en integración continua
+- [ ] Cobertura de tests > 70% (requiere ~2500 líneas más cubiertas en main.py, database.py y módulos specialty)
+- [ ] Configurar secrets de Docker Hub + VPS en GitHub repo
 
 ### Prioridad Baja (Infraestructura)
 - [ ] Fase 7 — Cloudflare Tunnel (dominio, cloudflared, DNS)
-- [ ] Tests frontend con Cypress/Playwright
-- [ ] Cobertura de tests > 70%
 
 ### Ideas/Deseables
 - [ ] Dark mode toggle mejorado (no solo monochrome)
@@ -166,6 +192,9 @@ app.addEventListener('change', (e) => {
 ## Últimos Commits
 
 ```
+43b2e1d playwright+ci: frontend tests (24 Playwright) + CI/CD deploy + #app bugfix
+9f03c1b tests+ci: pytest suite (228 tests) + GitHub Actions workflow
+95a21dc event-delegation: onclick→addEventListener completo + docs STATUS.md/EVENTOS.md
 f3fc7ef Fix OSINT section toggle + restructure cat-body
 fabb8dd Add master toggle + collapsible categories + Run All buttons
 8fdec75 Add API Scanner (#9) - REST API security scanner

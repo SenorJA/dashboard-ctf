@@ -3390,11 +3390,11 @@ ${bodyHtml}
     };
 
     function initEventListeners() {
-        // Delegación principal: un solo listener en #app captura todos los clicks
-        const app = document.getElementById('app');
-        if (!app) return;
+        // Delegación principal: un solo listener en document.body captura todos los clicks
+        const root = document.body || document.documentElement;
+        if (!root) return;
 
-        app.addEventListener('click', (e) => {
+        root.addEventListener('click', (e) => {
             // ── data-action buttons ──
             const actionEl = e.target.closest('[data-action]');
             if (actionEl) {
@@ -3453,7 +3453,7 @@ ${bodyHtml}
         });
 
         // Delegación de cambio (change) para selects con data-action="report-export"
-        app.addEventListener('change', (e) => {
+        root.addEventListener('change', (e) => {
             const sel = e.target.closest('select[data-action="report-export"]');
             if (sel) {
                 const idx = parseInt(sel.dataset.idx);

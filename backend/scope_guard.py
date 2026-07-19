@@ -46,7 +46,7 @@ def get_config(force_refresh: bool = False) -> dict:
         pass
 
     _config = (datetime.utcnow(), dict(DEFAULT_CONFIG))
-    return _config
+    return _config[1]
 
 
 def save_config(cfg: dict) -> bool:

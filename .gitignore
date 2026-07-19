@@ -32,3 +32,9 @@ backend/logs/
 C:*
 c:*
 /tmp/
+
+# Playwright / test artifacts
+playwright-report/
+test-results/
+node_modules/
+package-lock.json

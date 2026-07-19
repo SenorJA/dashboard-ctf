@@ -211,32 +211,37 @@
 
 - [ ] Probar findings con todos los parsers (nikto, dirb, ffuf, wpscan, etc.)
 - [ ] Payload Studio: botón "Abrir en nueva pestaña" (X-Frame-Options bloquea iframe)
-- [ ] Rebuild + test post-refactor (docker compose build --no-cache + up -d)
-- [ ] Tests automatizados (pytest para backend, vitest/cypress para frontend)
-- [ ] CI/CD con GitHub Actions
+- [ ] Cobertura de tests > 70% (requiere ~2500 líneas más en main.py, database.py, módulos specialty)
+- [ ] Configurar secrets de Docker Hub + VPS en el repo GitHub
+- [ ] Escaneo de seguridad (bandit, safety) en CI
 
 ---
 
 ## FASE 8 — Docker, Tests, CI/CD (Próximo gran hito) 🚧
 
-**Objetivo:** Contenerizar, automatizar pruebas, pipeline CI/CD.
+**Objetivo:** Contenerizar, automatizar pruebas, pipeline CI/CD completo.
 
 ### Backend
 - [x] Dockerfile para uvicorn + dependencias ✅
 - [x] docker-compose.yml (backend + kali-tools container) ✅
 - [x] Imagen Kali con 50+ herramientas + SecLists + rockyou ✅
-- [ ] pytest con fixtures para endpoints REST + WebSocket
-- [ ] Cobertura de tests > 70%
+- [x] pytest con 388 tests endpoints + 9 módulos API (160 API endpoint tests) ✅
+- [ ] Cobertura de tests > 70% (actual: 39% global)
 
 ### Frontend
 - [x] El frontend se sirve estáticamente desde el contenedor backend ✅
-- [ ] Tests de integración (Cypress/Playwright)
+- [x] Tests de integración (Playwright) — 24 tests, 0 fallos ✅
 - [ ] Validación de parsers de findings
 
 ### CI/CD
-- [ ] GitHub Actions: lint + test + build
-- [ ] GitHub Actions: deploy a VPS o Docker Hub
-- [x] Escaneo de seguridad (bandit, safety) — pendiente de integrar
+- [x] **GitHub Actions: lint + test + build + deploy** — `.github/workflows/ci.yml` ✅
+  - Ruff lint + format check
+  - Backend: 388 tests pytest
+  - Frontend: 24 tests Playwright (Chromium)
+  - Docker Build + push a Docker Hub (solo main)
+  - Deploy SSH a VPS (solo main)
+- [ ] Configurar secrets del repo (DOCKER_USERNAME, DOCKER_TOKEN, VPS_HOST, VPS_USER, VPS_SSH_KEY)
+- [ ] Escaneo de seguridad (bandit, safety) — pendiente de integrar
 
 ---
 
@@ -331,6 +336,10 @@
 | 9 Cybersecurity Modules | #1–#9 desde CarterPerez-dev/Cybersecurity-Projects | ✅ Completado |
 | UI Modernization | Categorías colapsables, master toggle, Run All, badges, filter | ✅ Completado |
 | Event Delegation | 0 onclick en toda la app, ACTION_MAP centralizado | ✅ Completado |
+| #app bugfix | document.body replaces #app (not found) in event delegation | ✅ Completado |
+| Backend Tests (pytest) | 388 tests (228 módulos + 160 API endpoints), 0 fallos, 39% coverage | ✅ Completado |
+| Frontend Tests (Playwright) | 24 tests (smoke, tabs, arsenal, i18n, responsive), 0 fallos | ✅ Completado |
+| CI/CD | GitHub Actions (lint + test-backend + test-frontend + docker-push + deploy) | ✅ Completado |
 
 ---
 
