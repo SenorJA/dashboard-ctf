@@ -244,14 +244,26 @@
                     <span class="absolute right-2 top-1/2 -translate-y-1/2 text-[8px] text-gray-800">/</span>
                 </div>
 
+                <!-- Master toggle -->
+                <button onclick="toggleAllCategories()"
+                    class="w-full text-[9px] text-gray-500 hover:text-gray-300 border border-gray-800 hover:border-gray-600 rounded py-1 mb-2 transition-colors font-mono tracking-wider"
+                    title="Expandir / Colapsar todas las categorías">
+                    <span id="master-toggle-icon">▶</span> <span id="master-toggle-text">Expand All</span>
+                </button>
+
                 <!-- ══════ Web Recon ══════ -->
                 <div>
                     <p class="cat-header text-[9px] font-semibold text-gray-600 uppercase tracking-wider mb-1 flex items-center gap-1"
                         onclick="toggleCategory(this)">
                         <span class="text-cyan-400">▶</span> <span data-i18n="catWebRecon">Web Recon</span>
-                        <span class="ml-auto text-[8px] text-gray-700">11</span>
+                        <span class="ml-auto text-[8px] text-gray-700">19</span>
                     </p>
-                    <div id="arsenal-web-recon" class="cat-body space-y-0.5"></div>
+                    <div class="cat-body space-y-0.5">
+                        <button onclick="runAllInCategory('web-recon')"
+                            class="w-full text-[9px] text-cyan-500/60 hover:text-cyan-400 border border-cyan-500/20 hover:border-cyan-500/40 rounded py-0.5 mb-1 transition-colors"
+                            title="Run all Web Recon tools sequentially">▶ Run All Web Recon</button>
+                        <div id="arsenal-web-recon" class="space-y-0.5"></div>
+                    </div>
                 </div>
 
                 <!-- ══════ Network ══════ -->
@@ -259,9 +271,14 @@
                     <p class="cat-header text-[9px] font-semibold text-gray-600 uppercase tracking-wider mb-1 flex items-center gap-1"
                         onclick="toggleCategory(this)">
                         <span class="text-violet-400">▶</span> <span data-i18n="catNetwork">Network</span>
-                        <span class="ml-auto text-[8px] text-gray-700">7</span>
+                        <span class="ml-auto text-[8px] text-gray-700">8</span>
                     </p>
-                    <div id="arsenal-network" class="cat-body space-y-0.5"></div>
+                    <div class="cat-body space-y-0.5">
+                        <button onclick="runAllInCategory('network')"
+                            class="w-full text-[9px] text-violet-500/60 hover:text-violet-400 border border-violet-500/20 hover:border-violet-500/40 rounded py-0.5 mb-1 transition-colors"
+                            title="Run all Network tools sequentially">▶ Run All Network</button>
+                        <div id="arsenal-network" class="space-y-0.5"></div>
+                    </div>
                 </div>
 
                 <!-- ══════ SMB / Windows ══════ -->

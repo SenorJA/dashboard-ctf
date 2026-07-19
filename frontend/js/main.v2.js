@@ -2143,19 +2143,74 @@ ${bodyHtml}
                 }
             });
 
-            // Show category if it has visible tools
-            if (hasVisible) {
+            if (!q) {
+                // No filter — show header, collapse body, show all buttons
+                header.style.display = '';
+                body.style.display = 'none';
+            } else if (hasVisible) {
+                // Filter active + category has matches — expand
                 header.style.display = '';
                 body.style.display = '';
+                // Update arrow
+                const arrow = header.querySelector('span:first-child');
+                if (arrow) arrow.textContent = '▶';
             } else {
-                header.style.display = q ? 'none' : '';
-                body.style.display = q ? 'none' : '';
+                // Filter active + no matches — hide entirely
+                header.style.display = 'none';
+                body.style.display = 'none';
             }
         });
 
         if (totalSpan) {
             totalSpan.textContent = q ? `[${visibleCount}/${totalCount}]` : `[${totalCount}]`;
         }
+    };
+
+    // ============================================================
+    //  ▶ RUN ALL IN CATEGORY
+    // ============================================================
+    // API-based tools that work without SSH (can be run in batch)
+    const API_TOOLS = [
+        'headers-scan','secrets-scan','port-scan','subdomain-scan',
+        'dns-lookup','hash-crack','stego-tool','news-scraper','api-scanner',
+    ];
+
+    window.runAllInCategory = async function (categoryId) {
+        const group = ARSENAL_GROUPS.find(g => g.id === categoryId);
+        if (!group) { appendOutput(`[!] Category "${categoryId}" not found.`); return; }
+
+        const targetInput = document.getElementById('target-input');
+        const target = targetInput ? targetInput.value.trim() : '';
+        const apiToolsInGroup = group.tools.filter(t => API_TOOLS.includes(t.id));
+
+        if (apiToolsInGroup.length === 0) {
+            appendOutput(`[!] No API-based tools in "${group.label}" (all require SSH connection).`);
+            return;
+        }
+
+        const sep = '═'.repeat(52);
+        appendOutput(`\n${sep}`);
+        appendOutput(`  🚀 BATCH RUN: ${group.label} (${apiToolsInGroup.length} API tool(s))`);
+        if (target) appendOutput(`  🎯 Target: ${target}`);
+        appendOutput(`${sep}`);
+
+        let results = { ok: 0, fail: 0 };
+        for (const tool of apiToolsInGroup) {
+            appendOutput(`\n  ▶ Running ${tool.name}...`);
+            document.getElementById('extra-flags').value = '';
+            // Call the tool via launchTool logic by setting the context
+            window._currentBatchTool = tool.id;
+            await window.launchTool(tool.id);
+            // Brief pause between tools
+            await new Promise(r => setTimeout(r, 500));
+            results.ok++;
+        }
+
+        appendOutput(`\n${sep}`);
+        appendOutput(`  ✅ Batch complete: ${results.ok}/${apiToolsInGroup.length} tool(s) finished`);
+        appendOutput(`${sep}`);
+        showToast(`✅ Batch: ${results.ok} ${group.label} tool(s) finished`);
+        window._currentBatchTool = null;
     };
 
     // ============================================================
@@ -3149,6 +3204,43 @@ ${bodyHtml}
             body.style.display = 'none';
             arrow.textContent = '▼';
         }
+    };
+
+    window.toggleAllCategories = function () {
+        const headers = document.querySelectorAll('.cat-header');
+        const masterIcon = document.getElementById('master-toggle-icon');
+        const masterText = document.getElementById('master-toggle-text');
+        let anyHidden = false;
+        headers.forEach(h => {
+            const body = h.nextElementSibling;
+            if (!body) return;
+            if (body.style.display === 'none') anyHidden = true;
+        });
+        const shouldExpand = anyHidden;
+        headers.forEach(h => {
+            const body = h.nextElementSibling;
+            if (!body) return;
+            const arrow = h.querySelector('span:first-child');
+            body.style.display = shouldExpand ? '' : 'none';
+            if (arrow) arrow.textContent = shouldExpand ? '▶' : '▼';
+        });
+        if (masterIcon) masterIcon.textContent = shouldExpand ? '▼' : '▶';
+        if (masterText) masterText.textContent = shouldExpand ? 'Collapse All' : 'Expand All';
+    };
+
+    window.collapseAllCategories = function () {
+        const headers = document.querySelectorAll('.cat-header');
+        headers.forEach(h => {
+            const body = h.nextElementSibling;
+            if (!body) return;
+            body.style.display = 'none';
+            const arrow = h.querySelector('span:first-child');
+            if (arrow) arrow.textContent = '▼';
+        });
+        const masterIcon = document.getElementById('master-toggle-icon');
+        const masterText = document.getElementById('master-toggle-text');
+        if (masterIcon) masterIcon.textContent = '▶';
+        if (masterText) masterText.textContent = 'Expand All';
     };
 
     // ============================================================
@@ -5658,6 +5750,7 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
     loadSavedScripts();
     loadAIConfig();
     renderArsenal();
+    window.collapseAllCategories(); // start collapsed
     window.appendBanner();
     // Load persistent findings from backend
     _loadFindingsFromBackend();
