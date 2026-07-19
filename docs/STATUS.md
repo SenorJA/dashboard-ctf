@@ -159,23 +159,32 @@ app.addEventListener('change', (e) => {
 
 **Gran total: 412 tests, 0 fallos.**
 
+### Gestor de paquetes: pnpm
+
+- Migrado de `npm` → `pnpm` (v11.11.0) por seguridad (npm reportaba vulnerabilidades)
+- `package.json` incluye `"packageManager": "pnpm@11.11.0"`
+- `.npmrc` con `package-manager-strict=true` — bloquea npm/npx por error
+- `package-lock.json` → ignorado; `pnpm-lock.yaml` → trackeado en git
+- Comandos: `pnpm install`, `pnpm playwright test`, `pnpm playwright install chromium`
+
 ## CI/CD — GitHub Actions
 
 | Job | Descripción |
 |-----|-------------|
 | **lint** | Ruff (check + format) sobre `backend/` |
 | **test-backend** | pytest con 388 tests en Python 3.11 |
-| **test-frontend** | Playwright + 24 tests con Chromium (backend server inline) |
+| **test-frontend** | Playwright + 24 tests con Chromium (pnpm, backend server inline) |
 | **docker-build** | Buildx + push a Docker Hub (solo `main`) |
 | **deploy** | SSH deploy a VPS (solo `main`) |
 
 Secrets requeridos: `DOCKER_USERNAME`, `DOCKER_TOKEN`, `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`
+→ Guía paso a paso: `docs/SECRETS_GITHUB.md`
 
 ## Pendientes
 
 ### Prioridad Media
 - [ ] Cobertura de tests > 70% (requiere ~2500 líneas más cubiertas en main.py, database.py y módulos specialty)
-- [ ] Configurar secrets de Docker Hub + VPS en GitHub repo
+- [ ] Configurar secrets en GitHub: `DOCKER_USERNAME`, `DOCKER_TOKEN`, `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY` (guía en `docs/SECRETS_GITHUB.md`)
 
 ### Prioridad Baja (Infraestructura)
 - [ ] Fase 7 — Cloudflare Tunnel (dominio, cloudflared, DNS)
@@ -192,7 +201,7 @@ Secrets requeridos: `DOCKER_USERNAME`, `DOCKER_TOKEN`, `VPS_HOST`, `VPS_USER`, `
 ## Últimos Commits
 
 ```
-43b2e1d playwright+ci: frontend tests (24 Playwright) + CI/CD deploy + #app bugfix
+4fba2f8 playwright+ci: frontend tests (24 Playwright) + CI/CD deploy + #app bugfix
 9f03c1b tests+ci: pytest suite (228 tests) + GitHub Actions workflow
 95a21dc event-delegation: onclick→addEventListener completo + docs STATUS.md/EVENTOS.md
 f3fc7ef Fix OSINT section toggle + restructure cat-body

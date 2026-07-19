@@ -10,8 +10,9 @@ build/
 .env
 .env.local
 
-# Node
+# Node / pnpm
 node_modules/
+package-lock.json
 
 # OS
 .DS_Store
@@ -36,5 +37,3 @@ c:*
 # Playwright / test artifacts
 playwright-report/
 test-results/
-node_modules/
-package-lock.json

@@ -105,14 +105,26 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Install Playwright
-        run: |
-          npm install @playwright/test
-          npx playwright install chromium
+      - name: Enable pnpm
+        run: corepack enable
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/pnpm/store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+      - name: Install dependencies (pnpm)
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: pnpm playwright install chromium
 
       - name: Run Playwright tests
         run: |
-          npx playwright test --config=frontend/tests/playwright.config.js
+          pnpm playwright test --config=frontend/tests/playwright.config.js
         env:
           BASE_URL: http://localhost:8000
 
