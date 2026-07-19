@@ -755,9 +755,11 @@ async def _run_docker_cmd(cmd: list, timeout: int = 300) -> dict:
     except Exception as e:
         return {"ok": False, "exit": -3, "stdout": "", "stderr": str(e)}
 
+_DOCKER_COMPOSE_PROJECT = "proyectociber"
+
 async def _docker_compose(*args, timeout: int = 300) -> dict:
-    """Run `docker compose <args>` from the project root. Returns {ok, exit, stdout, stderr}."""
-    cmd = ["docker", "compose", *args]
+    """Run `docker compose -p <project> <args>` from the project root. Returns {ok, exit, stdout, stderr}."""
+    cmd = ["docker", "compose", "-p", _DOCKER_COMPOSE_PROJECT, *args]
     try:
         proc = await asyncio.create_subprocess_exec(
             *cmd, cwd=_PROJECT_ROOT,
@@ -815,34 +817,81 @@ async def docker_status():
     })
 
 
+# Async task tracker for long-running docker operations (build only)
+_docker_tasks: dict = {}
+
+async def _docker_task_runner(task_id: str, action: str, *args, timeout: int = 300):
+    """Run docker compose in background and store the result."""
+    _docker_tasks[task_id] = {"status": "running", "action": action}
+    try:
+        result = await _docker_compose(*args, timeout=timeout)
+        _docker_tasks[task_id] = {
+            "status": "done" if result["ok"] else "failed",
+            "action": action,
+            "result": result,
+        }
+    except Exception as e:
+        _docker_tasks[task_id] = {"status": "failed", "action": action, "error": str(e)}
+
+
 @app.post("/api/docker/start")
 async def docker_start():
-    """Start the MIRV + Kali stack via `docker compose up -d`. Does NOT rebuild."""
+    """
+    Start the stack via `docker compose up -d kali-tools`.
+    Only starts kali-tools (safe — doesn't restart the current container).
+    """
     if not os.path.exists(os.path.join(_PROJECT_ROOT, "docker-compose.yml")):
         return JSONResponse({"ok": False, "error": "docker-compose.yml not found in project root"}, status_code=404)
-    result = await _docker_compose("up", "-d", timeout=120)
-    return JSONResponse(result, status_code=200 if result["ok"] else 500)
+    result = await _docker_compose("up", "-d", "kali-tools", timeout=60)
+    msg = "Kali tools started" if result["ok"] else f"Start failed: {result.get('stderr', '')}"
+    return JSONResponse(result | {"msg": msg}, status_code=200 if result["ok"] else 500)
 
 
 @app.post("/api/docker/stop")
 async def docker_stop():
-    """Stop the stack via `docker compose down`. Keeps volumes + images."""
-    result = await _docker_compose("down", timeout=60)
-    return JSONResponse(result, status_code=200 if result["ok"] else 500)
+    """
+    Stop the stack.
+    Stops kali-tools only (safe — doesn't affect the current container).
+    To fully stop, use Clean or manual docker compose down from terminal.
+    """
+    result = await _docker_compose("stop", "kali-tools", timeout=30)
+    msg = "Kali tools stopped" if result["ok"] else f"Stop failed: {result.get('stderr', '')}"
+    return JSONResponse(result | {"msg": msg}, status_code=200 if result["ok"] else 500)
 
 
 @app.post("/api/docker/clean")
 async def docker_clean():
-    """Stop stack + remove volumes (kali-sessions, kali-wordlists, mirv-logs). WARNING: data loss."""
-    result = await _docker_compose("down", "-v", timeout=60)
-    return JSONResponse(result, status_code=200 if result["ok"] else 500)
+    """
+    Clean: stop kali-tools + remove its volumes.
+    WARNING: deletes kali-sessions and kali-wordlists.
+    """
+    result1 = await _docker_compose("stop", "kali-tools", timeout=30)
+    if not result1["ok"]:
+        return JSONResponse(result1 | {"msg": "Failed to stop kali-tools"}, status_code=500)
+    result2 = await _docker_compose("rm", "-f", "-v", "kali-tools", timeout=30)
+    msg = "Kali tools cleaned (volumes removed)" if result2["ok"] else f"Clean failed: {result2.get('stderr', '')}"
+    return JSONResponse(result2 | {"msg": msg}, status_code=200 if result2["ok"] else 500)
 
 
 @app.post("/api/docker/build")
 async def docker_build():
-    """Rebuild images from scratch (no cache). Long-running — 10 min+."""
-    result = await _docker_compose("up", "-d", "--build", "--no-cache", timeout=1200)
-    return JSONResponse(result, status_code=200 if result["ok"] else 500)
+    """
+    Rebuild images from scratch (no cache). Long-running — 10 min+.
+    Runs in background — does NOT restart containers automatically.
+    Restart manually from terminal: docker compose up -d
+    """
+    tid = f"build_{asyncio.get_event_loop().time()}"
+    asyncio.create_task(_docker_task_runner(tid, "build", "build", "--no-cache", timeout=1200))
+    return JSONResponse({"ok": True, "msg": "Build started in background (not restarting). When done, restart from terminal: docker compose up -d", "task_id": tid})
+
+
+@app.get("/api/docker/task/{task_id}")
+async def docker_task_status(task_id: str):
+    """Check the status of a background docker task."""
+    task = _docker_tasks.get(task_id)
+    if not task:
+        return JSONResponse({"ok": False, "error": "Task not found"})
+    return JSONResponse({"ok": True, "task": task})
 
 
 # ── Reports ──

@@ -4569,17 +4569,66 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         _dockerLog(`⏳ ${actionLabel}...`);
 
         const result = await _dockerApi(endpoint, 'POST');
-        if (result.ok) {
-            _dockerLog(`✅ ${actionLabel} — OK`);
-            showToast(`🐳 ${actionLabel} — OK`);
+
+        // If the API returns a task_id → async (build only), poll for completion
+        if (result.ok && result.task_id) {
+            _dockerLog(`⏳ ${actionLabel} — background task started`);
+            showToast(`🐳 ${actionLabel} — background task started`);
+            _dockerPollTask(result.task_id, actionLabel, btn);
+            return;
+        }
+
+        // Synchronous result (start/stop/clean) — success/fail is final
+        if (result.ok && result.msg) {
+            _dockerLog(`✅ ${actionLabel} — ${result.msg}`);
+            showToast(`🐳 ${actionLabel} — ${result.msg}`);
         } else {
-            _dockerLog(`❌ ${actionLabel} — ${result.error || 'failed'}`, true);
-            showToast(`🐳 ${actionLabel} — ${result.error || 'failed'}`);
+            const err = result.stderr || result.error || 'failed';
+            _dockerLog(`❌ ${actionLabel} — ${err}`, true);
+            showToast(`🐳 ${actionLabel} — ${err}`);
         }
 
         if (btn) { btn.disabled = false; btn.textContent = actionLabel.split(' ')[0]; }
-        // Refresh status after action
         setTimeout(_dockerRefresh, 1500);
+    }
+
+    async function _dockerPollTask(taskId, actionLabel, btn) {
+        let attempts = 0;
+        const maxAttempts = 120; // 2 minutes at 1s interval
+        const poll = async () => {
+            try {
+                const r = await fetch(`/api/docker/task/${taskId}`);
+                const data = await r.json();
+                if (data.ok && data.task) {
+                    if (data.task.status === 'done') {
+                        _dockerLog(`✅ ${actionLabel} — completed`);
+                        showToast(`🐳 ${actionLabel} — completed`);
+                        if (btn) { btn.disabled = false; btn.textContent = actionLabel.split(' ')[0]; }
+                        setTimeout(_dockerRefresh, 1500);
+                        return;
+                    }
+                    if (data.task.status === 'failed') {
+                        const err = (data.task.result && data.task.result.stderr) || data.task.error || 'unknown error';
+                        _dockerLog(`❌ ${actionLabel} — ${err}`, true);
+                        showToast(`🐳 ${actionLabel} — ${err}`);
+                        if (btn) { btn.disabled = false; btn.textContent = actionLabel.split(' ')[0]; }
+                        setTimeout(_dockerRefresh, 1500);
+                        return;
+                    }
+                }
+            } catch (e) {
+                // If the task endpoint fails (container restarting), keep waiting
+                console.warn('[Docker] task poll error:', e.message);
+            }
+            if (++attempts < maxAttempts) {
+                setTimeout(poll, 1000);
+            } else {
+                _dockerLog(`⚠️ ${actionLabel} — timed out waiting for completion`, true);
+                if (btn) { btn.disabled = false; btn.textContent = actionLabel.split(' ')[0]; }
+                setTimeout(_dockerRefresh, 1500);
+            }
+        };
+        setTimeout(poll, 1000);
     }
 
     window.dockerStatus = _dockerRefresh;

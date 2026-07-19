@@ -51,6 +51,7 @@ services:
       - KALI_PASS=mirv
       - SUPABASE_URL=${SUPABASE_URL:-}
       - SUPABASE_KEY=${SUPABASE_KEY:-}
+      - COMPOSE_PROJECT_NAME=proyectociber
     volumes:
       - mirv-logs:/app/backend/logs
       - /var/run/docker.sock:/var/run/docker.sock:ro
