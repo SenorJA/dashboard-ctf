@@ -1,5 +1,9 @@
 # 🐳 Guía Docker de M.I.R.V.
 
+> ⚠️ **NOTA:** Si Docker Desktop se queda sin espacio en C: o las distros WSL se dañan, sigue la guía de migración al final de este documento.
+
+---
+
 ## Arquitectura Docker
 
 M.I.R.V. se ejecuta en **dos contenedores Docker** coordinados por `docker-compose.yml`:
@@ -436,6 +440,79 @@ const translations = {
 El build es una tarea asíncrona. El frontend hace polling por 2 minutos máximo. Si el build tarda más:
 - El build sigue ejecutándose en background aunque el frontend deje de hacer polling
 - Verifica el progreso manualmente: `docker exec mirv-backend docker compose -p proyectociber build --no-cache`
+
+### Error: Docker Desktop consume todo el disco C:
+
+**Síntoma:** Docker Desktop deja de funcionar, WSL distros se corrompen, no se puede hacer `docker compose up`.
+
+**Causa:** Docker Desktop almacena sus imágenes, contenedores y volúmenes en `C:\Users\Public\ProgramData\Docker\windowsfilter` (o `C:\ProgramData\Docker\windowsfilter`). Con múltiples imágenes grandes (Kali Linux, Python, etc.), el disco C: se llena rápidamente.
+
+**Solución: Migrar docker-desktop-data a otra unidad (F:)**
+
+1. **Abrir PowerShell como Administrador**
+
+2. **Detener Docker Desktop** (ciérralo desde la bandeja del sistema)
+
+3. **Verificar que WSL está detenido:**
+   ```powershell
+   wsl --shutdown
+   ```
+
+4. **Exportar la distro docker-desktop-data:**
+   ```powershell
+   wsl --export docker-desktop-data F:\docker\data\docker-desktop-data.tar
+   ```
+   (Si no existe `F:\docker\data\`, créalo primero)
+
+5. **Desregistrar la distro original:**
+   ```powershell
+   wsl --unregister docker-desktop-data
+   ```
+
+6. **Importar la distro a la nueva ubicación:**
+   ```powershell
+   wsl --import docker-desktop-data F:\docker\data\ F:\docker\data\docker-desktop-data.tar --version 2
+   ```
+
+7. **(Opcional) Migrar también `C:\ProgramData\Docker` a F:**
+   ```powershell
+   # Como Administrador
+   robocopy "C:\ProgramData\Docker" "F:\ProgramData\Docker" /E /COPYALL
+   # Renombrar el original (para verificar que funciona)
+   ren "C:\ProgramData\Docker" "C:\ProgramData\Docker.old"
+   # Crear symlink
+   cmd /c mklink /J "C:\ProgramData\Docker" "F:\ProgramData\Docker"
+   ```
+
+8. **Iniciar Docker Desktop** — debería arrancar normal, usando F:\
+
+9. **Verificar:**
+   ```powershell
+   wsl --list -v
+   ```
+   Deberías ver `docker-desktop-data` corriendo.
+
+10. **Limpiar archivos temporales del C:**
+    ```powershell
+    # Eliminar el tar exportado (ya no hace falta)
+    del F:\docker\data\docker-desktop-data.tar
+    # Eliminar el backup del ProgramData (si el symlink funciona)
+    # rm -r "C:\ProgramData\Docker.old" -Force -Recurse
+    # Limpiar temporales de Windows
+    cleanmgr /sageset:1  # selecciona qué limpiar
+    cleanmgr /sagerun:1
+    ```
+
+**Resultado:** El VHDX de Docker ahora vive en `F:\docker\data\ext4.vhdx` en lugar de `C:\Users\...\AppData\Local\Docker\wsl\data\`. Se liberan ~30-40 GB en C:.
+
+**Para solucionar Docker Desktop dañado (WSL distro corrupta):**
+```powershell
+wsl --shutdown
+wsl --unregister docker-desktop
+wsl --unregister docker-desktop-data
+# Luego en Docker Desktop: Troubleshoot → Reset to factory defaults
+# Esto recrea las distros desde cero
+```
 
 ### Error: "Container mirv-kali-tools not found" al hacer Start
 

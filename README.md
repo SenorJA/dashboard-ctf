@@ -535,7 +535,7 @@ M.I.R.V. incluye un **panel de control Docker** en el propio dashboard. Puedes g
 
 > ⚠️ **Importante:** Los botones del UI **nunca afectan a mirv-backend** (el contenedor que ejecuta el dashboard). Para reiniciar el backend (por ejemplo, tras rebuild), usa la terminal: `docker compose up -d`
 
-Para documentación técnica detallada (arquitectura, problemas encontrados, soluciones, API, frontend), consulta [`DOCKER_GUIDE.md`](DOCKER_GUIDE.md).
+Para documentación técnica detallada (arquitectura, problemas encontrados, soluciones, API, frontend, migración a otra unidad), consulta [`DOCKER_GUIDE.md`](DOCKER_GUIDE.md).
 
 ### Resumen en un golpe
 ```bash
