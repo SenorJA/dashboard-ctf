@@ -914,6 +914,50 @@ async def api_hash_crack(hash: str = "", hashes: str = "", identify_only: bool =
 
 
 # ════════════════════════════════════════════════════════════════
+#  STEGANOGRAPHY TOOL
+# ════════════════════════════════════════════════════════════════
+
+from backend.stego_tool import analyze as stego_analyze, report_to_mirv_findings as stego_to_mirv
+
+@app.get("/api/stego/analyze")
+async def api_stego_analyze(url: str = "", extract_lsb: bool = True, lsb_length: int = 4096):
+    """
+    Analyze an image for steganographic content (LSB, trailing data).
+
+    Query params:
+      - url (required): URL of the image to analyze
+      - extract_lsb (optional): Attempt LSB extraction (default: true)
+      - lsb_length (optional): Max bytes to scan for LSB (default: 4096)
+    """
+    if not url or not url.strip():
+        return JSONResponse({"ok": False, "error": "Provide 'url' parameter pointing to an image"}, status_code=422)
+    if not url.startswith(("http://", "https://")):
+        return JSONResponse({"ok": False, "error": "URL must start with http:// or https://"}, status_code=422)
+
+    try:
+        result = await stego_analyze(url=url.strip(), extract_lsb=extract_lsb, lsb_length=lsb_length)
+        findings = stego_to_mirv(result)
+        return JSONResponse({
+            "ok": True,
+            "format": result.image_info.format,
+            "width": result.image_info.width,
+            "height": result.image_info.height,
+            "file_size": result.image_info.file_size,
+            "lsb_suspicious": result.lsb_suspicious,
+            "lsb_message": result.lsb_message,
+            "lsb_extracted_length": result.lsb_extracted_length,
+            "trailing_data_found": result.trailing_data_found,
+            "trailing_data_size": result.trailing_data_size,
+            "trailing_data_preview": result.trailing_data_preview,
+            "anomalies": result.anomalies,
+            "duration_seconds": result.duration_seconds,
+            "findings": findings,
+        })
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=502)
+
+
+# ════════════════════════════════════════════════════════════════
 #  HTTP HEADERS SCANNER
 # ════════════════════════════════════════════════════════════════
 

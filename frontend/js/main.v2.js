@@ -1874,6 +1874,7 @@ ${bodyHtml}
                 { id: 'port-scan',      name: 'Port Scan',      desc: 'escaneo TCP asíncrono (~300 puertos)' },
                 { id: 'subdomain-scan', name: 'Subdomain Scan', desc: 'enumera subdominios vía DNS (~700 prefijos)' },
                 { id: 'hash-crack', name: 'Hash Cracker', desc: 'identifica y crackea hashes (MD5/SHA1/256/512/NTLM, ~200 rainbow)' },
+                { id: 'stego-tool', name: 'Stego Tool', desc: 'analiza imágenes PNG/BMP para steganografía LSB y trailing data' },
             ]
         },
         {
@@ -2213,6 +2214,7 @@ ${bodyHtml}
         'subdomain-scan': 'timeout=5 (por defecto 3s), concurrency=100 (por defecto 50)',
         'dns-lookup': 'A,MX,TXT,NS (tipos de registro custom)',
         'hash-crack': 'identify_only (solo identificar, no crackear)',
+        'stego-tool': 'lsb_length=8192 (bytes a escanear para LSB)',
     };
 
     window.clearExtraFlags = function () {
@@ -2240,7 +2242,7 @@ ${bodyHtml}
         const target = targetInput.value.trim();
         const extraFlags = document.getElementById('extra-flags').value.trim();
         const needsTarget = [
-            'gobuster','dirb','wfuzz','ffuf','feroxbuster','nikto','whatweb','wpscan','cewl','wafw00f','cors-check','headers-scan','secrets-scan','port-scan','subdomain-scan','dns-lookup','hash-crack',
+            'gobuster','dirb','wfuzz','ffuf','feroxbuster','nikto','whatweb','wpscan','cewl','wafw00f','cors-check','headers-scan','secrets-scan','port-scan','subdomain-scan','dns-lookup','hash-crack','stego-tool',
             'nmap','masscan','netcat','dnsrecon','curl','socat','testssl',
             'enum4linux','smbclient','smbmap','ldapsearch','bloodhound','evil-winrm','impacket',
             'hydra-ssh','hydra-ftp','sqlmap','responder','burpsuite',
@@ -2537,6 +2539,9 @@ ${bodyHtml}
             case 'hash-crack':
                 description = 'Hash Cracker — identifica y crackea hashes (MD5/SHA1/SHA256/SHA512/NTLM)';
                 break;
+            case 'stego-tool':
+                description = 'Stego Tool — analiza imágenes PNG/BMP para steganografía LSB + trailing data';
+                break;
 
             default:
                 appendOutput(`[!] Unknown tool: "${tool}"`);
@@ -2764,6 +2769,57 @@ ${bodyHtml}
                 }
                 appendOutput(`${sep}`);
                 showToast(`📡 ${typeCount} record type(s) found for ${data.domain}`);
+            } catch (e) {
+                appendOutput(`  ❌ Fetch error: ${e.message}`);
+                appendOutput(`${sep}`);
+            }
+            return; // done — skip SSH
+        }
+
+        if (tool === 'stego-tool') {
+            const sep = '─'.repeat(52);
+            appendOutput(`\n${sep}`);
+            appendOutput(`  🚀 ${description}`);
+            appendOutput(`  🎯 ${target}`);
+            appendOutput(`${sep}`);
+            try {
+                let url = `/api/stego/analyze?url=${encodeURIComponent(target)}&extract_lsb=true`;
+                if (extraFlags) {
+                    const lenMatch = extraFlags.match(/lsb_length=(\d+)/);
+                    if (lenMatch) url += `&lsb_length=${lenMatch[1]}`;
+                }
+                const resp = await fetch(url);
+                const data = await resp.json();
+                if (!data.ok) {
+                    appendOutput(`  ❌ Error: ${data.error}`);
+                    appendOutput(`${sep}`);
+                    return;
+                }
+                appendOutput(`  ℹ️  Format: ${data.format} | ${data.width}x${data.height} | ${data.file_size} bytes`);
+                appendOutput(`  ${data.lsb_suspicious ? '🔴' : '🟢'} LSB suspicious: ${data.lsb_suspicious}`);
+                if (data.lsb_message) {
+                    appendOutput(`  📝 LSB message: "${data.lsb_message.substring(0, 200)}"`);
+                }
+                appendOutput(`  ${data.trailing_data_found ? '🔴' : '🟢'} Trailing data: ${data.trailing_data_found ? data.trailing_data_size + ' bytes' : 'None'}`);
+                appendOutput(`  ⏱  Duration: ${data.duration_seconds}s`);
+                appendOutput(`${sep}`);
+                if (data.anomalies && data.anomalies.length > 0) {
+                    appendOutput(`  ⚠️  Anomalies (${data.anomalies.length}):`);
+                    data.anomalies.forEach(a => appendOutput(`    • ${a}`));
+                    appendOutput(`${sep}`);
+                }
+                if (data.trailing_data_preview) {
+                    appendOutput(`  🔍 Trailing data hex: ${data.trailing_data_preview}`);
+                    appendOutput(`${sep}`);
+                }
+                if (data.findings && data.findings.length > 0) {
+                    if (typeof window.addFindings === 'function') {
+                        window.addFindings(data.findings);
+                    }
+                }
+                if (data.lsb_suspicious) showToast('🔴 LSB hidden data detected!');
+                else if (data.trailing_data_found) showToast('⚠️ Trailing data found after image end');
+                else showToast('🟢 No steganographic content detected');
             } catch (e) {
                 appendOutput(`  ❌ Fetch error: ${e.message}`);
                 appendOutput(`${sep}`);
@@ -4656,6 +4712,7 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         'subdomain-scan':{ silent: null, covert: null },
         'dns-lookup':    { silent: null, covert: null },
         'hash-crack':    { silent: null, covert: null },
+        'stego-tool':    { silent: null, covert: null },
 
         // ─── Misc ───
         curl:        { silent: "-s -I -L --user-agent 'Mozilla/5.0'", covert: null },
