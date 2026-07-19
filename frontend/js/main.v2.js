@@ -1884,7 +1884,8 @@ ${bodyHtml}
                 { id: 'dnsrecon',   name: 'Dnsrecon',  desc: 'enumeración DNS' },
                 { id: 'curl',       name: 'Curl',      desc: 'peticiones HTTP avanzadas' },
                 { id: 'socat',      name: 'Socat',     desc: 'relay TCP/UDP, reverse shell' },
-                { id: 'testssl',    name: 'TestSSL',   desc: 'análisis SSL/TLS (ciphers, vulns)' },
+                { id: 'testssl',    name: 'TestSSL',     desc: 'análisis SSL/TLS (ciphers, vulns)' },
+                { id: 'dns-lookup', name: 'DNS Lookup',  desc: 'registros A/AAAA/MX/TXT/NS/CNAME/SOA + reverse' },
             ]
         },
         {
@@ -2209,6 +2210,7 @@ ${bodyHtml}
         'secrets-scan': 'raw=mi_texto_aqui (escanear texto directo)',
         'port-scan': 'banner (intentar banner grab), o "22,80,443" (puertos custom)',
         'subdomain-scan': 'timeout=5 (por defecto 3s), concurrency=100 (por defecto 50)',
+        'dns-lookup': 'A,MX,TXT,NS (tipos de registro custom)',
     };
 
     window.clearExtraFlags = function () {
@@ -2236,7 +2238,7 @@ ${bodyHtml}
         const target = targetInput.value.trim();
         const extraFlags = document.getElementById('extra-flags').value.trim();
         const needsTarget = [
-            'gobuster','dirb','wfuzz','ffuf','feroxbuster','nikto','whatweb','wpscan','cewl','wafw00f','cors-check','headers-scan','secrets-scan','port-scan','subdomain-scan',
+            'gobuster','dirb','wfuzz','ffuf','feroxbuster','nikto','whatweb','wpscan','cewl','wafw00f','cors-check','headers-scan','secrets-scan','port-scan','subdomain-scan','dns-lookup',
             'nmap','masscan','netcat','dnsrecon','curl','socat','testssl',
             'enum4linux','smbclient','smbmap','ldapsearch','bloodhound','evil-winrm','impacket',
             'hydra-ssh','hydra-ftp','sqlmap','responder','burpsuite',
@@ -2527,6 +2529,9 @@ ${bodyHtml}
             case 'subdomain-scan':
                 description = 'Subdomain Scan — DNS-based subdomain enumeration (~700 prefixes)';
                 break;
+            case 'dns-lookup':
+                description = 'DNS Lookup — A, AAAA, MX, TXT, NS, CNAME, SOA + reverse DNS';
+                break;
 
             default:
                 appendOutput(`[!] Unknown tool: "${tool}"`);
@@ -2708,6 +2713,52 @@ ${bodyHtml}
                 if (data.found > 10) showToast(`🔴 ${data.found} subdomains found!`);
                 else if (data.found > 0) showToast(`🌐 ${data.found} subdomain(s) found`);
                 else showToast('🟢 No subdomains found');
+            } catch (e) {
+                appendOutput(`  ❌ Fetch error: ${e.message}`);
+                appendOutput(`${sep}`);
+            }
+            return; // done — skip SSH
+        }
+
+        if (tool === 'dns-lookup') {
+            const sep = '─'.repeat(52);
+            appendOutput(`\n${sep}`);
+            appendOutput(`  🚀 ${description}`);
+            appendOutput(`  🎯 ${target}`);
+            appendOutput(`${sep}`);
+            try {
+                let url = `/api/dns/lookup?domain=${encodeURIComponent(target)}&reverse=true`;
+                if (extraFlags) {
+                    const typeMatch = extraFlags.match(/[A-Z]+(?:,[A-Z]+)*/);
+                    if (typeMatch) url += `&types=${encodeURIComponent(typeMatch[0])}`;
+                }
+                const resp = await fetch(url);
+                const data = await resp.json();
+                if (!data.ok) {
+                    appendOutput(`  ❌ Error: ${data.error}`);
+                    appendOutput(`${sep}`);
+                    return;
+                }
+                appendOutput(`  ℹ️  Domain: ${data.domain}`);
+                if (data.reverse_dns) appendOutput(`  🔄 PTR: ${data.reverse_dns}`);
+                appendOutput(`  ⏱  Duration: ${data.duration_seconds}s`);
+                appendOutput(`${sep}`);
+                const typeCount = Object.keys(data.records || {}).length;
+                if (typeCount > 0) {
+                    for (const [rtype, recs] of Object.entries(data.records)) {
+                        appendOutput(`  📋 ${rtype} (${recs.length} record(s)):`);
+                        recs.forEach((r, i) => {
+                            appendOutput(`    ${rtype === 'A' || rtype === 'AAAA' ? '🌐' : rtype === 'MX' ? '📧' : rtype === 'TXT' ? '📝' : rtype === 'NS' ? '🏛️' : rtype === 'CNAME' ? '🔗' : rtype === 'SOA' ? '📊' : '📌'} ${r.value}`);
+                        });
+                    }
+                    if (typeof window.addFindings === 'function') {
+                        window.addFindings(data.findings);
+                    }
+                } else {
+                    appendOutput('  ⚠️  No DNS records found.');
+                }
+                appendOutput(`${sep}`);
+                showToast(`📡 ${typeCount} record type(s) found for ${data.domain}`);
             } catch (e) {
                 appendOutput(`  ❌ Fetch error: ${e.message}`);
                 appendOutput(`${sep}`);
@@ -4551,6 +4602,7 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         'secrets-scan':{ silent: null, covert: null },
         'port-scan':   { silent: null, covert: null },
         'subdomain-scan':{ silent: null, covert: null },
+        'dns-lookup':    { silent: null, covert: null },
 
         // ─── Misc ───
         curl:        { silent: "-s -I -L --user-agent 'Mozilla/5.0'", covert: null },

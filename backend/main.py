@@ -805,6 +805,72 @@ async def api_subdomain_scan(domain: str, timeout: float = 3.0, concurrency: int
 
 
 # ════════════════════════════════════════════════════════════════
+#  DNS LOOKUP
+# ════════════════════════════════════════════════════════════════
+
+from backend.dns_lookup import lookup as dns_lookup, reverse_lookup as dns_reverse, report_to_mirv_findings as dns_to_mirv
+
+@app.get("/api/dns/lookup")
+async def api_dns_lookup(domain: str, types: str = None, reverse: bool = False):
+    """
+    Perform DNS lookups for a domain via DNS-over-HTTPS.
+
+    Query params:
+      - domain (required): Domain to query (e.g. "example.com")
+      - types (optional): Comma-separated record types (default: A,AAAA,MX,TXT,NS,CNAME,SOA)
+      - reverse (optional): Attempt reverse DNS lookup (default: false)
+    """
+    from urllib.parse import urlparse
+    domain = domain.strip().lower()
+    if domain.startswith(("http://", "https://")):
+        domain = urlparse(domain).hostname or domain
+    if not domain or "." not in domain:
+        return JSONResponse({"ok": False, "error": "Invalid domain. Use a valid domain like 'example.com'"}, status_code=422)
+
+    try:
+        record_types = [t.strip().upper() for t in types.split(",") if t.strip()] if types else None
+        report = await dns_lookup(domain, record_types=record_types, reverse=reverse)
+        findings = dns_to_mirv(report, domain)
+        return JSONResponse({
+            "ok": True,
+            "domain": report.domain,
+            "duration_seconds": report.duration_seconds,
+            "reverse_dns": report.reverse_dns,
+            "records": {
+                rtype: [
+                    {"name": r.name, "type": r.type, "ttl": r.ttl, "value": r.value}
+                    for r in recs
+                ]
+                for rtype, recs in report.records.items()
+            },
+            "findings": findings,
+        })
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=502)
+
+
+@app.get("/api/dns/reverse")
+async def api_dns_reverse(ip: str):
+    """
+    Perform a reverse DNS lookup on an IP address.
+
+    Query params:
+      - ip (required): IP address to look up
+    """
+    try:
+        report = await dns_reverse(ip)
+        findings = dns_to_mirv(report, ip)
+        return JSONResponse({
+            "ok": True,
+            "ip": ip,
+            "hostname": report.reverse_dns,
+            "findings": findings,
+        })
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=502)
+
+
+# ════════════════════════════════════════════════════════════════
 #  HTTP HEADERS SCANNER
 # ════════════════════════════════════════════════════════════════
 
