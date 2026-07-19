@@ -1869,6 +1869,7 @@ ${bodyHtml}
                 { id: 'cewl',        name: 'Cewl',        desc: 'generador wordlists desde web' },
                 { id: 'wafw00f',     name: 'Wafw00f',     desc: 'detección WAF / IDS fingerprint' },
                 { id: 'cors-check',  name: 'CORS Check',  desc: 'prueba CORS misconfiguration (Origin)' },
+                { id: 'headers-scan', name: 'Headers Scan', desc: 'audita headers HTTP seguridad A-F' },
             ]
         },
         {
@@ -2200,6 +2201,8 @@ ${bodyHtml}
         dalfox: '--custom-payload \"<script>alert(1)</script>\" --blind https://xss.ht',
         // ── Nuclei ──
         nuclei: '-severity critical,high -json -o /tmp/nuclei.json -t ~/nuclei-templates/',
+        // ── Headers ──
+        'headers-scan': 'timeout=5 (por defecto 10s)',
     };
 
     window.clearExtraFlags = function () {
@@ -2227,7 +2230,7 @@ ${bodyHtml}
         const target = targetInput.value.trim();
         const extraFlags = document.getElementById('extra-flags').value.trim();
         const needsTarget = [
-            'gobuster','dirb','wfuzz','ffuf','feroxbuster','nikto','whatweb','wpscan','cewl','wafw00f','cors-check',
+            'gobuster','dirb','wfuzz','ffuf','feroxbuster','nikto','whatweb','wpscan','cewl','wafw00f','cors-check','headers-scan',
             'nmap','masscan','netcat','dnsrecon','curl','socat','testssl',
             'enum4linux','smbclient','smbmap','ldapsearch','bloodhound','evil-winrm','impacket',
             'hydra-ssh','hydra-ftp','sqlmap','responder','burpsuite',
@@ -2506,9 +2509,56 @@ ${bodyHtml}
                 description = 'SpiderFoot — automated OSINT (100+ modules)';
                 break;
 
+            case 'headers-scan':
+                description = 'Headers Scan — HTTP security headers audit A-F';
+                break;
+
             default:
                 appendOutput(`[!] Unknown tool: "${tool}"`);
                 return;
+        }
+
+        // ── API-based tools (no SSH needed) ──
+        if (tool === 'headers-scan') {
+            const sep = '─'.repeat(52);
+            appendOutput(`\n${sep}`);
+            appendOutput(`  🚀 ${description}`);
+            appendOutput(`  🎯 ${target}`);
+            appendOutput(`${sep}`);
+            try {
+                const resp = await fetch(`/api/headers/scan?url=${encodeURIComponent(target)}&timeout=15`);
+                const data = await resp.json();
+                if (!data.ok) {
+                    appendOutput(`  ❌ Error: ${data.error}`);
+                    appendOutput(`${sep}`);
+                    return;
+                }
+                appendOutput(`  ℹ️  Redirected: ${data.url}`);
+                appendOutput(`  ℹ️  Status: ${data.status_code}`);
+                appendOutput(`  ${data.score >= 80 ? '🟢' : data.score >= 50 ? '🟡' : '🔴'} Score: ${data.score}/100 — Grade: ${data.grade}`);
+                appendOutput(`${sep}`);
+                if (data.findings && data.findings.length > 0) {
+                    appendOutput(`  📋 ${data.findings.length} findings:`);
+                    data.findings.forEach((f, i) => {
+                        const icon = f.severity === 'high' ? '🔴' : f.severity === 'medium' ? '🟠' : f.severity === 'low' ? '🟡' : '⚪';
+                        appendOutput(`    ${icon} [${f.severity}] ${f.title}`);
+                    });
+                    // Save findings to the findings store
+                    if (typeof window.addFindings === 'function') {
+                        window.addFindings(data.findings);
+                    }
+                } else {
+                    appendOutput('  ✅ No issues found — perfect score!');
+                }
+                appendOutput(`${sep}`);
+                if (data.grade === 'A') showToast('🟢 Grade A — excellent security headers!');
+                else if (data.grade === 'F') showToast('🔴 Grade F — critical headers missing!');
+                else showToast(`📊 Grade ${data.grade} — score ${data.score}/100`);
+            } catch (e) {
+                appendOutput(`  ❌ Fetch error: ${e.message}`);
+                appendOutput(`${sep}`);
+            }
+            return; // done — skip SSH
         }
 
         // Set current tool for report / findings parsing
@@ -4343,6 +4393,7 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         testssl:     { silent: 'BLOCKED', covert: '--quiet --fast --parallel 1' },
         wafw00f:     { silent: '-b',      covert: null, loud: '-a' },
         'cors-check':{ silent: 'BLOCKED', covert: null },
+        'headers-scan':{ silent: null, covert: null },
 
         // ─── Misc ───
         curl:        { silent: "-s -I -L --user-agent 'Mozilla/5.0'", covert: null },

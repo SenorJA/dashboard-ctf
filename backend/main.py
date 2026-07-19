@@ -652,6 +652,37 @@ async def findings_stats():
     })
 
 # ════════════════════════════════════════════════════════════════
+#  HTTP HEADERS SCANNER
+# ════════════════════════════════════════════════════════════════
+
+from backend.headers_scanner import scan as headers_scan, report_to_mirv_findings
+
+@app.get("/api/headers/scan")
+async def api_headers_scan(url: str, timeout: float = 10.0):
+    """
+    Scan a URL for HTTP security headers and grade A–F.
+
+    Query params:
+      - url (required): Full URL with scheme (http:// or https://)
+      - timeout (optional): Request timeout in seconds (default 10)
+    """
+    if not url.startswith(("http://", "https://")):
+        return JSONResponse({"ok": False, "error": "URL must include http:// or https://"}, status_code=422)
+    try:
+        report = await headers_scan(url, timeout=timeout)
+        findings = report_to_mirv_findings(report)
+        return JSONResponse({
+            "ok": True,
+            "url": report.final_url,
+            "status_code": report.status_code,
+            "score": report.score,
+            "grade": report.grade,
+            "findings": findings,
+        })
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=502)
+
+# ════════════════════════════════════════════════════════════════
 #  SUPABASE API ENDPOINTS
 # ════════════════════════════════════════════════════════════════
 
