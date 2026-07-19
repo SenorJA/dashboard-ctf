@@ -1003,6 +1003,65 @@ async def api_news(sources: str = "", max_per_source: int = 5):
 
 
 # ════════════════════════════════════════════════════════════════
+#  API SECURITY SCANNER
+# ════════════════════════════════════════════════════════════════
+
+from backend.api_scanner import scan as api_scan, report_to_mirv_findings as api_to_mirv
+
+@app.get("/api/apiscan")
+async def api_api_scan(url: str, timeout: float = 10.0, concurrency: int = 10):
+    """
+    Scan a REST API for security issues.
+
+    Query params:
+      - url (required): Base URL of the API (e.g., 'https://example.com/api')
+      - timeout (optional): HTTP timeout per request (default: 10)
+      - concurrency (optional): Max concurrent requests (default: 10)
+    """
+    if not url or not url.strip():
+        return JSONResponse({"ok": False, "error": "Provide 'url' parameter with the API base URL"}, status_code=422)
+
+    try:
+        report = await api_scan(url.strip(), timeout=timeout, concurrency=min(concurrency, 30))
+        findings = api_to_mirv(report)
+        return JSONResponse({
+            "ok": True,
+            "base_url": report.base_url,
+            "endpoints_scanned": report.endpoints_scanned,
+            "issues_count": len(report.issues),
+            "open_endpoints_count": len(report.open_endpoints),
+            "cors_enabled": report.cors_enabled,
+            "auth_required": report.auth_required,
+            "missing_headers": report.missing_headers,
+            "info_disclosures": report.info_disclosures,
+            "duration_seconds": report.duration_seconds,
+            "open_endpoints": [
+                {
+                    "path": e.path,
+                    "method": e.method,
+                    "status_code": e.status_code,
+                    "content_length": e.content_length,
+                    "response_time": e.response_time,
+                }
+                for e in report.open_endpoints
+            ],
+            "issues": [
+                {
+                    "severity": i.severity,
+                    "title": i.title,
+                    "detail": i.detail,
+                    "endpoint": i.endpoint,
+                    "category": i.category,
+                }
+                for i in report.issues
+            ],
+            "findings": findings,
+        })
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=502)
+
+
+# ════════════════════════════════════════════════════════════════
 #  HTTP HEADERS SCANNER
 # ════════════════════════════════════════════════════════════════
 

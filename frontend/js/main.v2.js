@@ -1876,6 +1876,7 @@ ${bodyHtml}
                 { id: 'hash-crack', name: 'Hash Cracker', desc: 'identifica y crackea hashes (MD5/SHA1/256/512/NTLM, ~200 rainbow)' },
                 { id: 'stego-tool', name: 'Stego Tool', desc: 'analiza imágenes PNG/BMP para steganografía LSB y trailing data' },
                 { id: 'news-scraper', name: 'News Scraper', desc: 'últimas noticias de ciberseguridad (9 fuentes RSS/Atom)' },
+                { id: 'api-scanner', name: 'API Scanner', desc: 'escanea APIs REST (65+ paths, CORS, headers, data exposure)' },
             ]
         },
         {
@@ -2217,6 +2218,7 @@ ${bodyHtml}
         'hash-crack': 'identify_only (solo identificar, no crackear)',
         'stego-tool': 'lsb_length=8192 (bytes a escanear para LSB)',
         'news-scraper': 'hackernews,krebs (fuentes específicas, separadas por coma)',
+        'api-scanner': 'timeout=5 (timeout por request), concurrency=5 (paralelismo)',
     };
 
     window.clearExtraFlags = function () {
@@ -2244,7 +2246,7 @@ ${bodyHtml}
         const target = targetInput.value.trim();
         const extraFlags = document.getElementById('extra-flags').value.trim();
         const needsTarget = [
-            'gobuster','dirb','wfuzz','ffuf','feroxbuster','nikto','whatweb','wpscan','cewl','wafw00f','cors-check','headers-scan','secrets-scan','port-scan','subdomain-scan','dns-lookup','hash-crack','stego-tool',
+            'gobuster','dirb','wfuzz','ffuf','feroxbuster','nikto','whatweb','wpscan','cewl','wafw00f','cors-check','headers-scan','secrets-scan','port-scan','subdomain-scan','dns-lookup','hash-crack','stego-tool','api-scanner',
             'nmap','masscan','netcat','dnsrecon','curl','socat','testssl',
             'enum4linux','smbclient','smbmap','ldapsearch','bloodhound','evil-winrm','impacket',
             'hydra-ssh','hydra-ftp','sqlmap','responder','burpsuite',
@@ -2546,6 +2548,9 @@ ${bodyHtml}
                 break;
             case 'news-scraper':
                 description = 'News Scraper — últimas noticias de ciberseguridad (9 fuentes RSS/Atom)';
+                break;
+            case 'api-scanner':
+                description = 'API Scanner — escanea APIs REST (65+ paths, CORS, headers, data exposure)';
                 break;
 
             default:
@@ -2878,6 +2883,64 @@ ${bodyHtml}
                     appendOutput('  ⚠️  No articles found.');
                 }
                 showToast(`📰 ${data.total_articles} articles from ${data.sources_ok} sources`);
+            } catch (e) {
+                appendOutput(`  ❌ Fetch error: ${e.message}`);
+                appendOutput(`${sep}`);
+            }
+            return; // done — skip SSH
+        }
+
+        if (tool === 'api-scanner') {
+            const sep = '─'.repeat(52);
+            appendOutput(`\n${sep}`);
+            appendOutput(`  🚀 ${description}`);
+            appendOutput(`  🎯 ${target}`);
+            appendOutput(`${sep}`);
+            try {
+                let url = `/api/apiscan?url=${encodeURIComponent(target)}&timeout=10&concurrency=10`;
+                if (extraFlags) {
+                    const t = extraFlags.match(/timeout=(\d+(?:\.\d+)?)/);
+                    if (t) url = url.replace('timeout=10', `timeout=${t[1]}`);
+                    const c = extraFlags.match(/concurrency=(\d+)/);
+                    if (c) url = url.replace('concurrency=10', `concurrency=${c[1]}`);
+                }
+                const resp = await fetch(url);
+                const data = await resp.json();
+                if (!data.ok) {
+                    appendOutput(`  ❌ Error: ${data.error}`);
+                    appendOutput(`${sep}`);
+                    return;
+                }
+                appendOutput(`  ℹ️  Endpoints scanned: ${data.endpoints_scanned}`);
+                appendOutput(`  🔴 Issues: ${data.issues_count}`);
+                appendOutput(`  🟢 Open endpoints: ${data.open_endpoints_count}`);
+                appendOutput(`  ${data.cors_enabled ? '🔴' : '🟢'} CORS all origins: ${data.cors_enabled}`);
+                appendOutput(`  🔒 Auth required: ${data.auth_required}`);
+                appendOutput(`  ⏱  Duration: ${data.duration_seconds}s`);
+                appendOutput(`${sep}`);
+                if (data.issues && data.issues.length > 0) {
+                    appendOutput(`  📋 Issues (${data.issues.length}):`);
+                    data.issues.forEach((issue, i) => {
+                        const icon = issue.severity === 'high' ? '🔴' : issue.severity === 'medium' ? '🟠' : issue.severity === 'low' ? '🟡' : '⚪';
+                        appendOutput(`    ${icon} [${issue.severity}] ${issue.title}`);
+                    });
+                    appendOutput(`${sep}`);
+                }
+                if (data.open_endpoints && data.open_endpoints.length > 0) {
+                    appendOutput(`  📂 Open endpoints (${data.open_endpoints.length}):`);
+                    data.open_endpoints.forEach(ep => {
+                        appendOutput(`    🌐 ${ep.method} ${ep.path} → ${ep.status_code} (${ep.content_length}b, ${ep.response_time}s)`);
+                    });
+                    appendOutput(`${sep}`);
+                }
+                if (data.findings && data.findings.length > 0) {
+                    if (typeof window.addFindings === 'function') {
+                        window.addFindings(data.findings);
+                    }
+                }
+                if (data.issues_count > 5) showToast(`🔴 ${data.issues_count} API issues found!`);
+                else if (data.issues_count > 0) showToast(`⚠️ ${data.issues_count} API issue(s) found`);
+                else showToast('🟢 No API issues detected');
             } catch (e) {
                 appendOutput(`  ❌ Fetch error: ${e.message}`);
                 appendOutput(`${sep}`);
@@ -4772,6 +4835,7 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         'hash-crack':    { silent: null, covert: null },
         'stego-tool':    { silent: null, covert: null },
         'news-scraper':  { silent: null, covert: null },
+        'api-scanner':   { silent: null, covert: null },
 
         // ─── Misc ───
         curl:        { silent: "-s -I -L --user-agent 'Mozilla/5.0'", covert: null },
