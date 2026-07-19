@@ -958,6 +958,51 @@ async def api_stego_analyze(url: str = "", extract_lsb: bool = True, lsb_length:
 
 
 # ════════════════════════════════════════════════════════════════
+#  SECURITY NEWS SCRAPER
+# ════════════════════════════════════════════════════════════════
+
+from backend.news_scraper import fetch_news, report_to_mirv_findings as news_to_mirv
+
+@app.get("/api/news")
+async def api_news(sources: str = "", max_per_source: int = 5):
+    """
+    Fetch latest security news from RSS/Atom feeds.
+
+    Query params:
+      - sources (optional): Comma-separated source IDs (default: all)
+      - max_per_source (optional): Max articles per source (default: 5)
+    """
+    try:
+        src_list = [s.strip() for s in sources.split(",") if s.strip()] if sources else None
+        report = await fetch_news(sources=src_list, max_per_source=max_per_source)
+        findings = news_to_mirv(report)
+        return JSONResponse({
+            "ok": True,
+            "total_articles": report.total_articles,
+            "sources_ok": report.sources_ok,
+            "sources_failed": report.sources_failed,
+            "duration_seconds": report.duration_seconds,
+            "source_details": report.source_details,
+            "articles": [
+                {
+                    "title": a.title,
+                    "link": a.link,
+                    "published": a.published,
+                    "source_name": a.source_name,
+                    "source_id": a.source_id,
+                    "summary": a.summary[:300],
+                    "category": a.category,
+                    "author": a.author,
+                }
+                for a in report.articles
+            ],
+            "findings": findings,
+        })
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=502)
+
+
+# ════════════════════════════════════════════════════════════════
 #  HTTP HEADERS SCANNER
 # ════════════════════════════════════════════════════════════════
 

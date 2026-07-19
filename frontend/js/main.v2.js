@@ -1875,6 +1875,7 @@ ${bodyHtml}
                 { id: 'subdomain-scan', name: 'Subdomain Scan', desc: 'enumera subdominios vía DNS (~700 prefijos)' },
                 { id: 'hash-crack', name: 'Hash Cracker', desc: 'identifica y crackea hashes (MD5/SHA1/256/512/NTLM, ~200 rainbow)' },
                 { id: 'stego-tool', name: 'Stego Tool', desc: 'analiza imágenes PNG/BMP para steganografía LSB y trailing data' },
+                { id: 'news-scraper', name: 'News Scraper', desc: 'últimas noticias de ciberseguridad (9 fuentes RSS/Atom)' },
             ]
         },
         {
@@ -2215,6 +2216,7 @@ ${bodyHtml}
         'dns-lookup': 'A,MX,TXT,NS (tipos de registro custom)',
         'hash-crack': 'identify_only (solo identificar, no crackear)',
         'stego-tool': 'lsb_length=8192 (bytes a escanear para LSB)',
+        'news-scraper': 'hackernews,krebs (fuentes específicas, separadas por coma)',
     };
 
     window.clearExtraFlags = function () {
@@ -2542,6 +2544,9 @@ ${bodyHtml}
             case 'stego-tool':
                 description = 'Stego Tool — analiza imágenes PNG/BMP para steganografía LSB + trailing data';
                 break;
+            case 'news-scraper':
+                description = 'News Scraper — últimas noticias de ciberseguridad (9 fuentes RSS/Atom)';
+                break;
 
             default:
                 appendOutput(`[!] Unknown tool: "${tool}"`);
@@ -2820,6 +2825,59 @@ ${bodyHtml}
                 if (data.lsb_suspicious) showToast('🔴 LSB hidden data detected!');
                 else if (data.trailing_data_found) showToast('⚠️ Trailing data found after image end');
                 else showToast('🟢 No steganographic content detected');
+            } catch (e) {
+                appendOutput(`  ❌ Fetch error: ${e.message}`);
+                appendOutput(`${sep}`);
+            }
+            return; // done — skip SSH
+        }
+
+        if (tool === 'news-scraper') {
+            const sep = '─'.repeat(52);
+            appendOutput(`\n${sep}`);
+            appendOutput(`  🚀 ${description}`);
+            if (extraFlags) appendOutput(`  📡 Sources: ${extraFlags}`);
+            appendOutput(`${sep}`);
+            try {
+                let url = '/api/news?max_per_source=5';
+                if (extraFlags) {
+                    url += `&sources=${encodeURIComponent(extraFlags)}`;
+                }
+                const resp = await fetch(url);
+                const data = await resp.json();
+                if (!data.ok) {
+                    appendOutput(`  ❌ Error: ${data.error}`);
+                    appendOutput(`${sep}`);
+                    return;
+                }
+                appendOutput(`  ℹ️  Articles: ${data.total_articles} | Sources OK: ${data.sources_ok}/${data.sources_ok + data.sources_failed}`);
+                appendOutput(`  ⏱  Duration: ${data.duration_seconds}s`);
+                appendOutput(`${sep}`);
+                if (data.articles && data.articles.length > 0) {
+                    const grouped = {};
+                    data.articles.forEach(a => {
+                        if (!grouped[a.source_name]) grouped[a.source_name] = [];
+                        grouped[a.source_name].push(a);
+                    });
+                    for (const [source, arts] of Object.entries(grouped)) {
+                        appendOutput(`  📰 ${source} (${arts.length} article(s)):`);
+                        arts.forEach((a, i) => {
+                            const title = a.title.length > 80 ? a.title.substring(0, 77) + '...' : a.title;
+                            appendOutput(`    ${i + 1}. ${title}`);
+                            if (a.summary) {
+                                const s = a.summary.length > 120 ? a.summary.substring(0, 117) + '...' : a.summary;
+                                appendOutput(`       ${s}`);
+                            }
+                        });
+                        appendOutput(`${sep}`);
+                    }
+                    if (typeof window.addFindings === 'function') {
+                        window.addFindings(data.findings);
+                    }
+                } else {
+                    appendOutput('  ⚠️  No articles found.');
+                }
+                showToast(`📰 ${data.total_articles} articles from ${data.sources_ok} sources`);
             } catch (e) {
                 appendOutput(`  ❌ Fetch error: ${e.message}`);
                 appendOutput(`${sep}`);
@@ -4713,6 +4771,7 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         'dns-lookup':    { silent: null, covert: null },
         'hash-crack':    { silent: null, covert: null },
         'stego-tool':    { silent: null, covert: null },
+        'news-scraper':  { silent: null, covert: null },
 
         // ─── Misc ───
         curl:        { silent: "-s -I -L --user-agent 'Mozilla/5.0'", covert: null },
