@@ -1324,6 +1324,189 @@ async def api_dlp_scan_url(url: str = ""):
 
 
 # ════════════════════════════════════════════════════════════════
+#  SIEM — Security Information & Event Management
+# ════════════════════════════════════════════════════════════════
+
+from backend.siem import (
+    ingest_event as siem_ingest,
+    get_events as siem_events,
+    get_stats as siem_stats,
+    create_rule as siem_create_rule,
+    get_rules as siem_get_rules,
+    delete_rule as siem_delete_rule,
+    get_alerts as siem_get_alerts,
+    report_to_mirv_findings as siem_to_mirv,
+)
+
+
+class SIEMEventRequest(BaseModel):
+    source: str
+    severity: str
+    title: str
+    detail: str
+    raw_data: dict | None = None
+    tags: list[str] | None = None
+    ip: str | None = None
+
+
+class SIEMRuleRequest(BaseModel):
+    name: str
+    description: str
+    condition: str
+    severity: str = "high"
+    config: dict | None = None
+
+
+@app.post("/api/siem/event")
+async def api_siem_ingest_event(body: SIEMEventRequest):
+    """Ingest a security event into the SIEM."""
+    try:
+        event = siem_ingest(
+            source=body.source,
+            severity=body.severity,
+            title=body.title,
+            detail=body.detail,
+            raw_data=body.raw_data,
+            tags=body.tags,
+            ip=body.ip,
+        )
+        return JSONResponse({
+            "ok": True,
+            "event": {
+                "id": event.id,
+                "timestamp": event.timestamp,
+                "source": event.source,
+                "severity": event.severity,
+                "title": event.title,
+            },
+        })
+    except ValueError as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=422)
+    except Exception as e:
+        logger.error("[siem ingest] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/siem/events")
+async def api_siem_list_events(
+    limit: int = 50,
+    offset: int = 0,
+    severity: str = "",
+    source: str = "",
+    since: str = "",
+):
+    """List SIEM events with optional filters."""
+    try:
+        events = siem_events(
+            limit=limit,
+            offset=offset,
+            severity=severity or None,
+            source=source or None,
+            since=since or None,
+        )
+        return JSONResponse({"ok": True, "events": events, "count": len(events)})
+    except Exception as e:
+        logger.error("[siem events] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/siem/stats")
+async def api_siem_stats():
+    """Return aggregate SIEM dashboard statistics."""
+    try:
+        stats = siem_stats()
+        return JSONResponse({"ok": True, **stats})
+    except Exception as e:
+        logger.error("[siem stats] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/siem/rules")
+async def api_siem_create_rule(body: SIEMRuleRequest):
+    """Create a new SIEM correlation rule."""
+    try:
+        rule = siem_create_rule(
+            name=body.name,
+            description=body.description,
+            condition=body.condition,
+            severity=body.severity,
+            config=body.config,
+        )
+        return JSONResponse({"ok": True, "rule": {
+            "id": rule.id,
+            "name": rule.name,
+            "condition": rule.condition,
+            "severity": rule.severity,
+            "enabled": rule.enabled,
+            "config": rule.config,
+        }})
+    except ValueError as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=422)
+    except Exception as e:
+        logger.error("[siem create rule] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/siem/rules")
+async def api_siem_list_rules():
+    """List all SIEM correlation rules."""
+    try:
+        rules = siem_get_rules()
+        return JSONResponse({"ok": True, "rules": rules, "count": len(rules)})
+    except Exception as e:
+        logger.error("[siem rules] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.delete("/api/siem/rules/{rule_id}")
+async def api_siem_delete_rule(rule_id: str):
+    """Delete a SIEM correlation rule."""
+    try:
+        deleted = siem_delete_rule(rule_id)
+        if not deleted:
+            return JSONResponse({"ok": False, "error": "Rule not found"}, status_code=404)
+        return JSONResponse({"ok": True, "message": "Rule deleted"})
+    except Exception as e:
+        logger.error("[siem delete rule] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/siem/alerts")
+async def api_siem_list_alerts(limit: int = 20, offset: int = 0):
+    """List SIEM alerts sorted by timestamp descending."""
+    try:
+        alerts = siem_get_alerts(limit=limit, offset=offset)
+        return JSONResponse({"ok": True, "alerts": alerts, "count": len(alerts)})
+    except Exception as e:
+        logger.error("[siem alerts] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/siem/findings")
+async def api_siem_findings():
+    """
+    Convert recent SIEM alerts into MIRV-compatible findings format.
+    Useful for feeding SIEM data into the unified findings dashboard.
+    """
+    try:
+        alerts = siem_get_alerts(limit=50)
+        all_findings = []
+        for alert_dict in alerts:
+            # Reconstruct minimal SIEMAlert for report_to_mirv_findings
+            from backend.siem import SIEMAlert
+            al = SIEMAlert(**{
+                k: alert_dict[k] for k in SIEMAlert.__dataclass_fields__
+                if k in alert_dict
+            })
+            findings = siem_to_mirv(al)
+            all_findings.extend(findings)
+        return JSONResponse({"ok": True, "findings": all_findings, "count": len(all_findings)})
+    except Exception as e:
+        logger.error("[siem findings] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+# ════════════════════════════════════════════════════════════════
 #  SECURITY NEWS SCRAPER
 # ════════════════════════════════════════════════════════════════
 

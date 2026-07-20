@@ -3156,7 +3156,8 @@ ${bodyHtml}
             forensics: 14,
             exif: 15,
             canary: 16,
-            dlp: 17
+            dlp: 17,
+            siem: 18
         };
         if (panes[tabName] !== undefined) {
             btns[panes[tabName]].classList.add('active');
@@ -5628,6 +5629,12 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         "dlp-export-json":  { en: 'Export JSON',              es: 'Exportar JSON' },
         "dlp-clear-results":{ en: 'Clear',                    es: 'Limpiar' },
 
+        // ── SIEM Dashboard ──
+        tabSiem:            { en: '📊 SIEM',              es: '📊 SIEM' },
+        "siem-title":       { en: '📊 SIEM Dashboard',    es: '📊 Panel SIEM' },
+        "siem-refresh":     { en: 'Refresh',              es: 'Actualizar' },
+        "siem-test-event":  { en: 'Generate Test Event',  es: 'Generar Evento de Prueba' },
+
         // ── Canary Tokens ──
         "canary-title":          { en: '🪤 Canary Tokens',           es: '🪤 Canary Tokens' },
         "canary-generate-title": { en: 'Generate New Token',         es: 'Generar Nuevo Token' },
@@ -7422,7 +7429,130 @@ Reglas:
 
     function escapeDlp(s) { if (!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
+    // ════════════════════════════════════════════════════════════════
+    //  SIEM DASHBOARD MODULE
+    // ════════════════════════════════════════════════════════════════
+
+    function refreshSIEM() {
+        fetch('/api/siem/stats').then(r=>r.json()).then(d => {
+            if (!d.ok) return;
+            document.getElementById('siem-stat-total').textContent = d.total_events || 0;
+            document.getElementById('siem-stat-critical').textContent = d.by_severity?.critical || 0;
+            document.getElementById('siem-stat-high').textContent = d.by_severity?.high || 0;
+            document.getElementById('siem-stat-medium').textContent = d.by_severity?.medium || 0;
+            document.getElementById('siem-stat-low').textContent = (d.by_severity?.low||0) + (d.by_severity?.info||0);
+            document.getElementById('siem-event-count').textContent = (d.total_events||0) + ' events';
+            document.getElementById('siem-alert-count').textContent = (d.total_alerts||0) + ' alerts';
+        }).catch(()=>{});
+
+        // Events
+        const sev = document.getElementById('siem-filter-severity')?.value || '';
+        const src = document.getElementById('siem-filter-source')?.value || '';
+        let url = '/api/siem/events?limit=50';
+        if (sev) url += '&severity=' + sev;
+        if (src) url += '&source=' + src;
+        fetch(url).then(r=>r.json()).then(d => {
+            if (!d.ok) return;
+            const list = document.getElementById('siem-events-list');
+            const empty = document.getElementById('siem-events-empty');
+            if (!d.events?.length) { empty?.classList.remove('hidden'); list.innerHTML = ''; return; }
+            empty?.classList.add('hidden');
+            list.innerHTML = d.events.map(e => `
+                <div class="flex items-start gap-2 p-2 rounded bg-deep/30 border border-cyber/30 hover:border-cyber text-xs ${siemSevBorder(e.severity)}">
+                    <span>${siemSevIcon(e.severity)}</span>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-1">
+                            <span class="px-1.5 py-0.5 rounded text-[10px] font-mono ${siemSevBadge(e.severity)}">${e.severity?.toUpperCase()}</span>
+                            <span class="text-gray-400">[${e.source}]</span>
+                            <span class="text-white font-medium truncate">${siemEscape(e.title)}</span>
+                        </div>
+                        <div class="text-gray-600 mt-0.5">${e.timestamp?.slice(0,19) || ''} ${e.ip ? '| '+siemEscape(e.ip) : ''}</div>
+                    </div>
+                </div>
+            `).join('');
+        }).catch(()=>{});
+
+        // Alerts
+        fetch('/api/siem/alerts?limit=10').then(r=>r.json()).then(d => {
+            if (!d.ok) return;
+            const list = document.getElementById('siem-alerts-list');
+            const empty = document.getElementById('siem-alerts-empty');
+            if (!d.alerts?.length) { empty?.classList.remove('hidden'); list.innerHTML = ''; return; }
+            empty?.classList.add('hidden');
+            list.innerHTML = d.alerts.map(a => `
+                <div class="bg-deep rounded-lg border border-blood/50 p-3">
+                    <div class="flex items-center gap-1 mb-1">
+                        <span class="text-blood">🚨</span>
+                        <span class="px-1.5 py-0.5 rounded text-[10px] font-mono bg-blood/20 text-blood border border-blood">${a.severity?.toUpperCase()}</span>
+                        <span class="text-white text-xs font-semibold">${siemEscape(a.rule_name)}</span>
+                    </div>
+                    <p class="text-xs text-gray-300">${siemEscape(a.title)}</p>
+                    <p class="text-[10px] text-gray-600 mt-1">${a.timestamp?.slice(0,19) || ''}</p>
+                </div>
+            `).join('');
+        }).catch(()=>{});
+
+        // Rules
+        fetch('/api/siem/rules').then(r=>r.json()).then(d => {
+            if (!d.ok) return;
+            const list = document.getElementById('siem-rules-list');
+            if (!d.rules?.length) { list.innerHTML = '<p class="text-gray-600 text-xs">No rules defined.</p>'; return; }
+            list.innerHTML = d.rules.map(r => `
+                <div class="bg-deep rounded border border-cyber p-2">
+                    <div class="flex items-center gap-1 mb-1">
+                        <span class="text-[10px] font-mono px-1 py-0.5 rounded ${r.enabled ? 'bg-green-900/50 text-green-400' : 'bg-gray-800 text-gray-500'}">${r.enabled ? 'ACTIVE' : 'DISABLED'}</span>
+                        <span class="text-xs text-white truncate">${siemEscape(r.name)}</span>
+                    </div>
+                    <p class="text-[10px] text-gray-500">${siemEscape(r.description)}</p>
+                </div>
+            `).join('');
+        }).catch(()=>{});
+    }
+
+    function siemSevBorder(s) { return {'critical':'border-l-2 border-l-blood','high':'border-l-2 border-l-red-500','medium':'border-l-2 border-l-yellow-500','low':'border-l-2 border-l-blue-500','info':'border-l-2 border-l-gray-500'}[s]||''; }
+    function siemSevIcon(s) { return {'critical':'🔴','high':'🟠','medium':'🟡','low':'🔵','info':'⚪'}[s]||'⚪'; }
+    function siemSevBadge(s) { return {'critical':'bg-blood/20 text-blood border border-blood','high':'bg-red-900/30 text-red-400 border border-red-700','medium':'bg-yellow-900/30 text-yellow-400 border border-yellow-700','low':'bg-blue-900/30 text-blue-400 border border-blue-700','info':'bg-gray-800 text-gray-400 border border-gray-700'}[s]||''; }
+    function siemEscape(s) { if(!s)return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    // SIEM event listeners
+    document.getElementById('siem-refresh-btn')?.addEventListener('click', refreshSIEM);
+    document.getElementById('siem-test-event-btn')?.addEventListener('click', () => {
+        const sources = ['ssh','docker','api','canary','dlp','firewall','system'];
+        const severities = ['info','low','medium','high','critical'];
+        const source = sources[Math.floor(Math.random()*sources.length)];
+        const severity = severities[Math.floor(Math.random()*severities.length)];
+        fetch('/api/siem/event', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({
+                source, severity,
+                title: `Test ${severity} event from ${source}`,
+                detail: `Automated test event generated at ${new Date().toISOString()}`,
+                tags: ['test', source],
+                ip: '192.168.' + Math.floor(Math.random()*255) + '.' + Math.floor(Math.random()*255)
+            })
+        }).then(r=>r.json()).then(d => {
+            if (d.ok) refreshSIEM();
+        });
+    });
+    document.getElementById('siem-filter-severity')?.addEventListener('change', refreshSIEM);
+    document.getElementById('siem-filter-source')?.addEventListener('change', refreshSIEM);
+
+    // Auto-refresh on tab switch (wrap existing switchTab)
+    const _origSwitchTab = window.switchTab;
+    window.switchTab = function(name) {
+        if (name === 'siem') refreshSIEM();
+        if (_origSwitchTab) _origSwitchTab(name);
+    };
+
+    // Auto-refresh every 30 seconds (only when SIEM tab is visible)
+    setInterval(() => {
+        const siemTab = document.getElementById('tab-siem');
+        if (siemTab && !siemTab.classList.contains('hidden')) refreshSIEM();
+    }, 30000);
+
     // Expose for global access
     window.runDlpScan = runDlpScan;
     window.handleDlpFile = handleDlpFile;
+    window.refreshSIEM = refreshSIEM;
 });

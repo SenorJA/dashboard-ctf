@@ -470,6 +470,10 @@
                     <span class="tab-icon">🛡️</span>
                     <span>DLP</span>
                 </button>
+                <button class="tab-btn" data-tab="siem" data-i18n="tabSiem">
+                    <span class="tab-icon">📊</span>
+                    <span>SIEM</span>
+                </button>
             </div>
 
             <!-- ── STATS BAR ── -->
@@ -1992,6 +1996,79 @@
 
               <!-- Error -->
               <div id="dlp-error" class="hidden bg-blood/10 border border-blood rounded-lg p-4 text-blood text-sm mt-4"></div>
+            </div>
+
+            <!-- ════════════════════════════════════════════════════════
+                 TAB: SIEM DASHBOARD
+                 ════════════════════════════════════════════════════════ -->
+            <div id="tab-siem" class="tab-pane p-4 pt-3 overflow-y-auto">
+              <!-- Header -->
+              <div class="flex items-center justify-between mb-6">
+                <h2 class="text-xl font-semibold text-neon" data-i18n="siem-title">📊 SIEM Dashboard</h2>
+                <div class="flex gap-2">
+                  <span id="siem-event-count" class="px-3 py-1 rounded-full text-xs bg-void border border-cyber text-gray-400">0 events</span>
+                  <span id="siem-alert-count" class="px-3 py-1 rounded-full text-xs bg-void border border-cyber text-gray-400">0 alerts</span>
+                </div>
+              </div>
+
+              <!-- Stats Cards -->
+              <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6" id="siem-stats-grid">
+                <div class="bg-deep rounded-lg p-3 border border-cyber text-center"><div class="text-2xl font-bold text-neon" id="siem-stat-total">0</div><div class="text-xs text-gray-500">Total</div></div>
+                <div class="bg-deep rounded-lg p-3 border border-cyber text-center"><div class="text-2xl font-bold text-blood" id="siem-stat-critical">0</div><div class="text-xs text-gray-500">Critical</div></div>
+                <div class="bg-deep rounded-lg p-3 border border-cyber text-center"><div class="text-2xl font-bold text-red-400" id="siem-stat-high">0</div><div class="text-xs text-gray-500">High</div></div>
+                <div class="bg-deep rounded-lg p-3 border border-cyber text-center"><div class="text-2xl font-bold text-yellow-400" id="siem-stat-medium">0</div><div class="text-xs text-gray-500">Medium</div></div>
+                <div class="bg-deep rounded-lg p-3 border border-cyber text-center"><div class="text-2xl font-bold text-blue-400" id="siem-stat-low">0</div><div class="text-xs text-gray-500">Low/Info</div></div>
+              </div>
+
+              <!-- Filters -->
+              <div class="flex flex-wrap gap-2 mb-4">
+                <select id="siem-filter-severity" class="bg-deep border border-cyber rounded px-3 py-1.5 text-white text-xs">
+                  <option value="">All Severities</option>
+                  <option value="critical">Critical</option>
+                  <option value="high">High</option>
+                  <option value="medium">Medium</option>
+                  <option value="low">Low</option>
+                  <option value="info">Info</option>
+                </select>
+                <select id="siem-filter-source" class="bg-deep border border-cyber rounded px-3 py-1.5 text-white text-xs">
+                  <option value="">All Sources</option>
+                  <option value="ssh">SSH</option>
+                  <option value="docker">Docker</option>
+                  <option value="api">API</option>
+                  <option value="canary">Canary</option>
+                  <option value="dlp">DLP</option>
+                  <option value="firewall">Firewall</option>
+                  <option value="system">System</option>
+                </select>
+                <button id="siem-refresh-btn" class="px-3 py-1.5 text-xs bg-cyber hover:bg-neon text-white rounded transition-colors">🔄 Refresh</button>
+                <button id="siem-test-event-btn" class="px-3 py-1.5 text-xs border border-cyber hover:border-neon text-gray-400 rounded transition-colors">🧪 Generate Test Event</button>
+              </div>
+
+              <!-- Events & Alerts -->
+              <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <!-- Events feed -->
+                <div class="lg:col-span-2">
+                  <h3 class="text-neon font-semibold mb-2">📋 Event Feed</h3>
+                  <div id="siem-events-list" class="space-y-1 max-h-96 overflow-y-auto pr-1"></div>
+                  <p id="siem-events-empty" class="text-center text-gray-600 py-4 italic">No events yet.</p>
+                </div>
+
+                <!-- Alerts panel -->
+                <div>
+                  <h3 class="text-neon font-semibold mb-2">🚨 Active Alerts</h3>
+                  <div id="siem-alerts-list" class="space-y-2 max-h-96 overflow-y-auto pr-1"></div>
+                  <p id="siem-alerts-empty" class="text-center text-gray-600 py-4 italic">No alerts.</p>
+                </div>
+              </div>
+
+              <!-- Rules section -->
+              <div class="mt-6">
+                <div class="flex items-center justify-between mb-2">
+                  <h3 class="text-neon font-semibold">⚙️ Correlation Rules</h3>
+                  <button id="siem-show-rules-btn" class="px-3 py-1 text-xs bg-cyber hover:bg-neon text-white rounded transition-colors">Manage Rules</button>
+                </div>
+                <div id="siem-rules-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2"></div>
+              </div>
             </div>
 
         </main>
