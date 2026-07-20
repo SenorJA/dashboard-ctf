@@ -3,6 +3,7 @@ uvicorn
 gunicorn
 websockets
 paramiko
+Pillow>=10.0.0
 supabase
 reportlab
 python-dotenv

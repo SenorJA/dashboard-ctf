@@ -3153,7 +3153,8 @@ ${bodyHtml}
             knowledgebase: 11,
             ctf: 12,
             mobile: 13,
-            forensics: 14
+            forensics: 14,
+            exif: 15
         };
         if (panes[tabName] !== undefined) {
             btns[panes[tabName]].classList.add('active');
@@ -5600,6 +5601,7 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         useAIConfig:       { en: 'use AI Writeup config', es: 'usar config AI Writeup' },
         tabMobile:         { en: '📱 Mobile',          es: '📱 Mobile' },
         tabForensics:      { en: '🔍 Forensics',       es: '🔍 Forensics' },
+        tabExif:           { en: '📷 EXIF',            es: '📷 EXIF' },
         tabKnowledgebase:  { en: '📚 KnowledgeBase',   es: '📚 KnowledgeBase' },
         tabCTF:            { en: '🏴 CTF',              es: '🏴 CTF' },
 
@@ -5716,6 +5718,35 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         selectEvidence:    { en: 'Select evidence to view analysis', es: 'Selecciona evidencia para ver análisis' },
         aiForensicsAssistant:{ en: 'AI Forensics Assistant', es: 'Asistente Forense IA' },
         aiForensicsDesc:   { en: 'Ask about forensic artifacts, strings analysis, stego techniques, or next investigation steps.', es: 'Pregunta sobre artefactos forenses, análisis de strings, técnicas stego o próximos pasos.' },
+
+        // ── EXIF OSINT ──
+        "exif-title":      { en: 'EXIF Metadata OSINT', es: 'EXIF Metadata OSINT' },
+        "exif-ready":      { en: 'Ready',               es: 'Listo' },
+        "exif-drop-text":  { en: 'Drop an image here or click to upload', es: 'Arrastra una imagen o haz clic para subir' },
+        "exif-drop-hint":  { en: 'Supports JPEG, PNG, TIFF, WebP (max 20MB)', es: 'Soporta JPEG, PNG, TIFF, WebP (máx 20MB)' },
+        "exif-analyze-btn":{ en: 'Analyze URL',         es: 'Analizar URL' },
+        "exif-analyzing":  { en: 'Analyzing image metadata...', es: 'Analizando metadatos de la imagen...' },
+        "exif-format":     { en: 'Format',              es: 'Formato' },
+        "exif-dimensions": { en: 'Dimensions',          es: 'Dimensiones' },
+        "exif-file-size":  { en: 'File Size',           es: 'Tamaño' },
+        "exif-has-exif":   { en: 'Has EXIF',            es: 'Tiene EXIF' },
+        "exif-gps-title":  { en: '📍 GPS Location',      es: '📍 Ubicación GPS' },
+        "exif-google-maps":{ en: 'Google Maps',         es: 'Google Maps' },
+        "exif-osm":        { en: 'OpenStreetMap',       es: 'OpenStreetMap' },
+        "exif-camera-title":{ en: '📸 Camera Information', es: '📸 Información de Cámara' },
+        "exif-metadata-title":{ en: '📝 Metadata',     es: '📝 Metadatos' },
+        "exif-thumbnail-title":{ en: '🖼️ Embedded Thumbnail', es: '🖼️ Miniatura Incrustada' },
+        "exif-raw-title":  { en: '📋 All EXIF Tags',     es: '📋 Todas las Etiquetas EXIF' },
+        "exif-tag":        { en: 'Tag',                 es: 'Etiqueta' },
+        "exif-value":      { en: 'Value',               es: 'Valor' },
+        "exif-no-exif":    { en: 'No EXIF metadata found in this image.', es: 'No se encontraron metadatos EXIF en esta imagen.' },
+        "exif-export-md":  { en: 'Export Markdown',     es: 'Exportar Markdown' },
+        "exif-export-html":{ en: 'Export HTML',         es: 'Exportar HTML' },
+        "exif-export-pdf": { en: 'Export PDF',          es: 'Exportar PDF' },
+        "exif-copy-json":  { en: 'Copy JSON',           es: 'Copiar JSON' },
+        "exif-clear":      { en: 'Clear',               es: 'Limpiar' },
+        "exif-location":   { en: 'Location',            es: 'Ubicación' },
+        "exif-severity":   { en: 'Severity',            es: 'Severidad' },
 
         // ── Hak5 ──
         hak5PayloadStudio: { en: '🔌 Hak5 Payload Studio', es: '🔌 Hak5 Payload Studio' },
@@ -6528,4 +6559,461 @@ Reglas:
     };
 
     window.automationAskAIEnter = function (e) { if (e.key === 'Enter') automationAskAI(); };
+
+    // ════════════════════════════════════════════════════════════════
+    //  EXIF OSINT MODULE
+    // ════════════════════════════════════════════════════════════════
+
+    window.EXIF_STATE = {
+        lastResult: null,
+        lastImageDataUrl: null,
+    };
+
+    // Drop zone handlers
+    document.getElementById('exif-dropzone')?.addEventListener('click', () => {
+        document.getElementById('exif-file-input')?.click();
+    });
+
+    document.getElementById('exif-file-input')?.addEventListener('change', (e) => {
+        const file = e.target.files?.[0];
+        if (file) handleExifFile(file);
+    });
+
+    // Drag & drop
+    const dropZone = document.getElementById('exif-dropzone');
+    if (dropZone) {
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('border-neon', 'bg-neon/5');
+        });
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('border-neon', 'bg-neon/5');
+        });
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('border-neon', 'bg-neon/5');
+            const file = e.dataTransfer.files?.[0];
+            if (file && file.type.startsWith('image/')) {
+                handleExifFile(file);
+            }
+        });
+    }
+
+    // URL button
+    document.getElementById('exif-url-btn')?.addEventListener('click', () => {
+        const url = document.getElementById('exif-url-input')?.value?.trim();
+        if (url) handleExifUrl(url);
+    });
+
+    // URL input enter key
+    document.getElementById('exif-url-input')?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            document.getElementById('exif-url-btn')?.click();
+        }
+    });
+
+    async function handleExifFile(file) {
+        if (file.size > 20 * 1024 * 1024) {
+            showExifError(window.currentLang === 'es' ? 'El archivo es demasiado grande (máx 20MB)' : 'File too large (max 20MB)');
+            return;
+        }
+
+        // Preview
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            window.EXIF_STATE.lastImageDataUrl = e.target.result;
+            document.getElementById('exif-preview').src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+
+        // Upload
+        showExifLoading(true);
+        hideExifError();
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const resp = await fetch('/api/exif/analyze', { method: 'POST', body: formData });
+            const data = await resp.json();
+            if (data.ok) {
+                renderExifResults(data);
+            } else {
+                showExifError(data.error || 'Analysis failed');
+            }
+        } catch (err) {
+            showExifError('Network error: ' + err.message);
+        } finally {
+            showExifLoading(false);
+        }
+    }
+
+    async function handleExifUrl(url) {
+        showExifLoading(true);
+        hideExifError();
+
+        try {
+            const resp = await fetch(`/api/exif/analyze?url=${encodeURIComponent(url)}`);
+            const data = await resp.json();
+            if (data.ok) {
+                // Clear file input preview, use URL as preview
+                document.getElementById('exif-preview').src = url;
+                window.EXIF_STATE.lastImageDataUrl = url;
+                renderExifResults(data);
+            } else {
+                showExifError(data.error || 'Analysis failed');
+            }
+        } catch (err) {
+            showExifError('Network error: ' + err.message);
+        } finally {
+            showExifLoading(false);
+        }
+    }
+
+    function showExifLoading(show) {
+        document.getElementById('exif-loading').classList.toggle('hidden', !show);
+        document.getElementById('exif-results').classList.toggle('hidden', show);
+    }
+
+    function showExifError(msg) {
+        const el = document.getElementById('exif-error');
+        el.textContent = msg;
+        el.classList.remove('hidden');
+        document.getElementById('exif-results').classList.add('hidden');
+    }
+
+    function hideExifError() {
+        document.getElementById('exif-error').classList.add('hidden');
+    }
+
+    function renderExifResults(data) {
+        window.EXIF_STATE.lastResult = data;
+        document.getElementById('exif-results').classList.remove('hidden');
+
+        // Badge status
+        const badge = document.getElementById('exif-status-badge');
+        badge.textContent = data.has_exif
+            ? (window.currentLang === 'es' ? 'EXIF Encontrado' : 'EXIF Found')
+            : (window.currentLang === 'es' ? 'Sin EXIF' : 'No EXIF');
+        badge.className = `px-3 py-1 rounded-full text-xs ${data.has_exif ? 'bg-green-900/50 text-green-400 border border-green-700' : 'bg-yellow-900/50 text-yellow-400 border border-yellow-700'}`;
+
+        // Quick stats
+        document.getElementById('exif-format').textContent = data.format || '-';
+        document.getElementById('exif-dimensions').textContent = data.dimensions || '-';
+        document.getElementById('exif-filesize').textContent = data.file_size_bytes ? formatExifBytes(data.file_size_bytes) : '-';
+        document.getElementById('exif-hasexif').textContent = data.has_exif ? '✅ Yes' : '❌ No';
+
+        // Severity banner
+        const sevBanner = document.getElementById('exif-severity-banner');
+        sevBanner.classList.remove('hidden');
+        const sevColors = { high: 'bg-red-900/50 text-red-400 border border-red-700', medium: 'bg-yellow-900/50 text-yellow-400 border border-yellow-700', low: 'bg-blue-900/50 text-blue-400 border border-blue-700', info: 'bg-gray-800 text-gray-400 border border-gray-700' };
+        const sevLabels = { high: window.currentLang === 'es' ? 'ALTO - Contiene datos de ubicación GPS' : 'HIGH - Contains GPS location data', medium: window.currentLang === 'es' ? 'MEDIO - Información de cámara detectada' : 'MEDIUM - Camera information detected', low: window.currentLang === 'es' ? 'BAJO - Metadatos básicos encontrados' : 'LOW - Basic metadata found', info: window.currentLang === 'es' ? 'INFO - Sin metadatos EXIF' : 'INFO - No EXIF metadata' };
+        sevBanner.className = `px-4 py-3 rounded-lg text-sm font-mono ${sevColors[data.severity] || 'bg-gray-800 text-gray-400'}`;
+        sevBanner.textContent = `\u26A0 ${sevLabels[data.severity] || data.severity}`;
+
+        // GPS section
+        const gpsSection = document.getElementById('exif-gps-section');
+        if (data.gps) {
+            gpsSection.classList.remove('hidden');
+            document.getElementById('exif-lat').textContent = data.gps.lat?.toFixed(6) || '-';
+            document.getElementById('exif-lon').textContent = data.gps.lon?.toFixed(6) || '-';
+            document.getElementById('exif-altitude').textContent = data.gps.altitude != null ? `${data.gps.altitude}m` : '-';
+            document.getElementById('exif-google-maps').href = data.gps.google_maps_url || '#';
+            document.getElementById('exif-osm-link').href = data.gps.map_url || '#';
+
+            // Geocoding
+            const geocodeEl = document.getElementById('exif-geocode');
+            if (data.geocoding) {
+                geocodeEl.classList.remove('hidden');
+                document.getElementById('exif-location-name').textContent = data.geocoding.display_name || `${data.geocoding.city || ''}, ${data.geocoding.country || ''}`;
+            } else {
+                geocodeEl.classList.add('hidden');
+            }
+
+            // Leaflet map
+            initExifMap(data.gps.lat, data.gps.lon);
+        } else {
+            gpsSection.classList.add('hidden');
+        }
+
+        // Camera section
+        const camSection = document.getElementById('exif-camera-section');
+        if (data.camera) {
+            camSection.classList.remove('hidden');
+            const tbody = document.getElementById('exif-camera-table');
+            const rows = [
+                ['Make', data.camera.make],
+                ['Model', data.camera.model],
+                ['Lens', data.camera.lens],
+                ['Focal Length', data.camera.focal_length],
+                ['Aperture (F-Number)', data.camera.fnumber],
+                ['ISO', data.camera.iso],
+                ['Exposure Time', data.camera.exposure_time],
+                ['Flash', data.camera.flash],
+                ['Software', data.camera.software],
+            ].filter(r => r[1] != null && r[1] !== '');
+            tbody.innerHTML = '<thead class="sticky top-0 bg-void"><tr class="text-left text-gray-400 border-b border-cyber"><th class="px-4 py-2 font-mono text-xs">Property</th><th class="px-4 py-2 font-mono text-xs">Value</th></tr></thead>' +
+                rows.map(([k, v]) => `<tr class="border-b border-cyber/50"><td class="px-4 py-2 text-gray-400">${k}</td><td class="px-4 py-2 text-white font-mono">${v}</td></tr>`).join('');
+        } else {
+            camSection.classList.add('hidden');
+        }
+
+        // Metadata section
+        const metaSection = document.getElementById('exif-metadata-section');
+        if (data.metadata) {
+            metaSection.classList.remove('hidden');
+            const tbody = document.getElementById('exif-metadata-table');
+            const rows = [
+                ['Date/Time Original', data.metadata.datetime_original],
+                ['Date/Time Digitized', data.metadata.datetime_digitized],
+                ['Artist', data.metadata.artist],
+                ['Copyright', data.metadata.copyright],
+                ['Description', data.metadata.description],
+                ['X Resolution', data.metadata.x_resolution],
+                ['Y Resolution', data.metadata.y_resolution],
+                ['Orientation', data.metadata.orientation],
+                ['Color Space', data.metadata.color_space],
+            ].filter(r => r[1] != null && r[1] !== '');
+            tbody.innerHTML = '<thead class="sticky top-0 bg-void"><tr class="text-left text-gray-400 border-b border-cyber"><th class="px-4 py-2 font-mono text-xs">Property</th><th class="px-4 py-2 font-mono text-xs">Value</th></tr></thead>' +
+                rows.map(([k, v]) => `<tr class="border-b border-cyber/50"><td class="px-4 py-2 text-gray-400">${k}</td><td class="px-4 py-2 text-white font-mono">${v}</td></tr>`).join('');
+        } else {
+            metaSection.classList.add('hidden');
+        }
+
+        // Thumbnail section
+        const thumbSection = document.getElementById('exif-thumbnail-section');
+        if (data.thumbnail && data.thumbnail.has) {
+            thumbSection.classList.remove('hidden');
+            document.getElementById('exif-thumbnail-info').innerHTML = `
+                <div class="grid grid-cols-2 gap-3">
+                    <div><span class="text-gray-500">Size:</span> <span class="text-white font-mono">${formatExifBytes(data.thumbnail.size_bytes)}</span></div>
+                    <div><span class="text-gray-500">Format:</span> <span class="text-white font-mono">${data.thumbnail.format || 'JPEG'}</span></div>
+                </div>
+            `;
+        } else {
+            thumbSection.classList.add('hidden');
+        }
+
+        // Raw tags
+        const rawTbody = document.getElementById('exif-raw-tbody');
+        const noExifMsg = document.getElementById('exif-no-exif-msg');
+        if (data.raw_tags && Object.keys(data.raw_tags).length > 0) {
+            noExifMsg.classList.add('hidden');
+            rawTbody.innerHTML = Object.entries(data.raw_tags)
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([k, v]) => `<tr class="border-b border-cyber/50 hover:bg-void/50"><td class="px-4 py-1.5 text-gray-400 font-mono text-xs">${k}</td><td class="px-4 py-1.5 text-white font-mono text-xs truncate max-w-md">${v}</td></tr>`)
+                .join('');
+        } else {
+            noExifMsg.classList.remove('hidden');
+            rawTbody.innerHTML = '';
+        }
+
+        // Add findings to global findings system
+        if (data.findings) {
+            data.findings.forEach(f => {
+                if (typeof window.addFinding === 'function') {
+                    window.addFinding(f);
+                }
+            });
+        }
+    }
+
+    function initExifMap(lat, lon) {
+        const mapContainer = document.getElementById('exif-map');
+        // If Leaflet is available via CDN, use it
+        if (typeof L !== 'undefined') {
+            // Clear previous map instance
+            if (window._exifMap) {
+                window._exifMap.remove();
+            }
+            window._exifMap = L.map('exif-map').setView([lat, lon], 15);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(window._exifMap);
+            L.marker([lat, lon]).addTo(window._exifMap)
+                .bindPopup(`📍 ${lat.toFixed(6)}, ${lon.toFixed(6)}`)
+                .openPopup();
+        } else {
+            // Fallback: show static OSM image
+            mapContainer.innerHTML = `<img src="https://staticmap.openstreetmap.de/staticmap.php?center=${lat},${lon}&zoom=15&size=600x300&markers=${lat},${lon},red-pushpin" class="w-full h-full rounded-lg" alt="Map">`;
+        }
+    }
+
+    function formatExifBytes(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    // Export handlers
+    document.getElementById('exif-export-md')?.addEventListener('click', () => exportExifReport('md'));
+    document.getElementById('exif-export-html')?.addEventListener('click', () => exportExifReport('html'));
+    document.getElementById('exif-export-pdf')?.addEventListener('click', () => exportExifReport('pdf'));
+    document.getElementById('exif-copy-json')?.addEventListener('click', copyExifJSON);
+    document.getElementById('exif-clear')?.addEventListener('click', clearExif);
+
+    function exportExifReport(format) {
+        const data = window.EXIF_STATE.lastResult;
+        if (!data) return;
+
+        let content = '';
+        const filename = `exif-report-${data.filename || 'image'}`;
+
+        if (format === 'md') {
+            content = buildExifMarkdown(data);
+            downloadString(content, `${filename}.md`, 'text/markdown');
+        } else if (format === 'html') {
+            content = buildExifHTML(data);
+            downloadString(content, `${filename}.html`, 'text/html');
+        } else if (format === 'pdf') {
+            content = buildExifHTML(data);
+            openPDFPreview(content);
+        }
+    }
+
+    function buildExifMarkdown(data) {
+        let md = `# EXIF Metadata Report\n\n`;
+        md += `**File:** ${data.filename || 'Unknown'}\n`;
+        md += `**Format:** ${data.format}\n`;
+        md += `**Dimensions:** ${data.dimensions}\n`;
+        md += `**File Size:** ${formatExifBytes(data.file_size_bytes)}\n`;
+        md += `**Has EXIF:** ${data.has_exif ? 'Yes' : 'No'}\n`;
+        md += `**Severity:** ${data.severity.toUpperCase()}\n\n`;
+
+        if (data.gps) {
+            md += `## 📍 GPS Location\n\n`;
+            md += `- Latitude: ${data.gps.lat}\n`;
+            md += `- Longitude: ${data.gps.lon}\n`;
+            if (data.gps.altitude != null) md += `- Altitude: ${data.gps.altitude}m\n`;
+            md += `- OpenStreetMap: ${data.gps.map_url}\n`;
+            md += `- Google Maps: ${data.gps.google_maps_url}\n`;
+            if (data.geocoding) {
+                md += `- Location: ${data.geocoding.display_name || `${data.geocoding.city}, ${data.geocoding.country}`}\n`;
+            }
+            md += '\n';
+        }
+
+        if (data.camera) {
+            md += `## 📸 Camera Information\n\n`;
+            Object.entries(data.camera).forEach(([k, v]) => {
+                if (v != null && v !== '') md += `- **${k}:** ${v}\n`;
+            });
+            md += '\n';
+        }
+
+        if (data.metadata) {
+            md += `## 📝 Metadata\n\n`;
+            Object.entries(data.metadata).forEach(([k, v]) => {
+                if (v != null && v !== '') md += `- **${k}:** ${v}\n`;
+            });
+            md += '\n';
+        }
+
+        if (data.raw_tags && Object.keys(data.raw_tags).length > 0) {
+            md += `## 📋 All EXIF Tags (${Object.keys(data.raw_tags).length})\n\n`;
+            md += `| Tag | Value |\n|-----|-------|\n`;
+            Object.entries(data.raw_tags).forEach(([k, v]) => {
+                md += `| ${k} | ${v} |\n`;
+            });
+        }
+
+        md += `\n---\n*Generated by MIRV EXIF OSINT Module*\n`;
+        return md;
+    }
+
+    function buildExifHTML(data) {
+        const isDark = !document.body.classList.contains('monochrome');
+        const bg = isDark ? '#0b0e14' : '#1a1a2e';
+        const card = isDark ? '#111520' : '#16213e';
+        const border = isDark ? '#1a1f2e' : '#0f3460';
+        const text = '#e0e0e0';
+        const neon = isDark ? '#d4a843' : '#3b8f8a';
+
+        let html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>EXIF Report - ${data.filename || 'image'}</title>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{background:${bg};color:${text};font-family:'Courier New',monospace;padding:20px}.container{max-width:800px;margin:0 auto}h1{color:${neon};border-bottom:2px solid ${neon};padding-bottom:10px;margin-bottom:20px}h2{color:${neon};margin-top:25px;margin-bottom:10px}table{width:100%;border-collapse:collapse;margin:10px 0 20px}th,td{padding:8px 12px;text-align:left;border:1px solid ${border}}th{background:${card};color:${neon}}td{background:${bg}}.sev-high{color:#ff4444}.sev-medium{color:#ffaa00}.sev-low{color:#44aaff}.sev-info{color:#888}.tag{font-size:0.9em;color:#aaa}a{color:${neon}}.footer{margin-top:40px;padding-top:15px;border-top:1px solid ${border};font-size:0.8em;color:#666}</style></head><body><div class="container">`;
+
+        html += `<h1>📷 EXIF Metadata Report</h1>`;
+        html += `<table><tr><th>Property</th><th>Value</th></tr>`;
+        html += `<tr><td>File</td><td>${data.filename || 'Unknown'}</td></tr>`;
+        html += `<tr><td>Format</td><td>${data.format}</td></tr>`;
+        html += `<tr><td>Dimensions</td><td>${data.dimensions}</td></tr>`;
+        html += `<tr><td>File Size</td><td>${formatExifBytes(data.file_size_bytes)}</td></tr>`;
+        const sevClass = `sev-${data.severity}`;
+        html += `<tr><td>Severity</td><td class="${sevClass}">${data.severity.toUpperCase()}</td></tr>`;
+        html += `</table>`;
+
+        if (data.gps) {
+            html += `<h2>📍 GPS Location</h2><table>`;
+            html += `<tr><td>Latitude</td><td>${data.gps.lat}</td></tr>`;
+            html += `<tr><td>Longitude</td><td>${data.gps.lon}</td></tr>`;
+            if (data.gps.altitude != null) html += `<tr><td>Altitude</td><td>${data.gps.altitude}m</td></tr>`;
+            html += `<tr><td>Map</td><td><a href="${data.gps.map_url}" target="_blank">OpenStreetMap</a> | <a href="${data.gps.google_maps_url}" target="_blank">Google Maps</a></td></tr>`;
+            if (data.geocoding) {
+                html += `<tr><td>Location</td><td>${data.geocoding.display_name || ''}</td></tr>`;
+            }
+            html += `</table>`;
+        }
+
+        if (data.camera) {
+            html += `<h2>📸 Camera</h2><table>`;
+            Object.entries(data.camera).forEach(([k, v]) => {
+                if (v != null && v !== '') html += `<tr><td>${k}</td><td>${v}</td></tr>`;
+            });
+            html += `</table>`;
+        }
+
+        if (data.metadata) {
+            html += `<h2>📝 Metadata</h2><table>`;
+            Object.entries(data.metadata).forEach(([k, v]) => {
+                if (v != null && v !== '') html += `<tr><td>${k}</td><td>${v}</td></tr>`;
+            });
+            html += `</table>`;
+        }
+
+        if (data.raw_tags && Object.keys(data.raw_tags).length > 0) {
+            html += `<h2>📋 All Tags (${Object.keys(data.raw_tags).length})</h2><table><tr><th>Tag</th><th>Value</th></tr>`;
+            Object.entries(data.raw_tags).forEach(([k, v]) => {
+                html += `<tr><td class="tag">${k}</td><td>${v}</td></tr>`;
+            });
+            html += `</table>`;
+        }
+
+        html += `<div class="footer">Generated by MIRV EXIF OSINT Module &bull; ${new Date().toISOString()}</div>`;
+        html += `</div></body></html>`;
+        return html;
+    }
+
+    function copyExifJSON() {
+        const data = window.EXIF_STATE.lastResult;
+        if (!data) return;
+        navigator.clipboard.writeText(JSON.stringify(data, null, 2)).then(() => {
+            const btn = document.getElementById('exif-copy-json');
+            const orig = btn.textContent;
+            btn.textContent = '✅ Copied!';
+            setTimeout(() => btn.textContent = orig, 2000);
+        });
+    }
+
+    function clearExif() {
+        window.EXIF_STATE = { lastResult: null, lastImageDataUrl: null };
+        document.getElementById('exif-results').classList.add('hidden');
+        document.getElementById('exif-error').classList.add('hidden');
+        document.getElementById('exif-file-input').value = '';
+        document.getElementById('exif-url-input').value = '';
+        document.getElementById('exif-preview').src = '';
+        document.getElementById('exif-status-badge').textContent = window.currentLang === 'es' ? 'Listo' : 'Ready';
+        document.getElementById('exif-status-badge').className = 'px-3 py-1 rounded-full text-xs bg-void border border-cyber text-gray-400';
+        const gpsSection = document.getElementById('exif-gps-section');
+        if (gpsSection) gpsSection.classList.add('hidden');
+        document.getElementById('exif-camera-section')?.classList.add('hidden');
+        document.getElementById('exif-metadata-section')?.classList.add('hidden');
+        document.getElementById('exif-thumbnail-section')?.classList.add('hidden');
+        document.getElementById('exif-no-exif-msg')?.classList.add('hidden');
+        document.getElementById('exif-raw-tbody').innerHTML = '';
+        document.getElementById('exif-severity-banner').classList.add('hidden');
+        if (window._exifMap) {
+            window._exifMap.remove();
+            window._exifMap = null;
+        }
+    }
 });

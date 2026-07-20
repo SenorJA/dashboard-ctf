@@ -918,6 +918,7 @@ async def api_hash_crack(hash: str = "", hashes: str = "", identify_only: bool =
 # ════════════════════════════════════════════════════════════════
 
 from backend.stego_tool import analyze as stego_analyze, report_to_mirv_findings as stego_to_mirv
+from backend.exif_osint import analyze_image as exif_analyze, analyze_url as exif_analyze_url, reverse_geocode as exif_reverse_geocode, report_to_mirv_findings as exif_to_mirv
 
 @app.get("/api/stego/analyze")
 async def api_stego_analyze(url: str = "", extract_lsb: bool = True, lsb_length: int = 4096):
@@ -955,6 +956,212 @@ async def api_stego_analyze(url: str = "", extract_lsb: bool = True, lsb_length:
         })
     except Exception as e:
         return JSONResponse({"ok": False, "error": str(e)}, status_code=502)
+
+
+# ════════════════════════════════════════════════════════════════
+#  EXIF OSINT — Metadata Extraction
+# ════════════════════════════════════════════════════════════════
+
+@app.post("/api/exif/analyze")
+async def api_exif_analyze(file: UploadFile = File(...)):
+    """Upload an image and extract EXIF metadata for OSINT intelligence."""
+    # Validate file type
+    allowed_types = {
+        "image/jpeg", "image/jpg", "image/png",
+        "image/tiff", "image/webp", "image/bmp",
+    }
+    content_type = (file.content_type or "").lower()
+    if content_type and content_type not in allowed_types:
+        return JSONResponse(
+            {"ok": False, "error": f"Unsupported file type: {content_type}. Allowed: {', '.join(sorted(allowed_types))}"},
+            status_code=422,
+        )
+
+    try:
+        # Read file bytes (max 20MB)
+        content = await file.read()
+        if len(content) > 20 * 1024 * 1024:
+            return JSONResponse(
+                {"ok": False, "error": "File exceeds 20MB limit"},
+                status_code=422,
+            )
+        if len(content) < 50:
+            return JSONResponse(
+                {"ok": False, "error": "File too small to contain valid image data"},
+                status_code=422,
+            )
+
+        filename = file.filename or "uploaded_image"
+
+        # Run EXIF analysis
+        result = await exif_analyze(content, filename)
+
+        # Reverse geocode if GPS found
+        geocoding = None
+        if result.gps is not None:
+            geocoding = await exif_reverse_geocode(result.gps.lat, result.gps.lon)
+            result.geocoding = geocoding
+
+        # Build findings
+        findings = exif_to_mirv(result)
+
+        # Build response
+        gps_data = None
+        if result.gps is not None:
+            gps_data = {
+                "lat": result.gps.lat,
+                "lon": result.gps.lon,
+                "altitude": result.gps.altitude,
+                "altitude_ref": result.gps.altitude_ref,
+                "gps_timestamp": result.gps.gps_timestamp,
+                "map_url": result.gps.map_url,
+                "google_maps_url": result.gps.google_maps_url,
+            }
+
+        camera_data = None
+        if result.camera is not None:
+            camera_data = {
+                "make": result.camera.make,
+                "model": result.camera.model,
+                "lens": result.camera.lens,
+                "focal_length": result.camera.focal_length,
+                "fnumber": result.camera.fnumber,
+                "iso": result.camera.iso,
+                "exposure_time": result.camera.exposure_time,
+                "flash": result.camera.flash,
+                "software": result.camera.software,
+            }
+
+        metadata_data = None
+        if result.metadata is not None:
+            metadata_data = {
+                "datetime_original": result.metadata.datetime_original,
+                "datetime_digitized": result.metadata.datetime_digitized,
+                "artist": result.metadata.artist,
+                "copyright": result.metadata.copyright,
+                "description": result.metadata.description,
+                "x_resolution": result.metadata.x_resolution,
+                "y_resolution": result.metadata.y_resolution,
+            }
+
+        return JSONResponse({
+            "ok": True,
+            "filename": filename,
+            "format": result.image.format,
+            "dimensions": f"{result.image.width}x{result.image.height}",
+            "file_size_bytes": result.image.file_size,
+            "color_space": result.image.color_space,
+            "orientation": result.image.orientation,
+            "has_exif": result.has_exif,
+            "severity": result.severity,
+            "gps": gps_data,
+            "geocoding": geocoding,
+            "camera": camera_data,
+            "metadata": metadata_data,
+            "thumbnail": result.thumbnail,
+            "raw_tags": result.raw_tags,
+            "findings": findings,
+            "duration_seconds": result.duration_seconds,
+        })
+
+    except ValueError as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=422)
+    except Exception as e:
+        logger.error("EXIF analysis error: %s", e, exc_info=True)
+        return JSONResponse({"ok": False, "error": f"EXIF analysis failed: {str(e)}"}, status_code=502)
+
+
+@app.get("/api/exif/analyze")
+async def api_exif_analyze_url(url: str = ""):
+    """Analyze EXIF metadata from a remote image URL."""
+    if not url or not url.strip():
+        return JSONResponse(
+            {"ok": False, "error": "Provide 'url' parameter pointing to an image"},
+            status_code=422,
+        )
+    if not url.strip().startswith(("http://", "https://")):
+        return JSONResponse(
+            {"ok": False, "error": "URL must start with http:// or https://"},
+            status_code=422,
+        )
+
+    try:
+        # Download and analyze
+        result = await exif_analyze_url(url.strip())
+
+        # Reverse geocode if GPS found
+        geocoding = None
+        if result.gps is not None:
+            geocoding = await exif_reverse_geocode(result.gps.lat, result.gps.lon)
+            result.geocoding = geocoding
+
+        # Build findings
+        findings = exif_to_mirv(result)
+
+        # Build response
+        gps_data = None
+        if result.gps is not None:
+            gps_data = {
+                "lat": result.gps.lat,
+                "lon": result.gps.lon,
+                "altitude": result.gps.altitude,
+                "altitude_ref": result.gps.altitude_ref,
+                "gps_timestamp": result.gps.gps_timestamp,
+                "map_url": result.gps.map_url,
+                "google_maps_url": result.gps.google_maps_url,
+            }
+
+        camera_data = None
+        if result.camera is not None:
+            camera_data = {
+                "make": result.camera.make,
+                "model": result.camera.model,
+                "lens": result.camera.lens,
+                "focal_length": result.camera.focal_length,
+                "fnumber": result.camera.fnumber,
+                "iso": result.camera.iso,
+                "exposure_time": result.camera.exposure_time,
+                "flash": result.camera.flash,
+                "software": result.camera.software,
+            }
+
+        metadata_data = None
+        if result.metadata is not None:
+            metadata_data = {
+                "datetime_original": result.metadata.datetime_original,
+                "datetime_digitized": result.metadata.datetime_digitized,
+                "artist": result.metadata.artist,
+                "copyright": result.metadata.copyright,
+                "description": result.metadata.description,
+                "x_resolution": result.metadata.x_resolution,
+                "y_resolution": result.metadata.y_resolution,
+            }
+
+        return JSONResponse({
+            "ok": True,
+            "filename": result.filename,
+            "format": result.image.format,
+            "dimensions": f"{result.image.width}x{result.image.height}",
+            "file_size_bytes": result.image.file_size,
+            "color_space": result.image.color_space,
+            "orientation": result.image.orientation,
+            "has_exif": result.has_exif,
+            "severity": result.severity,
+            "gps": gps_data,
+            "geocoding": geocoding,
+            "camera": camera_data,
+            "metadata": metadata_data,
+            "thumbnail": result.thumbnail,
+            "raw_tags": result.raw_tags,
+            "findings": findings,
+            "duration_seconds": result.duration_seconds,
+        })
+
+    except ValueError as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=422)
+    except Exception as e:
+        logger.error("EXIF URL analysis error: %s", e, exc_info=True)
+        return JSONResponse({"ok": False, "error": f"EXIF analysis failed: {str(e)}"}, status_code=502)
 
 
 # ════════════════════════════════════════════════════════════════
