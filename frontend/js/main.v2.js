@@ -3155,7 +3155,8 @@ ${bodyHtml}
             mobile: 13,
             forensics: 14,
             exif: 15,
-            canary: 16
+            canary: 16,
+            dlp: 17
         };
         if (panes[tabName] !== undefined) {
             btns[panes[tabName]].classList.add('active');
@@ -5606,6 +5607,26 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         tabCanary:         { en: '🪤 Canary',          es: '🪤 Canario' },
         tabKnowledgebase:  { en: '📚 KnowledgeBase',   es: '📚 KnowledgeBase' },
         tabCTF:            { en: '🏴 CTF',              es: '🏴 CTF' },
+        tabDlp:            { en: '🛡️ DLP',             es: '🛡️ DLP' },
+
+        // ── DLP Scanner ──
+        "dlp-title":        { en: '🛡️ DLP Scanner',         es: '🛡️ Escáner DLP' },
+        "dlp-ready":        { en: 'Ready',                    es: 'Listo' },
+        "dlp-text-tab":     { en: 'Raw Text',                 es: 'Texto sin formato' },
+        "dlp-scan-btn":     { en: '🔍 Scan Text',             es: '🔍 Escanear Texto' },
+        "dlp-file-tab":     { en: 'File Upload',              es: 'Subir Archivo' },
+        "dlp-drop-text":    { en: 'Drop a file or click to upload', es: 'Arrastra un archivo o haz clic para subir' },
+        "dlp-url-tab":      { en: 'URL Scan',                 es: 'Escanear URL' },
+        "dlp-scan-url":     { en: 'Scan URL',                 es: 'Escanear URL' },
+        "dlp-scanning":     { en: 'Scanning for PII...',      es: 'Escaneando PII...' },
+        "dlp-findings":     { en: 'Findings',                 es: 'Hallazgos' },
+        "dlp-high":         { en: 'High',                     es: 'Alto' },
+        "dlp-medium":       { en: 'Medium',                   es: 'Medio' },
+        "dlp-low":          { en: 'Low',                      es: 'Bajo' },
+        "dlp-risk-score":   { en: 'Risk Score',               es: 'Puntuación de Riesgo' },
+        "dlp-findings-title":{ en: 'Findings',                es: 'Hallazgos' },
+        "dlp-export-json":  { en: 'Export JSON',              es: 'Exportar JSON' },
+        "dlp-clear-results":{ en: 'Clear',                    es: 'Limpiar' },
 
         // ── Canary Tokens ──
         "canary-title":          { en: '🪤 Canary Tokens',           es: '🪤 Canary Tokens' },
@@ -7245,4 +7266,163 @@ Reglas:
         }
         if (origCanarySwitch) origCanarySwitch(name);
     };
+
+    // ════════════════════════════════════════════════════════════════
+    //  DLP SCANNER MODULE
+    // ════════════════════════════════════════════════════════════════
+
+    // Text scan
+    document.getElementById('dlp-scan-btn')?.addEventListener('click', () => {
+        const text = document.getElementById('dlp-text-input')?.value?.trim();
+        if (text) runDlpScan('text', text);
+    });
+
+    // File upload
+    document.getElementById('dlp-dropzone')?.addEventListener('click', () => {
+        document.getElementById('dlp-file-input')?.click();
+    });
+    document.getElementById('dlp-file-input')?.addEventListener('change', (e) => {
+        const file = e.target.files?.[0];
+        if (file) handleDlpFile(file);
+    });
+    document.getElementById('dlp-dropzone')?.addEventListener('dragover', (e) => { e.preventDefault(); e.currentTarget.classList.add('border-neon'); });
+    document.getElementById('dlp-dropzone')?.addEventListener('dragleave', (e) => { e.currentTarget.classList.remove('border-neon'); });
+    document.getElementById('dlp-dropzone')?.addEventListener('drop', (e) => {
+        e.preventDefault(); e.currentTarget.classList.remove('border-neon');
+        const file = e.dataTransfer.files?.[0];
+        if (file) handleDlpFile(file);
+    });
+
+    // URL scan
+    document.getElementById('dlp-url-btn')?.addEventListener('click', () => {
+        const url = document.getElementById('dlp-url-input')?.value?.trim();
+        if (url) runDlpScan('url', url);
+    });
+    document.getElementById('dlp-url-input')?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') document.getElementById('dlp-url-btn')?.click();
+    });
+
+    async function runDlpScan(mode, value) {
+        showDlpLoading(true);
+        hideDlpError();
+        document.getElementById('dlp-results')?.classList.add('hidden');
+
+        try {
+            let resp;
+            if (mode === 'text') {
+                resp = await fetch('/api/dlp/scan', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({text: value}) });
+            } else if (mode === 'url') {
+                resp = await fetch(`/api/dlp/scan-url?url=${encodeURIComponent(value)}`);
+            }
+            const data = await resp.json();
+            if (data.ok) {
+                renderDlpResults(data);
+                if (data.findings && window.addFinding) data.findings.forEach(f => window.addFinding(f));
+            } else {
+                showDlpError(data.error || 'Scan failed');
+            }
+        } catch (err) {
+            showDlpError('Error: ' + err.message);
+        } finally {
+            showDlpLoading(false);
+        }
+    }
+
+    async function handleDlpFile(file) {
+        if (file.size > 20 * 1024 * 1024) { showDlpError('File too large (max 20MB)'); return; }
+        showDlpLoading(true);
+        hideDlpError();
+        document.getElementById('dlp-results')?.classList.add('hidden');
+        const fd = new FormData();
+        fd.append('file', file);
+        try {
+            const resp = await fetch('/api/dlp/scan-file', { method: 'POST', body: fd });
+            const data = await resp.json();
+            if (data.ok) {
+                renderDlpResults(data);
+                if (data.findings && window.addFinding) data.findings.forEach(f => window.addFinding(f));
+            } else {
+                showDlpError(data.error || 'Scan failed');
+            }
+        } catch (err) { showDlpError('Error: ' + err.message); }
+        finally { showDlpLoading(false); }
+    }
+
+    function renderDlpResults(data) {
+        document.getElementById('dlp-results')?.classList.remove('hidden');
+        document.getElementById('dlp-findings-count').textContent = data.findings_count || 0;
+
+        const high = data.findings?.filter(f => f.severity === 'high')?.length || 0;
+        const med = data.findings?.filter(f => f.severity === 'medium')?.length || 0;
+        const low = data.findings?.filter(f => f.severity === 'low' || f.severity === 'info')?.length || 0;
+        document.getElementById('dlp-high-count').textContent = high;
+        document.getElementById('dlp-medium-count').textContent = med;
+        document.getElementById('dlp-low-count').textContent = low;
+
+        const risk = data.risk_score || 0;
+        document.getElementById('dlp-risk-value').textContent = risk.toFixed(1) + '%';
+        const bar = document.getElementById('dlp-risk-bar');
+        bar.style.width = risk + '%';
+        bar.className = `h-3 rounded-full transition-all duration-500 ${risk > 70 ? 'bg-blood' : risk > 30 ? 'bg-yellow-500' : 'bg-neon'}`;
+
+        const badge = document.getElementById('dlp-risk-badge');
+        badge.textContent = data.findings_count > 0 ? `${data.findings_count} issues (${risk.toFixed(0)}%)` : '✓ Clean';
+        badge.className = `px-3 py-1 rounded-full text-xs ${data.findings_count > 0 ? 'bg-blood/20 text-blood border border-blood' : 'bg-green-900/50 text-green-400 border border-green-700'}`;
+
+        const list = document.getElementById('dlp-findings-list');
+        if (data.findings?.length) {
+            list.innerHTML = data.findings.map(f => `
+                <div class="bg-deep rounded-lg border border-cyber p-3 ${dlpSevBorder(f.severity)}">
+                    <div class="flex items-start gap-2">
+                        <span class="text-lg">${dlpSevIcon(f.severity)}</span>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2">
+                                <span class="px-2 py-0.5 rounded text-xs font-mono ${dlpSevBadge(f.severity)}">${f.severity.toUpperCase()}</span>
+                                <span class="text-white text-sm font-semibold">${escapeDlp(f.pattern_name)}</span>
+                            </div>
+                            <code class="text-xs text-green-400 block mt-1 break-all">${escapeDlp(f.value)}</code>
+                            <p class="text-xs text-gray-500 mt-1">Line ${escapeDlp(String(f.line))}, Col ${escapeDlp(String(f.column))}</p>
+                            <p class="text-xs text-gray-400 mt-1">${escapeDlp(f.recommendation)}</p>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        } else {
+            list.innerHTML = '<p class="text-center text-green-400 py-4" data-i18n="dlp-clean">✅ No PII detected</p>';
+        }
+    }
+
+    function dlpSevBorder(s) { return {high:'border-l-4 border-l-blood', medium:'border-l-4 border-l-yellow-500', low:'border-l-4 border-l-blue-500', info:'border-l-4 border-l-gray-500'}[s] || ''; }
+    function dlpSevIcon(s) { return {high:'🔴', medium:'🟡', low:'🔵', info:'⚪'}[s] || '⚪'; }
+    function dlpSevBadge(s) { return {high:'bg-blood/20 text-blood border border-blood', medium:'bg-yellow-900/30 text-yellow-400 border border-yellow-700', low:'bg-blue-900/30 text-blue-400 border border-blue-700', info:'bg-gray-800 text-gray-400 border border-gray-700'}[s] || ''; }
+
+    function showDlpLoading(s) { document.getElementById('dlp-loading')?.classList.toggle('hidden', !s); }
+    function showDlpError(m) { const e = document.getElementById('dlp-error'); if(e){e.textContent=m;e.classList.remove('hidden');} }
+    function hideDlpError() { document.getElementById('dlp-error')?.classList.add('hidden'); }
+
+    document.getElementById('dlp-export-json')?.addEventListener('click', () => {
+        const list = document.getElementById('dlp-findings-list');
+        if (!list?.children.length) return;
+        const findings = [];
+        list.querySelectorAll('.bg-deep.rounded-lg').forEach(card => {
+            findings.push({ pattern: card.querySelector('.font-semibold')?.textContent, severity: card.querySelector('.font-mono')?.textContent, value: card.querySelector('.text-green-400')?.textContent });
+        });
+        downloadString(JSON.stringify(findings, null, 2), 'dlp-report.json', 'application/json');
+    });
+
+    document.getElementById('dlp-clear')?.addEventListener('click', () => {
+        document.getElementById('dlp-results')?.classList.add('hidden');
+        if (document.getElementById('dlp-text-input')) document.getElementById('dlp-text-input').value = '';
+        if (document.getElementById('dlp-url-input')) document.getElementById('dlp-url-input').value = '';
+        if (document.getElementById('dlp-file-input')) document.getElementById('dlp-file-input').value = '';
+        document.getElementById('dlp-error')?.classList.add('hidden');
+        document.getElementById('dlp-risk-badge').textContent = 'Ready';
+        document.getElementById('dlp-risk-badge').className = 'px-3 py-1 rounded-full text-xs bg-void border border-cyber text-gray-400';
+    });
+
+    function escapeDlp(s) { if (!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+    // Expose for global access
+    window.runDlpScan = runDlpScan;
+    window.handleDlpFile = handleDlpFile;
 });

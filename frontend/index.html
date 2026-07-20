@@ -466,6 +466,10 @@
                     <span class="tab-icon">🪤</span>
                     <span>Canary</span>
                 </button>
+                <button class="tab-btn" data-tab="dlp" data-i18n="tabDlp">
+                    <span class="tab-icon">🛡️</span>
+                    <span>DLP</span>
+                </button>
             </div>
 
             <!-- ── STATS BAR ── -->
@@ -1895,6 +1899,99 @@
 
               <!-- Error -->
               <div id="canary-error" class="hidden bg-blood/10 border border-blood rounded-lg p-4 text-blood text-sm mt-4"></div>
+            </div>
+
+            <!-- ════════════════════════════════════════════════════════
+                 TAB: DLP SCANNER
+                 ════════════════════════════════════════════════════════ -->
+            <div id="tab-dlp" class="tab-pane p-4 pt-3 overflow-y-auto">
+              <div class="flex items-center justify-between mb-6">
+                <h2 class="text-xl font-semibold text-neon" data-i18n="dlp-title">🛡️ DLP Scanner</h2>
+                <span id="dlp-risk-badge" class="px-3 py-1 rounded-full text-xs bg-void border border-cyber text-gray-400" data-i18n="dlp-ready">Ready</span>
+              </div>
+
+              <!-- Input area -->
+              <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+                <!-- Text input -->
+                <div class="bg-deep/50 rounded-xl border border-cyber p-4">
+                  <h3 class="text-sm font-semibold text-gray-400 mb-2" data-i18n="dlp-text-tab">Raw Text</h3>
+                  <textarea id="dlp-text-input" rows="6" class="w-full bg-deep border border-cyber rounded px-3 py-2 text-white text-sm font-mono placeholder-gray-600 focus:border-neon outline-none resize-y" placeholder="Paste text to scan for PII..."></textarea>
+                  <button id="dlp-scan-btn" class="mt-2 px-4 py-2 bg-neon hover:bg-neon/80 text-deep rounded font-mono text-sm font-bold transition-colors" data-i18n="dlp-scan-btn">🔍 Scan Text</button>
+                </div>
+
+                <!-- File upload + URL -->
+                <div class="space-y-4">
+                  <div class="bg-deep/50 rounded-xl border border-cyber p-4">
+                    <h3 class="text-sm font-semibold text-gray-400 mb-2" data-i18n="dlp-file-tab">File Upload</h3>
+                    <div id="dlp-dropzone" class="border-2 border-dashed border-cyber rounded-lg p-6 text-center cursor-pointer hover:border-neon transition-colors">
+                      <p class="text-gray-400 text-sm" data-i18n="dlp-drop-text">Drop a file or click to upload</p>
+                      <input type="file" id="dlp-file-input" class="hidden">
+                    </div>
+                  </div>
+                  <div class="bg-deep/50 rounded-xl border border-cyber p-4">
+                    <h3 class="text-sm font-semibold text-gray-400 mb-2" data-i18n="dlp-url-tab">URL Scan</h3>
+                    <div class="flex gap-2">
+                      <input type="text" id="dlp-url-input" placeholder="https://example.com/page" class="flex-1 bg-deep border border-cyber rounded px-3 py-2 text-white text-sm placeholder-gray-600 focus:border-neon outline-none">
+                      <button id="dlp-url-btn" class="px-4 py-2 bg-cyber hover:bg-neon text-white rounded font-mono text-sm transition-colors" data-i18n="dlp-scan-url">Scan URL</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Loading -->
+              <div id="dlp-loading" class="hidden text-center py-4">
+                <div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-neon mx-auto mb-2"></div>
+                <p class="text-gray-400 text-sm" data-i18n="dlp-scanning">Scanning for PII...</p>
+              </div>
+
+              <!-- Results -->
+              <div id="dlp-results" class="hidden space-y-4">
+                <!-- Summary -->
+                <div class="grid grid-cols-4 gap-3">
+                  <div class="bg-deep rounded-lg p-3 border border-cyber text-center">
+                    <div class="text-2xl font-bold text-neon" id="dlp-findings-count">0</div>
+                    <div class="text-xs text-gray-500" data-i18n="dlp-findings">Findings</div>
+                  </div>
+                  <div class="bg-deep rounded-lg p-3 border border-cyber text-center">
+                    <div class="text-2xl font-bold text-blood" id="dlp-high-count">0</div>
+                    <div class="text-xs text-gray-500" data-i18n="dlp-high">High</div>
+                  </div>
+                  <div class="bg-deep rounded-lg p-3 border border-cyber text-center">
+                    <div class="text-2xl font-bold text-yellow-400" id="dlp-medium-count">0</div>
+                    <div class="text-xs text-gray-500" data-i18n="dlp-medium">Medium</div>
+                  </div>
+                  <div class="bg-deep rounded-lg p-3 border border-cyber text-center">
+                    <div class="text-2xl font-bold text-blue-400" id="dlp-low-count">0</div>
+                    <div class="text-xs text-gray-500" data-i18n="dlp-low">Low</div>
+                  </div>
+                </div>
+
+                <!-- Risk score bar -->
+                <div class="bg-deep rounded-lg p-4 border border-cyber">
+                  <div class="flex justify-between text-sm mb-1">
+                    <span data-i18n="dlp-risk-score">Risk Score</span>
+                    <span id="dlp-risk-value" class="font-mono text-neon">0%</span>
+                  </div>
+                  <div class="w-full bg-void rounded-full h-3">
+                    <div id="dlp-risk-bar" class="h-3 rounded-full transition-all duration-500" style="width:0%"></div>
+                  </div>
+                </div>
+
+                <!-- Findings list -->
+                <div>
+                  <h3 class="text-neon font-semibold mb-2" data-i18n="dlp-findings-title">Findings</h3>
+                  <div id="dlp-findings-list" class="space-y-2"></div>
+                </div>
+
+                <!-- Export -->
+                <div class="flex gap-2 pt-2">
+                  <button id="dlp-export-json" class="px-3 py-1.5 text-xs bg-cyber hover:bg-neon text-white rounded transition-colors" data-i18n="dlp-export-json">Export JSON</button>
+                  <button id="dlp-clear" class="px-3 py-1.5 text-xs border border-cyber hover:border-neon text-gray-400 rounded transition-colors" data-i18n="dlp-clear-results">Clear</button>
+                </div>
+              </div>
+
+              <!-- Error -->
+              <div id="dlp-error" class="hidden bg-blood/10 border border-blood rounded-lg p-4 text-blood text-sm mt-4"></div>
             </div>
 
         </main>

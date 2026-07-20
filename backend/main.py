@@ -929,6 +929,12 @@ from backend.canary_tokens import (
     delete_token as canary_delete,
     report_to_mirv_findings as canary_to_mirv,
 )
+from backend.dlp_scanner import (
+    scan_text as dlp_scan_text,
+    scan_file as dlp_scan_file,
+    scan_url as dlp_scan_url,
+    report_to_mirv_findings as dlp_to_mirv,
+)
 
 @app.get("/api/stego/analyze")
 async def api_stego_analyze(url: str = "", extract_lsb: bool = True, lsb_length: int = 4096):
@@ -1238,6 +1244,83 @@ async def api_canary_delete(token_id: str):
     if not deleted:
         return JSONResponse({"ok": False, "error": "Token not found"}, status_code=404)
     return JSONResponse({"ok": True, "message": "Token deleted"})
+
+
+# ════════════════════════════════════════════════════════════════
+#  DLP SCANNER — Data Loss Prevention / PII Detection
+# ════════════════════════════════════════════════════════════════
+
+@app.post("/api/dlp/scan")
+async def api_dlp_scan(body: dict):
+    """Scan raw text for PII / sensitive data patterns."""
+    text = body.get("text", "")
+    if not text or not text.strip():
+        return JSONResponse({"ok": False, "error": "Provide 'text' in request body"}, status_code=422)
+    try:
+        report = dlp_scan_text(text)
+        findings = dlp_to_mirv(report)
+        return JSONResponse({
+            "ok": True,
+            "source": report.source,
+            "source_name": report.source_name,
+            "content_length": report.content_length,
+            "lines_scanned": report.lines_scanned,
+            "findings_count": len(findings),
+            "risk_score": report.risk_score,
+            "duration_seconds": report.duration_seconds,
+            "findings": findings,
+        })
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/dlp/scan-file")
+async def api_dlp_scan_file(file: UploadFile = File(...)):
+    """Upload a file and scan for PII / sensitive data."""
+    contents = await file.read()
+    if len(contents) > 20 * 1024 * 1024:
+        return JSONResponse({"ok": False, "error": "File too large (max 20MB)"}, status_code=413)
+    try:
+        report = dlp_scan_file(contents, file.filename or "unknown")
+        findings = dlp_to_mirv(report)
+        return JSONResponse({
+            "ok": True,
+            "source": report.source,
+            "source_name": report.source_name,
+            "content_length": report.content_length,
+            "lines_scanned": report.lines_scanned,
+            "findings_count": len(findings),
+            "risk_score": report.risk_score,
+            "duration_seconds": report.duration_seconds,
+            "findings": findings,
+        })
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/dlp/scan-url")
+async def api_dlp_scan_url(url: str = ""):
+    """Scan a URL's content for PII / sensitive data."""
+    if not url or not url.strip():
+        return JSONResponse({"ok": False, "error": "Provide 'url' parameter"}, status_code=422)
+    if not url.startswith(("http://", "https://")):
+        return JSONResponse({"ok": False, "error": "URL must start with http:// or https://"}, status_code=422)
+    try:
+        report = await dlp_scan_url(url)
+        findings = dlp_to_mirv(report)
+        return JSONResponse({
+            "ok": True,
+            "source": report.source,
+            "source_name": report.source_name,
+            "content_length": report.content_length,
+            "lines_scanned": report.lines_scanned,
+            "findings_count": len(findings),
+            "risk_score": report.risk_score,
+            "duration_seconds": report.duration_seconds,
+            "findings": findings,
+        })
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=502)
 
 
 # ════════════════════════════════════════════════════════════════
