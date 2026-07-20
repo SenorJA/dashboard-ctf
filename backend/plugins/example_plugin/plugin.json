@@ -1,0 +1,12 @@
+{
+  "name": "example-plugin",
+  "version": "1.0.0",
+  "author": "MIRV",
+  "description": "Example plugin demonstrating all hooks with logging",
+  "hooks": ["on_tool_result", "on_finding", "on_event", "on_startup", "on_shutdown"],
+  "dependencies": [],
+  "config_schema": {
+    "enabled": {"type": "boolean", "default": true},
+    "prefix": {"type": "string", "default": "[EXAMPLE]"}
+  }
+}

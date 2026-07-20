@@ -474,6 +474,10 @@
                     <span class="tab-icon">📊</span>
                     <span>SIEM</span>
                 </button>
+                <button class="tab-btn" data-tab="plugins" data-i18n="tabPlugins">
+                    <span class="tab-icon">🔌</span>
+                    <span>Plugins</span>
+                </button>
             </div>
 
             <!-- ── STATS BAR ── -->
@@ -2068,6 +2072,44 @@
                   <button id="siem-show-rules-btn" class="px-3 py-1 text-xs bg-cyber hover:bg-neon text-white rounded transition-colors">Manage Rules</button>
                 </div>
                 <div id="siem-rules-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2"></div>
+              </div>
+            </div>
+
+            <!-- ════════════════════════════════════════════════════════
+                 TAB: PLUGINS
+                 ════════════════════════════════════════════════════════ -->
+            <div id="tab-plugins" class="tab-pane p-4 pt-3 overflow-y-auto">
+              <!-- Header -->
+              <div class="flex items-center justify-between mb-6">
+                <h2 class="text-xl font-semibold text-neon" data-i18n="plugins-title">🔌 Plugin System</h2>
+                <div class="flex gap-2">
+                  <span id="plugins-count" class="px-3 py-1 rounded-full text-xs bg-void border border-cyber text-gray-400">0 plugins</span>
+                  <button id="plugins-refresh-btn" class="px-3 py-1.5 text-xs bg-cyber hover:bg-neon text-white rounded transition-colors">🔄</button>
+                </div>
+              </div>
+
+              <!-- Stats -->
+              <div class="grid grid-cols-4 gap-3 mb-6">
+                <div class="bg-deep rounded-lg p-3 border border-cyber text-center"><div class="text-2xl font-bold text-neon" id="plugins-stat-total">0</div><div class="text-xs text-gray-500" data-i18n="plugins-stat-total">Total</div></div>
+                <div class="bg-deep rounded-lg p-3 border border-cyber text-center"><div class="text-2xl font-bold text-green-400" id="plugins-stat-loaded">0</div><div class="text-xs text-gray-500" data-i18n="plugins-stat-loaded">Loaded</div></div>
+                <div class="bg-deep rounded-lg p-3 border border-cyber text-center"><div class="text-2xl font-bold text-yellow-400" id="plugins-stat-discovered">0</div><div class="text-xs text-gray-500" data-i18n="plugins-stat-discovered">Discovered</div></div>
+                <div class="bg-deep rounded-lg p-3 border border-cyber text-center"><div class="text-2xl font-bold text-blood" id="plugins-stat-error">0</div><div class="text-xs text-gray-500" data-i18n="plugins-stat-error">Errors</div></div>
+              </div>
+
+              <!-- Plugin cards grid -->
+              <div id="plugins-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <p class="text-gray-600 italic col-span-full text-center py-8" data-i18n="plugins-no-plugins">No plugins discovered.</p>
+              </div>
+
+              <!-- Plugin detail modal (hidden by default) -->
+              <div id="plugins-modal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center" onclick="if(event.target===this)closePluginModal()">
+                <div class="bg-deep rounded-xl border border-cyber p-6 max-w-lg w-full mx-4 max-h-[80vh] overflow-y-auto" onclick="event.stopPropagation()">
+                  <div class="flex justify-between items-center mb-4">
+                    <h3 id="plugins-modal-name" class="text-lg font-semibold text-neon">Plugin</h3>
+                    <button onclick="closePluginModal()" class="text-gray-500 hover:text-white text-xl">&times;</button>
+                  </div>
+                  <div id="plugins-modal-body" class="space-y-3 text-sm"></div>
+                </div>
               </div>
             </div>
 

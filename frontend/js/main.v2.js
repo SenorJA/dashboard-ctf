@@ -3157,7 +3157,8 @@ ${bodyHtml}
             exif: 15,
             canary: 16,
             dlp: 17,
-            siem: 18
+            siem: 18,
+            plugins: 19
         };
         if (panes[tabName] !== undefined) {
             btns[panes[tabName]].classList.add('active');
@@ -5635,6 +5636,23 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         "siem-refresh":     { en: 'Refresh',              es: 'Actualizar' },
         "siem-test-event":  { en: 'Generate Test Event',  es: 'Generar Evento de Prueba' },
 
+        // ── Plugin System ──
+        tabPlugins:         { en: '🔌 Plugins',              es: '🔌 Plugins' },
+        "plugins-title":    { en: '🔌 Plugin System',        es: '🔌 Sistema de Plugins' },
+        "plugins-stat-total":     { en: 'Total',             es: 'Total' },
+        "plugins-stat-loaded":    { en: 'Loaded',            es: 'Cargados' },
+        "plugins-stat-discovered":{ en: 'Discovered',        es: 'Descubiertos' },
+        "plugins-stat-error":     { en: 'Errors',            es: 'Errores' },
+        "plugins-no-plugins":     { en: 'No plugins discovered.', es: 'No se descubrieron plugins.' },
+        "plugins-btn-load":       { en: 'Load',              es: 'Cargar' },
+        "plugins-btn-unload":     { en: 'Unload',            es: 'Descargar' },
+        "plugins-btn-reload":     { en: 'Reload',            es: 'Recargar' },
+        "plugins-btn-enable":     { en: 'Enable',            es: 'Activar' },
+        "plugins-btn-disable":    { en: 'Disable',           es: 'Desactivar' },
+        "plugins-status-loaded":  { en: 'Loaded',            es: 'Cargado' },
+        "plugins-status-unloaded":{ en: 'Unloaded',          es: 'Descargado' },
+        "plugins-status-error":   { en: 'Error',             es: 'Error' },
+
         // ── Canary Tokens ──
         "canary-title":          { en: '🪤 Canary Tokens',           es: '🪤 Canary Tokens' },
         "canary-generate-title": { en: 'Generate New Token',         es: 'Generar Nuevo Token' },
@@ -7555,4 +7573,100 @@ Reglas:
     window.runDlpScan = runDlpScan;
     window.handleDlpFile = handleDlpFile;
     window.refreshSIEM = refreshSIEM;
+
+    // ════════════════════════════════════════════════════════════════
+    //  PLUGIN SYSTEM MODULE
+    // ════════════════════════════════════════════════════════════════
+
+    function getPluginStatusLabel(status) {
+        const labels = { loaded: 'Loaded', unloaded: 'Unloaded', error: 'Error' };
+        return labels[status] || 'Discovered';
+    }
+
+    function pluginEscHtml(s) {
+        if (!s) return '';
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    function refreshPlugins() {
+        fetch('/api/plugins').then(r=>r.json()).then(d => {
+            if (!d.ok) return;
+            const plugins = d.plugins || [];
+            const total = plugins.length;
+            const loaded = plugins.filter(p => p.status === 'loaded').length;
+            const discovered = plugins.filter(p => p.status === 'unloaded' || p.status === undefined).length;
+            const errors = plugins.filter(p => p.status === 'error').length;
+
+            document.getElementById('plugins-stat-total').textContent = total;
+            document.getElementById('plugins-stat-loaded').textContent = loaded;
+            document.getElementById('plugins-stat-discovered').textContent = discovered;
+            document.getElementById('plugins-stat-error').textContent = errors;
+            document.getElementById('plugins-count').textContent = total + ' plugins';
+
+            const grid = document.getElementById('plugins-grid');
+            if (!plugins.length) {
+                grid.innerHTML = '<p class="text-gray-600 italic col-span-full text-center py-8" data-i18n="plugins-no-plugins">No plugins discovered.</p>';
+                return;
+            }
+            grid.innerHTML = plugins.map(p => `
+                <div class="bg-deep rounded-lg border ${p.status === 'loaded' ? 'border-green-700/50' : p.status === 'error' ? 'border-blood/50' : 'border-cyber/30'} p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <h4 class="text-white font-semibold text-sm truncate">${pluginEscHtml(p.name)}</h4>
+                        <span class="px-2 py-0.5 rounded text-[10px] font-mono ${p.status === 'loaded' ? 'bg-green-900/40 text-green-400 border border-green-700' : p.status === 'error' ? 'bg-blood/20 text-blood border border-blood' : 'bg-gray-800 text-gray-400 border border-gray-700'}">${getPluginStatusLabel(p.status)}</span>
+                    </div>
+                    <p class="text-xs text-gray-500 mb-2">${pluginEscHtml(p.manifest?.description || 'No description')}</p>
+                    <div class="flex flex-wrap gap-1 mb-2">
+                        <span class="text-[10px] text-gray-600">v${pluginEscHtml(p.manifest?.version || '?')}</span>
+                        <span class="text-[10px] text-gray-600">by ${pluginEscHtml(p.manifest?.author || '?')}</span>
+                    </div>
+                    ${p.manifest?.hooks?.length ? `<div class="flex flex-wrap gap-1 mb-3">${p.manifest.hooks.map(h => `<span class="px-1.5 py-0.5 rounded text-[9px] bg-void text-cyber border border-cyber/50">${pluginEscHtml(h)}</span>`).join('')}</div>` : ''}
+                    <div class="flex flex-wrap gap-1 mt-auto pt-2 border-t border-cyber/20">
+                        ${p.status === 'loaded' ? `
+                            <button class="px-2 py-1 text-[10px] bg-yellow-900/30 hover:bg-yellow-900/50 text-yellow-400 border border-yellow-700 rounded" onclick="pluginAction('${p.name}','reload')" data-i18n="plugins-btn-reload">Reload</button>
+                            <button class="px-2 py-1 text-[10px] bg-red-900/30 hover:bg-red-900/50 text-red-400 border border-red-700 rounded" onclick="pluginAction('${p.name}','unload')" data-i18n="plugins-btn-unload">Unload</button>
+                            ${p.enabled ? `<button class="px-2 py-1 text-[10px] bg-gray-800 hover:bg-gray-700 text-gray-400 border border-gray-700 rounded" onclick="pluginAction('${p.name}','disable')" data-i18n="plugins-btn-disable">Disable</button>` : `<button class="px-2 py-1 text-[10px] bg-green-900/30 hover:bg-green-900/50 text-green-400 border border-green-700 rounded" onclick="pluginAction('${p.name}','enable')" data-i18n="plugins-btn-enable">Enable</button>`}
+                        ` : p.status === 'error' ? `
+                            <button class="px-2 py-1 text-[10px] bg-cyber hover:bg-neon text-white border border-cyber rounded" onclick="pluginAction('${p.name}','load')" data-i18n="plugins-btn-load">Load</button>
+                        ` : `
+                            <button class="px-2 py-1 text-[10px] bg-cyber hover:bg-neon text-white border border-cyber rounded" onclick="pluginAction('${p.name}','load')" data-i18n="plugins-btn-load">Load</button>
+                        `}
+                    </div>
+                    ${p.error ? `<p class="text-[10px] text-blood mt-1">${pluginEscHtml(p.error)}</p>` : ''}
+                </div>
+            `).join('');
+        }).catch(() => {});
+    }
+
+    function pluginAction(name, action) {
+        fetch(`/api/plugins/${encodeURIComponent(name)}/${action}`, { method: 'POST' })
+            .then(r => r.json())
+            .then(d => {
+                refreshPlugins();
+                if (!d.ok) {
+                    appendOutput(`[PLUGIN] ❌ ${action} ${name}: ${d.error || 'unknown error'}`);
+                } else {
+                    appendOutput(`[PLUGIN] ✅ ${action} ${name} successful`);
+                }
+            })
+            .catch(() => appendOutput(`[PLUGIN] ❌ ${action} ${name}: network error`));
+    }
+
+    function closePluginModal() {
+        document.getElementById('plugins-modal').classList.add('hidden');
+    }
+
+    // Plugin event listeners
+    document.getElementById('plugins-refresh-btn')?.addEventListener('click', refreshPlugins);
+
+    // Auto-refresh on tab switch (wrap existing)
+    const _origSwitchTabPlugins = window.switchTab;
+    window.switchTab = function(name) {
+        if (name === 'plugins') refreshPlugins();
+        if (_origSwitchTabPlugins) _origSwitchTabPlugins(name);
+    };
+
+    // Expose globals
+    window.refreshPlugins = refreshPlugins;
+    window.pluginAction = pluginAction;
+    window.closePluginModal = closePluginModal;
 });

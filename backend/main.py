@@ -1507,6 +1507,118 @@ async def api_siem_findings():
 
 
 # ════════════════════════════════════════════════════════════════
+#  PLUGIN MANAGEMENT
+# ════════════════════════════════════════════════════════════════
+
+from backend.plugin_manager import (
+    list_plugins as pm_list,
+    get_plugin_info as pm_info,
+    load_plugin as pm_load,
+    unload_plugin as pm_unload,
+    reload_plugin as pm_reload,
+    enable_plugin as pm_enable,
+    disable_plugin as pm_disable,
+    call_hook as pm_call_hook,
+)
+
+
+@app.get("/api/plugins")
+async def api_plugins_list():
+    """List all discovered and loaded plugins."""
+    try:
+        plugins = pm_list()
+        return JSONResponse({"ok": True, "plugins": plugins})
+    except Exception as e:
+        logger.error("[plugins list] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/plugins/{name}")
+async def api_plugin_info(name: str):
+    """Get detailed info for a single plugin."""
+    try:
+        info = pm_info(name)
+        if not info:
+            return JSONResponse({"ok": False, "error": "Plugin not found"}, status_code=404)
+        return JSONResponse({"ok": True, "plugin": info})
+    except Exception as e:
+        logger.error("[plugins info] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/plugins/{name}/load")
+async def api_plugin_load(name: str):
+    """Load a plugin: import its module and register hooks."""
+    try:
+        result = pm_load(name)
+        return JSONResponse(result, status_code=200 if result.get("ok") else 400)
+    except Exception as e:
+        logger.error("[plugins load] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/plugins/{name}/unload")
+async def api_plugin_unload(name: str):
+    """Unload a plugin: remove hooks and clean sys.modules."""
+    try:
+        result = pm_unload(name)
+        return JSONResponse(result, status_code=200 if result.get("ok") else 400)
+    except Exception as e:
+        logger.error("[plugins unload] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/plugins/{name}/reload")
+async def api_plugin_reload(name: str):
+    """Reload a plugin (unload + load)."""
+    try:
+        result = pm_reload(name)
+        return JSONResponse(result, status_code=200 if result.get("ok") else 400)
+    except Exception as e:
+        logger.error("[plugins reload] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/plugins/{name}/enable")
+async def api_plugin_enable(name: str):
+    """Enable a plugin — its hooks will fire."""
+    try:
+        result = pm_enable(name)
+        return JSONResponse(result, status_code=200 if result.get("ok") else 400)
+    except Exception as e:
+        logger.error("[plugins enable] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/plugins/{name}/disable")
+async def api_plugin_disable(name: str):
+    """Disable a plugin — its hooks will be skipped."""
+    try:
+        result = pm_disable(name)
+        return JSONResponse(result, status_code=200 if result.get("ok") else 400)
+    except Exception as e:
+        logger.error("[plugins disable] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/plugins/hooks/{hook_name}")
+async def api_plugin_call_hook(hook_name: str, request: Request):
+    """
+    Manually invoke a hook across all enabled plugins.
+    Body is forwarded as *args (list) and **kwargs (dict).
+    """
+    try:
+        body = await request.json()
+        args = body.get("args", [])
+        kwargs = body.get("kwargs", {})
+        results = pm_call_hook(hook_name, *args, **kwargs)
+        return JSONResponse({"ok": True, "hook": hook_name, "results": results})
+    except Exception as e:
+        logger.error("[plugins hook] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+# ════════════════════════════════════════════════════════════════
 #  SECURITY NEWS SCRAPER
 # ════════════════════════════════════════════════════════════════
 
