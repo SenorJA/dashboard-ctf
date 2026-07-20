@@ -8,6 +8,8 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?logo=fastapi)](https://fastapi.tiangolo.com)
 [![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3FCF8E?logo=supabase)](https://supabase.com)
 [![Kali](https://img.shields.io/badge/Kali-Linux-557C94?logo=kalilinux)](https://kali.org)
+[![Tests](https://img.shields.io/badge/tests-412_✔️-2ea44f?logo=pytest)](https://github.com/SenorJA/dashboard-ctf/actions)
+[![CI/CD](https://img.shields.io/github/actions/workflow/status/SenorJA/dashboard-ctf/ci.yml?label=CI%2FCD&logo=githubactions)](https://github.com/SenorJA/dashboard-ctf/actions)
 [![GitHub](https://img.shields.io/github/last-commit/SenorJA/dashboard-ctf?color=%23d4a843)](https://github.com/SenorJA/dashboard-ctf)
 
 **Tema:** Signal Intelligence — inspirado en centros de operaciones SIGINT, ámbar `#d4a843` como acento principal.
@@ -132,24 +134,28 @@ M.I.R.V. es una **plataforma modular todo-en-uno** para operaciones de cibersegu
 | **Export** | `.txt` · `.md` · `.html` · `📄 PDF` (vía `window.print()`) |
 | **Persistencia** | Supabase + sincronización automática cada 2s |
 
-### 🛠️ Arsenal (83+ módulos)
-| Categoría | Herramientas |
-|-----------|-------------|
-| **Web Recon** | gobuster, dirb, wfuzz, ffuf, feroxbuster, nikto, whatweb, wpscan, cewl, nuclei |
-| **Network** | nmap (6 perfiles), masscan, netcat, dnsrecon, curl, socat |
-| **SMB/Windows** | enum4linux, smbclient, evil-winrm, impacket, smbmap, ldapsearch, bloodhound |
-| **Pivoting** | ligolo, nc-listener, chisel-client, proxychains |
-| **Crypto** | jwt-decode, b64-encode, b64-decode, john, hashcat |
-| **Exploitation** | hydra (SSH/FTP), sqlmap, searchsploit, responder, xsstrike, dalfox, cors-check |
-| **OSINT** | TheHarvester, Mr.Holmes, Infoooze, BBOT, LinkedIn2Username, SpiderFoot |
-| **WAF/TLS** | wafw00f, testssl |
-| **Extract/Compress** | unzip, tar-gz, tar-xz, 7z-extract, unrar, gunzip, bunzip2 |
-| **Resources** | HackTricks, PortSwigger, PayloadsAllTheThings, Chisel, RevShells, Exploit-DB, GTFOBins |
-| **Utilities** | CyberChef |
-| **OSINT Web** | Flare.io, Lenso AI, OSINT Framework, SpiderFoot, Shodan, Censys, VirusTotal, HaveIBeenPwned |
-| **Pentest Labs** | DockerLabs, HackTheBox, TryHackMe, VulnHub, Proving Grounds, HackMyVM, PortSwigger Academy, OverTheWire, PicoCTF, RootMe |
-| **Bug Bounty** | HackerOne, Bugcrowd, Intigriti, YesWeHack, Secur0, Open Bug Bounty, Synack, Grey Hack |
-| **Hardware Stores** | Hak5, Flipper Zero, Great Scott Gadgets, M5Stack, Lab 401, Hacker Warehouse, HackmoD, KSEC Labs, Firewire Revolution, SAPSAN |
+### 🛠️ Arsenal (100+ módulos)
+
+Arsenal con **categorías colapsables**, **badges numéricos**, **filtro en tiempo real**, **master toggle** (Expand/Collapse All) y **botón Run All** por categoría.
+
+| Categoría | Herramientas | API? |
+|-----------|-------------|:----:|
+| **Web Recon API** | Headers Scanner, Secrets Scanner, Port Scanner, Subdomain Scanner, DNS Lookup, Hash Cracker, Stego Tool, News Scraper, API Scanner | ✅ #1–#9 |
+| **Web Recon CLI** | gobuster, dirb, wfuzz, ffuf, feroxbuster, nikto, whatweb, wpscan, cewl, nuclei | ❌ |
+| **Network** | nmap (6 perfiles), masscan, netcat, dnsrecon, curl, socat | ❌ |
+| **SMB/Windows** | enum4linux, smbclient, evil-winrm, impacket, smbmap, ldapsearch, bloodhound | ❌ |
+| **Pivoting** | ligolo, nc-listener, chisel-client, proxychains | ❌ |
+| **Crypto** | jwt-decode, b64-encode, b64-decode, john, hashcat | ❌ |
+| **Exploitation** | hydra (SSH/FTP), sqlmap, searchsploit, responder, xsstrike, dalfox, cors-check | ❌ |
+| **OSINT** | TheHarvester, Mr.Holmes, Infoooze, BBOT, LinkedIn2Username, SpiderFoot | ❌ |
+| **WAF/TLS** | wafw00f, testssl | ❌ |
+| **Extract/Compress** | unzip, tar-gz, tar-xz, 7z-extract, unrar, gunzip, bunzip2 | ❌ |
+| **Resources** | HackTricks, PortSwigger, PayloadsAllTheThings, Chisel, RevShells, Exploit-DB, GTFOBins | ❌ |
+| **Utilities** | CyberChef | ❌ |
+| **OSINT Web** | Flare.io, Lenso AI, OSINT Framework, SpiderFoot, Shodan, Censys, VirusTotal, HaveIBeenPwned | ❌ |
+| **Pentest Labs** | DockerLabs, HackTheBox, TryHackMe, VulnHub, Proving Grounds, HackMyVM, PortSwigger Academy, OverTheWire, PicoCTF, RootMe | ❌ |
+| **Bug Bounty** | HackerOne, Bugcrowd, Intigriti, YesWeHack, Secur0, Open Bug Bounty, Synack, Grey Hack | ❌ |
+| **Hardware Stores** | Hak5, Flipper Zero, Great Scott Gadgets, M5Stack, Lab 401, Hacker Warehouse, HackmoD, KSEC Labs, Firewire Revolution, SAPSAN | ❌ |
 
 ### 🤖 IA Multi-Proveedor
 | Proveedor | Endpoint por defecto | Modelo |
@@ -309,6 +315,7 @@ El logo se renderiza inline en el header del dashboard y también se sirve como 
 - **Python 3.11+**
 - **Kali Linux** (o cualquier Linux con SSH) — para ejecutar herramientas
 - **Supabase project** gratuito en [supabase.com](https://supabase.com) (opcional pero recomendado)
+- **pnpm** — gestor de paquetes para tests frontend → `corepack enable` (Windows) o `npm i -g pnpm`
 - Opcional: **ADB** + **Frida** para análisis móvil
 
 ### Desarrollo local
@@ -318,10 +325,14 @@ El logo se renderiza inline en el header del dashboard y también se sirve como 
 git clone https://github.com/SenorJA/dashboard-ctf.git
 cd dashboard-ctf
 
-# 2. Dependencias
+# 2. Dependencias Python
 pip install -r backend/requirements.txt
 
-# 3. Configurar .env
+# 3. Dependencias Frontend (pnpm, NO npm)
+corepack enable    # solo primera vez
+pnpm install       # instala Playwright y dependencias
+
+# 4. Configurar .env
 # Crea un archivo .env en la raíz del proyecto:
 cat > .env << 'EOF'
 SUPABASE_URL=https://tu-proyecto.supabase.co
@@ -329,7 +340,7 @@ SUPABASE_KEY=tu-service-role-key
 SUPABASE_DB_PASSWORD=tu-db-password  # opcional (bootstrap automático)
 EOF
 
-# 4. Iniciar servidor
+# 5. Iniciar servidor
 uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
 
 # 5. Abrir navegador
@@ -834,6 +845,25 @@ C:\Users\34678\Desktop\Proyecto ciber\
 ├── PRODUCTION_PLAN.md       # Plan de despliegue Cloudflare
 ├── PERSISTENCE_AUDIT.md     # Auditoría de persistencia de datos
 ├── VULNFORGE_VS_T3MP3ST.md  # Comparativa con T3MP3ST
+├── .npmrc                   # Forzar pnpm (bloquea npm)
+├── package.json             # pnpm + Playwright devDependency
+├── pnpm-lock.yaml           # Lockfile de pnpm
+├── .github/workflows/
+│   └── ci.yml               # CI/CD: lint → test → build → push → deploy
+├── docs/
+│   ├── STATUS.md            # Estado completo del proyecto
+│   ├── EVENTOS.md           # Mapeo onclick → data-action
+│   ├── SECRETS_GITHUB.md    # Configurar secrets del CI/CD
+│   ├── PLAYWRIGHT_TESTS.md  # Tests frontend con Playwright
+│   ├── MODULOS_NUEVOS.md    # 9 módulos API security
+│   ├── PAT_WORKFLOW_SCOPE.md# Solucionar error de workflow scope
+│   ├── MIRV_DESKTOP_PLAN.md # App desktop con Tauri
+│   └── DOCKER_GUIDE.md      # Guía de Docker en español
+├── frontend/
+│   ├── tests/
+│   │   ├── playwright.config.js  # Config Playwright
+│   │   └── smoke.spec.js         # 24 tests E2E
+│   └── ...                       # HTML, CSS, JS
 └── .opencode/
     └── agents/              # Agentes OpenCode
 ```
@@ -844,17 +874,26 @@ C:\Users\34678\Desktop\Proyecto ciber\
 
 | Módulo | Líneas | Propósito |
 |--------|:------:|-----------|
-| `main.py` | ~2299 | FastAPI app, WebSocket SSH, 85+ endpoints |
-| `database.py` | ~1344 | CRUD para 17 tablas Supabase |
-| `opsec.py` | 400 | OPSEC Levels para 30 herramientas |
-| `mission_store.py` | 356 | Auto-mejora: historial de misiones |
-| `mcp_server.py` | 620 | MCP Server para Claude/Cursor/agentes |
-| `swarm.py` | 250 | Pipeline multi-operador |
-| `mobile_analyzer.py` | 707 | Análisis APK (apktool, jadx, mobsf) |
-| `forensics.py` | 253 | Forense (memoria, disco, archivos) |
-| `knowledgebase.py` | 210 | Base de datos de CVEs + MITRE |
-| `scope_guard.py` | 261 | Validación de alcance Warn/Block |
-| `adb_controller.py` | 205 | ADB + Frida scripting (stop/run/clear) |
+| `main.py` | ~2985 | FastAPI app, WebSocket SSH, 88+ endpoints |
+| `database.py` | ~697 | CRUD para 17 tablas Supabase |
+| `opsec.py` | ~400 | OPSEC Levels para 30 herramientas |
+| `mission_store.py` | ~356 | Auto-mejora: historial de misiones |
+| `mcp_server.py` | ~620 | MCP Server para Claude/Cursor/agentes |
+| `swarm.py` | ~250 | Pipeline multi-operador |
+| `mobile_analyzer.py` | ~707 | Análisis APK (apktool, jadx, mobsf) |
+| `forensics.py` | ~253 | Forense (memoria, disco, archivos) |
+| `knowledgebase.py` | ~210 | Base de datos de CVEs + MITRE |
+| `scope_guard.py` | ~261 | Validación de alcance Warn/Block |
+| `adb_controller.py` | ~205 | ADB + Frida scripting (stop/run/clear) |
+| `headers_scanner.py` | ~95 | #1 HTTP Headers Scanner (grade A–F) |
+| `secrets_scanner.py` | ~140 | #2 Secrets Scanner (25 regex) |
+| `port_scanner.py` | ~79 | #3 Port Scanner (~1600 puertos async) |
+| `subdomain_scanner.py` | ~75 | #4 Subdomain Scanner (~700 prefijos) |
+| `dns_lookup.py` | ~94 | #5 DNS Lookup (DoH, 7 tipos, reverse) |
+| `hash_cracker.py` | ~90 | #6 Hash Cracker (20 tipos, rainbow table) |
+| `stego_tool.py` | ~209 | #7 Steganography Tool (PNG/BMP LSB) |
+| `news_scraper.py` | ~146 | #8 Security News Scraper (9 RSS feeds) |
+| `api_scanner.py` | ~140 | #9 API Security Scanner (65+ paths) |
 
 ---
 
@@ -944,6 +983,84 @@ Para más detalles, ver [`PERSISTENCE_AUDIT.md`](PERSISTENCE_AUDIT.md).
 
 ---
 
+## 🧪 Tests
+
+### Backend — 388 tests (pytest)
+
+| Archivo | Tests | Descripción |
+|---------|:-----:|-------------|
+| `test_headers_scanner.py` | 32 | HTTP Headers Scanner (grade A–F) |
+| `test_secrets_scanner.py` | 33 | Secrets Scanner (25 regex) |
+| `test_port_scanner.py` | 18 | Port Scanner (~1600 puertos) |
+| `test_subdomain_scanner.py` | 11 | Subdomain Scanner (~700 prefijos) |
+| `test_dns_lookup.py` | 9 | DNS Lookup (DoH, 7 tipos) |
+| `test_hash_cracker.py` | 58 | Hash Cracker (20 tipos) |
+| `test_stego_tool.py` | 28 | Steganography Tool (LSB) |
+| `test_news_scraper.py` | 8 | Security News Scraper (9 RSS) |
+| `test_api_scanner.py` | 31 | API Security Scanner (65+ paths) |
+| `test_api_endpoints.py` | 160 | 88+ endpoints REST |
+| **Total** | **388** | **0 fallos — 39% cobertura** |
+
+```bash
+docker exec mirv-backend python -m pytest backend/tests/ -q
+```
+
+### Frontend — 24 tests (Playwright + pnpm)
+
+| Archivo | Tests | Descripción |
+|---------|:-----:|-------------|
+| `smoke.spec.js` | 24 | Page load, 13 tabs, arsenal, filter, theme, i18n, responsive |
+| **Total** | **24** | **0 fallos — Chromium** |
+
+```bash
+pnpm playwright test --config=frontend/tests/playwright.config.js
+```
+
+> ⚠️ **pnpm** es el gestor obligatorio (`.npmrc` bloquea npm).  
+> `package.json` incluye `"packageManager": "pnpm@11.11.0"`.  
+> Sin pnpm → `corepack enable` para activarlo.
+
+---
+
+## 🤖 CI/CD — GitHub Actions
+
+```yaml
+lint (ruff) → test-backend (388 pytest) → test-frontend (24 Playwright)
+                                          ↓
+                                    docker-build (push Docker Hub)
+                                          ↓
+                                    deploy (SSH VPS)
+```
+
+| Job | ¿Cuándo corre? | Descripción |
+|-----|----------------|-------------|
+| `lint` | Siempre | Ruff check + format |
+| `test-backend` | Siempre | pytest 388 tests |
+| `test-frontend` | Siempre | Playwright 24 tests + backend inline |
+| `docker-build` | Solo `main` | Buildx + push a Docker Hub |
+| `deploy` | Solo `main` | SSH pull + restart en VPS |
+
+**Secrets requeridos:** `DOCKER_USERNAME`, `DOCKER_TOKEN`, `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`  
+→ Guía completa: [`docs/SECRETS_GITHUB.md`](docs/SECRETS_GITHUB.md)
+
+---
+
+## 📚 Documentación
+
+| Archivo | Contenido |
+|---------|-----------|
+| [`ROADMAP.md`](ROADMAP.md) | Roadmap completo del proyecto |
+| [`docs/STATUS.md`](docs/STATUS.md) | Estado detallado (tests, cobertura, módulos) |
+| [`docs/EVENTOS.md`](docs/EVENTOS.md) | Mapeo completo onclick → data-action |
+| [`docs/SECRETS_GITHUB.md`](docs/SECRETS_GITHUB.md) | Configurar secrets de CI/CD |
+| [`docs/PLAYWRIGHT_TESTS.md`](docs/PLAYWRIGHT_TESTS.md) | Tests frontend con Playwright |
+| [`docs/MODULOS_NUEVOS.md`](docs/MODULOS_NUEVOS.md) | 9 módulos API security |
+| [`docs/PAT_WORKFLOW_SCOPE.md`](docs/PAT_WORKFLOW_SCOPE.md) | Solucionar error de workflow scope |
+| [`docs/PRODUCTION_PLAN.md`](docs/PRODUCTION_PLAN.md) | Despliegue en producción |
+| [`docs/PERSISTENCE_AUDIT.md`](docs/PERSISTENCE_AUDIT.md) | Auditoría de persistencia |
+
+---
+
 ## 🗺️ Roadmap
 
 | Fase | Estado | Descripción |
@@ -955,6 +1072,11 @@ Para más detalles, ver [`PERSISTENCE_AUDIT.md`](PERSISTENCE_AUDIT.md).
 | 5 | ✅ | AI multi-proveedor + Automation (n8n) |
 | 6 | ✅ | Mobile responsive + i18n (EN/ES) |
 | 7 | ✅ | OPSEC Levels + Self-Improvement Loop |
+| 8 | ✅ | 9 Módulos API (#1–#9) desde Cybersecurity-Projects |
+| 9 | ✅ | UI Modernization (categorías colapsables, badges, filter, master toggle) |
+| 10 | ✅ | Event Delegation (0 onclick, ACTION_MAP centralizado) |
+| 11 | 🚧 | Tests + CI/CD (388 pytest + 24 Playwright + Docker push + VPS deploy) |
+| 12 | ⏳ | Producción (Cloudflare Tunnel + dominio) |
 | **8** | ✅ | **Docker**: stack Docker + panel de control desde el UI |
 | **9** | 🚧 **Próximo** | **Tests automatizados, CI/CD** |
 
