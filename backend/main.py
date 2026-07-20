@@ -41,7 +41,7 @@ _project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File, Form, Request
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File, Form, Request, Body
 from dataclasses import asdict
 from fastapi.responses import FileResponse, JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -609,8 +609,14 @@ async def create_finding(req: dict):
 
 
 @app.post("/api/findings/bulk")
-async def create_findings_bulk(req: list):
-    """Save multiple findings at once."""
+async def create_findings_bulk(req: list = Body(...)):
+    """Save multiple findings at once.
+
+    NOTE: ``Body(...)`` is required so FastAPI/Pydantic v2 treats the bare
+    JSON array as the request body (the plain ``list`` annotation would
+    otherwise make FastAPI expect a wrapped ``{"req": [...]}`` payload and
+    reject empty arrays with 422 before our handler runs).
+    """
     if not req:
         return JSONResponse({"ok": False, "error": "Empty array"}, status_code=400)
     count = db.save_findings_bulk(req)
@@ -2749,9 +2755,72 @@ async def swarm_start(req: SwarmStartRequest):
     }, status_code=201)
 
 
+# ════════════════════════════════════════════════════════════════
+#  SWARM SESSIONS API (DB layer)
+#  IMPORTANT: These specific routes MUST be registered BEFORE the
+#  parametric ``/api/swarm/{session_id}`` route, otherwise
+#  ``GET /api/swarm/sessions`` is shadowed by ``{session_id}`` and
+#  returns 404 instead of the session list.
+# ════════════════════════════════════════════════════════════════
+
+@app.get("/api/swarm/sessions")
+async def swarm_sessions_list(limit: int = 20):
+    """List swarm sessions."""
+    try:
+        data = list_swarm_sessions(limit=limit)
+        return JSONResponse({"ok": True, "data": data or []})
+    except Exception as e:
+        logger.error("[swarm sessions list] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/swarm/sessions/{session_id}")
+async def swarm_sessions_get(session_id: str):
+    """Get a single swarm session."""
+    row = get_swarm_session(session_id)
+    if not row:
+        return JSONResponse({"ok": False, "error": "Not found"}, status_code=404)
+    return JSONResponse({"ok": True, "data": row})
+
+
+class SwarmSessionSaveRequest(BaseModel):
+    target: str = ""
+    mode: str = "auto"
+    status: str = "running"
+    phases: list = []
+    total_findings: int = 0
+    error: str = ""
+
+
+@app.post("/api/swarm/sessions")
+async def swarm_sessions_save(req: SwarmSessionSaveRequest):
+    """Save a swarm session."""
+    try:
+        row = await asyncio.to_thread(save_swarm_session, req.model_dump())
+        return JSONResponse({"ok": True, "data": row}) if row else JSONResponse(
+            {"ok": False, "error": "Save failed"}, status_code=503)
+    except Exception as e:
+        logger.error("[swarm sessions save] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.delete("/api/swarm/sessions/{session_id}")
+async def swarm_sessions_delete(session_id: str):
+    """Delete a swarm session."""
+    ok = delete_swarm_session(session_id)
+    if ok is None:
+        return JSONResponse({"ok": False, "error": "DB unavailable"}, status_code=503)
+    return JSONResponse({"ok": ok})
+
+
 @app.get("/api/swarm/{session_id}")
 async def swarm_status(session_id: str):
-    """Get swarm session status."""
+    """Get swarm session status.
+
+    NOTE: Specific ``/api/swarm/sessions`` and ``/api/swarm/list`` routes
+    are registered *above* this one so the parametric ``{session_id}``
+    segment can't shadow them.
+    """
     swarm = get_session(session_id)
     if not swarm:
         return JSONResponse({"ok": False, "error": "Session not found"}, status_code=404)
@@ -3519,60 +3588,6 @@ async def scope_events_save(event: dict):
 async def scope_events_clear():
     """Clear all scope events."""
     ok = clear_scope_events()
-    if ok is None:
-        return JSONResponse({"ok": False, "error": "DB unavailable"}, status_code=503)
-    return JSONResponse({"ok": ok})
-
-
-# ════════════════════════════════════════════════════════════════
-#  SWARM SESSIONS API
-# ════════════════════════════════════════════════════════════════
-
-@app.get("/api/swarm/sessions")
-async def swarm_sessions_list(limit: int = 20):
-    """List swarm sessions."""
-    try:
-        data = list_swarm_sessions(limit=limit)
-        return JSONResponse({"ok": True, "data": data or []})
-    except Exception as e:
-        logger.error("[swarm sessions list] %s", e)
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
-
-
-@app.get("/api/swarm/sessions/{session_id}")
-async def swarm_sessions_get(session_id: str):
-    """Get a single swarm session."""
-    row = get_swarm_session(session_id)
-    if not row:
-        return JSONResponse({"ok": False, "error": "Not found"}, status_code=404)
-    return JSONResponse({"ok": True, "data": row})
-
-
-class SwarmSessionSaveRequest(BaseModel):
-    target: str = ""
-    mode: str = "auto"
-    status: str = "running"
-    phases: list = []
-    total_findings: int = 0
-    error: str = ""
-
-
-@app.post("/api/swarm/sessions")
-async def swarm_sessions_save(req: SwarmSessionSaveRequest):
-    """Save a swarm session."""
-    try:
-        row = await asyncio.to_thread(save_swarm_session, req.model_dump())
-        return JSONResponse({"ok": True, "data": row}) if row else JSONResponse(
-            {"ok": False, "error": "Save failed"}, status_code=503)
-    except Exception as e:
-        logger.error("[swarm sessions save] %s", e)
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
-
-
-@app.delete("/api/swarm/sessions/{session_id}")
-async def swarm_sessions_delete(session_id: str):
-    """Delete a swarm session."""
-    ok = delete_swarm_session(session_id)
     if ok is None:
         return JSONResponse({"ok": False, "error": "DB unavailable"}, status_code=503)
     return JSONResponse({"ok": ok})

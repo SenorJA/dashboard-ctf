@@ -109,6 +109,36 @@ async def nmap_scan(target: str, args: str = "-sV -sC -Pn") -> str:
     return await execute_command(f"nmap {args} {target}")
 
 
+async def list_available_tools() -> list:
+    """List the tools exposed by the kali-mcp endpoint (legacy MCP mode).
+
+    Returns a list of tool name strings. In Docker Compose mode (or when the
+    MCP endpoint is not configured / unreachable) returns an empty list.
+    """
+    if not KALI_MCP_URL:
+        return []
+    try:
+        import httpx
+        payload = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/list",
+            "params": {},
+        }
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.post(KALI_MCP_URL, json=payload)
+            data = r.json()
+            tools = []
+            for item in data.get("result", {}).get("tools", []):
+                name = item.get("name") if isinstance(item, dict) else None
+                if name:
+                    tools.append(name)
+            return tools
+    except Exception as e:
+        logger.error("list_available_tools failed: %s", e)
+        return []
+
+
 async def gobuster_dir(url: str, wordlist: str = "/usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt") -> str:
     """Directory enumeration via Kali container."""
     return await execute_command(f"gobuster dir -u {url} -w {wordlist} -t 30 -q")

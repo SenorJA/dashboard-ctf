@@ -162,7 +162,7 @@ MITRE_DB = [
 
 def search_cve(query: str = "") -> list:
     """Search CVEs by keyword (id, description, affected, tools)."""
-    q = query.lower().strip()
+    q = (query or "").lower().strip()
     if not q:
         return CVE_DB[:20]  # Return first 20 when no query
     results = []
@@ -176,7 +176,7 @@ def search_cve(query: str = "") -> list:
 
 def search_mitre(query: str = "") -> list:
     """Search MITRE ATT&CK by keyword (id, name, tactic, description)."""
-    q = query.lower().strip()
+    q = (query or "").lower().strip()
     if not q:
         return MITRE_DB[:20]
     results = []
