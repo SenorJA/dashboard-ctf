@@ -3154,7 +3154,8 @@ ${bodyHtml}
             ctf: 12,
             mobile: 13,
             forensics: 14,
-            exif: 15
+            exif: 15,
+            canary: 16
         };
         if (panes[tabName] !== undefined) {
             btns[panes[tabName]].classList.add('active');
@@ -5602,8 +5603,29 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         tabMobile:         { en: '📱 Mobile',          es: '📱 Mobile' },
         tabForensics:      { en: '🔍 Forensics',       es: '🔍 Forensics' },
         tabExif:           { en: '📷 EXIF',            es: '📷 EXIF' },
+        tabCanary:         { en: '🪤 Canary',          es: '🪤 Canario' },
         tabKnowledgebase:  { en: '📚 KnowledgeBase',   es: '📚 KnowledgeBase' },
         tabCTF:            { en: '🏴 CTF',              es: '🏴 CTF' },
+
+        // ── Canary Tokens ──
+        "canary-title":          { en: '🪤 Canary Tokens',           es: '🪤 Canary Tokens' },
+        "canary-generate-title": { en: 'Generate New Token',         es: 'Generar Nuevo Token' },
+        "canary-type-api":       { en: 'API Key',                    es: 'Clave API' },
+        "canary-type-db":        { en: 'Database URL',               es: 'URL de Base de Datos' },
+        "canary-type-jwt":       { en: 'JWT Token',                  es: 'Token JWT' },
+        "canary-type-aws":       { en: 'AWS Key',                    es: 'Clave AWS' },
+        "canary-type-slack":     { en: 'Slack Token',                es: 'Token Slack' },
+        "canary-type-url":       { en: 'Webhook URL',                es: 'URL Webhook' },
+        "canary-type-env":       { en: '.env File',                  es: 'Archivo .env' },
+        "canary-type-config":    { en: 'Config File',                es: 'Archivo Config' },
+        "canary-generate-btn":   { en: '+ Generate',                 es: '+ Generar' },
+        "canary-generating":     { en: 'Generating token...',        es: 'Generando token...' },
+        "canary-tokens-title":   { en: 'Active Tokens',              es: 'Tokens Activos' },
+        "canary-empty":          { en: 'No tokens generated yet. Create one above.', es: 'Aún no hay tokens. Crea uno arriba.' },
+        "canary-events-title":   { en: 'Activation Events',          es: 'Eventos de Activación' },
+        "canary-events-empty":   { en: 'No activation events recorded.', es: 'No hay eventos de activación registrados.' },
+        "canary-copy":           { en: 'Copy',                       es: 'Copiar' },
+        "canary-delete":         { en: 'Delete',                     es: 'Eliminar' },
 
         // ── Terminal buttons ──
         btnConnectShort:   { en: '> Connect',          es: '> Conectar' },
@@ -7016,4 +7038,211 @@ Reglas:
             window._exifMap = null;
         }
     }
+
+    // ════════════════════════════════════════════════════════════════
+    //  CANARY TOKENS MODULE
+    // ════════════════════════════════════════════════════════════════
+
+    // Generate button
+    document.getElementById('canary-generate-btn')?.addEventListener('click', generateCanaryToken);
+
+    // Allow Enter key on inputs
+    ['canary-name', 'canary-notes'].forEach(id => {
+        document.getElementById(id)?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') generateCanaryToken();
+        });
+    });
+
+    async function generateCanaryToken() {
+        const type = document.getElementById('canary-type')?.value;
+        const name = document.getElementById('canary-name')?.value?.trim() || '';
+        const notes = document.getElementById('canary-notes')?.value?.trim() || '';
+
+        document.getElementById('canary-loading')?.classList.remove('hidden');
+        hideCanaryError();
+
+        try {
+            const formData = new URLSearchParams();
+            formData.append('token_type', type);
+            formData.append('name', name);
+            formData.append('notes', notes);
+
+            const resp = await fetch('/api/canary/token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: formData
+            });
+            const data = await resp.json();
+            if (data.ok) {
+                document.getElementById('canary-name').value = '';
+                document.getElementById('canary-notes').value = '';
+                await refreshCanaryTokens();
+                await refreshCanaryEvents();
+                if (data.findings && typeof window.addFinding === 'function') {
+                    data.findings.forEach(f => window.addFinding(f));
+                }
+            } else {
+                showCanaryError(data.error || 'Generation failed');
+            }
+        } catch (err) {
+            showCanaryError('Network error: ' + err.message);
+        } finally {
+            document.getElementById('canary-loading')?.classList.add('hidden');
+        }
+    }
+
+    async function refreshCanaryTokens() {
+        try {
+            const resp = await fetch('/api/canary/tokens');
+            const data = await resp.json();
+            if (!data.ok) return;
+
+            const list = document.getElementById('canary-tokens-list');
+            const empty = document.getElementById('canary-empty');
+            const count = document.getElementById('canary-count');
+
+            count.textContent = `${data.count} active`;
+
+            if (data.count === 0) {
+                empty?.classList.remove('hidden');
+                list.innerHTML = '';
+                return;
+            }
+
+            empty?.classList.add('hidden');
+            list.innerHTML = data.tokens.map(t => buildCanaryTokenCard(t)).join('');
+        } catch (err) {
+            console.error('Failed to refresh tokens:', err);
+        }
+    }
+
+    async function refreshCanaryEvents() {
+        try {
+            const resp = await fetch('/api/canary/events');
+            const data = await resp.json();
+            if (!data.ok) return;
+
+            const list = document.getElementById('canary-events-list');
+            const empty = document.getElementById('canary-events-empty');
+
+            if (data.count === 0) {
+                empty?.classList.remove('hidden');
+                list.innerHTML = '';
+                return;
+            }
+
+            empty?.classList.add('hidden');
+            list.innerHTML = data.events.map(e => buildCanaryEventRow(e)).join('');
+        } catch (err) {
+            console.error('Failed to refresh events:', err);
+        }
+    }
+
+    function buildCanaryTokenCard(t) {
+        const colors = {
+            'api-key': 'border-l-blue-500', 'db-url': 'border-l-green-500', 'jwt': 'border-l-purple-500',
+            'aws-key': 'border-l-orange-500', 'slack-token': 'border-l-red-500', 'generic-url': 'border-l-cyan-500',
+            'env-file': 'border-l-yellow-500', 'config-file': 'border-l-gray-500'
+        };
+        const color = colors[t.type] || 'border-l-cyber';
+        const isMultiline = t.type === 'env-file' || t.type === 'config-file';
+        const displayVal = isMultiline
+            ? `<pre class="text-xs text-gray-300 mt-2 p-2 bg-void rounded overflow-x-auto max-h-32">${canaryEscapeHtml(t.value)}</pre>`
+            : `<code class="text-green-400 text-xs break-all">${canaryEscapeHtml(t.value)}</code>`;
+
+        return `<div class="bg-deep rounded-lg border border-cyber ${color} border-l-4 p-4">
+            <div class="flex items-start justify-between">
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 mb-1">
+                        <span class="px-2 py-0.5 rounded text-xs font-mono bg-void border border-cyber">${t.type}</span>
+                        <span class="text-white font-semibold text-sm">${canaryEscapeHtml(t.name || 'Unnamed')}</span>
+                        <span class="text-xs text-gray-500">${new Date(t.created_at).toLocaleString()}</span>
+                    </div>
+                    ${displayVal}
+                    ${t.notes ? `<p class="text-xs text-gray-500 mt-1">📝 ${canaryEscapeHtml(t.notes)}</p>` : ''}
+                    <p class="text-xs text-gray-600 mt-1">ID: <code class="text-gray-400">${t.id}</code> | Expires: ${new Date(t.expires_at).toLocaleDateString()}</p>
+                </div>
+                <div class="flex gap-2 shrink-0 ml-4">
+                    <button onclick="copyCanaryValue('${t.id}')" class="px-3 py-1 text-xs bg-cyber hover:bg-neon text-white rounded transition-colors" data-i18n="canary-copy">Copy</button>
+                    <button onclick="deleteCanaryToken('${t.id}')" class="px-3 py-1 text-xs border border-blood hover:bg-blood/20 text-blood rounded transition-colors" data-i18n="canary-delete">Delete</button>
+                </div>
+            </div>
+        </div>`;
+    }
+
+    function buildCanaryEventRow(e) {
+        const icon = e.country ? '🌍' : '💻';
+        return `<div class="bg-deep/50 rounded-lg border border-cyber/50 p-3 flex items-start gap-3">
+            <span class="text-lg">${icon}</span>
+            <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                    <span class="text-blood font-mono text-sm font-bold">⚠ ACTIVATED</span>
+                    <span class="text-white text-sm">${canaryEscapeHtml(e.token_name || 'Unknown')}</span>
+                </div>
+                <div class="text-xs text-gray-400 mt-1">
+                    🕐 ${new Date(e.timestamp).toLocaleString()} |
+                    🌐 ${canaryEscapeHtml(e.ip)} |
+                    📱 ${canaryEscapeHtml(e.user_agent?.substring(0, 60))}
+                    ${e.country ? `| 📍 ${canaryEscapeHtml(e.country)}` : ''}
+                    ${e.referer ? `| 🔗 ${canaryEscapeHtml(e.referer)}` : ''}
+                </div>
+            </div>
+        </div>`;
+    }
+
+    window.copyCanaryValue = async function(tokenId) {
+        try {
+            const resp = await fetch('/api/canary/tokens');
+            const data = await resp.json();
+            const token = data.tokens?.find(t => t.id === tokenId);
+            if (token) {
+                await navigator.clipboard.writeText(token.value);
+                const btn = event?.target || document.querySelector(`[onclick*="${tokenId}"]`);
+                if (btn) {
+                    const orig = btn.textContent;
+                    btn.textContent = '✅';
+                    setTimeout(() => btn.textContent = orig, 1500);
+                }
+            }
+        } catch (err) {
+            console.error('Copy failed:', err);
+        }
+    };
+
+    window.deleteCanaryToken = async function(tokenId) {
+        if (!confirm('Delete this canary token? This cannot be undone.')) return;
+        try {
+            const resp = await fetch(`/api/canary/token/${tokenId}`, { method: 'DELETE' });
+            const data = await resp.json();
+            if (data.ok) {
+                await refreshCanaryTokens();
+            }
+        } catch (err) {
+            console.error('Delete failed:', err);
+        }
+    };
+
+    function showCanaryError(msg) {
+        const el = document.getElementById('canary-error');
+        if (el) { el.textContent = msg; el.classList.remove('hidden'); }
+    }
+
+    function hideCanaryError() {
+        document.getElementById('canary-error')?.classList.add('hidden');
+    }
+
+    function canaryEscapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // Auto-refresh on tab switch
+    const origCanarySwitch = window.switchTab;
+    window.switchTab = function(name) {
+        if (name === 'canary') {
+            refreshCanaryTokens();
+            refreshCanaryEvents();
+        }
+        if (origCanarySwitch) origCanarySwitch(name);
+    };
 });

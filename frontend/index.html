@@ -462,6 +462,10 @@
                 <button class="tab-btn" data-tab="exif" data-i18n="tabExif">
                     📷 EXIF
                 </button>
+                <button class="tab-btn" data-tab="canary" data-i18n="tabCanary">
+                    <span class="tab-icon">🪤</span>
+                    <span>Canary</span>
+                </button>
             </div>
 
             <!-- ── STATS BAR ── -->
@@ -1838,6 +1842,59 @@
 
                 <!-- Error -->
                 <div id="exif-error" class="hidden bg-blood/10 border border-blood rounded-lg p-4 text-blood text-sm mt-4"></div>
+            </div>
+
+            <!-- ════════════════════════════════════════════════════════
+                 TAB: CANARY TOKENS
+                 ════════════════════════════════════════════════════════ -->
+            <div id="tab-canary" class="tab-pane p-4 pt-3 overflow-y-auto">
+              <div class="flex items-center justify-between mb-6">
+                <h2 class="text-xl font-semibold text-neon" data-i18n="canary-title">🪤 Canary Tokens</h2>
+                <span id="canary-count" class="px-3 py-1 rounded-full text-xs bg-void border border-cyber text-gray-400">0 active</span>
+              </div>
+
+              <!-- Generate Form -->
+              <div class="bg-deep/50 rounded-xl p-5 border border-cyber mb-6">
+                <h3 class="text-neon font-semibold mb-4" data-i18n="canary-generate-title">Generate New Token</h3>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <select id="canary-type" class="bg-deep border border-cyber rounded px-3 py-2 text-white text-sm">
+                    <option value="api-key" data-i18n="canary-type-api">API Key</option>
+                    <option value="db-url" data-i18n="canary-type-db">Database URL</option>
+                    <option value="jwt" data-i18n="canary-type-jwt">JWT Token</option>
+                    <option value="aws-key" data-i18n="canary-type-aws">AWS Key</option>
+                    <option value="slack-token" data-i18n="canary-type-slack">Slack Token</option>
+                    <option value="generic-url" data-i18n="canary-type-url">Webhook URL</option>
+                    <option value="env-file" data-i18n="canary-type-env">.env File</option>
+                    <option value="config-file" data-i18n="canary-type-config">Config File</option>
+                  </select>
+                  <input id="canary-name" type="text" class="bg-deep border border-cyber rounded px-3 py-2 text-white text-sm placeholder-gray-600" placeholder="Token name (optional)">
+                  <input id="canary-notes" type="text" class="bg-deep border border-cyber rounded px-3 py-2 text-white text-sm placeholder-gray-600" placeholder="Notes (optional)">
+                  <button id="canary-generate-btn" class="px-4 py-2 bg-neon hover:bg-neon/80 text-deep rounded font-mono text-sm font-bold transition-colors" data-i18n="canary-generate-btn">+ Generate</button>
+                </div>
+              </div>
+
+              <!-- Loading -->
+              <div id="canary-loading" class="hidden text-center py-8">
+                <div class="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-neon mx-auto mb-3"></div>
+                <p class="text-gray-400 text-sm" data-i18n="canary-generating">Generating token...</p>
+              </div>
+
+              <!-- Tokens List -->
+              <div id="canary-tokens-section">
+                <h3 class="text-neon font-semibold mb-3" data-i18n="canary-tokens-title">Active Tokens</h3>
+                <div id="canary-tokens-list" class="space-y-3"></div>
+                <p id="canary-empty" class="text-center text-gray-600 py-8 italic" data-i18n="canary-empty">No tokens generated yet. Create one above.</p>
+              </div>
+
+              <!-- Events Log -->
+              <div id="canary-events-section" class="mt-8">
+                <h3 class="text-neon font-semibold mb-3" data-i18n="canary-events-title">Activation Events</h3>
+                <div id="canary-events-list" class="space-y-2"></div>
+                <p id="canary-events-empty" class="text-center text-gray-600 py-4 italic" data-i18n="canary-events-empty">No activation events recorded.</p>
+              </div>
+
+              <!-- Error -->
+              <div id="canary-error" class="hidden bg-blood/10 border border-blood rounded-lg p-4 text-blood text-sm mt-4"></div>
             </div>
 
         </main>

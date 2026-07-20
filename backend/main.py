@@ -41,7 +41,8 @@ _project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File, Form
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File, Form, Request
+from dataclasses import asdict
 from fastapi.responses import FileResponse, JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.cors import CORSMiddleware
@@ -919,6 +920,15 @@ async def api_hash_crack(hash: str = "", hashes: str = "", identify_only: bool =
 
 from backend.stego_tool import analyze as stego_analyze, report_to_mirv_findings as stego_to_mirv
 from backend.exif_osint import analyze_image as exif_analyze, analyze_url as exif_analyze_url, reverse_geocode as exif_reverse_geocode, report_to_mirv_findings as exif_to_mirv
+from backend.canary_tokens import (
+    generate_token as canary_generate,
+    list_tokens as canary_list,
+    get_token as canary_get,
+    activate_token as canary_activate,
+    get_events as canary_events,
+    delete_token as canary_delete,
+    report_to_mirv_findings as canary_to_mirv,
+)
 
 @app.get("/api/stego/analyze")
 async def api_stego_analyze(url: str = "", extract_lsb: bool = True, lsb_length: int = 4096):
@@ -1162,6 +1172,72 @@ async def api_exif_analyze_url(url: str = ""):
     except Exception as e:
         logger.error("EXIF URL analysis error: %s", e, exc_info=True)
         return JSONResponse({"ok": False, "error": f"EXIF analysis failed: {str(e)}"}, status_code=502)
+
+
+# ════════════════════════════════════════════════════════════════
+#  CANARY TOKENS — Honeytoken Detection System
+# ════════════════════════════════════════════════════════════════
+
+@app.post("/api/canary/token")
+async def api_canary_create(token_type: str = Form(...), name: str = Form(""), notes: str = Form("")):
+    """Generate a new canary / honeytoken."""
+    valid_types = [
+        "api-key", "db-url", "jwt", "aws-key",
+        "slack-token", "generic-url", "env-file", "config-file",
+    ]
+    if token_type not in valid_types:
+        return JSONResponse(
+            {"ok": False, "error": f"Invalid type. Must be one of: {', '.join(valid_types)}"},
+            status_code=422,
+        )
+    try:
+        token = canary_generate(token_type, name, notes)
+        findings = canary_to_mirv(token)
+        return JSONResponse({"ok": True, "token": asdict(token), "findings": findings})
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/canary/tokens")
+async def api_canary_list():
+    """List all active canary tokens."""
+    tokens = canary_list()
+    return JSONResponse({"ok": True, "tokens": tokens, "count": len(tokens)})
+
+
+@app.get("/api/canary/activate/{token_id}")
+async def api_canary_activate(token_id: str, request: Request):
+    """Endpoint hit when a canary token is used / stolen."""
+    ip = request.client.host if request.client else "unknown"
+    ua = request.headers.get("user-agent", "unknown")
+    referer = request.headers.get("referer")
+    event = canary_activate(token_id, ip, ua, referer)
+    if event is None:
+        return JSONResponse({"ok": False, "error": "Token not found or inactive"}, status_code=404)
+    token = canary_get(token_id)
+    findings = canary_to_mirv(token, event) if token else []
+    return JSONResponse({
+        "ok": True,
+        "message": "Token activated",
+        "event": asdict(event),
+        "findings": findings,
+    })
+
+
+@app.get("/api/canary/events")
+async def api_canary_events(token_id: str | None = None):
+    """List canary token activation events (optionally filtered by token)."""
+    events = canary_events(token_id)
+    return JSONResponse({"ok": True, "events": events, "count": len(events)})
+
+
+@app.delete("/api/canary/token/{token_id}")
+async def api_canary_delete(token_id: str):
+    """Deactivate / soft-delete a canary token."""
+    deleted = canary_delete(token_id)
+    if not deleted:
+        return JSONResponse({"ok": False, "error": "Token not found"}, status_code=404)
+    return JSONResponse({"ok": True, "message": "Token deleted"})
 
 
 # ════════════════════════════════════════════════════════════════
