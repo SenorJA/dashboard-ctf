@@ -1,0 +1,57 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    # Deploy runs as a separate workflow (cannot use `needs: ci` across files).
+    # CI on push to main should be passing first — see SECRETS.md.
+    # Skip bots to avoid unreviewed auto-deploys.
+    if: (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main') && github.actor != 'dependabot[bot]'
+    steps:
+      - uses: actions/checkout@v4
+
+      # ── Build & push mirv-backend image ──
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        if: vars.DOCKERHUB_USERNAME != ''
+        uses: docker/login-action@v3
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push mirv-backend
+        if: vars.DOCKERHUB_USERNAME != ''
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: backend/Dockerfile
+          push: true
+          tags: |
+            ${{ vars.DOCKERHUB_USERNAME }}/mirv-backend:latest
+            ${{ vars.DOCKERHUB_USERNAME }}/mirv-backend:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # ── Deploy to VPS via SSH ──
+      - name: Deploy to VPS
+        if: secrets.VPS_HOST != ''
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || '22' }}
+          script: |
+            cd ${{ secrets.VPS_DEPLOY_PATH || '/opt/mirv' }}
+            git pull origin main
+            docker compose -p proyectociber pull
+            docker compose -p proyectociber up -d --build
+            docker image prune -f
+            echo "Deploy ${{ github.sha }} complete"
