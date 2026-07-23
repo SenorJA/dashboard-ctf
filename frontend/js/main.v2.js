@@ -3158,7 +3158,8 @@ ${bodyHtml}
             canary: 16,
             dlp: 17,
             siem: 18,
-            plugins: 19
+            plugins: 19,
+            coverage: 20
         };
         if (panes[tabName] !== undefined) {
             btns[panes[tabName]].classList.add('active');
@@ -5653,6 +5654,23 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         "plugins-status-unloaded":{ en: 'Unloaded',          es: 'Descargado' },
         "plugins-status-error":   { en: 'Error',             es: 'Error' },
 
+        // ── Coverage Matrix ──
+        tabCoverage:               { en: '🧭 Coverage',          es: '🧭 Cobertura' },
+        "coverage-title":         { en: '🧭 Coverage Matrix',    es: '🧭 Matriz de Cobertura' },
+        "coverage-session-label": { en: 'Session',              es: 'Sesión' },
+        "coverage-pass-ratio":     { en: 'Pass ratio',           es: 'Ratio de aciertos' },
+        "coverage-stat-total":     { en: 'Total',                es: 'Total' },
+        "coverage-stat-tried":     { en: 'Tried',                es: 'Probadas' },
+        "coverage-stat-passed":    { en: 'Passed',               es: 'Aprobadas' },
+        "coverage-stat-failed":    { en: 'Failed',               es: 'Falladas' },
+        "coverage-stat-waf":       { en: 'WAF-Blocked',          es: 'Bloqueadas por WAF' },
+        "coverage-mark-title":     { en: 'Mark a coverage row',  es: 'Registrar fila de cobertura' },
+        "coverage-mark-btn":       { en: '✓ Mark',                es: '✓ Registrar' },
+        "coverage-suggest-to-finding": { en: '→ Send failed to Findings', es: '→ Enviar fallidas a Findings' },
+        "coverage-filter":         { en: 'Filter',                es: 'Filtro' },
+        "coverage-next-title":     { en: '🧭 Next steps (failed > untested > WAF)', es: '🧭 Próximos pasos (falladas > no probadas > WAF)' },
+        "coverage-clear-btn":      { en: 'Clear',                 es: 'Limpiar' },
+
         // ── Canary Tokens ──
         "canary-title":          { en: '🪤 Canary Tokens',           es: '🪤 Canary Tokens' },
         "canary-generate-title": { en: 'Generate New Token',         es: 'Generar Nuevo Token' },
@@ -7669,4 +7687,298 @@ Reglas:
     window.refreshPlugins = refreshPlugins;
     window.pluginAction = pluginAction;
     window.closePluginModal = closePluginModal;
+
+    // ════════════════════════════════════════════════════════════════
+    //  COVERAGE MATRIX MODULE
+    //  Tracks (endpoint, param, vuln_class) → status to drive /api/suggest
+    // ════════════════════════════════════════════════════════════════
+
+    const COV_VULN_LABELS = {
+        idor:'IDOR', ssrf:'SSRF', ssti:'SSTI', sqli:'SQLi', xss:'XSS',
+        jwt:'JWT', auth:'Auth', race:'Race', takeover:'Takeover',
+        graphql:'GraphQL', deserialize:'Deserialize', rce:'RCE', lfi:'LFI',
+        rfi:'RFI', 'open-redirect':'OpenRedirect', csrf:'CSRF',
+        'business-logic':'BizLogic', info:'Info', other:'Other'
+    };
+    const COV_STATUS_COLOR = {
+        'tried': 'text-gray-400',
+        'passed': 'text-green-400',
+        'failed': 'text-blood',
+        'waf-blocked': 'text-yellow-400',
+        'skipped': 'text-gray-600',
+        'untested': 'text-cyber'
+    };
+
+    function covEsc(s) {
+        if (s === null || s === undefined) return '';
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    function covActiveSession() {
+        const sel = document.getElementById('coverage-session-select');
+        return sel ? (sel.value || 'default') : 'default';
+    }
+
+    async function refreshCoverageSummary() {
+        try {
+            const r = await fetch(`/api/coverage/summary?session_id=${encodeURIComponent(covActiveSession())}`);
+            const d = await r.json();
+            if (!d.ok) return;
+            document.getElementById('cov-stat-total').textContent  = d.total ?? 0;
+            document.getElementById('cov-stat-tried').textContent  = (d.by_status && d.by_status['tried']) || 0;
+            document.getElementById('cov-stat-passed').textContent = (d.by_status && d.by_status['passed']) || 0;
+            document.getElementById('cov-stat-failed').textContent = (d.by_status && d.by_status['failed']) || 0;
+            document.getElementById('cov-stat-waf').textContent     = (d.by_status && d.by_status['waf-blocked']) || 0;
+            const ratio = Math.round((d.pass_ratio || 0) * 100);
+            document.getElementById('coverage-pass-ratio-text').textContent = `${ratio.toFixed(1)}%`;
+            document.getElementById('coverage-pass-bar').style.width = `${ratio}%`;
+            if (ratio >= 75) document.getElementById('coverage-pass-bar').style.background = '#22c55e';
+            else if (ratio >= 40) document.getElementById('coverage-pass-bar').style.background = '#a3e635';
+            else document.getElementById('coverage-pass-bar').style.background = '#ef4444';
+        } catch (e) { /* silent */ }
+    }
+
+    async function refreshCoverageEntries() {
+        const sid = covActiveSession();
+        const fs = document.getElementById('cov-filter-status').value;
+        const fv = document.getElementById('cov-filter-vuln').value;
+        const qs = new URLSearchParams({ session_id: sid });
+        if (fs) qs.set('status', fs);
+        if (fv) qs.set('vuln_class', fv);
+        qs.set('limit', '500');
+        try {
+            const r = await fetch(`/api/coverage/list?${qs.toString()}`);
+            const d = await r.json();
+            const tbody = document.getElementById('cov-entries-tbody');
+            if (!d.ok || !d.entries || !d.entries.length) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center text-gray-700 italic py-3">No coverage rows match the filter.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = d.entries.map(e => {
+                const notes = covEsc((e.notes || '').slice(0, 100));
+                const stColor = COV_STATUS_COLOR[e.status] || 'text-gray-400';
+                const ls = (e.last_seen || '').replace('T',' ').slice(0,19);
+                return `<tr class="border-b border-gray-900/40 hover:bg-void/40">
+                    <td class="px-2 py-1 font-mono">${covEsc(e.method)} ${covEsc(e.endpoint.replace(/^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s/, ''))}</td>
+                    <td class="px-2 py-1">${e.param ? covEsc(e.param) : '<span class="text-gray-700">—</span>'}</td>
+                    <td class="px-2 py-1">${COV_VULN_LABELS[e.vuln_class] || covEsc(e.vuln_class)}</td>
+                    <td class="px-2 py-1 ${stColor}">${covEsc(e.status)}</td>
+                    <td class="px-2 py-1">${e.count}</td>
+                    <td class="px-2 py-1 text-gray-600">${ls}</td>
+                    <td class="px-2 py-1 text-gray-500" title="${covEsc(e.notes||'')}">${notes}</td>
+                </tr>`;
+            }).join('');
+        } catch (e) { /* silent */ }
+    }
+
+    async function refreshCoverageNext() {
+        try {
+            const r = await fetch(`/api/coverage/next?session_id=${encodeURIComponent(covActiveSession())}&limit=10`);
+            const d = await r.json();
+            const el = document.getElementById('cov-next-list');
+            if (!d.ok || !d.suggestions || !d.suggestions.length) {
+                el.innerHTML = '<div class="text-gray-700 text-center py-2">No suggestions — mark a row first.</div>';
+                return;
+            }
+            el.innerHTML = d.suggestions.map(s => {
+                const st = s.status || 'untested';
+                const color = COV_STATUS_COLOR[st] || 'text-cyber';
+                const reason = s.reason ? `<span class="text-gray-700">[${covEsc(s.reason)}]</span> ` : '';
+                const param = s.param ? ` <span class="text-yellow-400">?${covEsc(s.param)}</span>` : '';
+                return `<div class="${color}">${reason}${covEsc(s.method)} ${covEsc(s.endpoint.replace(/^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s/, ''))}${param} → ${COV_VULN_LABELS[s.vuln_class] || s.vuln_class}</div>`;
+            }).join('');
+        } catch (e) { /* silent */ }
+    }
+
+    async function refreshCoverageSessions() {
+        try {
+            const r = await fetch('/api/coverage/sessions');
+            const d = await r.json();
+            const sel = document.getElementById('coverage-session-select');
+            if (!d.ok || !sel) return;
+            // Keep current selection if still listed
+            const prev = sel.value || 'default';
+            const sessions = d.sessions || [];
+            const ids = new Set(sessions.map(s => s.session_id));
+            ids.add('default');
+            sel.innerHTML = Array.from(ids).map(id => {
+                const meta = sessions.find(s => s.session_id === id);
+                const name = meta && meta.name ? meta.name : id;
+                return `<option value="${covEsc(id)}">${covEsc(name)}</option>`;
+            });
+            // Try to keep selection
+            if (Array.from(sel.options).some(o => o.value === prev)) sel.value = prev;
+        } catch (e) { /* silent */ }
+    }
+
+    async function refreshCoverage() {
+        await Promise.all([
+            refreshCoverageSummary(),
+            refreshCoverageEntries(),
+            refreshCoverageNext(),
+            refreshCoverageSessions()
+        ]);
+    }
+
+    async function markCoverage() {
+        const session_id = covActiveSession();
+        const payload = {
+            endpoint: document.getElementById('cov-input-endpoint').value.trim(),
+            method:   document.getElementById('cov-input-method').value.trim(),
+            path:     document.getElementById('cov-input-path').value.trim(),
+            param:    document.getElementById('cov-input-param').value.trim() || null,
+            vuln_class: document.getElementById('cov-input-vuln').value,
+            status:   document.getElementById('cov-input-status').value,
+            notes:    document.getElementById('cov-input-notes').value,
+            session_id
+        };
+        if (!payload.endpoint) { alert('Endpoint required'); return; }
+        try {
+            const r = await fetch('/api/coverage/mark', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const d = await r.json();
+            if (!d.ok) { alert('Coverage mark failed: ' + (d.error || 'unknown')); return; }
+            // Clear notes/keep the endpoint for repeated testing
+            document.getElementById('cov-input-notes').value = '';
+            refreshCoverage();
+        } catch (e) {
+            alert('Network error marking coverage.');
+        }
+    }
+
+    async function exportCoverageFile(format) {
+        try {
+            const r = await fetch(`/api/coverage/export?format=${format}&session_id=${encodeURIComponent(covActiveSession())}`);
+            const d = await r.json();
+            if (!d.ok) { alert('Export failed: ' + (d.error || 'unknown')); return; }
+            // Payload is returned inline as text; for JSON we pretty-print
+            let content = d.payload;
+            let mime = 'text/plain';
+            let ext = format === 'json' ? 'json' : (d.ext || format);
+            if (format === 'json') {
+                try { content = JSON.stringify(JSON.parse(content), null, 2); } catch (_) {}
+                mime = 'application/json';
+            } else if (ext === 'csv') {
+                mime = 'text/csv';
+            } else if (ext === 'md') {
+                mime = 'text/markdown';
+            }
+            if (typeof downloadString === 'function') {
+                downloadString(content, `coverage-${covActiveSession()}.${ext}`, mime);
+            } else {
+                const blob = new Blob([content], { type: mime });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = `coverage-${covActiveSession()}.${ext}`;
+                document.body.appendChild(a); a.click(); a.remove();
+                URL.revokeObjectURL(url);
+            }
+        } catch (e) {
+            alert('Network error exporting coverage.');
+        }
+    }
+
+    async function clearCoverage() {
+        const sid = covActiveSession();
+        if (!confirm(`Clear all coverage for session "${sid}"? This cannot be undone.`)) return;
+        try {
+            const qs = sid && sid !== 'default' ? `?session_id=${encodeURIComponent(sid)}` : '';
+            const r = await fetch('/api/coverage' + qs, { method: 'DELETE' });
+            const d = await r.json();
+            if (!d.ok) { alert('Clear failed: ' + (d.error || 'unknown')); return; }
+            refreshCoverage();
+        } catch (e) {
+            alert('Network error clearing coverage.');
+        }
+    }
+
+    async function sendFailedToFindings() {
+        // Promote every "failed" coverage row of this session to a MIRV finding
+        // (hooked into the existing findings system). We re-use the same shape
+        // the existing addFinding() expects; if window.addFinding is missing we
+        // log to terminal.
+        try {
+            const r = await fetch(`/api/coverage/list?session_id=${encodeURIComponent(covActiveSession())}&status=failed&limit=500`);
+            const d = await r.json();
+            if (!d.ok || !d.entries || !d.entries.length) {
+                appendOutput && appendOutput('[COVERAGE] No failed rows to promote.');
+                return;
+            }
+            let promoted = 0;
+            for (const e of d.entries) {
+                const finding = {
+                    tool: 'coverage-matrix',
+                    target: e.endpoint,
+                    severity: 'high',
+                    what: `${e.method} ${e.endpoint}${e.param ? ' (' + e.param + ')' : ''} — ${e.vuln_class.toUpperCase()}`,
+                    detail: e.notes || e.status
+                };
+                if (typeof window.addFinding === 'function') {
+                    window.addFinding(finding);
+                }
+                promoted++;
+            }
+            appendOutput && appendOutput(`[COVERAGE] Promoted ${promoted} failed rows to findings.`);
+        } catch (e) {
+            appendOutput && appendOutput('[COVERAGE] Failed to promote rows: ' + e.message);
+        }
+    }
+
+    // Populate the vuln class selects the first time the tab opens
+    function covPopulateVulnSelects() {
+        const labels = COV_VULN_LABELS;
+        const order = ['idor','ssrf','ssti','sqli','xss','jwt','auth','race','takeover','graphql','deserialize','rce','lfi','rfi','open-redirect','csrf','business-logic','info','other'];
+        const optsMark = order.map(v => `<option value="${v}">${labels[v]}</option>`).join('');
+        const optsFilter = `<option value="">all classes</option>` + order.map(v => `<option value="${v}">${labels[v]}</option>`).join('');
+        const m = document.getElementById('cov-input-vuln');
+        const f = document.getElementById('cov-filter-vuln');
+        if (m && !m.options.length) m.innerHTML = optsMark;
+        if (f && f.options.length <= 1) f.innerHTML = optsFilter;
+    }
+
+    // Wire event listeners (idempotent — guarded with __covBound flag)
+    function covBindEvents() {
+        if (window.__covBound) return;
+        window.__covBound = true;
+        document.getElementById('coverage-refresh-btn')?.addEventListener('click', refreshCoverage);
+        document.getElementById('cov-btn-mark')?.addEventListener('click', markCoverage);
+        document.getElementById('cov-btn-suggest')?.addEventListener('click', sendFailedToFindings);
+        document.getElementById('cov-btn-export-json')?.addEventListener('click', () => exportCoverageFile('json'));
+        document.getElementById('cov-btn-export-csv')?.addEventListener('click',  () => exportCoverageFile('csv'));
+        document.getElementById('cov-btn-export-md')?.addEventListener('click',   () => exportCoverageFile('md'));
+        document.getElementById('cov-btn-clear')?.addEventListener('click', clearCoverage);
+        document.getElementById('cov-filter-status')?.addEventListener('change', refreshCoverageEntries);
+        document.getElementById('cov-filter-vuln')?.addEventListener('change', refreshCoverageEntries);
+        document.getElementById('coverage-session-select')?.addEventListener('change', refreshCoverage);
+        // Enter-to-submit in the endpoint/notes inputs
+        ['cov-input-endpoint','cov-input-path','cov-input-param','cov-input-notes'].forEach(id => {
+            document.getElementById(id)?.addEventListener('keydown', (ev) => {
+                if (ev.key === 'Enter' && (ev.ctrlKey || id === 'cov-input-endpoint' || id === 'cov-input-path' || id === 'cov-input-param')) {
+                    ev.preventDefault();
+                    markCoverage();
+                }
+            });
+        });
+    }
+
+    // Auto-refresh on tab switch (wrap existing switchTab)
+    const _origSwitchTabCoverage = window.switchTab;
+    window.switchTab = function(name) {
+        if (name === 'coverage') {
+            covPopulateVulnSelects();
+            covBindEvents();
+            refreshCoverage();
+        }
+        if (_origSwitchTabCoverage) _origSwitchTabCoverage(name);
+    };
+
+    // Expose globals
+    window.refreshCoverage = refreshCoverage;
+    window.markCoverage = markCoverage;
+    window.exportCoverageFile = exportCoverageFile;
+    window.clearCoverage = clearCoverage;
+    window.sendFailedToFindings = sendFailedToFindings;
 });

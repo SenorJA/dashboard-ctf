@@ -64,6 +64,16 @@ from backend.mission_store import (
 )
 from backend import database as _db_module  # alias used by mission delete endpoint
 
+# ── Global Redaction system (secrets/PII masking across trust boundaries) ──
+from backend.redact import (
+    redact_string,
+    redact_dict,
+    redact_ai_payload,
+    is_sensitive_value,
+    list_redaction_matches,
+    REDACT_PATTERNS,
+)
+
 # ── New CRUD functions (Phases 7-10: plans, events, swarm, secrets) ──
 from backend.database import (
     save_mission_plan, list_mission_plans, delete_mission_plan,
@@ -93,6 +103,25 @@ from backend.forensics import (
     get_evidence as forensics_get,
     delete_evidence as forensics_delete,
     run_tool as forensics_run_tool,
+)
+
+# ── Coverage Tracking matrix (endpoint, param, vuln_class) ──
+from backend.coverage import (
+    mark_coverage as cov_mark,
+    list_coverage as cov_list,
+    coverage_summary as cov_summary,
+    untested_endpoints as cov_untested,
+    next_steps as cov_next,
+    clear_coverage as cov_clear,
+    save_session as cov_save_session,
+    list_sessions as cov_sessions,
+    export_coverage as cov_export,
+    coverage_context_for_prompt as cov_context,
+    CoverageEntry as CovEntry,
+)
+from backend.coverage import (
+    ALLOWED_VULN_CLASSES as COV_VULN_CLASSES,
+    ALLOWED_STATUSES as COV_STATUSES,
 )
 
 app = FastAPI(title="VulnForge", version=VERSION)
@@ -526,6 +555,17 @@ async def suggest_next_step(req: SuggestRequest):
         if context:
             system = f"{system}\n\n{context}"
 
+        # ── Coverage matrix context (next-steps grounding) ──
+        # Defensive: an empty matrix yields an empty string and the
+        # suggest prompt is left untouched.
+        try:
+            cov_block = cov_context(session_id=None, limit=12)
+        except Exception as e:
+            logger.warning("[suggest] coverage context build failed: %s", e)
+            cov_block = ""
+        if cov_block:
+            system = f"{system}\n\n{cov_block}"
+
         messages = [{"role": "system", "content": _clean_text(system)}]
 
         # Add history
@@ -565,12 +605,20 @@ class AIChatRequest(BaseModel):
 
 @app.post("/api/ai/chat")
 async def ai_chat(req: AIChatRequest):
-    """Generic AI chat endpoint — reusable by any frontend section."""
+    """Generic AI chat endpoint — reusable by any frontend section.
+
+    User-supplied messages are redacted via :func:`redact_ai_payload`
+    BEFORE being forwarded to the external LLM provider, so secrets in
+    tool output / clipboard never leak to OpenAI / Anthropic / ...
+    AI responses are returned verbatim (not redacted).
+    """
     try:
         if not req.api_key and req.provider != "local":
             return JSONResponse({"ok": False, "error": "API key is required"}, status_code=400)
+        # Redact secrets in the prompt before it crosses the trust boundary
+        safe_messages = redact_ai_payload(req.messages) if req.messages else []
         result = await asyncio.to_thread(
-            _call_llm_sync, req.provider, req.api_key, req.model, req.messages, 60
+            _call_llm_sync, req.provider, req.api_key, req.model, safe_messages, 60
         )
         return JSONResponse({"ok": True, "content": result})
     except urllib.error.HTTPError as e:
@@ -578,6 +626,66 @@ async def ai_chat(req: AIChatRequest):
         return JSONResponse({"ok": False, "error": f"[{req.provider}] {e.code}: {body}"}, status_code=502)
     except Exception as e:
         return JSONResponse({"ok": False, "error": f"[{req.provider}] model={req.model}: {e}"}, status_code=500)
+
+# ════════════════════════════════════════════════════════════════
+#  GLOBAL REDACTION API
+# ════════════════════════════════════════════════════════════════
+
+class RedactRequest(BaseModel):
+    text: str = ""
+
+
+@app.post("/api/redact")
+async def api_redact(req: RedactRequest):
+    """Redact sensitive data from a free-text string."""
+    try:
+        return JSONResponse({"ok": True, "redacted": redact_string(req.text or "")})
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/redact/dict")
+async def api_redact_dict(payload: dict = Body(default={})):
+    """Recursively redact all string values inside an arbitrary dict.
+
+    Shape is preserved (keys, order, nesting) — only sensitive values
+    are replaced with deterministic placeholders.
+    """
+    try:
+        return JSONResponse({"ok": True, "redacted": redact_dict(payload or {})})
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/redact/patterns")
+async def api_redact_patterns():
+    """Return the list of active redaction patterns (for debugging / docs)."""
+    try:
+        patterns = [
+            {
+                "index": i,
+                "pattern": p.pattern,
+                "replacement": "[callback]" if callable(r) else r,
+            }
+            for i, (p, r) in enumerate(REDACT_PATTERNS)
+        ]
+        return JSONResponse({"ok": True, "count": len(patterns), "patterns": patterns})
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/redact/check")
+async def api_redact_check(req: RedactRequest):
+    """Return whether ``text`` contains sensitive data, plus match details."""
+    try:
+        matches = list_redaction_matches(req.text or "")
+        return JSONResponse({
+            "ok": True,
+            "sensitive": bool(matches),
+            "matches": matches,
+        })
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 
 # ════════════════════════════════════════════════════════════════
 #  FINDINGS API (persistent storage)
@@ -1621,6 +1729,140 @@ async def api_plugin_call_hook(hook_name: str, request: Request):
         return JSONResponse({"ok": True, "hook": hook_name, "results": results})
     except Exception as e:
         logger.error("[plugins hook] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+# ════════════════════════════════════════════════════════════════
+#  SKILL PLAYBOOKS
+# ════════════════════════════════════════════════════════════════
+
+from backend.skill_playbooks import (
+    discover_skills as sp_discover,
+    list_skills as sp_list,
+    get_skill_info as sp_info,
+    load_skill as sp_load,
+    unload_skill as sp_unload,
+    enable_skill as sp_enable,
+    disable_skill as sp_disable,
+    reload_skill as sp_reload,
+    render_skill_for_prompt as sp_render,
+    create_skill_template as sp_create_template,
+)
+
+
+@app.get("/api/skills")
+async def api_skills_list():
+    """List all discovered skill playbooks."""
+    try:
+        sp_discover()  # refresh in case new skills were added on disk
+        return JSONResponse({"ok": True, "skills": sp_list()})
+    except Exception as e:
+        logger.error("[skills list] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/skills/{name}")
+async def api_skill_info(name: str):
+    """Get detailed info for a single skill playbook."""
+    try:
+        info = sp_info(name)
+        if not info:
+            return JSONResponse({"ok": False, "error": "Skill not found"}, status_code=404)
+        return JSONResponse({"ok": True, "skill": info})
+    except Exception as e:
+        logger.error("[skills info] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/skills/{name}/load")
+async def api_skill_load(name: str):
+    """Load a skill: enable it and refresh its body/payloads."""
+    try:
+        result = sp_load(name)
+        return JSONResponse(result, status_code=200 if result.get("ok") else 400)
+    except Exception as e:
+        logger.error("[skills load] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/skills/{name}/unload")
+async def api_skill_unload(name: str):
+    """Unload a skill: mark disabled."""
+    try:
+        result = sp_unload(name)
+        return JSONResponse(result, status_code=200 if result.get("ok") else 400)
+    except Exception as e:
+        logger.error("[skills unload] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/skills/{name}/enable")
+async def api_skill_enable(name: str):
+    """Enable a skill — its body will be injected into AI prompts."""
+    try:
+        result = sp_enable(name)
+        return JSONResponse(result, status_code=200 if result.get("ok") else 400)
+    except Exception as e:
+        logger.error("[skills enable] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/skills/{name}/disable")
+async def api_skill_disable(name: str):
+    """Disable a skill — its body will not be injected."""
+    try:
+        result = sp_disable(name)
+        return JSONResponse(result, status_code=200 if result.get("ok") else 400)
+    except Exception as e:
+        logger.error("[skills disable] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/skills/{name}/reload")
+async def api_skill_reload(name: str):
+    """Re-discover and reload a skill from disk."""
+    try:
+        result = sp_reload(name)
+        return JSONResponse(result, status_code=200 if result.get("ok") else 400)
+    except Exception as e:
+        logger.error("[skills reload] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/skills/{name}/render")
+async def api_skill_render(name: str):
+    """Return the rendered markdown body for AI injection (empty if disabled)."""
+    try:
+        body = sp_render(name)
+        if not body:
+            # skill missing or disabled — still return 200 with empty string
+            info = sp_info(name)
+            if not info:
+                return JSONResponse({"ok": False, "error": "Skill not found"}, status_code=404)
+            return JSONResponse({"ok": True, "name": name, "body": "", "enabled": False})
+        return JSONResponse({"ok": True, "name": name, "body": body, "enabled": True})
+    except Exception as e:
+        logger.error("[skills render] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/skills/create")
+async def api_skills_create(request: Request):
+    """Scaffold a new skill template in ~/.mirv/skills/{name}/SKILL.md."""
+    try:
+        body = await request.json()
+        name = str(body.get("name", "")).strip()
+        if not name:
+            return JSONResponse({"ok": False, "error": "Missing 'name'"}, status_code=400)
+        result = sp_create_template(
+            name=name,
+            category=body.get("category", "custom"),
+            description=body.get("description", ""),
+            allowed_tools=body.get("allowed_tools", []),
+        )
+        return JSONResponse(result, status_code=200 if result.get("ok") else 400)
+    except Exception as e:
+        logger.error("[skills create] %s", e)
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 
 
@@ -3629,6 +3871,162 @@ async def secret_delete(key: str):
     if ok is None:
         return JSONResponse({"ok": False, "error": "DB unavailable"}, status_code=503)
     return JSONResponse({"ok": ok})
+
+
+# ════════════════════════════════════════════════════════════════
+#  COVERAGE TRACKING API — (endpoint, param, vuln_class) matrix
+#  Feeds /api/suggest + Op Admiral with prioritized "next steps".
+# ════════════════════════════════════════════════════════════════
+
+class CoverageMarkRequest(BaseModel):
+    endpoint: str
+    method: str = "GET"
+    path: str = ""
+    param: str | None = None
+    vuln_class: str
+    status: str
+    notes: str = ""
+    session_id: str = "default"
+
+
+@app.post("/api/coverage/mark")
+async def coverage_mark(req: CoverageMarkRequest):
+    """Insert or update a coverage row (dedupes by endpoint+param+vuln_class)."""
+    try:
+        result = cov_mark(
+            endpoint=req.endpoint,
+            method=req.method,
+            path=req.path or req.endpoint,
+            param=req.param,
+            vuln_class=req.vuln_class,
+            status=req.status,
+            notes=req.notes,
+            session_id=req.session_id or "default",
+        )
+        if not result.get("ok"):
+            return JSONResponse(result, status_code=400)
+        return JSONResponse(result)
+    except Exception as e:
+        logger.exception("[coverage] mark failed")
+        return JSONResponse({"ok": False, "error": f"[coverage] mark failed: {e}"}, status_code=500)
+
+
+@app.get("/api/coverage/list")
+async def coverage_list(
+    session_id: str | None = None,
+    status: str | None = None,
+    vuln_class: str | None = None,
+    limit: int = 200,
+):
+    """List coverage rows with optional filters."""
+    try:
+        rows = cov_list(session_id=session_id, status=status, vuln_class=vuln_class, limit=limit)
+        return JSONResponse({"ok": True, "count": len(rows), "entries": rows})
+    except Exception as e:
+        logger.exception("[coverage] list failed")
+        return JSONResponse({"ok": False, "error": f"[coverage] list failed: {e}"}, status_code=500)
+
+
+@app.get("/api/coverage/summary")
+async def coverage_get_summary(session_id: str | None = None):
+    """Roll up totals: by_status, by_vuln_class, pass/failed ratio."""
+    try:
+        return JSONResponse({"ok": True, **cov_summary(session_id=session_id)})
+    except Exception as e:
+        logger.exception("[coverage] summary failed")
+        return JSONResponse({"ok": False, "error": f"[coverage] summary failed: {e}"}, status_code=500)
+
+
+@app.get("/api/coverage/untested")
+async def coverage_untested(session_id: str | None = None):
+    """Return (endpoint, param, vuln_class) combinations still missing."""
+    try:
+        rows = cov_untested(session_id=session_id)
+        return JSONResponse({"ok": True, "count": len(rows), "entries": rows})
+    except Exception as e:
+        logger.exception("[coverage] untested failed")
+        return JSONResponse({"ok": False, "error": f"[coverage] untested failed: {e}"}, status_code=500)
+
+
+@app.get("/api/coverage/next")
+async def coverage_next(session_id: str | None = None, limit: int = 10):
+    """Prioritised next tests: failed > untested > waf-blocked."""
+    try:
+        rows = cov_next(session_id=session_id, limit=limit)
+        return JSONResponse({"ok": True, "count": len(rows), "suggestions": rows})
+    except Exception as e:
+        logger.exception("[coverage] next failed")
+        return JSONResponse({"ok": False, "error": f"[coverage] next failed: {e}"}, status_code=500)
+
+
+@app.delete("/api/coverage")
+async def coverage_clear(session_id: str | None = None):
+    """Clear coverage rows. If session_id provided, only that session."""
+    try:
+        return JSONResponse(cov_clear(session_id=session_id))
+    except Exception as e:
+        logger.exception("[coverage] clear failed")
+        return JSONResponse({"ok": False, "error": f"[coverage] clear failed: {e}"}, status_code=500)
+
+
+class CoverageSessionSaveRequest(BaseModel):
+    session_id: str
+    name: str = ""
+
+
+@app.post("/api/coverage/sessions")
+async def coverage_save_session(req: CoverageSessionSaveRequest):
+    """Persist session metadata (name + entry count)."""
+    try:
+        result = cov_save_session(req.session_id, req.name or None)
+        if not result.get("ok"):
+            return JSONResponse(result, status_code=400)
+        return JSONResponse(result)
+    except Exception as e:
+        logger.exception("[coverage] save-session failed")
+        return JSONResponse({"ok": False, "error": f"[coverage] save-session failed: {e}"}, status_code=500)
+
+
+@app.get("/api/coverage/sessions")
+async def coverage_list_sessions():
+    """List saved coverage sessions."""
+    try:
+        return JSONResponse({"ok": True, "sessions": cov_sessions()})
+    except Exception as e:
+        logger.exception("[coverage] sessions failed")
+        return JSONResponse({"ok": False, "error": f"[coverage] sessions failed: {e}"}, status_code=500)
+
+
+@app.get("/api/coverage/export")
+async def coverage_export(session_id: str | None = None, format: str = "json"):
+    """Export the coverage matrix as json | csv | md.
+
+    JSON is returned inline; CSV/Markdown are returned as text downloads
+    so the browser triggers a Save-as prompt.
+    """
+    try:
+        fmt = (format or "json").strip().lower()
+        if fmt == "json":
+            return JSONResponse({"ok": True, "payload": cov_export(session_id=session_id, format="json")})
+        if fmt in ("csv", "md", "markdown"):
+            body = cov_export(session_id=session_id, format=fmt)
+            ext = "md" if fmt in ("md", "markdown") else "csv"
+            media = "text/markdown" if ext == "md" else "text/csv"
+            return JSONResponse({"ok": True, "ext": ext, "media": media, "payload": body})
+        return JSONResponse({"ok": False, "error": f"Unsupported format '{format}'. Use json|csv|md."}, status_code=400)
+    except Exception as e:
+        logger.exception("[coverage] export failed")
+        return JSONResponse({"ok": False, "error": f"[coverage] export failed: {e}"}, status_code=500)
+
+
+@app.get("/api/coverage/vocab")
+async def coverage_vocab():
+    """Return the controlled vocabularies used by the matrix (frontend selects)."""
+    return JSONResponse({
+        "ok": True,
+        "vuln_classes": COV_VULN_CLASSES,
+        "statuses": COV_STATUSES,
+    })
 
 
 # ════════════════════════════════════════════════════════════════

@@ -45,6 +45,7 @@ import logging
 from typing import Optional
 
 from backend import database as db
+from backend.redact import redact_dict as _redact_dict
 
 logger = logging.getLogger("vulnforge.missions")
 
@@ -93,14 +94,19 @@ def save_mission(data: dict) -> dict | None:
         logger.warning("save_mission: refusing row with empty target")
         return None
 
+    # Redact any secrets that may have slipped into findings/tool
+    # output BEFORE persisting (this content is later fed to the AI
+    # suggest loop, so we must not leak credentials/tokens to the LLM).
+    safe_data = _redact_dict(data)
+
     row = {
-        "target": target,
-        "os_detected": data.get("os_detected", ""),
-        "tools_used": json.dumps(data.get("tools_used", [])),
-        "findings_count": int(data.get("findings_count", 0) or 0),
-        "findings_summary": json.dumps(data.get("findings_summary", [])),
-        "plan_steps": int(data.get("plan_steps", 0) or 0),
-        "success_score": int(data.get("success_score", 0) or 0),
+        "target": safe_data.get("target", target),
+        "os_detected": safe_data.get("os_detected", ""),
+        "tools_used": json.dumps(safe_data.get("tools_used", [])),
+        "findings_count": int(safe_data.get("findings_count", 0) or 0),
+        "findings_summary": json.dumps(safe_data.get("findings_summary", [])),
+        "plan_steps": int(safe_data.get("plan_steps", 0) or 0),
+        "success_score": int(safe_data.get("success_score", 0) or 0),
     }
 
     tbl = db._table(_TABLE)
