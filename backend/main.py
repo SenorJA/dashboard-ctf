@@ -19,6 +19,7 @@ import logging
 import urllib.request
 import urllib.error
 from datetime import datetime
+from typing import Any, Optional
 
 # ── Production mode detection ──
 # If run WITHOUT --reload, we're in production mode
@@ -74,6 +75,17 @@ from backend.redact import (
     REDACT_PATTERNS,
 )
 
+# ── Structured JSON-lines audit logger (rotation + redaction + SIEM forward) ──
+from backend.audit_log import (
+    audit as al_audit,
+    init_audit_log as al_init,
+    get_recent_logs as al_recent,
+    get_log_stats as al_stats,
+    get_audit_logger as al_logger,
+    AuditLogHandler,
+    CATEGORIES as AL_CATEGORIES,
+)
+
 # ── New CRUD functions (Phases 7-10: plans, events, swarm, secrets) ──
 from backend.database import (
     save_mission_plan, list_mission_plans, delete_mission_plan,
@@ -123,6 +135,28 @@ from backend.coverage import (
     ALLOWED_VULN_CLASSES as COV_VULN_CLASSES,
     ALLOWED_STATUSES as COV_STATUSES,
 )
+
+# ── Burp Bridge (Burp Suite ↔ MIRV request ingestion + findings export) ──
+from backend.burp_bridge import (
+    ingest_request as bb_ingest,
+    list_requests as bb_list,
+    get_request as bb_get,
+    list_endpoints as bb_endpoints,
+    queue_task as bb_task,
+    list_tasks as bb_tasks,
+    update_task as bb_update_task,
+    add_issue as bb_issue,
+    list_issues as bb_issues,
+    finding_to_burp_issue as bb_to_issue,
+    request_to_raw_http as bb_raw,
+    export_findings_as_burp as bb_export,
+    clear_all as bb_clear,
+    status as bb_status,
+    report_to_mirv_findings as bb_report,
+    ingest_snapshot as bb_snapshot,
+    verify_token as bb_verify_token,
+)
+from backend.burp_bridge import CapturedRequest as BBCapturedRequest
 
 app = FastAPI(title="VulnForge", version=VERSION)
 
@@ -1620,6 +1654,108 @@ async def api_siem_findings():
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 
 
+# ══════════════════════════════════════════════════════════════════
+#  AUDIT LOG  — Structured JSON-lines audit trail with rotation,
+#  secret redaction, and automatic SIEM forwarding.
+# ══════════════════════════════════════════════════════════════════
+
+class AuditEntryRequest(BaseModel):
+    """Manual audit entry created from the frontend."""
+    level: str = "INFO"
+    category: str = "system"
+    event: str = "manual_entry"
+    message: str = ""
+    details: dict | None = None
+    user: str | None = None
+    ip: str | None = None
+    target: str | None = None
+    session_id: str | None = None
+
+
+@app.get("/api/audit/logs")
+async def api_audit_logs(
+    limit: int = 200,
+    level: str = "",
+    category: str = "",
+    event: str = "",
+    since: str = "",
+):
+    """
+    Return recent audit log entries (newest-first) with optional filters.
+
+    Query params (all optional):
+        limit     -- max rows to return     (default 200, capped at 5000)
+        level     -- DEBUG | INFO | WARNING | ERROR | CRITICAL
+        category  -- auth | tool | finding | report | plugin | siem |
+                     system | api | ws | docker | scope
+        event     -- exact event name match
+        since     -- ISO timestamp; only entries at/after this time
+    """
+    try:
+        rows = al_recent(
+            limit=limit,
+            level=level or None,
+            category=category or None,
+            event=event or None,
+            since=since or None,
+        )
+        return JSONResponse({"ok": True, "logs": rows, "count": len(rows)})
+    except Exception as e:
+        logger.error("[audit logs] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/audit/stats")
+async def api_audit_stats():
+    """Return aggregate audit-log statistics for the dashboard."""
+    try:
+        stats = al_stats()
+        return JSONResponse(stats)
+    except Exception as e:
+        logger.error("[audit stats] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/audit")
+async def api_audit_create(body: AuditEntryRequest):
+    """
+    Manually append a structured audit entry. Useful for the frontend
+    to record UI-level security events (login, scope changes, ...).
+
+    The backend still redacts ``message`` and ``details`` and forwards
+    to the SIEM engine when ``level`` is at or above the SIEM threshold.
+    """
+    try:
+        level_u = (body.level or "INFO").upper()
+        if level_u not in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}:
+            return JSONResponse(
+                {"ok": False, "error": "Invalid level"},
+                status_code=422,
+            )
+        if body.category and body.category not in AL_CATEGORIES:
+            # Don't hard-reject: unknown categories are allowed for forward
+            # compatibility with plugins, but normalise empty to "system".
+            pass
+        result = al_audit(
+            level=level_u,
+            category=body.category or "system",
+            event=body.event or "manual_entry",
+            message=body.message or "",
+            user=body.user,
+            ip=body.ip,
+            target=body.target,
+            session_id=body.session_id,
+            details=body.details,
+        )
+        if not result.get("ok"):
+            return JSONResponse(result, status_code=422)
+        # ``skipped`` is a soft success (below min level) -> still 200 ok
+        return JSONResponse(result)
+    except Exception as e:
+        logger.error("[audit create] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
 # ════════════════════════════════════════════════════════════════
 #  PLUGIN MANAGEMENT
 # ════════════════════════════════════════════════════════════════
@@ -1633,6 +1769,10 @@ from backend.plugin_manager import (
     enable_plugin as pm_enable,
     disable_plugin as pm_disable,
     call_hook as pm_call_hook,
+    start_watcher as pm_start_watch,
+    stop_watcher as pm_stop_watch,
+    list_watch_events as pm_watch_events,
+    watcher_status as pm_watch_status,
 )
 
 
@@ -1729,6 +1869,63 @@ async def api_plugin_call_hook(hook_name: str, request: Request):
         return JSONResponse({"ok": True, "hook": hook_name, "results": results})
     except Exception as e:
         logger.error("[plugins hook] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+# ════════════════════════════════════════════════════════════════
+#  PLUGIN HOT-RELOAD WATCHER  (fs.watch-style)
+# ════════════════════════════════════════════════════════════════
+
+class WatcherStartBody(BaseModel):
+    """Body for ``POST /api/plugins/watcher/start``.
+
+    ``auto_load_new`` defaults to False for security: auto-executing Python
+    code just because a new file appeared on disk is dangerous and must be
+    opt-in.
+    """
+    auto_load_new: bool = False
+
+
+@app.post("/api/plugins/watcher/start")
+async def api_plugin_watcher_start(body: WatcherStartBody | None = None):
+    """Start the hot-reload file-system watcher (idempotent)."""
+    try:
+        auto_load = bool(body.auto_load_new) if body is not None else False
+        pm_start_watch(auto_load_new=auto_load)
+        return JSONResponse({"ok": True, "status": pm_watch_status()})
+    except Exception as e:
+        logger.error("[plugins watcher start] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/plugins/watcher/stop")
+async def api_plugin_watcher_stop():
+    """Stop the hot-reload watcher."""
+    try:
+        pm_stop_watch()
+        return JSONResponse({"ok": True, "status": pm_watch_status()})
+    except Exception as e:
+        logger.error("[plugins watcher stop] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/plugins/watcher/events")
+async def api_plugin_watcher_events():
+    """Return the last watcher events (max 50, ring buffer)."""
+    try:
+        return JSONResponse({"ok": True, "events": pm_watch_events()})
+    except Exception as e:
+        logger.error("[plugins watcher events] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/plugins/watcher/status")
+async def api_plugin_watcher_status():
+    """Return current watcher state: watching, plugin_count, auto_load_new."""
+    try:
+        return JSONResponse({"ok": True, "status": pm_watch_status()})
+    except Exception as e:
+        logger.error("[plugins watcher status] %s", e)
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 
 
@@ -2029,11 +2226,36 @@ async def _record_startup():
     app._start_time = datetime.utcnow()
     # Initialize Mobile Lab work directory
     mobile_init_work_dir()
+    # Initialize structured JSONL audit logger (rotation + redaction + SIEM)
+    try:
+        al_init()
+        # Mirror existing logger.info(...) calls into the JSONL audit trail
+        logger.addHandler(AuditLogHandler(category="system"))
+        al_audit("INFO", "system", "startup", "VulnForge backend started")
+    except Exception as _al_exc:
+        logger.warning("audit log init failed: %s", _al_exc)
     if PRODUCTION:
         logger.info("VulnForge ready — production mode")
     else:
         logger.info("VulnForge ready — development mode (--reload)")
     logger.info("Mobile Lab initialized")
+    # Start the plugin hot-reload watcher. auto_load_new defaults to False
+    # for security (don't auto-execute Python just because a file appeared).
+    try:
+        pm_start_watch(auto_load_new=False)
+        logger.info("Plugin hot-reload watcher started (auto_load_new=False)")
+    except Exception as e:
+        logger.warning("Plugin watcher failed to start: %s", e)
+
+
+@app.on_event("shutdown")
+async def _stop_plugin_watcher():
+    """Stop the plugin hot-reload watcher cleanly on server shutdown."""
+    try:
+        pm_stop_watch()
+        logger.info("Plugin hot-reload watcher stopped")
+    except Exception as e:
+        logger.warning("Plugin watcher failed to stop: %s", e)
 
 # ── kali-mcp API ──
 
@@ -4027,6 +4249,267 @@ async def coverage_vocab():
         "vuln_classes": COV_VULN_CLASSES,
         "statuses": COV_STATUSES,
     })
+
+
+# ════════════════════════════════════════════════════════════════
+#  Burp Bridge — Burp Suite ↔ MIRV request ingestion + findings export
+# ════════════════════════════════════════════════════════════════
+
+class BurpIngestModel(BaseModel):
+    method: str = "GET"
+    url: str
+    headers: Optional[Any] = None
+    body: Optional[str] = None
+    response_status: Optional[int] = None
+    response_headers: Optional[Any] = None
+    response_body: Optional[str] = None
+    source: str = "burp"
+
+
+class BurpTaskModel(BaseModel):
+    request_id: str
+
+
+class BurpTaskStatusModel(BaseModel):
+    status: str
+
+
+class BurpIssueModel(BaseModel):
+    title: str
+    severity: str = "info"
+    url: str
+    method: str = "GET"
+    request_raw: str = ""
+    finding_id: Optional[str] = None
+
+
+class BurpRawModel(BaseModel):
+    request_id: str
+
+
+class BurpSnapshotModel(BaseModel):
+    page_url: str
+    cookies: Optional[Any] = None
+    local_storage: Optional[Any] = None
+    session_storage: Optional[Any] = None
+
+
+def _bb_check_token(request: Request) -> JSONResponse | None:
+    """Validate the X-MIRV-Token header for protected bridge endpoints.
+    Returns None when ok, or a JSONResponse 401 when rejected."""
+    provided = request.headers.get("X-MIRV-Token")
+    if not bb_verify_token(provided):
+        return JSONResponse({"ok": False, "error": "invalid or missing token"}, status_code=401)
+    return None
+
+
+@app.post("/api/burp/ingest")
+async def burp_ingest(payload: BurpIngestModel, request: Request):
+    """Receive a captured HTTP request from the Burp plugin (or browser)."""
+    err = _bb_check_token(request)
+    if err:
+        return err
+    try:
+        return JSONResponse(bb_ingest(
+            method=payload.method,
+            url=payload.url,
+            headers=payload.headers,
+            body=payload.body,
+            response_status=payload.response_status,
+            response_headers=payload.response_headers,
+            response_body=payload.response_body,
+            source=payload.source,
+        ))
+    except Exception as e:
+        logger.exception("burp ingest failed")
+        return JSONResponse({"ok": False, "error": "ingest failed"}, status_code=500)
+
+
+@app.get("/api/burp/requests")
+async def burp_requests(
+    request: Request,
+    limit: int = 50,
+    offset: int = 0,
+    method: Optional[str] = None,
+    path: Optional[str] = None,
+    status: Optional[int] = None,
+):
+    """List captured requests with filters and pagination."""
+    try:
+        return JSONResponse({"ok": True, "requests": bb_list(
+            limit=limit, offset=offset, method=method,
+            path_filter=path, status=status,
+        )})
+    except Exception as e:
+        logger.exception("burp list failed")
+        return JSONResponse({"ok": False, "error": "list failed"}, status_code=500)
+
+
+@app.get("/api/burp/requests/{req_id}")
+async def burp_request(req_id: str, request: Request):
+    """Return a single captured request by id."""
+    try:
+        r = bb_get(req_id)
+        if not r:
+            return JSONResponse({"ok": False, "error": "not found"}, status_code=404)
+        return JSONResponse({"ok": True, "request": r})
+    except Exception as e:
+        logger.exception("burp get failed")
+        return JSONResponse({"ok": False, "error": "get failed"}, status_code=500)
+
+
+@app.get("/api/burp/endpoints")
+async def burp_endpoints(request: Request, limit: int = 100):
+    """Return endpoint summaries sorted by hit_count desc."""
+    try:
+        return JSONResponse({"ok": True, "endpoints": bb_endpoints(limit=limit)})
+    except Exception as e:
+        logger.exception("burp endpoints failed")
+        return JSONResponse({"ok": False, "error": "endpoints failed"}, status_code=500)
+
+
+@app.post("/api/burp/tasks")
+async def burp_create_task(payload: BurpTaskModel, request: Request):
+    """Queue a BurpTask for a previously captured request."""
+    try:
+        res = bb_task(payload.request_id)
+        return JSONResponse(res, status_code=200 if res.get("ok") else 404)
+    except Exception as e:
+        logger.exception("burp task failed")
+        return JSONResponse({"ok": False, "error": "task failed"}, status_code=500)
+
+
+@app.get("/api/burp/tasks")
+async def burp_tasks(request: Request, limit: int = 50):
+    """List BurpTasks (newest last)."""
+    try:
+        return JSONResponse({"ok": True, "tasks": bb_tasks(limit=limit)})
+    except Exception as e:
+        logger.exception("burp tasks failed")
+        return JSONResponse({"ok": False, "error": "tasks failed"}, status_code=500)
+
+
+@app.patch("/api/burp/tasks/{task_id}")
+async def burp_patch_task(task_id: str, payload: BurpTaskStatusModel, request: Request):
+    """Update a BurpTask status (pending | scanning | done)."""
+    try:
+        res = bb_update_task(task_id, payload.status)
+        return JSONResponse(res, status_code=200 if res.get("ok") else 404)
+    except Exception as e:
+        logger.exception("burp update task failed")
+        return JSONResponse({"ok": False, "error": "update failed"}, status_code=500)
+
+
+@app.post("/api/burp/issues")
+async def burp_create_issue(payload: BurpIssueModel, request: Request):
+    """Manually create a BurpIssue."""
+    try:
+        res = bb_issue(
+            title=payload.title,
+            severity=payload.severity,
+            url=payload.url,
+            method=payload.method,
+            request_raw=payload.request_raw,
+            finding_id=payload.finding_id,
+        )
+        return JSONResponse(res, status_code=200 if res.get("ok") else 400)
+    except Exception as e:
+        logger.exception("burp issue failed")
+        return JSONResponse({"ok": False, "error": "issue failed"}, status_code=500)
+
+
+@app.get("/api/burp/issues")
+async def burp_list_issues(request: Request, limit: int = 50):
+    """List BurpIssues (newest first)."""
+    try:
+        return JSONResponse({"ok": True, "issues": bb_issues(limit=limit)})
+    except Exception as e:
+        logger.exception("burp list issues failed")
+        return JSONResponse({"ok": False, "error": "list issues failed"}, status_code=500)
+
+
+@app.post("/api/burp/finding-to-issue")
+async def burp_finding_to_issue(request: Request):
+    """Convert a single MIRV finding dict into a BurpIssue (and store it)."""
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"ok": False, "error": "invalid JSON body"}, status_code=400)
+    try:
+        res = bb_to_issue(body if isinstance(body, dict) else {})
+        return JSONResponse(res)
+    except Exception as e:
+        logger.exception("burp finding-to-issue failed")
+        return JSONResponse({"ok": False, "error": "conversion failed"}, status_code=500)
+
+
+@app.post("/api/burp/raw")
+async def burp_raw(payload: BurpRawModel, request: Request):
+    """Build a raw HTTP/1.1 request string from a captured request id."""
+    try:
+        r = bb_get(payload.request_id)
+        if not r:
+            return JSONResponse({"ok": False, "error": "not found"}, status_code=404)
+        cap = BBCapturedRequest(
+            id=r["id"], method=r["method"], url=r["url"], path=r["path"],
+            headers=r["headers"], body=r["body"], response_status=r["response_status"],
+            response_headers=r["response_headers"], response_body=r["response_body"],
+            source=r["source"], received_at=r["received_at"],
+        )
+        return JSONResponse({"ok": True, "raw": bb_raw(cap)})
+    except Exception as e:
+        logger.exception("burp raw failed")
+        return JSONResponse({"ok": False, "error": "raw failed"}, status_code=500)
+
+
+@app.post("/api/burp/export-findings")
+async def burp_export_findings(request: Request):
+    """Batch convert a list of MIRV findings into BurpIssues."""
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"ok": False, "error": "invalid JSON body"}, status_code=400)
+    try:
+        findings = body if isinstance(body, list) else body.get("findings") if isinstance(body, dict) else []
+        return JSONResponse(bb_export(findings))
+    except Exception as e:
+        logger.exception("burp export failed")
+        return JSONResponse({"ok": False, "error": "export failed"}, status_code=500)
+
+
+@app.post("/api/burp/snapshot")
+async def burp_snapshot(payload: BurpSnapshotModel, request: Request):
+    """Store a browser page snapshot (cookies + localStorage) for auth replay."""
+    try:
+        return JSONResponse(bb_snapshot(
+            page_url=payload.page_url,
+            cookies=payload.cookies,
+            local_storage=payload.local_storage,
+            session_storage=payload.session_storage,
+        ))
+    except Exception as e:
+        logger.exception("burp snapshot failed")
+        return JSONResponse({"ok": False, "error": "snapshot failed"}, status_code=500)
+
+
+@app.delete("/api/burp/clear")
+async def burp_clear(request: Request):
+    """Clear all in-memory bridge stores."""
+    try:
+        return JSONResponse(bb_clear())
+    except Exception as e:
+        logger.exception("burp clear failed")
+        return JSONResponse({"ok": False, "error": "clear failed"}, status_code=500)
+
+
+@app.get("/api/burp/status")
+async def burp_status(request: Request):
+    """Return counts of all bridge stores."""
+    try:
+        return JSONResponse(bb_status())
+    except Exception as e:
+        logger.exception("burp status failed")
+        return JSONResponse({"ok": False, "error": "status failed"}, status_code=500)
 
 
 # ════════════════════════════════════════════════════════════════

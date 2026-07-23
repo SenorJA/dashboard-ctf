@@ -28,6 +28,19 @@ from dataclasses import dataclass, field
 from typing import Any
 from pathlib import Path
 
+# ── Optional watchdog dependency (fs watcher) ──
+# If `watchdog` is installed we use a native Observer; otherwise we fall
+# back to a mtime-based poller. Both paths share the same debounce +
+# reload pipeline (`_process_change`).
+try:
+    from watchdog.observers import Observer
+    from watchdog.events import FileSystemEventHandler
+    HAS_WATCHDOG = True
+except Exception:  # ImportError or platform incompatibility
+    Observer = None  # type: ignore
+    FileSystemEventHandler = object  # type: ignore
+    HAS_WATCHDOG = False
+
 # ── Logger ──
 _logger = logging.getLogger("vulnforge.plugins")
 
@@ -75,6 +88,22 @@ class PluginInfo:
 _hooks: dict[str, list[dict]] = {}      # hook_name → [{plugin_name, fn, enabled}]
 _registry: dict[str, PluginInfo] = {}   # plugin_name → PluginInfo
 _lock = threading.Lock()
+
+# ════════════════════════════════════════════════════════════════
+#  Hot-reload watcher state (module-level)
+# ════════════════════════════════════════════════════════════════
+_watcher_started: bool = False
+_watcher_observer: Any = None    # watchdog Observer instance (if HAS_WATCHDOG)
+_watcher_thread: Any = None      # _DirPoller thread (polling fallback)
+_auto_load_new: bool = False     # auto-load newly discovered plugins (security default: False)
+_watch_events: list[dict] = []  # ring buffer (max _MAX_EVENTS)
+_watch_lock = threading.Lock()
+_POLL_INTERVAL = 2.0            # seconds between polling snapshots
+_DEBOUNCE_SECONDS = 0.25         # debounce window for bursty fs events
+_MAX_EVENTS = 50
+_debounce_timers: dict[str, threading.Timer] = {}
+_debounce_lock = threading.Lock()
+_in_change = threading.local()  # thread-local flag: True while _process_change runs
 
 
 # ════════════════════════════════════════════════════════════════
@@ -138,6 +167,13 @@ def discover_plugins() -> list[str]:
 
         except Exception as exc:
             _logger.warning("Failed to read manifest at %s: %s", manifest_path, exc)
+
+    # Push a baseline event to the watcher ring buffer so the watcher knows
+    # the registry contents. Suppressed when discover is invoked from
+    # inside `_process_change` (which records its own action event) to
+    # avoid duplicate noise.
+    if _watcher_started and not getattr(_in_change, "flag", False):
+        _push_event("discovered", "<root>", f"baseline: {len(discovered)} plugin(s)")
 
     return discovered
 
@@ -546,7 +582,15 @@ def reset() -> None:
     Reset all plugin state.  Primarily for testing.
 
     Calls on_shutdown for every loaded plugin, then clears registries.
+    Also stops the hot-reload watcher if it is running.
     """
+    # Stop the fs watcher so pending reloads cannot perturb a fresh test run.
+    try:
+        stop_watcher()
+    except Exception:
+        pass
+    _clear_watch_events()
+
     with _lock:
         loaded_names = [
             name for name, info in _registry.items()
@@ -573,3 +617,400 @@ def reset() -> None:
 #  Automatic discovery on import
 # ════════════════════════════════════════════════════════════════
 _discovered = discover_plugins()
+
+
+# ════════════════════════════════════════════════════════════════
+#  HOT-RELOAD WATCHER  (fs.watch-style)
+# ════════════════════════════════════════════════════════════════
+#
+# Two interchangeable backends, transparent to the rest of the module:
+#
+#   • watchdog.Observer      — native inotify/fsevents/kqueue events
+#   • _DirPoller            — mtime+size polling fallback (default install
+#                             has no `watchdog` dependency, so this path
+#                             is the one most users will exercise)
+#
+# Both backends resolve the changed plugin directory and hand it off to
+# `_schedule_reload(dir_name)` → `_process_change(dir_name)` where:
+#   - a per-plugin debounce (250 ms) collapses bursty writes,
+#   - loaded plugins are unload_plugin'd then load_plugin'd,
+#   - newly discovered plugins are registered (and optionally loaded if
+#     `auto_load_new=True`).
+
+def _push_event(action: str, plugin_name: str, detail: str = "") -> None:
+    """Append a watch event to the ring buffer (max _MAX_EVENTS)."""
+    evt = {
+        "timestamp": _now_iso(),
+        "plugin_name": plugin_name,
+        "action": action,            # reloaded | discovered | error
+        "detail": detail,
+    }
+    with _watch_lock:
+        _watch_events.append(evt)
+        overflow = len(_watch_events) - _MAX_EVENTS
+        if overflow > 0:
+            del _watch_events[:overflow]
+    _logger.info("[plugin-watcher] %s: %s — %s", action, plugin_name, detail)
+
+
+def list_watch_events() -> list[dict]:
+    """Return a copy of the most recent watch events (max _MAX_EVENTS)."""
+    with _watch_lock:
+        return [dict(e) for e in _watch_events]
+
+
+def _clear_watch_events() -> None:
+    """Wipe the event ring buffer (used by tests/reset)."""
+    with _watch_lock:
+        _watch_events.clear()
+
+
+def watcher_status() -> dict:
+    """Return current watcher state snapshot."""
+    with _watch_lock:
+        started = _watcher_started
+        auto = _auto_load_new
+    with _lock:
+        plugin_count = len(_registry)
+    return {
+        "watching": started,
+        "plugin_count": plugin_count,
+        "auto_load_new": auto,
+        "backend": "watchdog" if HAS_WATCHDOG else "polling",
+    }
+
+
+# ──────────────────────────────────────────────
+#  Plugin-name resolution + reload pipeline
+# ──────────────────────────────────────────────
+
+def _plugin_dir_name_to_registry_name(dir_name: str) -> str | None:
+    """
+    Map a plugin directory name to its registry key (manifest ``name``).
+    Falls back to ``dir_name`` itself if not yet registered.
+    """
+    with _lock:
+        for name, info in _registry.items():
+            try:
+                if Path(info.module_dir).name == dir_name:
+                    return name
+            except Exception:
+                continue
+    return None
+
+
+def _schedule_reload(dir_name: str) -> None:
+    """Debounce reloads: collapse bursty FS events into one reload 250ms later."""
+    with _debounce_lock:
+        prev = _debounce_timers.pop(dir_name, None)
+        if prev is not None:
+            prev.cancel()
+        timer = threading.Timer(_DEBOUNCE_SECONDS, _process_change, args=(dir_name,))
+        timer.daemon = True
+        _debounce_timers[dir_name] = timer
+    timer.start()
+
+
+def _process_change(dir_name: str) -> None:
+    """Handle a (debounced) plugin-directory change: reload or discover."""
+    # Clear the pending-timer bookkeeping.
+    with _debounce_lock:
+        _debounce_timers.pop(dir_name, None)
+
+    # Suppress baseline event spam from the nested discover_plugins() call.
+    _in_change.flag = True
+    try:
+        # Refresh manifests so new/changed plugin.json files are visible.
+        try:
+            discover_plugins()
+        except Exception as exc:
+            _logger.warning("[plugin-watcher] discover_plugins() failed: %s", exc)
+
+        name = _plugin_dir_name_to_registry_name(dir_name)
+        if name is None:
+            # plugin.json missing or invalid → still record a discovery event
+            _push_event("discovered", dir_name, "manifest not found / invalid")
+            return
+
+        with _lock:
+            info = _registry.get(name)
+        loaded = info is not None and info.status == "loaded"
+
+        if loaded:
+            _logger.info("[plugin-watcher] auto-reloading: %s", name)
+            unload_plugin(name)
+            res = load_plugin(name)
+            if res.get("ok"):
+                _push_event("reloaded", name, "auto-reloaded after file change")
+            else:
+                _push_event("error", name, f"reload failed: {res.get('error')}")
+        else:
+            if _auto_load_new:
+                res = load_plugin(name)
+                if res.get("ok"):
+                    _push_event("discovered", name, "auto-loaded (auto_load_new=True)")
+                else:
+                    _push_event("error", name, f"auto-load failed: {res.get('error')}")
+            else:
+                _push_event("discovered", name,
+                            "registered but not loaded (auto_load_new=False)")
+    except Exception as exc:
+        _logger.exception("[plugin-watcher] error processing change for %s: %s",
+                          dir_name, exc)
+        _push_event("error", dir_name, str(exc))
+    finally:
+        _in_change.flag = False
+
+
+# ──────────────────────────────────────────────
+#  Backend A — watchdog Observer
+# ──────────────────────────────────────────────
+
+if HAS_WATCHDOG:
+
+    class _PluginFSHandler(FileSystemEventHandler):  # type: ignore[misc]
+        """watchdog event handler: maps fs events to `_schedule_reload`."""
+
+        def __init__(self, plugins_dir: Path):
+            super().__init__()
+            try:
+                self._base = plugins_dir.resolve()
+            except Exception:
+                self._base = plugins_dir
+
+        def _maybe_schedule(self, src_path) -> None:
+            if not src_path:
+                return
+            try:
+                p = Path(src_path)
+            except Exception:
+                return
+            # ignore pycache / compiled artifacts
+            try:
+                parts = p.parts
+            except Exception:
+                return
+            if "__pycache__" in parts:
+                return
+            if p.suffix == ".pyc":
+                return
+            try:
+                rel = p.resolve().relative_to(self._base)
+            except (ValueError, OSError):
+                return
+            if not rel.parts:
+                return
+            dir_name = rel.parts[0]
+            _schedule_reload(dir_name)
+
+        def on_modified(self, event):
+            if event.is_directory:
+                return
+            self._maybe_schedule(event.src_path)
+
+        def on_created(self, event):
+            self._maybe_schedule(event.src_path)
+
+        def on_deleted(self, event):
+            self._maybe_schedule(event.src_path)
+
+        def on_moved(self, event):
+            self._maybe_schedule(getattr(event, "dest_path", None))
+
+
+# ──────────────────────────────────────────────
+#  Backend B — mtime polling fallback
+# ──────────────────────────────────────────────
+
+class _DirPoller(threading.Thread):
+    """Polling fallback when `watchdog` is unavailable."""
+
+    def __init__(self, interval: float | None = None, plugins_dir: Any = None):
+        super().__init__(daemon=True, name="plugin-watcher")
+        self.interval = interval if interval is not None else _POLL_INTERVAL
+        self._plugins_dir_override = plugins_dir
+        self._stop_evt = threading.Event()
+        # key: "<dir_name>/<filename>" → (mtime, size)
+        self._state: dict[str, tuple[float, int]] = {}
+
+    def _plugins_dir(self) -> Path:
+        if self._plugins_dir_override is not None:
+            return Path(self._plugins_dir_override)
+        return _PLUGINS_DIR
+
+    def stop(self) -> None:
+        self._stop_evt.set()
+
+    # -- scan --
+    def _scan(self) -> dict[str, tuple[float, int]]:
+        plugins_dir = self._plugins_dir()
+        state: dict[str, tuple[float, int]] = {}
+        if not plugins_dir.is_dir():
+            return state
+        try:
+            entries = list(plugins_dir.iterdir())
+        except Exception:
+            return state
+        for entry in entries:
+            if not entry.is_dir():
+                continue
+            if entry.name == "__pycache__":
+                continue
+            for fname in (_MANIFEST_FILENAME, _ENTRYPOINT_FILENAME):
+                fp = entry / fname
+                if fp.is_file():
+                    try:
+                        st = fp.stat()
+                        state[f"{entry.name}/{fname}"] = (st.st_mtime, st.st_size)
+                    except OSError:
+                        pass
+        return state
+
+    def _snapshot(self) -> None:
+        self._state = self._scan()
+
+    def _diff(self) -> None:
+        new_state = self._scan()
+        changed_dirs: set[str] = set()
+        for key, val in new_state.items():
+            if self._state.get(key) != val:
+                changed_dirs.add(key.split("/", 1)[0])
+        for key in list(self._state):
+            if key not in new_state:
+                changed_dirs.add(key.split("/", 1)[0])
+        self._state = new_state
+        for d in changed_dirs:
+            _schedule_reload(d)
+
+    def run(self) -> None:
+        self._snapshot()
+        while not self._stop_evt.wait(self.interval):
+            try:
+                self._diff()
+            except Exception as exc:
+                _logger.warning("[plugin-watcher] poller error: %s", exc)
+
+
+# ──────────────────────────────────────────────
+#  Public watcher controls
+# ──────────────────────────────────────────────
+
+def start_watcher(auto_load_new: bool = False) -> None:
+    """
+    Start the background file-system watcher (daemon thread).
+
+    Parameters
+    ----------
+    auto_load_new : bool
+        If True, newly discovered plugin directories are auto-loaded. SECURITY
+        default is False — auto-executing arbitrary Python just because a file
+        appeared on disk is dangerous and should be opt-in.
+
+    Idempotent: calling twice is a no-op (tracked via ``_watcher_started``).
+    The whole "check + start + flag" sequence is performed while holding
+    ``_watch_lock`` so concurrent callers cannot start a duplicate watcher.
+    """
+    global _watcher_started, _watcher_observer, _watcher_thread, _auto_load_new
+
+    pending_events: list[tuple[str, str, str]] = []  # (action, plugin_name, detail)
+
+    with _watch_lock:
+        if _watcher_started:
+            # Watcher already running: allow callers to flip ``auto_load_new``
+            # without a disruptive restart — start_watcher remains idempotent
+            # (no duplicate watcher thread is ever started).
+            _auto_load_new = (
+                bool(auto_load_new)
+                or os.getenv("MIRV_PLUGIN_AUTOLOAD", "").lower() in ("1", "true", "yes")
+            )
+            _logger.debug(
+                "[plugin-watcher] already running; start_watcher() no-op "
+                "(auto_load_new=%s)", _auto_load_new,
+            )
+            return
+        # Clean up any linger state from a previous crashed stop.
+        _watcher_observer = None
+        _watcher_thread = None
+        _auto_load_new = (
+            bool(auto_load_new)
+            or os.getenv("MIRV_PLUGIN_AUTOLOAD", "").lower() in ("1", "true", "yes")
+        )
+
+        plugins_dir = _PLUGINS_DIR
+        if not plugins_dir.is_dir():
+            _logger.warning("[plugin-watcher] plugins dir not found: %s", plugins_dir)
+            pending_events.append(
+                ("error", "<root>", f"plugins dir not found: {plugins_dir}")
+            )
+        else:
+            try:
+                if HAS_WATCHDOG:
+                    obs = Observer()
+                    handler = _PluginFSHandler(plugins_dir)  # type: ignore[name-defined]
+                    obs.schedule(handler, str(plugins_dir), recursive=True)
+                    obs.start()
+                    _watcher_observer = obs
+                else:
+                    thread = _DirPoller()
+                    thread.start()
+                    _watcher_thread = thread
+                _watcher_started = True
+                _logger.info(
+                    "[plugin-watcher] started (backend=%s, auto_load_new=%s)",
+                    "watchdog" if HAS_WATCHDOG else "polling", _auto_load_new,
+                )
+                pending_events.append(("discovered", "<root>", "watcher started"))
+            except Exception as exc:
+                _logger.exception("[plugin-watcher] failed to start: %s", exc)
+                # Roll back any half-started state.
+                _watcher_observer = None
+                _watcher_thread = None
+                pending_events.append(("error", "<root>", f"start failed: {exc}"))
+
+    # Push events OUTSIDE the lock — _push_event re-acquires _watch_lock.
+    for action, name, detail in pending_events:
+        _push_event(action, name, detail)
+
+
+def stop_watcher() -> None:
+    """Stop the background watcher thread/observer and clear pending debounce timers."""
+    global _watcher_started, _watcher_observer, _watcher_thread
+
+    with _watch_lock:
+        started = _watcher_started
+        obs = _watcher_observer
+        thr = _watcher_thread
+        _watcher_started = False
+        _watcher_observer = None
+        _watcher_thread = None
+
+    if obs is not None:
+        try:
+            obs.stop()
+            obs.join(timeout=2.0)
+        except Exception as e:
+            _logger.warning("[plugin-watcher] observer stop error: %s", e)
+
+    if thr is not None:
+        try:
+            thr.stop()
+        except Exception:
+            pass
+        try:
+            thr.join(timeout=2.0)
+        except Exception:
+            pass
+
+    # cancel any pending debounce timers so no reloads fire after stop
+    with _debounce_lock:
+        timers = list(_debounce_timers.values())
+        _debounce_timers.clear()
+    for t in timers:
+        try:
+            t.cancel()
+        except Exception:
+            pass
+
+    if started:
+        _logger.info("[plugin-watcher] stopped")
+        _push_event("discovered", "<root>", "watcher stopped")
