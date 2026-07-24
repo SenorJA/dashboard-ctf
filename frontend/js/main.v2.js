@@ -3159,7 +3159,10 @@ ${bodyHtml}
             dlp: 17,
             siem: 18,
             plugins: 19,
-            coverage: 20
+            coverage: 20,
+            burp: 21,
+            audit: 22,
+            skills: 23
         };
         if (panes[tabName] !== undefined) {
             btns[panes[tabName]].classList.add('active');
@@ -5671,6 +5674,45 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         "coverage-next-title":     { en: '🧭 Next steps (failed > untested > WAF)', es: '🧭 Próximos pasos (falladas > no probadas > WAF)' },
         "coverage-clear-btn":      { en: 'Clear',                 es: 'Limpiar' },
 
+        // ── Burp Bridge ──
+        tabBurp:                   { en: '🦅 Burp',              es: '🦅 Burp' },
+        "burp-title":             { en: '🦅 Burp Bridge',       es: '🦅 Burp Bridge' },
+        "burp-requests":          { en: 'Captured Requests',    es: 'Peticiones Capturadas' },
+        "burp-endpoints":         { en: 'Endpoints',            es: 'Endpoints' },
+        "burp-issues":            { en: 'Issues',               es: 'Problemas' },
+        "burp-tasks":             { en: 'Tasks',                es: 'Tareas' },
+        "burp-refresh":           { en: '🔄 Refresh',           es: '🔄 Refrescar' },
+        "burp-clear":             { en: '🗑 Clear All',         es: '🗑 Limpiar Todo' },
+        "burp-no-data":           { en: 'No data yet.',         es: 'Sin datos aún.' },
+        "burp-raw-title":         { en: 'Raw Request',          es: 'Petición Cruda' },
+
+        // ── Audit Log ──
+        tabAudit:                  { en: '📜 Audit',             es: '📜 Auditoría' },
+        "audit-title":            { en: '📜 Audit Log',          es: '📜 Registro de Auditoría' },
+        "audit-logs":              { en: 'Recent Logs',          es: 'Registros Recientes' },
+        "audit-stats":             { en: 'Stats',                 es: 'Estadísticas' },
+        "audit-refresh":           { en: '🔄 Refresh',           es: '🔄 Refrescar' },
+        "audit-manual":            { en: '✎ Manual Entry',      es: '✎ Entrada Manual' },
+        "audit-manual-submit":     { en: '✓ Submit Entry',       es: '✓ Enviar Entrada' },
+        "audit-no-logs":           { en: 'No logs yet.',         es: 'Sin registros aún.' },
+
+        // ── Skills ──
+        tabSkills:                 { en: '📚 Skills',            es: '📚 Skills' },
+        "skills-title":           { en: '📚 Skill Playbooks',   es: '📚 Playbooks de Skills' },
+        "skills-playbooks":        { en: 'Skill Playbooks',      es: 'Playbooks de Skills' },
+        "skills-create":           { en: 'Create New Skill',     es: 'Crear Nuevo Skill' },
+        "skills-create-btn":       { en: '✓ Create Skill',      es: '✓ Crear Skill' },
+        "skills-refresh":          { en: '🔄 Refresh',           es: '🔄 Refrescar' },
+        "skills-no-skills":        { en: 'No skills discovered.', es: 'No se descubrieron skills.' },
+        "skills-btn-load":         { en: 'Load',                 es: 'Cargar' },
+        "skills-btn-unload":       { en: 'Unload',               es: 'Descargar' },
+        "skills-btn-enable":       { en: 'Enable',               es: 'Activar' },
+        "skills-btn-disable":      { en: 'Disable',              es: 'Desactivar' },
+        "skills-btn-reload":       { en: 'Reload',               es: 'Recargar' },
+        "skills-btn-render":       { en: '👁 Render',             es: '👁 Ver' },
+        "skills-status-loaded":    { en: 'Loaded',               es: 'Cargado' },
+        "skills-status-disabled":  { en: 'Disabled',              es: 'Desactivado' },
+
         // ── Canary Tokens ──
         "canary-title":          { en: '🪤 Canary Tokens',           es: '🪤 Canary Tokens' },
         "canary-generate-title": { en: 'Generate New Token',         es: 'Generar Nuevo Token' },
@@ -7981,4 +8023,539 @@ Reglas:
     window.exportCoverageFile = exportCoverageFile;
     window.clearCoverage = clearCoverage;
     window.sendFailedToFindings = sendFailedToFindings;
+
+    // ============================================================
+    //  🦅 BURP BRIDGE MODULE
+    // ============================================================
+    function _burpEsc(s) {
+        if (s === null || s === undefined) return '';
+        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+    function _burpMethodClass(m) {
+        const mm = String(m || '').toUpperCase();
+        if (mm === 'GET') return 'bg-blue-900/40 text-blue-300';
+        if (mm === 'POST') return 'bg-green-900/40 text-green-300';
+        if (mm === 'PUT' || mm === 'PATCH') return 'bg-yellow-900/40 text-yellow-300';
+        if (mm === 'DELETE') return 'bg-red-900/40 text-red-300';
+        return 'bg-gray-800 text-gray-400';
+    }
+    function _burpSevClass(s) {
+        const ss = String(s || '').toLowerCase();
+        if (ss === 'critical' || ss === 'high') return 'border-blood text-blood';
+        if (ss === 'medium') return 'border-yellow-700 text-yellow-400';
+        if (ss === 'low') return 'border-blue-700 text-blue-400';
+        return 'border-gray-700 text-gray-400';
+    }
+
+    async function refreshBurp() {
+        try {
+            // Status / stats
+            const sr = await fetch('/api/burp/status');
+            const sj = await sr.json();
+            if (sj.ok) {
+                const s = sj.status || sj;
+                const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = (v ?? 0); };
+                set('burp-stat-requests', s.requests);
+                set('burp-stat-endpoints', s.endpoints);
+                set('burp-stat-tasks', s.tasks);
+                set('burp-stat-issues', s.issues);
+            }
+
+            // Requests
+            const rr = await fetch('/api/burp/requests?limit=50');
+            const rj = await rr.json();
+            const reqList = document.getElementById('burp-request-list');
+            if (reqList) {
+                const reqs = (rj && rj.ok && rj.requests) ? rj.requests : [];
+                if (!reqs.length) {
+                    reqList.innerHTML = `<div class="text-gray-700 text-center py-4">${_t('burp-no-data')}</div>`;
+                } else {
+                    reqList.innerHTML = reqs.map(r => {
+                        const method = r.method || 'GET';
+                        const path = r.path || r.url || '/';
+                        const status = r.status || r.response_status || '';
+                        const ts = r.timestamp || r.created_at || '';
+                        return `<div class="flex items-center gap-2 bg-void hover:bg-void/60 rounded px-2 py-1 cursor-pointer border border-transparent hover:border-cyber/30 transition-all"
+                                    onclick="window.burpShowRaw('${_burpEsc(r.id)}')">
+                            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold ${_burpMethodClass(method)}">${_burpEsc(method)}</span>
+                            <span class="text-gray-300 truncate flex-1">${_burpEsc(path)}</span>
+                            <span class="text-[9px] text-gray-600">${_burpEsc(status)}</span>
+                            <span class="text-[9px] text-gray-700 flex-shrink-0">${_burpEsc(ts)}</span>
+                        </div>`;
+                    }).join('');
+                }
+            }
+
+            // Endpoints
+            const er = await fetch('/api/burp/endpoints');
+            const ej = await er.json();
+            const epList = document.getElementById('burp-endpoint-list');
+            if (epList) {
+                const eps = (ej && ej.ok && ej.endpoints) ? ej.endpoints : [];
+                if (!eps.length) {
+                    epList.innerHTML = `<div class="text-gray-700 text-center py-4">${_t('burp-no-data')}</div>`;
+                } else {
+                    epList.innerHTML = eps.map(e => {
+                        const method = e.method || 'GET';
+                        const path = e.path || '/';
+                        const params = e.params?.length ? e.params.join(', ') : '';
+                        const hits = e.hit_count ?? 0;
+                        return `<div class="flex items-center gap-2 bg-void rounded px-2 py-1">
+                            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold ${_burpMethodClass(method)}">${_burpEsc(method)}</span>
+                            <span class="text-gray-300 truncate flex-1">${_burpEsc(path)}</span>
+                            <span class="text-[9px] text-cyber truncate max-w-[40%]">${_burpEsc(params)}</span>
+                            <span class="text-[9px] text-gray-500 flex-shrink-0">×${_burpEsc(hits)}</span>
+                        </div>`;
+                    }).join('');
+                }
+            }
+
+            // Issues
+            const ir = await fetch('/api/burp/issues');
+            const ij = await ir.json();
+            const isList = document.getElementById('burp-issue-list');
+            if (isList) {
+                const iss = (ij && ij.ok && ij.issues) ? ij.issues : [];
+                if (!iss.length) {
+                    isList.innerHTML = `<div class="text-gray-700 text-center py-4">${_t('burp-no-data')}</div>`;
+                } else {
+                    isList.innerHTML = iss.map(i => {
+                        const sev = i.severity || 'info';
+                        const title = i.title || '(no title)';
+                        const url = i.url || '';
+                        const method = i.method || 'GET';
+                        return `<div class="bg-void rounded-lg border ${_burpSevClass(sev)} p-3">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="text-[9px] px-1.5 py-0.5 rounded border ${_burpSevClass(sev)} uppercase font-bold">${_burpEsc(sev)}</span>
+                                <span class="text-[11px] text-gray-200 font-semibold flex-1">${_burpEsc(title)}</span>
+                            </div>
+                            <div class="flex items-center gap-2 text-[10px] text-gray-500">
+                                <span class="px-1 py-0.5 rounded ${_burpMethodClass(method)} text-[9px]">${_burpEsc(method)}</span>
+                                <span class="truncate">${_burpEsc(url)}</span>
+                            </div>
+                        </div>`;
+                    }).join('');
+                }
+            }
+        } catch (e) {
+            console.error('[Burp] refresh error:', e);
+            if (typeof showToast === 'function') showToast('⚠️ Burp refresh failed');
+        }
+    }
+
+    async function burpShowRaw(requestId) {
+        if (!requestId) return;
+        const modal = document.getElementById('burp-raw-modal');
+        const content = document.getElementById('burp-raw-content');
+        if (!modal || !content) return;
+        content.textContent = 'Loading...';
+        modal.classList.remove('hidden');
+        try {
+            const r = await fetch('/api/burp/raw', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ request_id: requestId })
+            });
+            const j = await r.json();
+            if (j.ok) {
+                content.textContent = j.raw || '(empty)';
+            } else {
+                content.textContent = 'Error: ' + (j.error || 'unknown');
+            }
+        } catch (e) {
+            content.textContent = 'Request failed: ' + e.message;
+        }
+    }
+
+    async function burpClear() {
+        if (!confirm('Clear all captured Burp data?')) return;
+        try {
+            const r = await fetch('/api/burp/clear', { method: 'DELETE' });
+            const j = await r.json();
+            if (j.ok) {
+                if (typeof showToast === 'function') showToast('🗑 Burp cache cleared');
+                refreshBurp();
+            } else {
+                if (typeof showToast === 'function') showToast('⚠️ Clear failed');
+            }
+        } catch (e) {
+            if (typeof showToast === 'function') showToast('⚠️ Clear failed: ' + e.message);
+        }
+    }
+
+    // Event bindings for Burp tab
+    let _burpBound = false;
+    function _burpBindEvents() {
+        if (_burpBound) return;
+        const btnR = document.getElementById('burp-refresh-btn');
+        const btnC = document.getElementById('burp-clear-btn');
+        if (btnR) btnR.addEventListener('click', refreshBurp);
+        if (btnC) btnC.addEventListener('click', burpClear);
+        _burpBound = true;
+    }
+
+    // Auto-refresh every 15s when tab active (lazy: single interval)
+    let _burpInterval = null;
+
+    window.refreshBurp = refreshBurp;
+    window.burpShowRaw = burpShowRaw;
+    window.burpClear = burpClear;
+
+    // ============================================================
+    //  📜 AUDIT LOG MODULE
+    // ============================================================
+    function _auditEsc(s) {
+        if (s === null || s === undefined) return '';
+        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+    function _auditLevelClass(l) {
+        const ll = String(l || '').toUpperCase();
+        if (ll === 'DEBUG') return 'bg-blue-900/40 text-blue-300';
+        if (ll === 'INFO') return 'bg-green-900/40 text-green-300';
+        if (ll === 'WARNING') return 'bg-yellow-900/40 text-yellow-300';
+        if (ll === 'ERROR') return 'bg-orange-900/40 text-orange-300';
+        if (ll === 'CRITICAL') return 'bg-blood/30 text-blood';
+        return 'bg-gray-800 text-gray-400';
+    }
+    function _auditFormatSize(bytes) {
+        const b = Number(bytes) || 0;
+        if (b < 1024) return b + ' B';
+        if (b < 1024 * 1024) return (b / 1024).toFixed(1) + ' KB';
+        return (b / 1024 / 1024).toFixed(2) + ' MB';
+    }
+
+    async function refreshAudit() {
+        try {
+            // Stats
+            const sr = await fetch('/api/audit/stats');
+            const sj = await sr.json();
+            if (sj.ok) {
+                const s = sj;
+                const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = (v ?? 0); };
+                set('audit-stat-total', s.total);
+                set('audit-stat-debug', (s.by_level && s.by_level.DEBUG) || 0);
+                set('audit-stat-info', (s.by_level && s.by_level.INFO) || 0);
+                set('audit-stat-warning', (s.by_level && s.by_level.WARNING) || 0);
+                set('audit-stat-error', (s.by_level && s.by_level.ERROR) || 0);
+                set('audit-stat-critical', (s.by_level && s.by_level.CRITICAL) || 0);
+                const sizeBadge = document.getElementById('audit-size-badge');
+                if (sizeBadge) sizeBadge.textContent = ' fileSize: ' + _auditFormatSize(s.file_size) + ' ';
+                const genBadge = document.getElementById('audit-gen-badge');
+                if (genBadge) genBadge.textContent = ' gens: ' + (s.generations ?? 0) + ' ';
+                // Populate categories dropdown
+                const catSel = document.getElementById('audit-filter-category');
+                if (catSel && s.by_category) {
+                    const cur = catSel.value;
+                    const cats = Object.keys(s.by_category);
+                    catSel.innerHTML = '<option value="">all categories</option>' +
+                        cats.map(c => `<option value="${_auditEsc(c)}">${_auditEsc(c)} (${s.by_category[c]})</option>`).join('');
+                    catSel.value = cur;
+                }
+            }
+
+            // Logs
+            const level = document.getElementById('audit-filter-level')?.value || '';
+            const category = document.getElementById('audit-filter-category')?.value || '';
+            const event = document.getElementById('audit-filter-event')?.value.trim() || '';
+            const sinceRaw = document.getElementById('audit-filter-since')?.value || '';
+            const since = sinceRaw ? new Date(sinceRaw).toISOString() : '';
+            const params = new URLSearchParams({ limit: '200' });
+            if (level) params.set('level', level);
+            if (category) params.set('category', category);
+            if (event) params.set('event', event);
+            if (since) params.set('since', since);
+            const lr = await fetch('/api/audit/logs?' + params.toString());
+            const lj = await lr.json();
+            const list = document.getElementById('audit-log-list');
+            if (!list) return;
+            const logs = (lj && lj.ok && lj.logs) ? lj.logs : [];
+            if (!logs.length) {
+                list.innerHTML = `<div class="text-gray-700 text-center py-4">${_t('audit-no-logs')}</div>`;
+                return;
+            }
+            list.innerHTML = logs.map(L => {
+                const lvl = L.level || 'INFO';
+                const ts = L.timestamp || '';
+                const cat = L.category || '-';
+                const ev = L.event || '';
+                const msg = L.message || '';
+                const details = L.details ? (typeof L.details === 'string' ? L.details : JSON.stringify(L.details, null, 2)) : '';
+                const redacted = L.redacted ? '<span class="text-[8px] text-yellow-700">🛡</span>' : '';
+                const detailsHtml = details ? `<div class="mt-1 text-[9px] text-gray-700 whitespace-pre-wrap">${_auditEsc(details)}</div>` : '';
+                return `<div class="border border-transparent hover:border-cyber/30 bg-void rounded px-2 py-1">
+                    <div class="flex items-center gap-2">
+                        <span class="px-1.5 py-0.5 rounded text-[9px] font-bold ${_auditLevelClass(lvl)} uppercase">${_auditEsc(lvl)}</span>
+                        <span class="text-[9px] text-gray-700 flex-shrink-0">${_auditEsc(ts)}</span>
+                        <span class="text-[9px] px-1 py-0.5 rounded bg-deep border border-gray-800 text-cyber flex-shrink-0">${_auditEsc(cat)}</span>
+                        <span class="text-[10px] text-gray-400 flex-shrink-0">${_auditEsc(ev)}</span>
+                        <span class="text-[10px] text-gray-300 flex-1 truncate">${_auditEsc(msg)}</span>
+                        ${redacted}
+                    </div>
+                    ${detailsHtml}
+                </div>`;
+            }).join('');
+        } catch (e) {
+            console.error('[Audit] refresh error:', e);
+            if (typeof showToast === 'function') showToast('⚠️ Audit refresh failed');
+        }
+    }
+
+    function auditManualEntry() {
+        const modal = document.getElementById('audit-manual-modal');
+        if (!modal) return;
+        modal.classList.remove('hidden');
+    }
+
+    async function _auditSubmitManual() {
+        const level = document.getElementById('audit-manual-level')?.value || 'INFO';
+        const category = document.getElementById('audit-manual-category')?.value.trim() || 'manual';
+        const event = document.getElementById('audit-manual-event')?.value.trim() || 'manual_entry';
+        const message = document.getElementById('audit-manual-message')?.value.trim();
+        const detailsRaw = document.getElementById('audit-manual-details')?.value.trim();
+        if (!message) {
+            if (typeof showToast === 'function') showToast('⚠️ Message required');
+            return;
+        }
+        let details = null;
+        if (detailsRaw) {
+            try { details = JSON.parse(detailsRaw); } catch (_) { details = detailsRaw; }
+        }
+        try {
+            const r = await fetch('/api/audit', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ level, category, event, message, details })
+            });
+            const j = await r.json();
+            if (j.ok) {
+                if (typeof showToast === 'function') showToast('✓ Audit entry logged');
+                document.getElementById('audit-manual-modal').classList.add('hidden');
+                ['audit-manual-category', 'audit-manual-event', 'audit-manual-message', 'audit-manual-details'].forEach(id => {
+                    const el = document.getElementById(id); if (el) el.value = '';
+                });
+                refreshAudit();
+            } else {
+                if (typeof showToast === 'function') showToast('⚠️ Submit failed');
+            }
+        } catch (e) {
+            if (typeof showToast === 'function') showToast('⚠️ Submit failed: ' + e.message);
+        }
+    }
+
+    let _auditBound = false;
+    function _auditBindEvents() {
+        if (_auditBound) return;
+        const btnR = document.getElementById('audit-refresh-btn');
+        const btnM = document.getElementById('audit-manual-btn');
+        const btnS = document.getElementById('audit-manual-submit');
+        if (btnR) btnR.addEventListener('click', refreshAudit);
+        if (btnM) btnM.addEventListener('click', auditManualEntry);
+        if (btnS) btnS.addEventListener('click', _auditSubmitManual);
+        // Auto-refresh on filter change
+        ['audit-filter-level', 'audit-filter-category', 'audit-filter-event', 'audit-filter-since'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.addEventListener('change', refreshAudit);
+        });
+        _auditBound = true;
+    }
+
+    window.refreshAudit = refreshAudit;
+    window.auditManualEntry = auditManualEntry;
+
+    // ============================================================
+    //  📚 SKILLS MODULE
+    // ============================================================
+    function _skillsEsc(s) {
+        if (s === null || s === undefined) return '';
+        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+    function _skillsCatClass(c) {
+        const cc = String(c || '').toLowerCase();
+        if (cc === 'recon') return 'border-blue-700 text-blue-400';
+        if (cc === 'webvuln') return 'border-blood text-blood';
+        if (cc === 'ssrf' || cc === 'jwt' || cc === 'auth') return 'border-yellow-700 text-yellow-400';
+        if (cc === 'supabase' || cc === 'cloud') return 'border-cyber text-cyber';
+        return 'border-gray-700 text-gray-400';
+    }
+
+    async function refreshSkills() {
+        try {
+            const r = await fetch('/api/skills');
+            const j = await r.json();
+            const grid = document.getElementById('skills-grid');
+            const badge = document.getElementById('skills-count-badge');
+            if (!grid) return;
+            const skills = (j && j.ok && j.skills) ? j.skills : [];
+            const loaded = skills.filter(s => s.enabled && s.loaded_at).length;
+            if (badge) badge.textContent = ' ' + loaded + ' loaded ';
+            if (!skills.length) {
+                grid.innerHTML = `<div class="text-gray-700 text-center py-4 col-span-full">${_t('skills-no-skills')}</div>`;
+                return;
+            }
+            grid.innerHTML = skills.map(s => {
+                const m = s.manifest || {};
+                const name = s.name || 'unknown';
+                const desc = m.description || '';
+                const cat = m.category || 'custom';
+                const vers = m.version || '';
+                const author = m.author || '';
+                const tools = Array.isArray(m.allowed_tools) ? m.allowed_tools : [];
+                const isLoaded = !!(s.enabled && s.loaded_at);
+                const statusBadge = isLoaded
+                    ? `<span class="text-[9px] px-1.5 py-0.5 rounded bg-green-900/30 text-green-400 border border-green-800">${_t('skills-status-loaded')}</span>`
+                    : `<span class="text-[9px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-500 border border-gray-700">${_t('skills-status-disabled')}</span>`;
+                const toolsHtml = tools.length ? `<div class="flex flex-wrap gap-1 mt-1">${tools.map(t => `<span class="text-[8px] px-1 py-0.5 rounded bg-deep border border-gray-800 text-cyber">${_skillsEsc(t)}</span>`).join('')}</div>` : '';
+                return `<div class="bg-void rounded-lg border border-gray-800 p-3 flex flex-col gap-2 hover:border-cyber/40 transition-colors">
+                    <div class="flex items-start justify-between gap-2">
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="text-[11px] font-semibold text-neon truncate">${_skillsEsc(name)}</span>
+                                ${statusBadge}
+                            </div>
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="text-[8px] px-1.5 py-0.5 rounded border ${_skillsCatClass(cat)} uppercase">${_skillsEsc(cat)}</span>
+                                ${vers ? `<span class="text-[8px] text-gray-600">v${_skillsEsc(vers)}</span>` : ''}
+                                ${author ? `<span class="text-[8px] text-gray-700">by ${_skillsEsc(author)}</span>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                    <p class="text-[10px] text-gray-400 leading-snug">${_skillsEsc(desc)}</p>
+                    ${toolsHtml}
+                    <div class="flex flex-wrap gap-1 mt-auto pt-1">
+                        <button onclick="window.skillAction('${_skillsEsc(name)}','load')" class="text-[9px] px-1.5 py-0.5 rounded bg-cyber/20 hover:bg-cyber/40 text-cyber border border-cyber/30">${_t('skills-btn-load')}</button>
+                        <button onclick="window.skillAction('${_skillsEsc(name)}','unload')" class="text-[9px] px-1.5 py-0.5 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700">${_t('skills-btn-unload')}</button>
+                        <button onclick="window.skillAction('${_skillsEsc(name)}','enable')" class="text-[9px] px-1.5 py-0.5 rounded bg-green-900/20 hover:bg-green-900/40 text-green-400 border border-green-800/40">${_t('skills-btn-enable')}</button>
+                        <button onclick="window.skillAction('${_skillsEsc(name)}','disable')" class="text-[9px] px-1.5 py-0.5 rounded bg-gray-800 hover:bg-gray-700 text-gray-400 border border-gray-700">${_t('skills-btn-disable')}</button>
+                        <button onclick="window.skillAction('${_skillsEsc(name)}','reload')" class="text-[9px] px-1.5 py-0.5 rounded bg-yellow-900/20 hover:bg-yellow-900/40 text-yellow-400 border border-yellow-800/40">${_t('skills-btn-reload')}</button>
+                        <button onclick="window.skillRender('${_skillsEsc(name)}')" class="text-[9px] px-1.5 py-0.5 rounded bg-neon/10 hover:bg-neon/20 text-neon border border-neon/30">${_t('skills-btn-render')}</button>
+                    </div>
+                </div>`;
+            }).join('');
+        } catch (e) {
+            console.error('[Skills] refresh error:', e);
+            if (typeof showToast === 'function') showToast('⚠️ Skills refresh failed');
+        }
+    }
+
+    async function skillAction(name, action) {
+        if (!name || !action) return;
+        try {
+            const r = await fetch(`/api/skills/${encodeURIComponent(name)}/${encodeURIComponent(action)}`, { method: 'POST' });
+            const j = await r.json();
+            if (j.ok) {
+                if (typeof showToast === 'function') showToast(`✓ ${name}: ${action}`);
+                refreshSkills();
+            } else {
+                if (typeof showToast === 'function') showToast(`⚠️ ${action} failed: ${j.error || ''}`);
+            }
+        } catch (e) {
+            if (typeof showToast === 'function') showToast('⚠️ ' + action + ' failed: ' + e.message);
+        }
+    }
+
+    async function skillRender(name) {
+        if (!name) return;
+        const modal = document.getElementById('skills-render-modal');
+        const content = document.getElementById('skills-render-content');
+        const title = document.getElementById('skills-render-title');
+        if (!modal || !content) return;
+        content.textContent = 'Loading...';
+        if (title) title.textContent = `📜 ${name}`;
+        modal.classList.remove('hidden');
+        try {
+            const r = await fetch(`/api/skills/${encodeURIComponent(name)}/render`);
+            const j = await r.json();
+            if (j.ok) {
+                content.textContent = j.body || '(empty)';
+            } else {
+                content.textContent = 'Error: ' + (j.error || 'cannot render');
+            }
+        } catch (e) {
+            content.textContent = 'Request failed: ' + e.message;
+        }
+    }
+
+    async function skillCreate() {
+        const name = document.getElementById('skills-create-name')?.value.trim();
+        const category = document.getElementById('skills-create-category')?.value || 'custom';
+        const description = document.getElementById('skills-create-desc')?.value.trim();
+        const toolsRaw = document.getElementById('skills-create-tools')?.value.trim();
+        if (!name) {
+            if (typeof showToast === 'function') showToast('⚠️ Skill name required');
+            return;
+        }
+        const allowed_tools = toolsRaw ? toolsRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
+        try {
+            const r = await fetch('/api/skills/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, category, description, allowed_tools })
+            });
+            const j = await r.json();
+            if (j.ok) {
+                if (typeof showToast === 'function') showToast('✓ Skill created: ' + (j.path || name));
+                ['skills-create-name', 'skills-create-desc', 'skills-create-tools'].forEach(id => {
+                    const el = document.getElementById(id); if (el) el.value = '';
+                });
+                refreshSkills();
+            } else {
+                if (typeof showToast === 'function') showToast('⚠️ Create failed: ' + (j.error || ''));
+            }
+        } catch (e) {
+            if (typeof showToast === 'function') showToast('⚠️ Create failed: ' + e.message);
+        }
+    }
+
+    let _skillsBound = false;
+    function _skillsBindEvents() {
+        if (_skillsBound) return;
+        const btnR = document.getElementById('skills-refresh-btn');
+        const btnC = document.getElementById('skills-create-btn');
+        if (btnR) btnR.addEventListener('click', refreshSkills);
+        if (btnC) btnC.addEventListener('click', skillCreate);
+        _skillsBound = true;
+    }
+
+    window.refreshSkills = refreshSkills;
+    window.skillAction = skillAction;
+    window.skillRender = skillRender;
+    window.skillCreate = skillCreate;
+
+    // ============================================================
+    //  TAB SWITCH WRAPPERS (auto-refresh on tab switch)
+    // ============================================================
+    const _origSwitchTabBurpAuditSkills = window.switchTab;
+    window.switchTab = function(name) {
+        if (name === 'burp') {
+            _burpBindEvents();
+            refreshBurp();
+            // Start lazy auto-refresh interval
+            if (!_burpInterval) _burpInterval = setInterval(() => {
+                if (document.getElementById('tab-burp')?.classList.contains('active')) {
+                    refreshBurp();
+                }
+            }, 15000);
+        }
+        if (name === 'audit') {
+            _auditBindEvents();
+            refreshAudit();
+        }
+        if (name === 'skills') {
+            _skillsBindEvents();
+            refreshSkills();
+        }
+        if (_origSwitchTabBurpAuditSkills) _origSwitchTabBurpAuditSkills(name);
+    };
+
+    // Helper: translate within modules
+    function _t(key) {
+        try {
+            if (typeof translations !== 'undefined' && translations[key] && translations[key][window.currentLang || 'en']) {
+                return translations[key][window.currentLang || 'en'];
+            }
+        } catch (_) {}
+        // Fallback: try DOM element with the same key
+        const el = document.querySelector(`[data-i18n="${key}"]`);
+        return el ? el.textContent : key;
+    }
 });

@@ -203,11 +203,14 @@ CREATE TABLE IF NOT EXISTS mission_history (
     findings_summary JSONB DEFAULT '[]',
     plan_steps INT DEFAULT 0,
     success_score INT DEFAULT 0,
+    session_memory JSONB DEFAULT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_mission_history_target ON mission_history(target);
 CREATE INDEX IF NOT EXISTS idx_mission_history_os      ON mission_history(os_detected);
 CREATE INDEX IF NOT EXISTS idx_mission_history_score   ON mission_history(success_score DESC);
+-- Idempotent migration for existing deployments lacking the session_memory column
+ALTER TABLE mission_history ADD COLUMN IF NOT EXISTS session_memory JSONB DEFAULT NULL;
 
 -- ════════════════════════════════════════════════════════════════
 --  SCOPE EVENTS (audit log for scope guard blocks/warnings)

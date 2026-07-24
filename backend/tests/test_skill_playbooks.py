@@ -2,7 +2,7 @@
 Tests for skill_playbooks.py — MIRV Skill Playbooks System.
 
 Covers:
-  - Discovery of the 5 built-in skills
+  - Discovery of the 10 built-in skills (5 original + 5 added later)
   - load / unload / enable / disable / reload
   - list / info / render for prompt
   - Frontmatter parsing (inline lists, block lists, quotes, empty)
@@ -53,7 +53,11 @@ def builtin_only(monkeypatch):
     yield
 
 
-BUILTIN_NAMES = {"recon", "webvuln", "ssrf", "jwt", "supabase"}
+# 10 built-in skill playbooks (5 original + 5 added in the PentesterFlow-inspired round)
+BUILTIN_NAMES = {
+    "recon", "webvuln", "ssrf", "jwt", "supabase",          # original 5
+    "graphql", "race", "takeover", "deserialize", "ssti",    # added 5
+}
 
 
 # ════════════════════════════════════════════════════════════════
@@ -61,7 +65,7 @@ BUILTIN_NAMES = {"recon", "webvuln", "ssrf", "jwt", "supabase"}
 # ════════════════════════════════════════════════════════════════
 
 class TestDiscovery:
-    def test_discover_finds_all_five_builtins(self, builtin_only):
+    def test_discover_finds_all_ten_builtins(self, builtin_only):
         names = sp.discover_skills()
         assert set(names) == BUILTIN_NAMES
 

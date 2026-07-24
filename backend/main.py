@@ -62,6 +62,11 @@ from backend.mission_store import (
     list_missions,
     find_similar,
     get_suggestion_context,
+    compact_session as ms_compact,
+    get_session_memory as ms_memory,
+    render_session_memory_for_prompt as ms_render_memory,
+    auto_compact_if_needed as ms_autocompact,
+    count_compact_sessions as ms_count_compact,
 )
 from backend import database as _db_module  # alias used by mission delete endpoint
 
@@ -407,6 +412,7 @@ class SuggestRequest(BaseModel):
     findings: str = ""
     history: list = []              # list of {"role":"user"/"assistant","content":"..."}
     system_prompt: str = ""
+    mission_id: str = ""           # when set, /api/suggest injects the active mission's compacted memory
 
 def _clean_text(text: str) -> str:
     """Remove non-ASCII characters (emojis, special symbols) that break Latin-1 encoding in urllib."""
@@ -599,6 +605,22 @@ async def suggest_next_step(req: SuggestRequest):
             cov_block = ""
         if cov_block:
             system = f"{system}\n\n{cov_block}"
+
+        # ── Session Memory (compaction context for the active mission) ──
+        # When the request carries a ``mission_id`` we splice the
+        # bounded compact view of that mission into the system prompt so
+        # the LLM grounds its next-step on the work already done. The
+        # render is defensively wrapped — any failure degrades to the
+        # context-less prompt, the suggest endpoint must never crash.
+        mem_block = ""
+        try:
+            if req.mission_id:
+                mem_block = ms_render_memory(req.mission_id)
+        except Exception as e:
+            logger.warning("[suggest] session memory render failed: %s", e)
+            mem_block = ""
+        if mem_block:
+            system = f"{system}\n\n{mem_block}"
 
         messages = [{"role": "system", "content": _clean_text(system)}]
 
@@ -3972,6 +3994,102 @@ async def missions_similar(target_os: str = "", tools: str = "", limit: int = 5)
         return JSONResponse({"ok": True, "data": rows})
     except Exception as e:
         logger.error("[missions similar] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+# ════════════════════════════════════════════════════════════════
+#  SESSION COMPACTION (PentesterFlow-style /compact + autoCompact)
+# ════════════════════════════════════════════════════════════════
+
+
+@app.post("/api/missions/{mission_id}/compact")
+async def missions_compact(mission_id: str):
+    """Manually trigger a compaction of one mission into a SessionMemory.
+
+    The original mission row is left intact — the compact view is
+    written to the ``session_memory`` JSONB column and returned in the
+    response. Idempotent: re-running simply refreshes ``compacted_at``
+    and increments ``compaction_count``.
+    """
+    try:
+        result = await asyncio.to_thread(ms_compact, mission_id)
+        if not result.get("ok"):
+            return JSONResponse({"ok": False, "error": result.get("error", "compaction failed")},
+                                status_code=404)
+        return JSONResponse({"ok": True, "memory": result.get("memory")})
+    except Exception as e:
+        logger.error("[missions compact] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/missions/{mission_id}/memory")
+async def missions_memory(mission_id: str):
+    """Return the stored SessionMemory dict for a mission (or 404)."""
+    try:
+        memory = await asyncio.to_thread(ms_memory, mission_id)
+        if memory is None:
+            return JSONResponse({"ok": False, "error": "No session memory stored"},
+                                status_code=404)
+        return JSONResponse({"ok": True, "memory": memory})
+    except Exception as e:
+        logger.error("[missions memory] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/missions/{mission_id}/memory/render")
+async def missions_memory_render(mission_id: str):
+    """Return the SessionMemory rendered as a markdown block for prompt splicing."""
+    try:
+        rendered = await asyncio.to_thread(ms_render_memory, mission_id)
+        if not rendered:
+            return JSONResponse({"ok": False, "error": "No session memory available"},
+                                status_code=404)
+        return JSONResponse({"ok": True, "markdown": rendered})
+    except Exception as e:
+        logger.error("[missions memory render] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/missions/compact-all")
+async def missions_compact_all(threshold_chars: int = 0):
+    """Batch-compact every mission whose serialized size exceeds the threshold.
+
+    The threshold defaults to the env-configured ``MIRV_COMPACT_THRESHOLD``
+    (:a_func:`mission_store._compact_threshold`). Pass
+    ``threshold_chars=0`` (or omit) to use the env default — pass an
+    explicit value to override for this call only.
+    """
+    try:
+        rows = await asyncio.to_thread(list_missions, 200, None)
+        if not rows:
+            return JSONResponse({"ok": True, "compacted": [], "count": 0})
+        out: list[dict] = []
+        for r in rows:
+            mid = r.get("id")
+            if not mid:
+                continue
+            t = threshold_chars or None  # None → use env default
+            try:
+                res = await asyncio.to_thread(ms_autocompact, mid, t)
+            except Exception as e:
+                logger.debug("[compact-all] mission %s skipped: %s", mid, e)
+                res = None
+            if res and res.get("ok"):
+                out.append({"mission_id": mid, "memory": res.get("memory")})
+        return JSONResponse({"ok": True, "compacted": out, "count": len(out)})
+    except Exception as e:
+        logger.error("[missions compact-all] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/missions/compact/count")
+async def missions_compact_count():
+    """Return how many missions currently carry a compacted SessionMemory."""
+    try:
+        count = await asyncio.to_thread(ms_count_compact)
+        return JSONResponse({"ok": True, "count": count})
+    except Exception as e:
+        logger.error("[missions compact count] %s", e)
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 
 

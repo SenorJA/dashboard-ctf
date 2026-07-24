@@ -482,6 +482,18 @@
                     <span class="tab-icon">🧭</span>
                     <span>Coverage</span>
                 </button>
+                <button class="tab-btn" data-tab="burp" data-i18n="tabBurp">
+                    <span class="tab-icon">🦅</span>
+                    <span>Burp</span>
+                </button>
+                <button class="tab-btn" data-tab="audit" data-i18n="tabAudit">
+                    <span class="tab-icon">📜</span>
+                    <span>Audit</span>
+                </button>
+                <button class="tab-btn" data-tab="skills" data-i18n="tabSkills">
+                    <span class="tab-icon">📚</span>
+                    <span>Skills</span>
+                </button>
             </div>
 
             <!-- ── STATS BAR ── -->
@@ -2238,6 +2250,221 @@
                                 <tr><td colspan="7" class="text-center text-gray-700 italic py-3">No coverage rows yet.</td></tr>
                             </tbody>
                         </table>
+                    </div>
+                </div>
+            </div>
+
+        <!-- ════════════════════════════════════════════════════════
+                 TAB: BURP BRIDGE
+                 ════════════════════════════════════════════════════════ -->
+            <div id="tab-burp" class="tab-pane p-4 pt-3 overflow-y-auto">
+                <!-- Header -->
+                <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+                    <h2 class="text-xl font-semibold text-neon" data-i18n="burp-title">🦅 Burp Bridge</h2>
+                    <div class="flex items-center gap-2">
+                        <button id="burp-refresh-btn" class="px-3 py-1.5 text-[11px] bg-cyber hover:bg-neon text-white rounded transition-colors" data-i18n="burp-refresh">🔄 Refresh</button>
+                        <button id="burp-clear-btn" class="px-3 py-1.5 text-[11px] bg-blood/20 hover:bg-blood/40 text-blood border border-blood/40 rounded transition-colors" data-i18n="burp-clear">🗑 Clear All</button>
+                    </div>
+                </div>
+
+                <!-- Stats Grid -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-6">
+                    <div class="bg-deep rounded-lg p-3 border border-gray-800 text-center">
+                        <div class="text-2xl font-bold text-neon" id="burp-stat-requests">0</div>
+                        <div class="text-xs text-gray-600" data-i18n="burp-requests">Requests</div>
+                    </div>
+                    <div class="bg-deep rounded-lg p-3 border border-gray-700 text-center">
+                        <div class="text-2xl font-bold text-cyber" id="burp-stat-endpoints">0</div>
+                        <div class="text-xs text-gray-600" data-i18n="burp-endpoints">Endpoints</div>
+                    </div>
+                    <div class="bg-deep rounded-lg p-3 border border-yellow-800 text-center">
+                        <div class="text-2xl font-bold text-yellow-400" id="burp-stat-tasks">0</div>
+                        <div class="text-xs text-gray-600" data-i18n="burp-tasks">Tasks</div>
+                    </div>
+                    <div class="bg-deep rounded-lg p-3 border border-blood text-center">
+                        <div class="text-2xl font-bold text-blood" id="burp-stat-issues">0</div>
+                        <div class="text-xs text-gray-600" data-i18n="burp-issues">Issues</div>
+                    </div>
+                </div>
+
+                <!-- Captured Requests -->
+                <div class="bg-deep rounded-lg border border-gray-800 p-3 mb-4">
+                    <h3 class="text-[11px] text-cyber font-semibold tracking-wider uppercase mb-2" data-i18n="burp-requests">Captured Requests</h3>
+                    <div id="burp-request-list" class="space-y-1 max-h-72 overflow-y-auto font-mono text-[10px]">
+                        <div class="text-gray-700 text-center py-4" data-i18n="burp-no-data">No captured requests yet.</div>
+                    </div>
+                </div>
+
+                <!-- Endpoints -->
+                <div class="bg-deep rounded-lg border border-gray-800 p-3 mb-4">
+                    <h3 class="text-[11px] text-cyber font-semibold tracking-wider uppercase mb-2" data-i18n="burp-endpoints">Endpoints</h3>
+                    <div id="burp-endpoint-list" class="space-y-1 max-h-64 overflow-y-auto font-mono text-[10px]">
+                        <div class="text-gray-700 text-center py-4" data-i18n="burp-no-data">No endpoints discovered yet.</div>
+                    </div>
+                </div>
+
+                <!-- Issues -->
+                <div class="bg-deep rounded-lg border border-gray-800 p-3 mb-4">
+                    <h3 class="text-[11px] text-cyber font-semibold tracking-wider uppercase mb-2" data-i18n="burp-issues">Issues</h3>
+                    <div id="burp-issue-list" class="space-y-2">
+                        <div class="text-gray-700 text-center py-4" data-i18n="burp-no-data">No issues reported yet.</div>
+                    </div>
+                </div>
+
+                <!-- Raw Request Modal -->
+                <div id="burp-raw-modal" class="fixed inset-0 bg-black/70 z-50 hidden items-center justify-center p-4">
+                    <div class="bg-void border border-cyber/40 rounded-lg max-w-3xl w-full max-h-[80vh] flex flex-col">
+                        <div class="flex items-center justify-between px-4 py-2 border-b border-gray-800">
+                            <h3 class="text-[11px] text-neon font-semibold tracking-wider uppercase" data-i18n="burp-raw-title">Raw Request</h3>
+                            <button onclick="document.getElementById('burp-raw-modal').classList.add('hidden')" class="text-gray-500 hover:text-blood text-[12px]">✕</button>
+                        </div>
+                        <pre id="burp-raw-content" class="flex-1 overflow-auto p-3 text-[10px] text-gray-300 font-mono whitespace-pre-wrap"></pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ════════════════════════════════════════════════════════
+                 TAB: AUDIT LOG
+                 ════════════════════════════════════════════════════════ -->
+            <div id="tab-audit" class="tab-pane p-4 pt-3 overflow-y-auto">
+                <!-- Header -->
+                <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+                    <h2 class="text-xl font-semibold text-neon" data-i18n="audit-title">📜 Audit Log</h2>
+                    <div class="flex items-center gap-2">
+                        <span id="audit-size-badge" class="text-[9px] px-2 py-1 rounded bg-deep border border-gray-800 text-gray-400 font-mono"> fileSize: 0 B </span>
+                        <span id="audit-gen-badge" class="text-[9px] px-2 py-1 rounded bg-deep border border-gray-800 text-gray-400 font-mono"> gens: 0 </span>
+                        <button id="audit-refresh-btn" class="px-3 py-1.5 text-[11px] bg-cyber hover:bg-neon text-white rounded transition-colors" data-i18n="audit-refresh">🔄 Refresh</button>
+                        <button id="audit-manual-btn" class="px-3 py-1.5 text-[11px] bg-neon/10 hover:bg-neon/20 text-neon border border-neon/30 rounded transition-colors" data-i18n="audit-manual">✎ Manual Entry</button>
+                    </div>
+                </div>
+
+                <!-- Filter Row -->
+                <div class="bg-deep rounded-lg border border-gray-800 p-3 mb-4">
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                        <select id="audit-filter-level" class="bg-void border border-gray-800 rounded text-[11px] text-gray-300 px-2 py-1.5">
+                            <option value="">all levels</option>
+                            <option value="DEBUG">DEBUG</option>
+                            <option value="INFO">INFO</option>
+                            <option value="WARNING">WARNING</option>
+                            <option value="ERROR">ERROR</option>
+                            <option value="CRITICAL">CRITICAL</option>
+                        </select>
+                        <select id="audit-filter-category" class="bg-void border border-gray-800 rounded text-[11px] text-gray-300 px-2 py-1.5">
+                            <option value="">all categories</option>
+                        </select>
+                        <input id="audit-filter-event" type="text" placeholder="event name" class="bg-void border border-gray-800 rounded text-[11px] text-gray-300 px-2 py-1.5 font-mono">
+                        <input id="audit-filter-since" type="datetime-local" class="bg-void border border-gray-800 rounded text-[11px] text-gray-300 px-2 py-1.5 font-mono">
+                    </div>
+                </div>
+
+                <!-- Stats Grid -->
+                <div class="grid grid-cols-2 md:grid-cols-6 gap-2 mb-4">
+                    <div class="bg-deep rounded-lg p-3 border border-gray-800 text-center col-span-2 md:col-span-1">
+                        <div class="text-2xl font-bold text-neon" id="audit-stat-total">0</div>
+                        <div class="text-xs text-gray-600">Total</div>
+                    </div>
+                    <div class="bg-deep rounded-lg p-3 border border-gray-700 text-center">
+                        <div class="text-lg font-bold text-blue-400" id="audit-stat-debug">0</div>
+                        <div class="text-[10px] text-gray-600">DEBUG</div>
+                    </div>
+                    <div class="bg-deep rounded-lg p-3 border border-green-800 text-center">
+                        <div class="text-lg font-bold text-green-400" id="audit-stat-info">0</div>
+                        <div class="text-[10px] text-gray-600">INFO</div>
+                    </div>
+                    <div class="bg-deep rounded-lg p-3 border border-yellow-800 text-center">
+                        <div class="text-lg font-bold text-yellow-400" id="audit-stat-warning">0</div>
+                        <div class="text-[10px] text-gray-600">WARN</div>
+                    </div>
+                    <div class="bg-deep rounded-lg p-3 border border-orange-800 text-center">
+                        <div class="text-lg font-bold text-orange-400" id="audit-stat-error">0</div>
+                        <div class="text-[10px] text-gray-600">ERROR</div>
+                    </div>
+                    <div class="bg-deep rounded-lg p-3 border border-blood text-center">
+                        <div class="text-lg font-bold text-blood" id="audit-stat-critical">0</div>
+                        <div class="text-[10px] text-gray-600">CRIT</div>
+                    </div>
+                </div>
+
+                <!-- Recent Logs -->
+                <div class="bg-deep rounded-lg border border-gray-800 p-3 mb-4">
+                    <h3 class="text-[11px] text-cyber font-semibold tracking-wider uppercase mb-2" data-i18n="audit-logs">Recent Logs</h3>
+                    <div id="audit-log-list" class="space-y-1 max-h-[28rem] overflow-y-auto font-mono text-[10px]">
+                        <div class="text-gray-700 text-center py-4" data-i18n="audit-no-logs">No logs yet.</div>
+                    </div>
+                </div>
+
+                <!-- Manual Entry Modal -->
+                <div id="audit-manual-modal" class="fixed inset-0 bg-black/70 z-50 hidden items-center justify-center p-4">
+                    <div class="bg-void border border-cyber/40 rounded-lg max-w-md w-full">
+                        <div class="flex items-center justify-between px-4 py-2 border-b border-gray-800">
+                            <h3 class="text-[11px] text-neon font-semibold tracking-wider uppercase" data-i18n="audit-manual">Manual Audit Entry</h3>
+                            <button onclick="document.getElementById('audit-manual-modal').classList.add('hidden')" class="text-gray-500 hover:text-blood text-[12px]">✕</button>
+                        </div>
+                        <div class="p-4 space-y-2">
+                            <div class="grid grid-cols-2 gap-2">
+                                <select id="audit-manual-level" class="bg-deep border border-gray-800 rounded text-[11px] text-gray-300 px-2 py-1.5">
+                                    <option>DEBUG</option><option selected>INFO</option><option>WARNING</option><option>ERROR</option><option>CRITICAL</option>
+                                </select>
+                                <input id="audit-manual-category" type="text" placeholder="category" class="bg-deep border border-gray-800 rounded text-[11px] text-gray-300 px-2 py-1.5 font-mono">
+                            </div>
+                            <input id="audit-manual-event" type="text" placeholder="event" class="w-full bg-deep border border-gray-800 rounded text-[11px] text-gray-300 px-2 py-1.5 font-mono">
+                            <input id="audit-manual-message" type="text" placeholder="message" class="w-full bg-deep border border-gray-800 rounded text-[11px] text-gray-300 px-2 py-1.5 font-mono">
+                            <textarea id="audit-manual-details" rows="3" placeholder='{"custom":"json"}' class="w-full bg-deep border border-gray-800 rounded text-[11px] text-gray-300 px-2 py-1.5 font-mono"></textarea>
+                            <button id="audit-manual-submit" class="w-full bg-cyber hover:bg-neon text-white rounded px-3 py-1.5 text-[11px] font-semibold" data-i18n="audit-manual-submit">✓ Submit Entry</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ════════════════════════════════════════════════════════
+                 TAB: SKILLS
+                 ════════════════════════════════════════════════════════ -->
+            <div id="tab-skills" class="tab-pane p-4 pt-3 overflow-y-auto">
+                <!-- Header -->
+                <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+                    <h2 class="text-xl font-semibold text-neon" data-i18n="skills-title">📚 Skill Playbooks</h2>
+                    <div class="flex items-center gap-2">
+                        <span id="skills-count-badge" class="text-[9px] px-2 py-1 rounded bg-deep border border-gray-800 text-gray-400 font-mono"> 0 loaded </span>
+                        <button id="skills-refresh-btn" class="px-3 py-1.5 text-[11px] bg-cyber hover:bg-neon text-white rounded transition-colors" data-i18n="skills-refresh">🔄 Refresh</button>
+                    </div>
+                </div>
+
+                <!-- Skill Playbooks -->
+                <div class="bg-deep rounded-lg border border-gray-800 p-3 mb-4">
+                    <h3 class="text-[11px] text-cyber font-semibold tracking-wider uppercase mb-2" data-i18n="skills-playbooks">Skill Playbooks</h3>
+                    <div id="skills-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                        <div class="text-gray-700 text-center py-4 col-span-full" data-i18n="skills-no-skills">No skills discovered.</div>
+                    </div>
+                </div>
+
+                <!-- Create Skill -->
+                <div class="bg-deep rounded-lg border border-gray-800 p-3 mb-4">
+                    <h3 class="text-[11px] text-cyber font-semibold tracking-wider uppercase mb-2" data-i18n="skills-create">Create New Skill</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2">
+                        <input id="skills-create-name" type="text" placeholder="skill-name (slug)" class="bg-void border border-gray-800 rounded px-2 py-1.5 text-[11px] text-gray-200 font-mono">
+                        <select id="skills-create-category" class="bg-void border border-gray-800 rounded text-[11px] text-gray-300 px-2 py-1.5">
+                            <option value="recon">recon</option>
+                            <option value="webvuln">webvuln</option>
+                            <option value="ssrf">ssrf</option>
+                            <option value="auth">auth</option>
+                            <option value="cloud">cloud</option>
+                            <option value="forensics">forensics</option>
+                            <option value="custom">custom</option>
+                        </select>
+                    </div>
+                    <textarea id="skills-create-desc" rows="2" placeholder="Short description of what this playbook does" class="w-full bg-void border border-gray-800 rounded px-2 py-1.5 text-[11px] text-gray-200 font-mono mb-2"></textarea>
+                    <input id="skills-create-tools" type="text" placeholder="allowed_tools (comma-separated: nmap, gobuster)" class="w-full bg-void border border-gray-800 rounded px-2 py-1.5 text-[11px] text-gray-200 font-mono mb-2">
+                    <button id="skills-create-btn" class="bg-cyber hover:bg-neon text-white rounded px-3 py-1.5 text-[11px] font-semibold" data-i18n="skills-create-btn">✓ Create Skill</button>
+                </div>
+
+                <!-- Render Modal -->
+                <div id="skills-render-modal" class="fixed inset-0 bg-black/70 z-50 hidden items-center justify-center p-4">
+                    <div class="bg-void border border-cyber/40 rounded-lg max-w-3xl w-full max-h-[80vh] flex flex-col">
+                        <div class="flex items-center justify-between px-4 py-2 border-b border-gray-800">
+                            <h3 id="skills-render-title" class="text-[11px] text-neon font-semibold tracking-wider uppercase">Rendered Playbook</h3>
+                            <button onclick="document.getElementById('skills-render-modal').classList.add('hidden')" class="text-gray-500 hover:text-blood text-[12px]">✕</button>
+                        </div>
+                        <pre id="skills-render-content" class="flex-1 overflow-auto p-3 text-[10px] text-gray-300 font-mono whitespace-pre-wrap"></pre>
                     </div>
                 </div>
             </div>
