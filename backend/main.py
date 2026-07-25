@@ -163,6 +163,24 @@ from backend.burp_bridge import (
 )
 from backend.burp_bridge import CapturedRequest as BBCapturedRequest
 
+# ── Findings PoC (Reproducible Proof-of-Concept) ──
+from backend.finding_poc import (
+    FindingPoC,
+    build_poc as poc_build,
+    poc_to_finding as poc_to_f,
+    finding_to_poc as poc_from_f,
+    replay_poc as poc_replay,
+    parse_curl_to_poc as poc_parse_curl,
+    finding_to_markdown_report as poc_md,
+    validate_poc as poc_validate,
+    validate_url as poc_validate_url,
+    sanitize_payload as poc_sanitize,
+    poc_from_burp_request as poc_from_burp,
+)
+
+# ── Continuous Intelligence (watches, snapshots, diff, alerts) ──
+from backend import intelligence as intel
+
 app = FastAPI(title="VulnForge", version=VERSION)
 
 # ── kali-mcp integration ──
@@ -3618,6 +3636,179 @@ async def scope_validate_command(req: dict):
 
 
 # ════════════════════════════════════════════════════════════════
+#  INTERACTIVE PERMISSION PROMPTS API (Phase X)
+# ════════════════════════════════════════════════════════════════
+#
+# Frontend flow:
+#   1. operator submits a risky command → backend classify_command flags it
+#   2. backend request_permission() creates a pending PermissionRequest (TTL=120s)
+#   3. frontend polls GET /api/permissions/pending, shows a modal
+#   4. user replies via POST /api/permissions/{id}/decide
+#      body: {"decision": "allow-once" | "allow-session" | "deny"}
+#   5. backend decides, original dispatch wakes up via wait_for_decision()
+
+from backend.scope_guard import (
+    request_permission as sg_req_perm,
+    wait_for_decision as sg_wait,
+    decide_permission as sg_decide,
+    list_pending as sg_pending,
+    get_request as sg_get_req,
+    cleanup_expired as sg_cleanup,
+    clear_decisions as sg_clear_dec,
+    classify_command as sg_classify,
+    check_session_cache as sg_check_cache,
+)
+
+
+class PermissionClassifyRequest(BaseModel):
+    tool: str = "shell"
+    command: str = ""
+    target: str = ""
+
+
+class PermissionCreateRequest(BaseModel):
+    tool: str = "shell"
+    command: str = ""
+    target: str = ""
+    summary: str = ""
+    detail: str = ""
+    cache_key: Optional[str] = None
+    no_session_cache: bool = False
+    ttl_seconds: int = 120
+
+
+class PermissionDecideRequest(BaseModel):
+    decision: str
+    user: str = "operator"
+
+
+@app.get("/api/permissions/pending")
+async def permissions_list_pending():
+    """List all pending permission requests (sorted oldest first)."""
+    try:
+        rows = sg_pending()
+        return JSONResponse({"ok": True, "count": len(rows), "pending": rows})
+    except Exception as e:
+        logging.getLogger("vulnforge.api").exception("permissions.list_pending")
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/permissions/{request_id}")
+async def permissions_get_one(request_id: str):
+    """Fetch a single permission request by id."""
+    try:
+        row = sg_get_req(request_id)
+        if row is None:
+            return JSONResponse({"ok": False, "error": "not found"},
+                                status_code=404)
+        return JSONResponse({"ok": True, "request": row})
+    except Exception as e:
+        logging.getLogger("vulnforge.api").exception("permissions.get")
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/permissions/{request_id}/decide")
+async def permissions_decide(request_id: str, req: PermissionDecideRequest):
+    """Record an operator decision for a pending permission request."""
+    try:
+        result = sg_decide(request_id, req.decision, user=req.user)
+        if not result.get("ok", True) and "error" in result:
+            return JSONResponse(result, status_code=400)
+        return JSONResponse({"ok": True, "request": result})
+    except Exception as e:
+        logging.getLogger("vulnforge.api").exception("permissions.decide")
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/permissions/classify")
+async def permissions_classify(req: PermissionClassifyRequest):
+    """Classify a command's risk without creating a permission request.
+
+    Useful for UI hints ("this command will require confirmation").
+    """
+    try:
+        classification = sg_classify(req.tool, req.command, req.target)
+        cached = None
+        if classification.get("cache_key"):
+            cached = sg_check_cache(classification["cache_key"])
+        return JSONResponse({"ok": True, "classification": classification,
+                             "cached": cached})
+    except Exception as e:
+        logging.getLogger("vulnforge.api").exception("permissions.classify")
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/permissions/request")
+async def permissions_create_request(req: PermissionCreateRequest):
+    """Create a pending permission request (used by tool dispatch + UI testing)."""
+    try:
+        if not req.command.strip():
+            return JSONResponse({"ok": False, "error": "command is required"},
+                                status_code=400)
+        # If summary/detail not supplied, auto-classify.
+        if not req.summary and not req.detail:
+            cls = sg_classify(req.tool, req.command, req.target)
+            summary = cls["summary"]
+            detail = cls["detail"]
+            cache_key = req.cache_key or cls.get("cache_key")
+        else:
+            summary = req.summary
+            detail = req.detail
+            cache_key = req.cache_key
+
+        perm = sg_req_perm(
+            tool=req.tool,
+            command=req.command,
+            target=req.target,
+            summary=summary,
+            detail=detail,
+            cache_key=cache_key,
+            no_session_cache=req.no_session_cache,
+            ttl_seconds=req.ttl_seconds,
+        )
+        return JSONResponse({"ok": True, "request": _perm_to_dict_safe(perm)})
+    except Exception as e:
+        logging.getLogger("vulnforge.api").exception("permissions.create")
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.delete("/api/permissions")
+async def permissions_clear_all():
+    """Clear all permission decisions and the session cache."""
+    try:
+        sg_clear_dec()
+        return JSONResponse({"ok": True})
+    except Exception as e:
+        logging.getLogger("vulnforge.api").exception("permissions.clear")
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/permissions/cleanup")
+async def permissions_cleanup_expired():
+    """Purge expired pending requests."""
+    try:
+        count = sg_cleanup()
+        return JSONResponse({"ok": True, "expired": count})
+    except Exception as e:
+        logging.getLogger("vulnforge.api").exception("permissions.cleanup")
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+def _perm_to_dict_safe(perm) -> dict:
+    """Serialize a PermissionRequest safely for JSON responses."""
+    try:
+        from dataclasses import asdict
+        return asdict(perm)
+    except Exception:
+        return {
+            "id": getattr(perm, "id", None),
+            "tool": getattr(perm, "tool", None),
+            "command": getattr(perm, "command", None),
+            "status": getattr(perm, "status", None),
+        }
+
+
+# ════════════════════════════════════════════════════════════════
 #  CREDENTIAL STORE API
 # ════════════════════════════════════════════════════════════════
 
@@ -4628,6 +4819,390 @@ async def burp_status(request: Request):
     except Exception as e:
         logger.exception("burp status failed")
         return JSONResponse({"ok": False, "error": "status failed"}, status_code=500)
+
+
+# ════════════════════════════════════════════════════════════════
+#  Findings PoC — Reproducible Proof-of-Concept endpoints
+# ════════════════════════════════════════════════════════════════
+
+class PocBuildModel(BaseModel):
+    method: str = "GET"
+    url: str
+    headers: Optional[Any] = None
+    body: Optional[str] = None
+    parameter: Optional[str] = None
+    payload: Optional[str] = None
+    response_status: Optional[int] = None
+    response_excerpt: Optional[str] = None
+    remediation: Optional[str] = None
+    impact: str = ""
+
+
+class PocReplayModel(BaseModel):
+    # Either a full PoC dict (finding_id/method/url/...)
+    poc: Optional[Any] = None
+    # ...or wrap a MIRV finding dict (with data.poc) and we extract it.
+    finding: Optional[Any] = None
+    timeout: int = 30
+    verify_tls: bool = False
+
+
+class PocParseCurlModel(BaseModel):
+    curl: str
+    response_excerpt: str = ""
+    response_status: Optional[int] = None
+
+
+@app.post("/api/poc/build")
+async def poc_build_endpoint(payload: PocBuildModel):
+    """Build a reproducible ``FindingPoC`` from request/response context."""
+    try:
+        if not poc_validate_url(payload.url):
+            return JSONResponse(
+                {"ok": False, "error": "invalid url"},
+                status_code=400,
+            )
+        poc = poc_build(
+            method=payload.method,
+            url=payload.url,
+            headers=payload.headers if isinstance(payload.headers, dict) else {},
+            body=payload.body,
+            parameter=payload.parameter,
+            payload=payload.payload,
+            response_status=payload.response_status,
+            response_excerpt=payload.response_excerpt,
+            remediation=payload.remediation,
+            impact=payload.impact,
+        )
+        return JSONResponse({"ok": True, "poc": asdict(poc)})
+    except Exception:
+        logger.exception("poc build failed")
+        return JSONResponse({"ok": False, "error": "build failed"}, status_code=500)
+
+
+@app.post("/api/poc/replay")
+async def poc_replay_endpoint(payload: PocReplayModel):
+    """Execute a stored PoC's curl command and return the replay evidence.
+
+    Accepts either a raw ``poc`` dict or a MIRV ``finding`` dict — the
+    latter is unpacked via ``finding_to_poc``.
+    """
+    try:
+        poc_obj: Optional[FindingPoC] = None
+        if isinstance(payload.poc, dict) and payload.poc:
+            poc_obj = poc_from_f({"data": {"poc": payload.poc}})
+        elif isinstance(payload.finding, dict) and payload.finding:
+            poc_obj = poc_from_f(payload.finding)
+        if poc_obj is None:
+            return JSONResponse(
+                {"ok": False, "error": "no poc or finding provided"},
+                status_code=400,
+            )
+        # Offload blocking subprocess to a thread so the event loop stays live.
+        result = await asyncio.to_thread(
+            poc_replay, poc_obj, payload.timeout, payload.verify_tls
+        )
+        return JSONResponse(result)
+    except Exception:
+        logger.exception("poc replay failed")
+        return JSONResponse({"ok": False, "error": "replay failed"}, status_code=500)
+
+
+@app.post("/api/poc/parse-curl")
+async def poc_parse_curl_endpoint(payload: PocParseCurlModel):
+    """Parse a ``curl ...`` one-liner into a ``FindingPoC``."""
+    try:
+        if not payload.curl or not isinstance(payload.curl, str):
+            return JSONResponse({"ok": False, "error": "curl is required"}, status_code=400)
+        poc = poc_parse_curl(
+            payload.curl,
+            response_excerpt=payload.response_excerpt or "",
+            response_status=payload.response_status,
+        )
+        return JSONResponse({"ok": True, "poc": asdict(poc)})
+    except Exception:
+        logger.exception("poc parse-curl failed")
+        return JSONResponse({"ok": False, "error": "parse failed"}, status_code=500)
+
+
+@app.post("/api/poc/finding-to-md")
+async def poc_finding_to_md_endpoint(request: Request):
+    """Render a MIRV finding dict as a self-contained Markdown report."""
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"ok": False, "error": "invalid JSON body"}, status_code=400)
+    try:
+        finding = body if isinstance(body, dict) else {}
+        md = poc_md(finding)
+        return JSONResponse({"ok": True, "markdown": md})
+    except Exception:
+        logger.exception("poc finding-to-md failed")
+        return JSONResponse({"ok": False, "error": "render failed"}, status_code=500)
+
+
+@app.post("/api/poc/from-burp")
+async def poc_from_burp_endpoint(request: Request):
+    """Convert a Burp Bridge captured request dict into a ``FindingPoC``."""
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"ok": False, "error": "invalid JSON body"}, status_code=400)
+    try:
+        captured = body if isinstance(body, dict) else {}
+        poc = poc_from_burp(captured)
+        if poc is None:
+            return JSONResponse(
+                {"ok": False, "error": "missing required fields (url)"},
+                status_code=400,
+            )
+        return JSONResponse({"ok": True, "poc": asdict(poc)})
+    except Exception:
+        logger.exception("poc from-burp failed")
+        return JSONResponse({"ok": False, "error": "conversion failed"}, status_code=500)
+
+
+@app.post("/api/poc/validate")
+async def poc_validate_endpoint(request: Request):
+    """Validate a ``FindingPoC`` dict and return any structural errors."""
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"ok": False, "error": "invalid JSON body"}, status_code=400)
+    try:
+        poc_dict = body if isinstance(body, dict) else {}
+        poc_obj = poc_from_f({"data": {"poc": poc_dict}}) if poc_dict else None
+        if poc_obj is None:
+            # Build a minimal object so validate_poc can run field checks.
+            poc_obj = FindingPoC(
+                finding_id=poc_dict.get("finding_id", ""),
+                method=poc_dict.get("method", ""),
+                url=poc_dict.get("url", ""),
+                headers=poc_dict.get("headers", {}),
+                body=poc_dict.get("body"),
+                parameter=poc_dict.get("parameter"),
+                payload=poc_dict.get("payload"),
+                response_status=poc_dict.get("response_status"),
+                response_excerpt=poc_dict.get("response_excerpt"),
+                curl_command=poc_dict.get("curl_command", ""),
+                raw_request=poc_dict.get("raw_request", ""),
+                remediation=poc_dict.get("remediation"),
+                impact=poc_dict.get("impact", ""),
+                evidence_hash=poc_dict.get("evidence_hash"),
+            )
+        errors = poc_validate(poc_obj)
+        return JSONResponse({"ok": len(errors) == 0, "errors": errors})
+    except Exception:
+        logger.exception("poc validate failed")
+        return JSONResponse({"ok": False, "error": "validate failed"}, status_code=500)
+
+
+# ════════════════════════════════════════════════════════════════
+#  Continuous Intelligence — watches, snapshots, diff, alerts
+# ════════════════════════════════════════════════════════════════
+
+class IntelWatchModel(BaseModel):
+    name: str
+    target: str
+    watch_type: str
+    interval_seconds: int = 3600
+    tags: list[str] = []
+
+
+class IntelSnapshotModel(BaseModel):
+    data: dict
+
+
+class IntelUpdateWatchModel(BaseModel):
+    name: Optional[str] = None
+    target: Optional[str] = None
+    watch_type: Optional[str] = None
+    interval_seconds: Optional[int] = None
+    enabled: Optional[bool] = None
+    tags: Optional[list[str]] = None
+
+
+@app.post("/api/intelligence/watches")
+async def intel_create_watch(payload: IntelWatchModel):
+    """Create a new Continuous Intelligence watch definition."""
+    try:
+        w = intel.create_watch(
+            name=payload.name,
+            target=payload.target,
+            watch_type=payload.watch_type,
+            interval_seconds=payload.interval_seconds,
+            tags=payload.tags,
+        )
+        return JSONResponse({"ok": True, "watch": asdict(w)})
+    except ValueError as exc:
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
+    except Exception:
+        logger.exception("intel create_watch failed")
+        return JSONResponse({"ok": False, "error": "create watch failed"}, status_code=500)
+
+
+@app.get("/api/intelligence/watches")
+async def intel_list_watches():
+    """List all watch definitions."""
+    try:
+        watches = intel.list_watches()
+        return JSONResponse({"ok": True, "watches": [asdict(w) for w in watches]})
+    except Exception:
+        logger.exception("intel list_watches failed")
+        return JSONResponse({"ok": False, "error": "list watches failed"}, status_code=500)
+
+
+@app.get("/api/intelligence/watches/{watch_id}")
+async def intel_get_watch(watch_id: str):
+    """Get a single watch definition by ID."""
+    try:
+        w = intel.get_watch(watch_id)
+        if w is None:
+            return JSONResponse({"ok": False, "error": "watch not found"}, status_code=404)
+        return JSONResponse({"ok": True, "watch": asdict(w)})
+    except Exception:
+        logger.exception("intel get_watch failed")
+        return JSONResponse({"ok": False, "error": "get watch failed"}, status_code=500)
+
+
+@app.put("/api/intelligence/watches/{watch_id}")
+async def intel_update_watch(watch_id: str, payload: IntelUpdateWatchModel):
+    """Update fields on an existing watch definition."""
+    try:
+        kwargs = {k: v for k, v in payload.dict().items() if v is not None}
+        w = intel.update_watch(watch_id, **kwargs)
+        if w is None:
+            return JSONResponse({"ok": False, "error": "watch not found"}, status_code=404)
+        return JSONResponse({"ok": True, "watch": asdict(w)})
+    except ValueError as exc:
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
+    except Exception:
+        logger.exception("intel update_watch failed")
+        return JSONResponse({"ok": False, "error": "update watch failed"}, status_code=500)
+
+
+@app.delete("/api/intelligence/watches/{watch_id}")
+async def intel_delete_watch(watch_id: str):
+    """Delete a watch and its snapshot history."""
+    try:
+        removed = intel.delete_watch(watch_id)
+        if not removed:
+            return JSONResponse({"ok": False, "error": "watch not found"}, status_code=404)
+        return JSONResponse({"ok": True})
+    except Exception:
+        logger.exception("intel delete_watch failed")
+        return JSONResponse({"ok": False, "error": "delete watch failed"}, status_code=500)
+
+
+@app.post("/api/intelligence/watches/{watch_id}/snapshot")
+async def intel_capture_snapshot(watch_id: str, payload: IntelSnapshotModel):
+    """Manually capture a snapshot for a watch (provide data)."""
+    try:
+        w = intel.get_watch(watch_id)
+        if w is None:
+            return JSONResponse({"ok": False, "error": "watch not found"}, status_code=404)
+        snap = intel.capture_snapshot(w, payload.data)
+        return JSONResponse({"ok": True, "snapshot": asdict(snap)})
+    except Exception:
+        logger.exception("intel capture_snapshot failed")
+        return JSONResponse({"ok": False, "error": "capture snapshot failed"}, status_code=500)
+
+
+@app.get("/api/intelligence/watches/{watch_id}/snapshots")
+async def intel_get_snapshots(watch_id: str, limit: int = 50):
+    """Get snapshot history for a watch."""
+    try:
+        w = intel.get_watch(watch_id)
+        if w is None:
+            return JSONResponse({"ok": False, "error": "watch not found"}, status_code=404)
+        snaps = intel.get_snapshot_history(watch_id, limit=limit)
+        return JSONResponse({"ok": True, "snapshots": [asdict(s) for s in snaps]})
+    except Exception:
+        logger.exception("intel get_snapshots failed")
+        return JSONResponse({"ok": False, "error": "get snapshots failed"}, status_code=500)
+
+
+@app.get("/api/intelligence/alerts")
+async def intel_list_alerts(watch_id: Optional[str] = None, severity: Optional[str] = None, limit: int = 100):
+    """List alerts, optionally filtered by watch_id and/or severity."""
+    try:
+        alerts = intel.list_alerts(watch_id=watch_id, severity=severity, limit=limit)
+        return JSONResponse({"ok": True, "alerts": [asdict(a) for a in alerts]})
+    except Exception:
+        logger.exception("intel list_alerts failed")
+        return JSONResponse({"ok": False, "error": "list alerts failed"}, status_code=500)
+
+
+@app.post("/api/intelligence/alerts/{alert_id}/acknowledge")
+async def intel_acknowledge_alert(alert_id: str):
+    """Acknowledge an alert."""
+    try:
+        ok = intel.acknowledge_alert(alert_id)
+        if not ok:
+            return JSONResponse({"ok": False, "error": "alert not found"}, status_code=404)
+        return JSONResponse({"ok": True})
+    except Exception:
+        logger.exception("intel acknowledge_alert failed")
+        return JSONResponse({"ok": False, "error": "acknowledge alert failed"}, status_code=500)
+
+
+@app.delete("/api/intelligence/alerts")
+async def intel_clear_alerts(watch_id: Optional[str] = None):
+    """Clear alerts, optionally only for a specific watch."""
+    try:
+        count = intel.clear_alerts(watch_id=watch_id)
+        return JSONResponse({"ok": True, "cleared": count})
+    except Exception:
+        logger.exception("intel clear_alerts failed")
+        return JSONResponse({"ok": False, "error": "clear alerts failed"}, status_code=500)
+
+
+@app.post("/api/intelligence/diff/{watch_id}")
+async def intel_diff(watch_id: str, payload: IntelSnapshotModel):
+    """Capture a new snapshot, diff against the previous, and generate alerts.
+
+    This is the primary ``collect-and-diff`` endpoint.  Provide ``data``
+    matching the watch_type schema.  The endpoint will:
+      1. Store the new snapshot.
+      2. Diff it against the previous snapshot (if any).
+      3. Auto-create alerts for detected changes.
+      4. Return the ``DiffResult``.
+    """
+    try:
+        w = intel.get_watch(watch_id)
+        if w is None:
+            return JSONResponse({"ok": False, "error": "watch not found"}, status_code=404)
+
+        new_snap = intel.capture_snapshot(w, payload.data)
+        old_snap = intel.get_latest_snapshot(watch_id)
+        # old_snap is now new_snap (latest), so we need the one before it
+        # get_snapshot_history returns all; the second-to-last is the old
+        history = intel.get_snapshot_history(watch_id, limit=2)
+        old_for_diff = history[0] if len(history) >= 2 else None
+
+        diff = intel.compute_diff(old_for_diff, new_snap)
+
+        # Auto-create alerts for changes
+        if diff.changed and diff.changes:
+            max_sev = diff.changes[0].get("severity", "info")
+            for c in diff.changes:
+                from backend.intelligence import _severity_rank as _sr
+                if _sr(c.get("severity", "info")) > _sr(max_sev):
+                    max_sev = c["severity"]
+
+            intel.create_alert(
+                watch_id=watch_id,
+                target=w.target,
+                alert_type="change_detected",
+                severity=max_sev,
+                message=diff.summary,
+                details={"changes": diff.changes, "diff_id": diff.new_snapshot_id},
+            )
+
+        return JSONResponse({"ok": True, "diff": asdict(diff)})
+    except Exception:
+        logger.exception("intel diff failed")
+        return JSONResponse({"ok": False, "error": "diff failed"}, status_code=500)
 
 
 # ════════════════════════════════════════════════════════════════

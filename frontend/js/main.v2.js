@@ -3162,7 +3162,8 @@ ${bodyHtml}
             coverage: 20,
             burp: 21,
             audit: 22,
-            skills: 23
+            skills: 23,
+            intelligence: 24
         };
         if (panes[tabName] !== undefined) {
             btns[panes[tabName]].classList.add('active');
@@ -8558,4 +8559,171 @@ Reglas:
         const el = document.querySelector(`[data-i18n="${key}"]`);
         return el ? el.textContent : key;
     }
+
+    // ================================================================
+    //  INTELLIGENCE — Continuous Intelligence Monitoring
+    // ================================================================
+    window.intelCreateWatch = async function() {
+        const name = prompt('Watch name:');
+        if (!name) return;
+        const target = prompt('Target (URL/IP/domain):');
+        if (!target) return;
+        const type = prompt(
+            'Watch type:\n1) http_headers\n2) certificate\n3) dns\n4) port_scan\n5) tech_stack\n6) page_content',
+            'http_headers'
+        );
+        if (!type) return;
+        const interval = parseInt(prompt('Check interval (seconds):', '3600'), 10) || 3600;
+        try {
+            const resp = await fetch('/api/intelligence/watches', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, target, watch_type: type, interval_seconds: interval })
+            });
+            const data = await resp.json();
+            if (data.ok) refreshIntel();
+            else alert('Error: ' + (data.error || 'unknown'));
+        } catch (e) { alert('Network error: ' + e.message); }
+    };
+
+    window.intelSnapshot = async function(watchId) {
+        try {
+            const resp = await fetch(`/api/intelligence/diff/${watchId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: '{}'
+            });
+            const data = await resp.json();
+            if (data.ok) {
+                const diff = data.diff;
+                if (diff && diff.changed) {
+                    alert('⚠️ Changes detected!\n' + diff.summary);
+                } else {
+                    alert('✅ No changes detected.');
+                }
+                refreshIntel();
+            } else {
+                alert('Error: ' + (data.error || 'snapshot failed'));
+            }
+        } catch (e) { alert('Error: ' + e.message); }
+    };
+
+    window.intelDeleteWatch = async function(watchId) {
+        if (!confirm('Delete this watch and all its snapshots?')) return;
+        try {
+            await fetch(`/api/intelligence/watches/${watchId}`, { method: 'DELETE' });
+            refreshIntel();
+        } catch (e) { alert('Error: ' + e.message); }
+    };
+
+    window.intelToggleWatch = async function(watchId, enabled) {
+        try {
+            await fetch(`/api/intelligence/watches/${watchId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ enabled: !enabled })
+            });
+            refreshIntel();
+        } catch (e) {}
+    };
+
+    window.intelAckAlert = async function(alertId) {
+        try {
+            await fetch(`/api/intelligence/alerts/${alertId}/acknowledge`, { method: 'POST' });
+            refreshIntel();
+        } catch (e) {}
+    };
+
+    window.intelClearAlerts = async function() {
+        if (!confirm('Clear all intelligence alerts?')) return;
+        try {
+            await fetch('/api/intelligence/alerts', { method: 'DELETE' });
+            refreshIntel();
+        } catch (e) {}
+    };
+
+    window.refreshIntel = async function() {
+        try {
+            const [watchResp, alertResp] = await Promise.all([
+                fetch('/api/intelligence/watches'),
+                fetch('/api/intelligence/alerts')
+            ]);
+            const watchData = await watchResp.json();
+            const alertData = await alertResp.json();
+
+            const watchesEl = document.getElementById('intel-watches');
+            const alertsEl = document.getElementById('intel-alerts');
+            const countEl = document.getElementById('intel-watches-count');
+            if (!watchesEl) return;
+
+            const watches = (watchData.ok && watchData.watches) ? watchData.watches : [];
+            if (countEl) countEl.textContent = ` ${watches.length} watch${watches.length !== 1 ? 'es' : ''} `;
+
+            if (watches.length > 0) {
+                watchesEl.innerHTML = watches.map(w => {
+                    const statusColor = w.enabled ? 'text-neon' : 'text-gray-600';
+                    const statusDot = w.enabled ? '🟢' : '🔴';
+                    const typeLabels = {
+                        http_headers: '🌐 Headers', certificate: '🔒 Cert', dns: '📡 DNS',
+                        port_scan: '🔌 Ports', tech_stack: '🛠️ Tech', page_content: '📄 Content'
+                    };
+                    const typeLabel = typeLabels[w.watch_type] || w.watch_type;
+                    return `
+                        <div class="p-2.5 bg-deep/50 border border-gray-800 rounded hover:border-cyber/30 transition-colors">
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="text-[11px] font-bold ${statusColor}">${_escH(w.name)}</span>
+                                <span class="text-[9px]">${statusDot}</span>
+                            </div>
+                            <div class="text-[9px] text-gray-500 mb-1.5">${_escH(w.target)}</div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-[9px] text-gray-600">${typeLabel} · ${w.interval_seconds}s</span>
+                                <div class="flex gap-1">
+                                    <button onclick="intelSnapshot('${w.id}')" class="px-1.5 py-0.5 bg-cyber/15 text-cyber rounded text-[9px] hover:bg-cyber/25" title="Take snapshot">📸</button>
+                                    <button onclick="intelToggleWatch('${w.id}', ${w.enabled})" class="px-1.5 py-0.5 bg-gray-800 text-gray-500 rounded text-[9px] hover:bg-gray-700" title="${w.enabled ? 'Disable' : 'Enable'}">${w.enabled ? '⏸' : '▶'}</button>
+                                    <button onclick="intelDeleteWatch('${w.id}')" class="px-1.5 py-0.5 bg-blood/15 text-blood rounded text-[9px] hover:bg-blood/25" title="Delete">🗑️</button>
+                                </div>
+                            </div>
+                            <div class="text-[8px] text-gray-700 mt-1">${w.last_check ? 'Last: ' + _escH(w.last_check) : 'Never checked'}</div>
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                watchesEl.innerHTML = '<div class="text-gray-700 text-center py-4 col-span-full text-[11px]">No watches configured. Click "+ New Watch" to start monitoring.</div>';
+            }
+
+            const alerts = (alertData.ok && alertData.alerts) ? alertData.alerts : [];
+            if (alertsEl) {
+                if (alerts.length > 0) {
+                    alertsEl.innerHTML = alerts.slice(0, 50).map(a => {
+                        const sevColor = { critical: 'text-blood', high: 'text-blood', medium: 'text-yellow-500', low: 'text-gray-400', info: 'text-gray-500' }[a.severity] || 'text-gray-500';
+                        const icon = a.acknowledged ? '✅' : '⚠️';
+                        return `
+                            <div class="flex items-center justify-between p-1.5 ${a.acknowledged ? 'bg-deep/30' : 'bg-deep/60 border border-blood/20'} rounded">
+                                <span class="text-[10px]">${icon} <span class="${sevColor} font-bold">${a.severity.toUpperCase()}</span> ${_escH(a.message)}</span>
+                                ${!a.acknowledged ? `<button onclick="intelAckAlert('${a.id}')" class="text-neon text-[9px] hover:underline ml-2">ack</button>` : ''}
+                            </div>`;
+                    }).join('');
+                } else {
+                    alertsEl.innerHTML = '<div class="text-[10px] text-gray-700 py-1">No alerts.</div>';
+                }
+            }
+        } catch (e) { console.error('refreshIntel error:', e); }
+    };
+
+    // HTML escape helper (module-scoped)
+    function _escH(s) {
+        if (!s) return '';
+        const d = document.createElement('div');
+        d.textContent = String(s);
+        return d.innerHTML;
+    }
+
+    // Auto-refresh intelligence tab
+    const _origSwitchTabIntel = window.switchTab;
+    window.switchTab = function(name) {
+        if (name === 'intelligence') {
+            refreshIntel();
+        }
+        if (_origSwitchTabIntel) _origSwitchTabIntel(name);
+    };
 });
