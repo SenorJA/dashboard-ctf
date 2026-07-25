@@ -1,219 +1,187 @@
 # M.I.R.V. — Estado Completo del Proyecto
 
+> Última actualización: 25 Jul 2026 — MIRV v4.0 | 28 módulos | 208 endpoints | 2346 tests | 25 tabs
+
 ## Resumen General
 
 | Área | Estado | Notas |
 |------|--------|-------|
-| Backend (main.py + 13 módulos) | ✅ ~2500+ líneas, 88+ endpoints REST | FastAPI + Supabase |
-| Frontend (SPA) | ✅ ~6500 líneas JS, 1 HTML, 900 líneas CSS | Vanilla JS + Tailwind CDN |
+| Backend (main.py + 27 módulos) | ✅ 19,000+ líneas, 208 endpoints REST | FastAPI + Supabase |
+| Frontend (SPA) | ✅ ~12,300 líneas (8729 JS + 2694 HTML) | Vanilla JS + Tailwind CDN |
 | SSH Proxy WebSocket | ✅ | `invoke_shell()` async + PTY + sudo automático |
 | Supabase Persistencia | ✅ | 17 tablas, offline-first con localStorage fallback |
-| i18n EN/ES | ✅ | 150+ traducciones |
+| i18n EN/ES | ✅ | 170+ traducciones |
 | Docker Stack | ✅ | mirv-backend + kali-tools (SSH) |
 | MCP Server | ✅ | Tools para Claude Code, Cursor |
 | Conexión Kali | ✅ | SSH vía LAN o Docker-in-Docker |
+| CI/CD | ✅ | GitHub Actions (lint + test + deploy) |
+| Plugin System | ✅ | Hot-reload + 5 hooks + watchdog |
+| Skill Playbooks | ✅ | 10 built-in playbooks + custom |
+| Continuous Intelligence | ✅ | Watch/snapshot/diff/alert system |
+| Permission Prompts | ✅ | Interactive command gating |
+| Finding PoC | ✅ | Reproducible proof-of-concept |
 
 ---
 
-## Módulos Backend (13 módulos + main.py)
+## Módulos Backend (28 módulos)
 
-| # | Archivo | Líneas | Propósito |
-|---|---------|--------|-----------|
-| — | `main.py` | ~2332 | FastAPI app, WebSocket SSH proxy, 88+ endpoints, CSP middleware |
-| — | `database.py` | ~1344 | Supabase CRUD (17 tablas) |
-| — | `mcp_server.py` | ~620 | MCP Server para agentes IA |
-| — | `kali_mcp_client.py` | ~130 | Cliente kali-mcp Docker |
-| — | `swarm.py` | ~250 | Multi-operator swarm coordinator |
-| — | `mobile_analyzer.py` | ~707 | APK static + dynamic analysis |
-| — | `forensics.py` | ~253 | Digital forensics |
-| — | `knowledgebase.py` | ~210 | CVE + MITRE ATT&CK |
-| — | `scope_guard.py` | ~261 | Scope validation (Warn/Block) |
-| — | `adb_controller.py` | ~205 | ADB device + Frida scripts |
-| — | `opsec.py` | ~400 | OPSEC Levels — 30 tools |
-| — | `mission_store.py` | ~356 | Self-Improvement Loop |
-| — | `headers_scanner.py` | nuevo | #1 HTTP Headers Scanner (grade A–F) |
-| — | `secrets_scanner.py` | nuevo | #2 Secrets Scanner (25 regex) |
-| — | `port_scanner.py` | nuevo | #3 Port Scanner (~1600 puertos async) |
-| — | `subdomain_scanner.py` | nuevo | #4 Subdomain Scanner (~700 prefijos DNS) |
-| — | `dns_lookup.py` | nuevo | #5 DNS Lookup (DoH, 7 tipos, reverse) |
-| — | `hash_cracker.py` | nuevo | #6 Hash Cracker (20 tipos, rainbow table) |
-| — | `stego_tool.py` | nuevo | #7 Steganography Tool (PNG/BMP LSB) |
-| — | `news_scraper.py` | nuevo | #8 Security News Scraper (9 RSS feeds) |
-| — | `api_scanner.py` | nuevo | #9 API Security Scanner (65+ paths) |
+### Core de seguridad
+
+| Archivo | Líneas | Tests | Propósito |
+|---------|--------|-------|-----------|
+| `scope_guard.py` | 755 | 56 | Scope validation + Interactive Permission Prompts (Warn/Block, 16 danger patterns, session cache, TTL) |
+| `opsec.py` | ~400 | 25 | OPSEC Levels — 30 tools con modificadores Silent/Covert/Loud |
+| `redact.py` | ~430 | 63 | 20 patrones de redacción (AWS, GitHub, JWT, PEM, etc.), shape-preserving |
+| `audit_log.py` | ~470 | 45 | JSONL structure + 4MB rotation + SIEM forwarding |
+
+### Inteligencia y monitoreo
+
+| Archivo | Líneas | Tests | Propósito |
+|---------|--------|-------|-----------|
+| `siem.py` | ~743 | 31 | Eventos, 4 reglas de correlación, alerts, thread-safe |
+| `intelligence.py` | 890 | 43 | Watch/snapshot/diff/alert — 6 tipos de monitor (headers, cert, DNS, ports, tech, content) |
+| `exif_osint.py` | ~812 | 21 | GPS extraction, camera metadata, reverse geocoding, Leaflet map |
+| `canary_tokens.py` | ~442 | 24 | 8 tipos de honeytokens + activation tracking |
+
+### Herramientas de testing
+
+| Archivo | Líneas | Tests | Propósito |
+|---------|--------|-------|-----------|
+| `dlp_scanner.py` | ~453 | 25 | 8 patrones PII + validación Luhn + risk scoring |
+| `burp_bridge.py` | ~599 | 72 | Ingest server + LRU store + finding↔issue + Jython plugin |
+| `finding_poc.py` | 745 | 61 | PoC builder, curl parser, replay (subprocess), markdown reports, evidence hash |
+| `coverage.py` | ~480 | 33 | Matriz (endpoint×param×vuln_class) + next_steps estimator |
+
+### Plugins y automatización
+
+| Archivo | Líneas | Tests | Propósito |
+|---------|--------|-------|-----------|
+| `plugin_manager.py` | ~700 | 65 | Discovery + 5 hooks + hot-reload (watchdog + polling fallback) |
+| `skill_playbooks.py` | ~450 | 67 | 10 playbooks MD (recon, webvuln, ssrf, jwt, supabase, graphql, race, takeover, deserialize, ssti) |
+
+### Infraestructura
+
+| Archivo | Líneas | Tests | Propósito |
+|---------|--------|-------|-----------|
+| `main.py` | 5235 | 333 | FastAPI app central, WebSocket SSH proxy, 208+ endpoints, CSP middleware |
+| `database.py` | ~1344 | 196 | Supabase CRUD, 17 tablas, 85% coverage |
+| `mission_store.py` | ~356 | 63 | Self-improvement loop, session compaction (SessionMemory dataclass) |
+| `mcp_server.py` | ~620 | — | MCP Server para agentes IA |
+| `kali_mcp_client.py` | ~130 | 20 | Cliente kali-mcp Docker |
+| `swarm.py` | ~250 | 30 | Multi-operator coordinator |
+| `mobile_analyzer.py` | ~707 | — | APK static + dynamic (ADB/Frida) |
+| `forensics.py` | ~253 | 30 | Digital forensics (memory, disk, Sleuth Kit) |
+| `knowledgebase.py` | ~210 | 45 | CVE + MITRE ATT&CK DB |
+| `adb_controller.py` | ~205 | 25 | Device detection + Frida scripts |
+
+### API-based tools (sin SSH)
+
+| Archivo | Tests | Propósito |
+|---------|-------|-----------|
+| `headers_scanner.py` | 32 | HTTP Headers grade A–F, 7 security headers |
+| `secrets_scanner.py` | 33 | 25 regex patterns |
+| `port_scanner.py` | 18 | ~1600 puertos async |
+| `subdomain_scanner.py` | 11 | ~700 prefijos DNS |
+| `dns_lookup.py` | 9 | DoH, 7 record types, reverse DNS |
+| `hash_cracker.py` | 58 | 20 hash types + rainbow table |
+| `stego_tool.py` | 28 | PNG/BMP LSB + trailing data |
+| `news_scraper.py` | 8 | 9 RSS feeds |
+| `api_scanner.py` | 31 | 65+ paths, CORS, headers |
 
 ---
 
-## Frontend (4 archivos JS + 1 HTML + 1 CSS)
+## Frontend (1 HTML + 3 JS + 1 CSS)
 
 | Archivo | Líneas | Propósito |
 |---------|--------|-----------|
-| `index.html` | ~1764 | SPA principal (15 tabs, Arsenal colapsable, Tailwind CDN) |
-| `main.v2.js` | ~6530 | Toda la lógica frontend (tools, findings, UI, i18n, eventos) |
-| `mobile.js` | ~395 | APK analysis + Frida console |
-| `forensics.js` | ~306 | Forensics UI |
-| `swarm.js` | ~283 | Swarm pipeline UI |
+| `index.html` | 2694 | SPA principal (25 tabs, Arsenal colapsable, Tailwind CDN) |
+| `main.v2.js` | 8729 | Toda la lógica frontend (tools, findings, UI, i18n, eventos) |
 | `dataservice.js` | ~228 | Supabase REST client |
 | `style.css` | ~873 | Signal Intelligence + Monochrome theme |
 
----
+### 25 Pestañas
 
-## Estado del Arsenal (septiembre 2026)
-
-| Categoría | Tipo | Items | Badge |
-|-----------|------|-------|-------|
-| Web Recon | Tools API | 9 (#1–#9) | 9 |
-| Web Recon | Tools CLI | 10 (nmap, gobuster, dirb, ffuf, nikto, etc.) | 10 |
-| *Total Web Recon* | | *19* | *19* |
-| Network | Tools CLI | 8 | 8 |
-| SMB/Windows | Tools CLI | 7 | 7 |
-| Pivoting | Tools CLI | 4 | 4 |
-| Crypto/Decode | Tools CLI | 5 | 5 |
-| Exploitation | Tools CLI | 9 | 9 |
-| OSINT | Tools CLI | 6 | 6 |
-| OSINT | Web Links | 8 | — |
-| Extract/Compress | Tools CLI | 7 | 7 |
-| Resources | Links | 8 | — |
-| Utilities | Links | 1 (CyberChef) | — |
-| Pentest Labs | Sites (badge) | 10 | — |
-| Bug Bounty | Sites (badge) | 8 | — |
-| Hardware Stores | Sites (badge) | 10 | — |
-| **Total** | | **~112** | |
-
----
-
-## Sistema de Eventos (onclick → addEventListener)
-
-Estado: **✅ COMPLETADO — 0 onclick en toda la app**
-
-- **126** onclick en `index.html` → reemplazados con `data-*` attributes
-- **7** onclick + **1** onchange en cadenas JS en `main.v2.js` → reemplazados
-- **0** onclick restantes en `index.html`
-- **0** onclick restantes en `main.v2.js`
-
-### Mecanismo
-
-```javascript
-// ACCION_MAP centralizado (90+ entries): data-action → handler function
-app.addEventListener('click', (e) => {
-  // Captura [data-action], [data-tool], [data-tab], [data-script], [data-device]
-});
-app.addEventListener('change', (e) => {
-  // Captura select[data-action="report-export"]
-});
-```
-
----
-
-## Features Recientes
-
-### Arsenal UI (Julio 2026)
-- Categorías colapsables (comienzan cerradas)
-- Master toggle: Expand All / Collapse All
-- Botón Run All por categoría
-- Badges numéricos en categorías
-- Filtro en tiempo real (filterArsenal) con auto-expand/collapse
-- Fix: unificación cat-body duplicado en OSINT
-
-### 9 Módulos desde Cybersecurity-Projects
-- **#1** HTTP Headers Scanner — grade A–F + recomendaciones
-- **#2** Secrets Scanner — 25 regex (tokens, keys, credenciales)
-- **#3** Port Scanner — ~1600 puertos, banner grab, custom ports
-- **#4** Subdomain Scanner — ~700 prefijos DNS
-- **#5** DNS Lookup — DoH Cloudflare, 7 record types, reverse DNS
-- **#6** Hash Cracker — 20 hash types ID + rainbow table
-- **#7** Steganography Tool — pure-Python PNG/BMP LSB + trailing data
-- **#8** Security News Scraper — 9 feeds RSS/Atom (35+ artículos)
-- **#9** API Security Scanner — 65+ paths, headers, CORS, INFO disclosure
-
-### Event Delegation (Julio 2026)
-- Migración completa de `onclick` → `addEventListener`
-- Sistema centralizado `ACTION_MAP` con ~90 entradas
-- Event delegation en `document.body` para elementos estáticos y dinámicos
-- `window.*` se conserva para compatibilidad (consola, IA, llamadas externas)
-- **Bugfix**: Iba dirigido a `#app` (no existía) → cambiado a `document.body`
+| # | Tab | ID | Módulo backend |
+|---|-----|----|----------------|
+| 0 | Terminal | `tab-terminal` | main.py |
+| 1 | Reports | `tab-reports` | main.py |
+| 2 | Scripts | `tab-scripts` | main.py |
+| 3 | Bounty | `tab-bounty` | main.py |
+| 4 | AI Writeup | `tab-aiwriteup` | main.py |
+| 5 | Findings | `tab-findings` | main.py |
+| 6 | Op Admiral | `tab-opadmiral` | main.py |
+| 7 | Automation | `tab-automation` | main.py |
+| 8 | Swarm | `tab-swarm` | swarm.py |
+| 9 | Credentials | `tab-credentials` | database.py |
+| 10 | KnowledgeBase | `tab-knowledgebase` | knowledgebase.py |
+| 11 | CTF | `tab-ctf` | main.py |
+| 12 | Mobile | `tab-mobile` | mobile_analyzer.py |
+| 13 | Forensics | `tab-forensics` | forensics.py |
+| 14 | EXIF OSINT | `tab-exif` | exif_osint.py |
+| 15 | Canary Tokens | `tab-canary` | canary_tokens.py |
+| 16 | DLP Scanner | `tab-dlp` | dlp_scanner.py |
+| 17 | SIEM | `tab-siem` | siem.py |
+| 18 | Plugins | `tab-plugins` | plugin_manager.py |
+| 19 | Coverage | `tab-coverage` | coverage.py |
+| 20 | Burp Bridge | `tab-burp` | burp_bridge.py |
+| 21 | Audit Log | `tab-audit` | audit_log.py |
+| 22 | Skills | `tab-skills` | skill_playbooks.py |
+| 23 | Intelligence | `tab-intelligence` | intelligence.py |
+| 24 | Docker | — | main.py |
 
 ---
 
 ## Tests (pytest) — Julio 2026
 
-| Archivo | Tests | Cobertura |
-|---------|:-----:|-----------|
-| `test_headers_scanner.py` | 32 | Grade A–F, score boundaries, live scan, MIRV findings format |
-| `test_secrets_scanner.py` | 33 | 25 regex patterns, valid/invalid input, URL fetch |
-| `test_port_scanner.py` | 18 | scanme.nmap.org, invalid targets, default ports, edge cases |
-| `test_subdomain_scanner.py` | 11 | DNS enum, custom lists, result shape, MIRV findings |
-| `test_dns_lookup.py` | 9 | A/MX/NS records, reverse DNS, NXDOMAIN, multiple record types |
-| `test_hash_cracker.py` | 58 | 20 hash types identification, rainbow crack, MIRV format |
-| `test_stego_tool.py` | 28 | PNG/BMP LSB, trailing data, invalid input, capacity estimation |
-| `test_news_scraper.py` | 8 | 9 RSS feeds, article format, sorting, source consistency |
-| `test_api_scanner.py` | 31 | httpbin/example.com scans, 65+ paths, CORS, headers |
-| `test_api_endpoints.py` | 160 | 88+ endpoints REST (health, scope, settings, swarm, etc.) |
-| **Total Tests Backend** | **388** | **0 fallos — 39% cobertura global (+8%)** |
-
-## Tests Frontend — Playwright (Julio 2026)
-
-| Archivo | Tests | Descripción |
-|---------|:-----:|-------------|
-| `smoke.spec.js` | 24 | Page load, 13 tabs, arsenal sidebar + filter, theme toggle, connection modal, i18n toggle, responsive 1024px + 375px |
-| **Total Tests Frontend** | **24** | **0 fallos — Chromium** |
-
-**Gran total: 412 tests, 0 fallos.**
+| Categoría | Archivos | Tests | Cobertura |
+|-----------|----------|-------|-----------|
+| Core security (scope, opsec, redact, audit) | 4 | 188 | ~88% |
+| Intelligence + SIEM + EXIF + Canary | 4 | 119 | ~80% |
+| Burp + POC + Coverage + Skills | 4 | 233 | ~78% |
+| Database | 1 | 196 | 85% |
+| API endpoints | 1 | 333+ | 53% |
+| Plugin system (manager + watcher) | 2 | 65 | 88% |
+| Mission store (session compaction) | 1 | 63 | 90% |
+| Scanner tools (9 modules) | 9 | 228 | — |
+| Other modules (forensics, swarm, KB, ADB, etc.) | 7 | ~200 | — |
+| **Total** | **35** | **2346** | **~72%** |
 
 ### Gestor de paquetes: pnpm
 
-- Migrado de `npm` → `pnpm` (v11.11.0) por seguridad (npm reportaba vulnerabilidades)
-- `package.json` incluye `"packageManager": "pnpm@11.11.0"`
-- `.npmrc` con `package-manager-strict=true` — bloquea npm/npx por error
-- `package-lock.json` → ignorado; `pnpm-lock.yaml` → trackeado en git
-- Comandos: `pnpm install`, `pnpm playwright test`, `pnpm playwright install chromium`
+- Gestor obligatorio: `pnpm` v11.11.0
+- `.npmrc` bloquea npm/npx por error
+- `corepack enable` para activar
+
+---
 
 ## CI/CD — GitHub Actions
 
 | Job | Descripción |
 |-----|-------------|
 | **lint** | Ruff (check + format) sobre `backend/` |
-| **test-backend** | pytest con 388 tests en Python 3.11 |
-| **test-frontend** | Playwright + 24 tests con Chromium (pnpm, backend server inline) |
+| **test-backend** | pytest con 2346 tests en Python 3.11 |
+| **test-frontend** | Playwright + tests con Chromium (pnpm) |
 | **docker-build** | Buildx + push a Docker Hub (solo `main`) |
 | **deploy** | SSH deploy a VPS (solo `main`) |
 
-Secrets requeridos: `DOCKER_USERNAME`, `DOCKER_TOKEN`, `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`
-→ Guía paso a paso: `docs/SECRETS_GITHUB.md`
-
-## Pendientes
-
-### Prioridad Media
-- [ ] Cobertura de tests > 70% (requiere ~2500 líneas más cubiertas en main.py, database.py y módulos specialty)
-- [ ] Configurar secrets en GitHub: `DOCKER_USERNAME`, `DOCKER_TOKEN`, `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY` (guía en `docs/SECRETS_GITHUB.md`)
-
-### Prioridad Baja (Infraestructura)
-- [ ] Fase 7 — Cloudflare Tunnel (dominio, cloudflared, DNS)
-
-### Ideas/Deseables
-- [ ] Dark mode toggle mejorado (no solo monochrome)
-- [ ] Más parsers de findings (curl, dnsrecon, ffuf extendido)
-- [ ] Export findings a PDF con mejor formato
-- [ ] Swarm: más operadores (OSINT, Web, Vuln)
-- [ ] Plugin system para herramientas externas
+Secrets requeridos: `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`, `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`
 
 ---
 
 ## Últimos Commits
 
 ```
-4fba2f8 playwright+ci: frontend tests (24 Playwright) + CI/CD deploy + #app bugfix
-9f03c1b tests+ci: pytest suite (228 tests) + GitHub Actions workflow
-95a21dc event-delegation: onclick→addEventListener completo + docs STATUS.md/EVENTOS.md
-f3fc7ef Fix OSINT section toggle + restructure cat-body
-fabb8dd Add master toggle + collapsible categories + Run All buttons
-8fdec75 Add API Scanner (#9) - REST API security scanner
-3829b08 Add News Scraper (#8) - security RSS aggregator
-cd29e26 Add Stego Tool (#7) - LSB steganography detection + trailing data
-f0e5b2c Add Hash Cracker (#6) - hash ID + rainbow table crack
-6cccb5f Add DNS Lookup (#5) - multi-record DNS queries + reverse DNS
-34c51a8 Add Port Scanner (#3) and Subdomain Scanner (#4) API modules
-159a856 secrets-scanner: modulo backend + endpoint REST + boton frontend
-670c035 headers-scanner: modulo backend + endpoint REST + boton frontend
+fdd25fd feat: rebuild Docker from scratch (clean images + containers)
+4412892 docs: AGENTS.md — 28 modules, 170+ endpoints, 25 tabs, 1660+ tests
+7cb960a feat: Intelligence — 6 watch types, diff engine, alerts, 43 tests, 11 endpoints, frontend tab
+c7f7917 fix: Finding PoC — body-only evidence hash (strip HTTP headers before replay)
+b7cb262 feat: Permission Prompts — interactive command gating, classify + request + decide, 56 tests, 7 endpoints
+d07ce37 feat: Finding PoC — build/poc/replay/markdown/curl parser, 61 tests, 6 endpoints
+071ec39 fix: docker cp intelligence tab to running container
+...
+396f025 feat: Coverage Tracking + Skill Playbooks + Redaction + Burp Bridge + Audit Log + Plugin Watcher + Session Compaction (PentesterFlow-inspired)
 ```
 
-*Última actualización: Julio 2026*
+---
+
+*Documento generado: 25 Jul 2026*

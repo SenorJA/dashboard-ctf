@@ -1,166 +1,209 @@
 # 🔮 TOMORROW.md — Roadmap de trabajo pendiente
 
-> Última actualización: 24 Jul 2026 — MIRV v3.0+ con 27 módulos, 153+ endpoints, 1504+ tests
+> Última actualización: 25 Jul 2026 — MIRV v4.0 | 28 módulos | 208 endpoints | 2346 tests | 25 tabs
 
 ---
 
-## ✅ Completado (hasta ahora)
-
-### Módulos nuevos (esta sesión)
-1. **EXIF OSINT** — extracción GPS + cámara + reverse geocoding + Leaflet map (21 tests)
-2. **Canary Tokens** — 8 tipos de honeytokens + activación tracking (24 tests, 99% coverage)
-3. **DLP Scanner** — 8 patrones PII + Luhn + risk score (25 tests)
-4. **SIEM Dashboard** — 4 reglas correlación + event feed + alerts panel (31 tests, 84%)
-5. **Plugin System** — hooks Python + hot-reload watchdog (47+18 tests, 88%)
-6. **Coverage Tracking** — matriz (endpoint×param×vuln_class) + next_steps (33 tests)
-7. **Skill Playbooks** — 5 playbooks MD (recon, webvuln, ssrf, jwt, supabase) (67 tests)
-8. **Global Redaction** — 20 patrones + integración AI/mission/audit (63 tests)
-9. **Burp Bridge** — ingest server + Jython plugin + finding↔issue (72 tests)
-10. **Structured Audit Log** — JSONL + rotación 4MB + SIEM forwarding (45 tests)
-11. **Plugin Hot-Reload** — fs.watch + debounce 250ms + auto-start (18 tests)
-
-### Infraestructura
-- **CI/CD GitHub Actions** — `ci.yml` (tests+coverage+bandit) + `deploy.yml` (Docker→VPS)
-- **`.github/SECRETS.md`** — guía de configuración de secrets
-- **Tests masivos** — 9 archivos nuevos de test, 1116→1504 tests, ~72% coverage
-- **AGENTS.md actualizado** — documenta los 27 módulos + 153 endpoints
-
-### Commits de la sesión
-- `396f025` EXIF OSINT
-- `cdd2910` Canary Tokens
-- `afd22b0` DLP Scanner
-- `00821d5` SIEM Dashboard
-- `ceaad4d` Plugin System
-- `eeee8e6` Coverage >70%
-- `e608cde` CI/CD workflows
-- `b35a806` Coverage + Skills + Redaction (3 módulos PentesterFlow)
-- `cfc1236` Burp Bridge + Audit Log + Plugin Watcher
-
----
-
-## 📋 Pendiente para mañana
-
-### Prioridad ALTA
-
-#### 1. 🔴 Docker rebuild + smoke test
-```bash
-docker compose -p proyectociber build --no-cache mirv-backend
-docker compose -p proyectociber up -d
-# Verificar: http://localhost:8000 funciona
-# Verificar: las 6 pestañas nuevas cargan (EXIF, Canary, DLP, SIEM, Plugins, Coverage)
-# Verificar: tests de integración con Docker funcionan
-```
-**Por qué**: Hemos añadido 11 módulos nuevos + 21 endpoints desde el último build. Hay que verificar que todo funciona dentro del contenedor (Pillow para EXIF, watchdog para plugins, etc.).
-
-#### 2. 🔴 Configurar secrets GitHub (manual, web UI)
-Ir a https://github.com/SenorJA/dashboard-ctf/settings/secrets/actions y añadir:
-- **Variables** (tab Variables): `DOCKERHUB_USERNAME` = tu usuario Docker Hub
-- **Secrets** (tab Secrets):
-  - `DOCKERHUB_TOKEN` — Docker Hub → Account Settings → Security → New Access Token
-  - `VPS_HOST` — IP o dominio del VPS
-  - `VPS_USER` — usuario SSH
-  - `VPS_SSH_KEY` — clave PRIVADA completa (incluyendo `-----BEGIN/END-----`)
-  - `VPS_PORT` — opcional (default 22)
-  - `VPS_DEPLOY_PATH` — opcional (default `/opt/mirv`)
-
-**Sin estos secrets, CI funciona pero Deploy salta silenciosamente** (tests pasan, Docker build salta).
-
-#### 3. 🔴 Verificar CI en GitHub
-Tras configurar secrets, hacer un push dummy para disparar CI:
-```bash
-git commit --allow-empty -m "ci: trigger workflow check" && git push
-# Ir a https://github.com/SenorJA/dashboard-ctf/actions
-# Verificar que ci.yml pasa (tests + bandit)
-# Verificar que deploy.yml corre (Docker build + push + SSH deploy)
-```
-
----
-
-### Prioridad MEDIA
-
-#### 4. 🟡 Browser Capture MCP (inspirado en PentesterFlow)
-- **Qué**: Capturar tráfico del navegador del pentester (como `browser_capture_*` tools + `pentesterflow-browser-mcp`).
-- **Archivos**: `backend/browser_capture.py` + endpoints `/api/capture/*` + plugin Chrome/Firefox.
-- **Valor**: Permite al pentester capturar requests del navegador y meterlos en MIRV findings sin Burp.
-- **Esfuerzo**: ALTO (necesita browser extension + server ingest + store).
-
-#### 5. 🟡 Session Compaction (inspirado en PentesterFlow)
-- **Qué**: Resumir sesiones largas en `SessionMemory` (objectives, findings, credentials, todos) cuando crecen.
-- **Archivos**: modificar `backend/mission_store.py` — añadir `compact_session(session_id)`.
-- **Valor**: Evita que el contexto AI crezca sin límite. Permite sesiones largas sin perder calidad.
-- **Esfuerzo**: MEDIO.
-
-#### 6. 🟡 Continuous Intelligence (project + personal scopes)
-- **Qué**: `scenarios.jsonl` con triggers, tecnologías detectadas, confidence 0-1. Distingue scope proyecto vs personal.
-- **Archivos**: `backend/intelligence.py` + integración en `mission_store.py`.
-- **Valor**: Mejora el self-improvement loop — el sistema "recuerda" lecciones entre sesiones.
-- **Esfuerzo**: MEDIO.
-
----
-
-### Prioridad BAJA
-
-#### 7. 🟢 Permission prompts human-in-the-loop
-- **Qué**: Confirmación interactiva antes de tools peligrosos (rm -rf, masscan, sqlmap).
-- **Archivos**: modificar `backend/scope_guard.py` + frontend modal.
-- **Valor**: MIRV ya tiene `scope_guard` Block mode — esto añade confirmación interactiva.
-- **Esfuerzo**: BAJO.
-
-#### 8. 🟢 Más skill playbooks
-- **Qué**: Crear playbooks para `graphql`, `race`, `takeover`, `deserialize`, `ssti` (como PentesterFlow).
-- **Archivos**: agregar `backend/skills/{graphql,race,takeover,deserialize,ssti}/SKILL.md`.
-- **Valor**: Cobertura metodológica más completa.
-- **Esfuerzo**: BAJO (solo escribir Markdown, sin código).
-
-#### 9. 🟢 Frontend tabs para Burp + Audit + Skills
-- **Qué**: Hemos creado los backends de Burp Bridge, Audit Log, Skills y Plugin Watcher pero NO tienen pestañas frontend.
-- **Archivos**: añadir 2-3 pestañas nuevas en `frontend/index.html` + `main.v2.js`.
-- **Valor**: UX — el usuario puede ver Burp requests capturados, audit logs, y skills desde el dashboard.
-- **Esfuerzo**: MEDIO.
-
-#### 10. 🟢 Findings reproducibles (ampliar schema)
-- **Qué**: Añadir campos `method`, `curl`, `request_raw`, `response_excerpt` a findings para re-ejecutar PoCs.
-- **Archivos**: modificar `backend/database.py` findings schema + frontend.
-- **Valor**: Permite re-ejecutar el PoC desde MIRV con un click.
-- **Esfuerzo**: BAJO.
-
----
-
-## 🎯 Orden recomendado para mañana
-
-1. **Docker rebuild + smoke test** (30 min) — verificar que TODO funciona en contenedor
-2. **Configurar secrets GitHub** (15 min) — habilitar deploy automático
-3. **Frontend tabs para Burp + Audit + Skills** (2-3 horas) — cerrar el gap UX de los 3 backends sin UI
-4. **Más skill playbooks** (1 hora) — graphql, race, takeover, deserialize, ssti
-5. **Session Compaction** (1-2 horas) — si sobra tiempo
-
----
-
-## 📊 Estado actual del proyecto
+## ✅ Estado actual del proyecto
 
 | Métrica | Valor |
 |---------|-------|
-| Backend modules | 27 (main.py + 21 especializados + 5 plugin/skill dirs) |
-| REST endpoints | 153+ |
-| Test files | 25 |
-| Tests passing | 1504+ |
-| Coverage | ~72% |
-| Frontend tabs | 21 |
+| Backend modules | 28 (main.py + 27 especializados) |
+| REST endpoints | 208 |
+| Test files | 35 |
+| Tests collected | 2346 |
+| Coverage | ~72% (módulos core) |
+| Frontend tabs | 25 |
+| Frontend JS | 8729 líneas (main.v2.js) |
+| Frontend HTML | 2694 líneas (index.html) |
 | GitHub Actions | 2 workflows (CI + Deploy) |
 | Docker images | 2 (mirv-backend + kali-tools) |
-| Commits esta sesión | 9 |
+| GitHub commits | 11+ esta serie |
 
 ---
 
-## 🐛 Bugs conocidos / TODOs técnicos
+## 📦 Módulos completados (todos funcionando en Docker)
 
-1. **`test_slow_hook` excluido de CI** — tarda 35s, se skip con `-k "not test_slow_hook"`.
-2. **Plugin watcher tests con timers** — algunos tests tardan 250ms+ por debounce; considerar `pytest-timeout`.
-3. **Module identity split** — algunos tests necesitaban importar `backend.modulo` vs `modulo` (revisar conftest.py).
-4. **`exif_osint.py` coverage 63%** — muchos code paths requieren imágenes reales o red.
-5. **`dlp_scanner.py` coverage 67%** — patrones de archivo/URL necesitan más tests.
-6. **`main.py` coverage 53%** — 832 statements sin cubrir (endpoints WS, startup code, middleware).
+### Core de seguridad
+| # | Módulo | Archivo | Tests | Qué hace |
+|---|--------|---------|-------|----------|
+| 1 | **Scope Guard** | `scope_guard.py` (755L) | 56 | Validación de alcance + Permission Prompts interactivos (16 danger patterns, session cache, TTL) |
+| 2 | **OPSEC Levels** | `opsec.py` (400L) | 25 | 30 tools con modificadores Silent/Covert/Loud |
+| 3 | **Redaction** | `redact.py` (430L) | 63 | 20 patrones de redacción (AWS, GitHub, JWT, PEM, etc.), shape-preserving |
+| 4 | **Audit Log** | `audit_log.py` (470L) | 45 | JSONL structure + 4MB rotation + SIEM forwarding |
+
+### Inteligencia y monitoreo
+| # | Módulo | Archivo | Tests | Qué hace |
+|---|--------|---------|-------|----------|
+| 5 | **SIEM** | `siem.py` (743L) | 31 | Eventos, 4 reglas de correlación, alerts, thread-safe |
+| 6 | **Intelligence** | `intelligence.py` (890L) | 43 | Watch/snapshot/diff/alert — 6 tipos de monitor (headers, cert, DNS, ports, tech, content) |
+| 7 | **EXIF OSINT** | `exif_osint.py` (812L) | 21 | GPS extraction, camera metadata, reverse geocoding, Leaflet map |
+| 8 | **Canary Tokens** | `canary_tokens.py` (442L) | 24 | 8 tipos de honeytokens + activation tracking |
+
+### Herramientas de testing
+| # | Módulo | Archivo | Tests | Qué hace |
+|---|--------|---------|-------|----------|
+| 9 | **DLP Scanner** | `dlp_scanner.py` (453L) | 25 | 8 patrones PII + validación Luhn + risk scoring |
+| 10 | **Burp Bridge** | `burp_bridge.py` (599L) | 72 | Ingest server + LRU store + finding↔issue + Jython plugin |
+| 11 | **Finding PoC** | `finding_poc.py` (745L) | 61 | PoC builder, curl parser, replay (subprocess), markdown reports, evidence hash |
+| 12 | **Coverage Tracker** | `coverage.py` (480L) | 33 | Matriz (endpoint×param×vuln_class) + next_steps estimator |
+
+### Plugins y automatización
+| # | Módulo | Archivo | Tests | Qué hace |
+|---|--------|---------|-------|----------|
+| 13 | **Plugin Manager** | `plugin_manager.py` (700L) | 65 | Discovery + 5 hooks + hot-reload (watchdog + polling fallback) |
+| 14 | **Skill Playbooks** | `skill_playbooks.py` (450L) | 67 | 10 playbooks MD (recon, webvuln, ssrf, jwt, supabase, graphql, race, takeover, deserialize, ssti) |
+
+### Infraestructura
+| # | Módulo | Archivo | Tests | Qué hace |
+|---|--------|---------|-------|----------|
+| 15 | **Database** | `database.py` (1344L) | 196 | Supabase CRUD, 17 tablas, 85% coverage |
+| 16 | **Mission Store** | `mission_store.py` (356L) | 30 | Self-improvement loop, session compaction |
+| 17 | **MCP Server** | `mcp_server.py` (620L) | — | Tools para agentes IA |
+| 18 | **Kali MCP Client** | `kali_mcp_client.py` (130L) | 20 | Cliente Docker integration |
+| 19 | **Swarm** | `swarm.py` (250L) | 30 | Multi-operator coordinator |
+| 20 | **Mobile Analyzer** | `mobile_analyzer.py` (707L) | — | APK static + dynamic (ADB/Frida) |
+| 21 | **Forensics** | `forensics.py` (253L) | 30 | Digital forensics (memory, disk, Sleuth Kit) |
+| 22 | **KnowledgeBase** | `knowledgebase.py` (210L) | 45 | CVE + MITRE ATT&CK DB |
+| 23 | **ADB Controller** | `adb_controller.py` (205L) | 25 | Device detection + Frida scripts |
+
+### API-based tools (sin SSH)
+| # | Módulo | Archivo | Tests | Qué hace |
+|---|--------|---------|-------|----------|
+| 24 | **HTTP Headers Scanner** | `headers_scanner.py` | 32 | Grade A–F, 7 security headers |
+| 25 | **Secrets Scanner** | `secrets_scanner.py` | 33 | 25 regex patterns |
+| 26 | **Port Scanner** | `port_scanner.py` | 18 | ~1600 puertos async |
+| 27 | **Subdomain Scanner** | `subdomain_scanner.py` | 11 | ~700 prefijos DNS |
+| 28+ | DNS Lookup, Hash Cracker, Stego, News, API Scanner | — | 126+ | Variados |
 
 ---
 
-*Documento generado al final de la sesión del 24 Jul 2026. Ver `AGENTS.md` para arquitectura completa actualizada.*
+## 🖥️ Frontend — 25 pestañas
+
+| # | Tab | ID | Módulo backend | Descripción |
+|---|-----|----|----------------|-------------|
+| 0 | Terminal | `tab-terminal` | main.py | SSH shell interactivo |
+| 1 | Reports | `tab-reports` | main.py | Informes + export |
+| 2 | Scripts | `tab-scripts` | main.py | Script builder |
+| 3 | Bounty | `tab-bounty` | main.py | Bug bounty reports |
+| 4 | AI Writeup | `tab-aiwriteup` | main.py | Writeups con AI |
+| 5 | Findings | `tab-findings` | main.py | Hallazgos parseados |
+| 6 | Op Admiral | `tab-opadmiral` | main.py | Planificador de misión |
+| 7 | Automation | `tab-automation` | main.py | n8n integration |
+| 8 | Swarm | `tab-swarm` | swarm.py | Multi-operador |
+| 9 | Credentials | `tab-credentials` | database.py | Store de credenciales |
+| 10 | KnowledgeBase | `tab-knowledgebase` | knowledgebase.py | CVE + MITRE |
+| 11 | CTF | `tab-ctf` | main.py | Challenges + flags |
+| 12 | Mobile | `tab-mobile` | mobile_analyzer.py | APK analysis lab |
+| 13 | Forensics | `tab-forensics` | forensics.py | Forense digital |
+| 14 | EXIF OSINT | `tab-exif` | exif_osint.py | Metadata + GPS map |
+| 15 | Canary Tokens | `tab-canary` | canary_tokens.py | Honeytokens |
+| 16 | DLP Scanner | `tab-dlp` | dlp_scanner.py | PII detection |
+| 17 | SIEM | `tab-siem` | siem.py | Event feed + alerts |
+| 18 | Plugins | `tab-plugins` | plugin_manager.py | Plugin management |
+| 19 | Coverage | `tab-coverage` | coverage.py | Coverage matrix |
+| 20 | Burp Bridge | `tab-burp` | burp_bridge.py | Burp ingest |
+| 21 | Audit Log | `tab-audit` | audit_log.py | JSONL audit viewer |
+| 22 | Skills | `tab-skills` | skill_playbooks.py | Skill playbooks |
+| 23 | **Intelligence** | `tab-intelligence` | intelligence.py | Continuous monitoring |
+| 24 | Docker | — | main.py | Container controls |
+
+---
+
+## 🔌 Endpoints REST por módulo
+
+| Módulo | Endpoints | Métodos |
+|--------|-----------|---------|
+| Scope/Permissions | 7 | GET/POST/DELETE `/api/permissions/*`, `/api/scope/*` |
+| Intelligence | 11 | CRUD watches + snapshots + diff + alerts |
+| Finding PoC | 6 | build, parse-curl, finding-to-md, from-burp, validate, replay |
+| Burp Bridge | 15 | ingest, requests, endpoints, tasks, issues, export |
+| Audit Log | 3 | logs, stats, create |
+| SIEM | 8 | events, stats, rules, alerts, findings |
+| Skills | 9 | CRUD + load/unload/reload + render |
+| Coverage | 10 | mark, list, summary, next, sessions, export, vocab |
+| Plugins | 12 | CRUD + load/unload/reload + watcher |
+| EXIF | 2 | analyze (POST/GET) |
+| Canary | 5 | create, list, activate, events, delete |
+| DLP | 3 | scan, scan-file, scan-url |
+| Redaction | 4 | redact, dict, patterns, check |
+| Missions | 5 | CRUD + similar |
+| Plans | 3 | CRUD |
+| Findings | 5 | CRUD + bulk + stats |
+| Docker | 6 | status, start, stop, clean, build, task |
+| MCP | 3 | status, tools, exec |
+| AI | 2 | chat (auto-redacts), suggest (+ coverage context) |
+| **Total** | **208** | |
+
+---
+
+## 📋 Pendiente
+
+### Prioridad ALTA — Hecho ✅
+- [x] ~~Docker rebuild + smoke test~~ — ✅ Rebuild completo, ambos containers healthy
+- [x] ~~Finding PoC module~~ — ✅ 745L + 61 tests + 6 endpoints + frontend
+- [x] ~~Permission Prompts~~ — ✅ scope_guard.py 755L + 56 tests + 7 endpoints
+- [x] ~~Continuous Intelligence~~ — ✅ intelligence.py 890L + 43 tests + 11 endpoints + frontend tab
+
+### Prioridad MEDIA
+- [ ] **Configurar secrets GitHub** (manual, 15 min) — habilita deploy automático
+  ```bash
+  # Ir a https://github.com/SenorJA/dashboard-ctf/settings/secrets/actions
+  # Añadir: DOCKERHUB_USERNAME, DOCKERHUB_TOKEN, VPS_HOST, VPS_USER, VPS_SSH_KEY
+  ```
+- [ ] **Verificar CI en GitHub** — tras secrets, push para disparar workflows
+- [ ] **Browser Capture MCP** — capturar tráfico del navegador (esfuerzo ALTO)
+- [ ] **Más tests de integración** — push coverage global más allá de 72%
+
+### Prioridad BAJA
+- [ ] Fase 7 — Cloudflare Tunnel (dominio + cloudflared)
+- [ ] Export findings a PDF mejorado
+- [ ] Swarm: más operadores (OSINT, Web, Vuln)
+
+---
+
+## 🐛 Bugs conocidos / TODOs
+
+1. **`test_slow_hook`** excluido de CI — tarda 35s
+2. **Plugin watcher tests** — timers 250ms+ por debounce
+3. **Module identity split** — tests importan `backend.modulo` vs `modulo`
+4. **exif_osint.py coverage 63%** — requiere imágenes/reales
+5. **dlp_scanner.py coverage 67%** — patrones archivo/URL
+6. **main.py coverage 53%** — 832+ statements sin cubrir
+
+---
+
+## 🔄 Cómo actualizar después de cambios
+
+### Después de modificar backend/*.py
+```bash
+# 1. Tests locales
+cd backend && python -m pytest tests/ -q --tb=short
+
+# 2. Docker rebuild
+docker compose -p proyectociber build --no-cache mirv-backend
+docker compose -p proyectociber up -d
+
+# 3. Verificar
+curl http://localhost:8000/api/health
+curl http://localhost:8000/api/intelligence/watches
+```
+
+### Después de modificar frontend/
+```bash
+# Copiar rápido sin rebuild
+docker cp frontend/index.html mirv-backend:/app/frontend/index.html
+docker cp frontend/js/main.v2.js mirv-backend:/app/frontend/js/main.v2.js
+# Refrescar navegador (Ctrl+Shift+R)
+```
+
+### Commit y push
+```bash
+git add -A
+git commit -m "feat(modulo): descripción"
+git push origin main
+```
+
+---
+
+*Documento generado: 25 Jul 2026*
