@@ -8,14 +8,14 @@ Two-tier app: **FastAPI backend** serves static frontend + WebSocket SSH proxy +
 Browser → WS (localhost:8000/ws) → FastAPI → Paramiko → Kali SSH
          ↑
    serves /static/* from frontend/
-   REST API (153+ endpoints) → Supabase (PostgreSQL)
-   Plugin system (hot-reload) + Burp Bridge + Structured Audit Log
+   REST API (170+ endpoints) → Supabase (PostgreSQL)
+   Plugin system (hot-reload) + Burp Bridge + Structured Audit Log + Continuous Intelligence
 ```
 
 ```
 C:\Users\34678\Desktop\Proyecto ciber\
 ├── backend/
-│   ├── main.py              # FastAPI app (~3900 lines, 153+ endpoints)
+│   ├── main.py              # FastAPI app (~5200 lines, 170+ endpoints)
 │   ├── database.py           # Supabase CRUD layer (17 tables, 85% coverage)
 │   ├── exif_osint.py         # EXIF metadata extraction + GPS + reverse geocoding
 │   ├── canary_tokens.py      # Honeytoken generator (8 types) + activation tracking
@@ -33,10 +33,12 @@ C:\Users\34678\Desktop\Proyecto ciber\
 │   ├── mobile_analyzer.py     # APK static + dynamic analysis
 │   ├── forensics.py           # Digital forensics analysis
 │   ├── knowledgebase.py       # CVE + MITRE ATT&CK DB
-│   ├── scope_guard.py         # Scope validation (Warn/Block)
+│   ├── scope_guard.py         # Scope validation + Interactive Permission Prompts (Warn/Block)
 │   ├── adb_controller.py      # ADB device controller
 │   ├── opsec.py               # OPSEC levels (30 tools)
 │   ├── mission_store.py       # Self-Improvement Loop (auto-redacts on save)
+│   ├── finding_poc.py         # Reproducible Finding PoC (curl replay, markdown reports)
+│   ├── intelligence.py        # Continuous Intelligence (watch/snapshot/diff/alert)
 │   ├── plugins/               # Plugin directory (example_plugin/)
 │   ├── skills/                # Built-in skill playbooks (recon, webvuln, ssrf, jwt, supabase)
 │   ├── burp_plugin/           # Jython Burp Suite plugin (mirv_burp.py)
@@ -44,7 +46,7 @@ C:\Users\34678\Desktop\Proyecto ciber\
 │   ├── Dockerfile             # Container image for mirv-backend
 │   └── requirements.txt
 ├── frontend/
-│   ├── index.html            # SPA (Tailwind CDN, 21 tabs, ~2300 lines)
+│   ├── index.html            # SPA (Tailwind CDN, 25 tabs, ~2660 lines)
 │   ├── css/
 │   │   └── style.css          # Signal Intelligence + Monochrome theme (~873 lines)
 │   ├── img/
@@ -52,7 +54,7 @@ C:\Users\34678\Desktop\Proyecto ciber\
 │   │   ├── favicon.svg         # Browser favicon
 │   │   └── icon-192.svg        # PWA/desktop app icon
 │   └── js/
-│       ├── main.v2.js          # All frontend logic (~7800 lines)
+│       ├── main.v2.js          # All frontend logic (~8700 lines)
 │       ├── main.js             # Legacy version
 │       ├── dataservice.js      # Supabase REST client
 │       ├── mobile.js           # Mobile analysis UI
@@ -83,14 +85,14 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 **Tests:**
 ```bash
 cd backend
-python -m pytest tests/ -k "not test_slow_hook" -q  # 1504+ tests, ~72% coverage
+python -m pytest tests/ -k "not test_slow_hook" -q  # 1660+ tests, ~72% coverage
 ```
 
-## Backend modules (main.py + 21 modules)
+## Backend modules (main.py + 28 modules)
 
 | File | Lines | Purpose | Tests | Coverage |
 |------|-------|---------|-------|----------|
-| `main.py` | ~3900 | FastAPI app, WebSocket SSH proxy, 153+ REST endpoints + CSP middleware | ~333 | 53% |
+| `main.py` | ~5200 | FastAPI app, WebSocket SSH proxy, 170+ REST endpoints + CSP middleware | ~333 | 53% |
 | `database.py` | ~1344 | Supabase CRUD (17 tables) | 196 | 85% |
 | `exif_osint.py` | ~812 | EXIF GPS extraction, camera metadata, reverse geocoding, Leaflet map | 21 | 63% |
 | `canary_tokens.py` | ~442 | 8 honeytoken types, activation tracking, expiration | 24 | 99% |
@@ -108,10 +110,12 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # 1504+ tests, ~72% coverage
 | `mobile_analyzer.py` | ~707 | APK static analysis (apktool, jadx, mobsf) + dynamic (ADB/Frida) | — | — |
 | `forensics.py` | ~253 | Digital forensics (memory, disk, Sleuth Kit) | ~30 | 99% |
 | `knowledgebase.py` | ~210 | CVE database + MITRE ATT&CK techniques | 45 | 100% |
-| `scope_guard.py` | ~261 | Scope validation (Warn/Block modes) | ~40 | 97% |
+| `scope_guard.py` | ~755 | Scope validation + Interactive Permission Prompts (Warn/Block) | ~56 | 97% |
 | `adb_controller.py` | ~205 | ADB device detection + Frida scripts (run/stop/clear) | ~25 | 98% |
 | `opsec.py` | ~400 | OPSEC Levels — 30 tools with Silent/Covert/Loud modifiers | ~25 | 88% |
 | `mission_store.py` | ~356 | Self-Improvement Loop — mission history + AI context (auto-redacts) | ~30 | 90% |
+| `finding_poc.py` | ~735 | Reproducible Finding PoC — curl replay, markdown reports, evidence hash | 61 | new |
+| `intelligence.py` | ~500 | Continuous Intelligence — watch/snapshot/diff/alert system | 43 | new |
 
 ## Backend quirks (main.py)
 
@@ -128,7 +132,7 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # 1504+ tests, ~72% coverage
 - **Audit log auto-init** on startup + existing `logger` wired with `AuditLogHandler`.
 - **Swarm sessions route** registered BEFORE `/api/swarm/{session_id}` to avoid catch-all collision.
 
-## Frontend structure (21 tabs)
+## Frontend structure (25 tabs)
 
 | Tab | ID | Purpose |
 |-----|----|---------| 
@@ -153,10 +157,14 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # 1504+ tests, ~72% coverage
 | SIEM | `tab-siem` | Event feed + alerts + correlation rules |
 | Plugins | `tab-plugins` | Plugin management (load/unload/enable/disable) |
 | Coverage | `tab-coverage` | Coverage matrix + next steps + export |
+| Burp Bridge | `tab-burp` | Burp Suite request ingest + conversion |
+| Audit Log | `tab-audit` | Structured audit log viewer + stats |
+| Skills | `tab-skills` | Skill playbooks (browse, create, render) |
+| Intelligence | `tab-intelligence` | Continuous Intelligence monitoring + alerts |
 
-- **Single HTML file** (`index.html`, ~2300 lines) — no build step, no bundler, no framework.
+- **Single HTML file** (`index.html`, ~2660 lines) — no build step, no bundler, no framework.
 - **Tailwind via CDN** (`https://cdn.tailwindcss.com`). Custom colors: `neon`, `cyber`, `deep`, `void`, `blood`.
-- **All JS in one file** (`main.v2.js`, ~7800 lines) — DOMContentLoaded closure, functions on `window.*`.
+- **All JS in one file** (`main.v2.js`, ~8700 lines) — DOMContentLoaded closure, functions on `window.*`.
 - **i18n**: 170+ entries (en/es), `data-i18n` attributes, `applyLanguage()`.
 - **Vanilla JS**, no router, no package.json for frontend.
 
@@ -168,7 +176,7 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # 1504+ tests, ~72% coverage
 | `sendPredefinedCmd(cmd)` | Sends command to WS with `▶` prefix |
 | `sendCommand()` | Reads manual input and sends |
 | `appendOutput(text)` | Terminal output (ANSI strip, \r handling, buffer accumulation, prompt detection) |
-| `switchTab(name)` | Toggles among 21 panes (wraps refresh on tab switch) |
+| `switchTab(name)` | Toggles among 25 panes (wraps refresh on tab switch) |
 | `toggleTheme()` | Toggles `body.monochrome` class |
 | `switchLanguage()` | Toggles `window.currentLang` (en/es) |
 | `refreshSIEM()` | Fetches stats/events/alerts/rules, renders SIEM dashboard |
@@ -182,6 +190,7 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # 1504+ tests, ~72% coverage
 | `exportFindings()` / `exportAllReports()` / `generateBountyReport()` / `downloadBountyReport()` | Export functions |
 | `saveMission()` / `loadMissionHistory()` / `viewMissionDetails(id)` | Mission history |
 | `opsecModalOpen()` / `opsecSave()` / `opsecApply(tool, command, target)` | OPSEC controls |
+| `refreshIntel()` / `intelCreateWatch()` / `intelSnapshot(id)` / `intelDeleteWatch(id)` / `intelAckAlert(id)` / `intelClearAlerts()` | Intelligence monitoring |
 
 ## Findings parsing system
 
@@ -201,7 +210,7 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # 1504+ tests, ~72% coverage
 
 **Adding a new tool:** changes in 2 files (index.html button + main.v2.js case).
 
-## REST API (153+ endpoints)
+## REST API (170+ endpoints)
 
 | Category | Endpoints |
 |----------|-----------|
@@ -242,6 +251,9 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # 1504+ tests, ~72% coverage
 | **Redaction** | `POST /api/redact`, `POST /api/redact/dict`, `GET /api/redact/patterns`, `POST /api/redact/check` |
 | **Audit Log** | `GET /api/audit/logs`, `GET /api/audit/stats`, `POST /api/audit` |
 | **Burp Bridge** | `POST /api/burp/ingest`, `GET /api/burp/{requests,requests/{id},endpoints,tasks,issues}`, `POST /api/burp/{tasks,issues,finding-to-issue,raw,export-findings,snapshot}`, `PATCH /api/burp/tasks/{id}`, `DELETE /api/burp/clear`, `GET /api/burp/status` |
+| **Finding PoC** | `POST /api/poc/{build,parse-curl,finding-to-md,from-burp,validate,replay}` |
+| **Permissions** | `GET /api/permissions/pending`, `GET /api/permissions/{id}`, `POST /api/permissions/{id}/decide`, `POST /api/permissions/{classify,request,cleanup}`, `DELETE /api/permissions` |
+| **Intelligence** | `POST /api/intelligence/watches`, `GET /api/intelligence/watches`, `GET /api/intelligence/watches/{id}`, `PUT /api/intelligence/watches/{id}`, `DELETE /api/intelligence/watches/{id}`, `POST /api/intelligence/watches/{id}/snapshot`, `GET /api/intelligence/watches/{id}/snapshots`, `GET /api/intelligence/alerts`, `POST /api/intelligence/alerts/{id}/acknowledge`, `DELETE /api/intelligence/alerts`, `POST /api/intelligence/diff/{id}` |
 
 ## Plugin system
 
@@ -255,7 +267,7 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # 1504+ tests, ~72% coverage
 
 - **Format**: `SKILL.md` with YAML frontmatter (`name`, `description`, `category`, `allowed_tools`).
 - **Discovery** (later wins): `backend/skills/` → `./.mirv/skills/` → `~/.mirv/skills/` → env `MIRV_SKILLS_DIRS`.
-- **Built-in skills**: recon, webvuln, ssrf, jwt, supabase.
+- **Built-in skills**: recon, webvuln, ssrf, jwt, supabase, graphql, race, takeover, deserialize, ssti.
 - **Hot-reload**: live-reload on file change.
 - **AI integration**: `GET /api/skills/{name}/render` returns markdown body for prompt injection.
 
@@ -283,6 +295,36 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # 1504+ tests, ~72% coverage
 - **Conversion**: MIRV findings → Burp issues (with raw HTTP/1.1 request).
 - **Plugin**: `backend/burp_plugin/mirv_burp.py` (Jython, right-click → "Send to MIRV").
 - **Auth**: optional `X-MIRV-Token` header (env `MIRV_BURP_TOKEN`).
+
+## Finding PoC system
+
+- **Purpose**: reproducible proof-of-concept for every finding.
+- **Flow**: `build_poc()` → `poc_to_finding()` → stored in `data.poc` dict.
+- **Replay**: `replay_poc()` shells out via `shlex.split` + `subprocess.run` (never `shell=True`).
+- **Curl parser**: `parse_curl_to_poc()` round-trips curl one-liners into PoC objects.
+- **Burp integration**: `poc_from_burp_request()` converts Burp Bridge captured requests.
+- **Markdown reports**: `finding_to_markdown_report()` renders self-contained findings with code blocks.
+- **Evidence hash**: sha256[:12] of response excerpt for tamper detection.
+
+## Permission Prompts system
+
+- **Purpose**: interactive gate for dangerous/risky commands before execution.
+- **Classifier**: `classify_command()` runs scope validation + 16 danger patterns.
+- **Severity levels**: safe → needs-confirmation (medium/high) → blocked (critical, auto-block).
+- **Flow**: classify → `request_permission()` → frontend polls `/api/permissions/pending` → operator decides → `decide_permission()`.
+- **Session cache**: `allow-session` decisions are cached by `cache_key` to avoid repeated prompts.
+- **TTL**: pending requests expire after 120 seconds (configurable).
+- **Danger patterns**: `rm -rf /`, `mkfs`, `dd`, fork bomb, full-port scan, pipe-to-shell, Metasploit, hydra brute, etc.
+
+## Continuous Intelligence system
+
+- **Purpose**: monitor targets for changes over time.
+- **Watch types**: `http_headers`, `certificate`, `dns`, `port_scan`, `tech_stack`, `page_content`.
+- **Flow**: `create_watch()` → `collect_*()` → `capture_snapshot()` → `compute_diff()` → `create_alert()`.
+- **Diff engine**: 6 type-specific differ (`_diff_http_headers`, `_diff_certificate`, `_diff_dns`, `_diff_tech_stack`, `_diff_page_content`, `_diff_port_scan`).
+- **Alerts**: generated on change with auto-assigned severity (cert change = high, new port = medium, etc.).
+- **Collectors**: stdlib-only (`urllib`, `ssl`, `socket`), 10s timeout, graceful fallback.
+- **Limits**: 1000 watches, 100 snapshots/watch, 500 alerts.
 
 ## CI/CD (GitHub Actions)
 
@@ -339,7 +381,7 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # 1504+ tests, ~72% coverage
 
 ## Test summary
 
-- **25 test files** in `backend/tests/`
-- **1504+ tests** passing
+- **28 test files** in `backend/tests/`
+- **1660+ tests** passing
 - **~72% coverage** across measured backend modules
-- **Key test files**: test_database (196), test_api_endpoints (333), test_main_coverage (165), test_burp_bridge (72), test_redact (63), test_skill_playbooks (67), test_audit_log (45), test_plugin_manager (47), test_plugin_watcher (18), test_siem (31), test_coverage (33), test_exif_osint (21), test_canary_tokens (24), test_dlp_scanner (25), test_opsec, test_scope_guard, test_forensics, test_adb_controller, test_kali_mcp_client, test_mission_store, test_knowledgebase, test_swarm, + scanner tools.
+- **Key test files**: test_database (196), test_api_endpoints (333), test_main_coverage (165), test_burp_bridge (72), test_redact (63), test_skill_playbooks (67), test_audit_log (45), test_plugin_manager (47), test_plugin_watcher (18), test_siem (31), test_coverage (33), test_exif_osint (21), test_canary_tokens (24), test_dlp_scanner (25), test_finding_poc (61), test_intelligence (43), test_permission_system (56), test_opsec, test_scope_guard, test_forensics, test_adb_controller, test_kali_mcp_client, test_mission_store, test_knowledgebase, test_swarm, + scanner tools.
