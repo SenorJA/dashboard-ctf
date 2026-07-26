@@ -780,17 +780,271 @@ ${bodyHtml}
         return items;
     }
 
+    function parseHydraFindings(buf, target) {
+        const findings = [];
+        const re = /\[(\d+)\]\[(\w+)\]\s+host:\s+(\S+)\s+login:\s+(\S+)\s+password:\s+(\S+)/g;
+        let m;
+        while ((m = re.exec(buf)) !== null) {
+            findings.push({ tool: 'hydra', severity: 'critical', title: `Credential Found: ${m[4]}@${m[3]}`, detail: `${m[2]} port ${m[1]}: login=${m[4]} password=${m[5]}`, target: m[3], type: 'credential', extra: { port: parseInt(m[1]), service: m[2], host: m[3], login: m[4], password: m[5] } });
+        }
+        return findings;
+    }
+
+    function parseWafw00fFindings(buf, target) {
+        const findings = [];
+        const reWaf = /\[\*\]\s+(?:The site\s+)?(\S+)\s+is behind\s+(.+?)(?:\s*\(|$)/gm;
+        const reNoWaf = /\[\*\]\s+(\S+)\s+No WAF detected/gi;
+        let m;
+        while ((m = reWaf.exec(buf)) !== null) {
+            findings.push({ tool: 'wafw00f', severity: 'info', title: `WAF Detected: ${m[2].trim()}`, detail: `${m[1]} is behind ${m[2].trim()}`, target, type: 'waf', extra: { waf: m[2].trim(), url: m[1] } });
+        }
+        while ((m = reNoWaf.exec(buf)) !== null) {
+            findings.push({ tool: 'wafw00f', severity: 'low', title: 'No WAF Detected', detail: `${m[1]} does not appear to be behind a WAF`, target, type: 'info', extra: { url: m[1] } });
+        }
+        return findings;
+    }
+
+    function parseSqlmapFindings(buf, target) {
+        const findings = [];
+        // Injection found
+        const reVuln = /\[WARNING\]\s+(possible injection point found|SQL injection found)/gi;
+        let m;
+        while ((m = reVuln.exec(buf)) !== null) {
+            findings.push({ tool: 'sqlmap', severity: 'critical', title: 'SQL Injection Found', detail: m[1], target, type: 'vuln', extra: {} });
+        }
+        // Parameter testing
+        const reParam = /\[INFO\]\s+testing\s+'Parameter:\s+(.+?)\s*\((\w+)\)'/g;
+        while ((m = reParam.exec(buf)) !== null) {
+            findings.push({ tool: 'sqlmap', severity: 'medium', title: `SQLi Testing: ${m[1]}`, detail: `Testing parameter ${m[1]} (${m[2]}) for SQL injection`, target, type: 'vuln', extra: { param: m[1], method: m[2] } });
+        }
+        // DBMS detected
+        const reDbms = /\[INFO\]\s+the back-end DBMS is\s+(\w+)/i;
+        const dbMatch = buf.match(reDbms);
+        if (dbMatch) {
+            findings.push({ tool: 'sqlmap', severity: 'info', title: `DBMS Detected: ${dbMatch[1]}`, detail: `Back-end database management system is ${dbMatch[1]}`, target, type: 'tech', extra: { dbms: dbMatch[1] } });
+        }
+        // Successful injection types
+        const reType = /Type:\s+(.+)/g;
+        while ((m = reType.exec(buf)) !== null) {
+            findings.push({ tool: 'sqlmap', severity: 'high', title: `SQLi Type: ${m[1].trim()}`, detail: `Injection type confirmed: ${m[1].trim()}`, target, type: 'vuln', extra: { injectionType: m[1].trim() } });
+        }
+        return findings;
+    }
+
+    function parseEnum4linuxFindings(buf, target) {
+        const findings = [];
+        // Domain
+        const domainMatch = buf.match(/Domain Name:\s*(.+)/i);
+        if (domainMatch) {
+            findings.push({ tool: 'enum4linux', severity: 'info', title: `Domain: ${domainMatch[1].trim()}`, detail: `Windows domain discovered: ${domainMatch[1].trim()}`, target, type: 'tech', extra: { domain: domainMatch[1].trim() } });
+        }
+        // Shares
+        const shareRe = /^\t(\S+)\s+(Disk|Printer)\s+(.*)/gm;
+        let m;
+        while ((m = shareRe.exec(buf)) !== null) {
+            const severity = ['ADMIN$', 'C$', 'IPC$'].includes(m[1]) ? 'medium' : 'info';
+            findings.push({ tool: 'enum4linux', severity, title: `SMB Share: ${m[1]}`, detail: `${m[2]} share — ${m[3] || 'No comment'}`, target, type: 'vuln', extra: { share: m[1], type: m[2] } });
+        }
+        // Users section
+        const userSection = buf.match(/\[\+\]\s+Users(?:\s+on\s+\S+)?:?\n([\s\S]*?)(?:\n\[|\n$|\z)/i);
+        if (userSection) {
+            const users = userSection[1].split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('[') && !l.startsWith('Enumerating') && l.length < 50);
+            if (users.length > 0) {
+                findings.push({ tool: 'enum4linux', severity: 'medium', title: `${users.length} Users Found`, detail: `Users: ${users.join(', ')}`, target, type: 'vuln', extra: { users } });
+            }
+        }
+        return findings;
+    }
+
+    function parseSmbclientFindings(buf, target) {
+        const findings = [];
+        const re = /^\t(\S+)\s+(Disk|Printer)\s*(.*)/gm;
+        let m;
+        while ((m = re.exec(buf)) !== null) {
+            findings.push({ tool: 'smbclient', severity: 'info', title: `SMB Share: ${m[1]}`, detail: `${m[2]} share${m[3] ? ' — ' + m[3].trim() : ''}`, target, type: 'vuln', extra: { share: m[1], type: m[2] } });
+        }
+        if (findings.length === 0) {
+            // Check for anonymous login success
+            if (/Anonymous login successful/i.test(buf)) {
+                findings.push({ tool: 'smbclient', severity: 'high', title: 'Anonymous SMB Access', detail: 'Anonymous login to SMB share succeeded', target, type: 'vuln', extra: {} });
+            }
+        }
+        return findings;
+    }
+
+    function parseSearchsploitFindings(buf, target) {
+        const findings = [];
+        // Match exploit lines: Title followed by path like exploits/... or windows/remote/...
+        const re = /([A-Za-z0-9][\w\s.\-\/]{10,60}?)\s{2,}(exploits|shellcodes)\/(\S+)/g;
+        let m;
+        while ((m = re.exec(buf)) !== null) {
+            findings.push({ tool: 'searchsploit', severity: 'high', title: `Exploit: ${m[1].trim()}`, detail: `Path: ${m[0].trim()}`, target, type: 'vuln', extra: { exploitPath: `https://www.exploit-db.com/${m[2]}/${m[3]}`, title: m[1].trim() } });
+        }
+        // Also catch "No Results" or result count
+        const countMatch = buf.match(/Exploits:\s*(\d+)\s+Results?/i);
+        if (countMatch && parseInt(countMatch[1]) === 0) {
+            findings.push({ tool: 'searchsploit', severity: 'info', title: 'No Exploits Found', detail: 'SearchSploit returned no matching exploits', target, type: 'info', extra: {} });
+        }
+        return findings;
+    }
+
+    function parseTheharvesterFindings(buf, target) {
+        const findings = [];
+        // Emails
+        const emailSection = buf.match(/\[\*\]\s+Emails found:\s*\n[-]+\n([\s\S]*?)(?:\n\[\*]|\n\n)/i);
+        if (emailSection) {
+            const emails = emailSection[1].split('\n').map(l => l.trim()).filter(l => l && l.includes('@'));
+            if (emails.length > 0) {
+                findings.push({ tool: 'theharvester', severity: 'medium', title: `${emails.length} Emails Found`, detail: emails.join(', '), target, type: 'info', extra: { emails } });
+            }
+        }
+        // Hosts
+        const hostSection = buf.match(/\[\*\]\s+Hosts found:\s*\n[-]+\n([\s\S]*?)(?:\n\[\*]|\n\n)/i);
+        if (hostSection) {
+            const hosts = hostSection[1].split('\n').map(l => l.trim()).filter(l => l && l.length > 0 && !l.startsWith('['));
+            if (hosts.length > 0) {
+                findings.push({ tool: 'theharvester', severity: 'info', title: `${hosts.length} Hosts Found`, detail: hosts.join(', '), target, type: 'info', extra: { hosts } });
+            }
+        }
+        return findings;
+    }
+
+    function parseSmbmapFindings(buf, target) {
+        const findings = [];
+        // Share with permissions block
+        const re1 = /\[\+\]\s+Share:\s+(\S+)\n\s+Permissions:\s+(.+)/g;
+        let m;
+        while ((m = re1.exec(buf)) !== null) {
+            const sev = m[2].includes('WRITE') ? 'high' : 'info';
+            findings.push({ tool: 'smbmap', severity: sev, title: `SMB Share: ${m[1]} (${m[2].trim()})`, detail: `Share ${m[1]} has ${m[2].trim()} permissions`, target, type: 'vuln', extra: { share: m[1], permissions: m[2].trim() } });
+        }
+        // Single-line format
+        const re2 = /^(Disk|Print)\s+(READ|WRITE|NO ACCESS|LISTING)\s+(\S+)\s+(\S+)/gm;
+        while ((m = re2.exec(buf)) !== null) {
+            const sev = m[2] === 'WRITE' ? 'high' : m[2] === 'READ' ? 'medium' : 'info';
+            findings.push({ tool: 'smbmap', severity: sev, title: `SMB Share: ${m[4]} (${m[2]})`, detail: `${m[1]} share ${m[4]} on ${m[3]}: ${m[2]}`, target, type: 'vuln', extra: { share: m[4], host: m[3], permissions: m[2] } });
+        }
+        return findings;
+    }
+
+    // ── WFuzz parser ──
+    function parseWfuzzFindings(buf, target) {
+        const findings = [];
+        // Pattern 1: /path [Status: NNN, Size: NNN]
+        const re1 = /\s+(\/\S+)\s+\[Status:\s*(\d+)/g;
+        // Pattern 2: NNNNN  NNN  NNN L  NNN W  NNN H  /path
+        const re2 = /\d+\s+(\d{3})\s+\d+\s+L\s+\d+\s+W\s+\d+\s+H\s+(\S+)/g;
+        let m;
+        while ((m = re1.exec(buf)) !== null) {
+            findings.push({ tool: 'wfuzz', severity: m[2] >= 500 ? 'critical' : m[2] >= 400 ? 'medium' : 'info', title: `WFuzz: ${m[1]}`, detail: `Status ${m[2]}`, target, type: 'directory', extra: { path: m[1], status: parseInt(m[2]) } });
+        }
+        while ((m = re2.exec(buf)) !== null) {
+            findings.push({ tool: 'wfuzz', severity: m[1] >= 500 ? 'critical' : m[1] >= 400 ? 'medium' : 'info', title: `WFuzz: ${m[2]}`, detail: `Status ${m[1]}`, target, type: 'directory', extra: { path: m[2], status: parseInt(m[1]) } });
+        }
+        return findings;
+    }
+
+    // ── Feroxbuster parser ──
+    function parseFeroxbusterFindings(buf, target) {
+        const findings = [];
+        const re = /(\d{3})\s+(\d+)\s+l\s+(\d+)\s+w\s+(\d+)\s+c\s+(\S+)/g;
+        let m;
+        while ((m = re.exec(buf)) !== null) {
+            const status = parseInt(m[1]);
+            findings.push({ tool: 'feroxbuster', severity: status >= 500 ? 'critical' : status >= 400 ? 'medium' : 'info', title: `Feroxbuster: ${m[5]}`, detail: `Status ${status}, Size ${m[4]}`, target, type: 'directory', extra: { path: m[5], status, size: parseInt(m[4]) } });
+        }
+        return findings;
+    }
+
+    // ── CeWL parser ──
+    function parseCewlFindings(buf, target) {
+        const findings = [];
+        const m = buf.match(/Words found:\s*(\d+)/i);
+        if (m) {
+            findings.push({ tool: 'cewl', severity: 'info', title: `CeWL wordlist generated`, detail: `${m[1]} words found`, target, type: 'info', extra: { wordCount: parseInt(m[1]) } });
+        }
+        return findings;
+    }
+
+    // ── DNSRecon parser ──
+    function parseDnsreconFindings(buf, target) {
+        const findings = [];
+        // DNS records
+        const reRecord = /\[\*\]\s+(A|AAAA|MX|NS|TXT|SOA|CNAME|SRV|PTR)\s+(.+)/g;
+        let m;
+        while ((m = reRecord.exec(buf)) !== null) {
+            findings.push({ tool: 'dnsrecon', severity: 'info', title: `DNS ${m[1]} Record`, detail: m[2].trim(), target, type: 'dns', extra: { recordType: m[1], value: m[2].trim() } });
+        }
+        // Zone transfer
+        const zt = buf.match(/Zone transfer successful/i);
+        if (zt) {
+            findings.push({ tool: 'dnsrecon', severity: 'high', title: 'DNS Zone Transfer Allowed', detail: 'Zone transfer is enabled — information disclosure risk', target, type: 'vuln', extra: {} });
+        }
+        return findings;
+    }
+
+    // ── Curl header-analysis parser ──
+    function parseCurlFindings(buf, target) {
+        const findings = [];
+        // Extract status line
+        const statusMatch = buf.match(/<\s+HTTP\/[\d.]+\s+(\d+)/);
+        if (statusMatch) {
+            findings.push({ tool: 'curl', severity: 'info', title: `HTTP ${statusMatch[1]} Response`, detail: `Status code ${statusMatch[1]}`, target, type: 'info', extra: { status: parseInt(statusMatch[1]) } });
+        }
+        // Security header checks
+        const headers = {};
+        const headerRe = /<\s+([\w-]+):\s+(.+)/g;
+        let m;
+        while ((m = headerRe.exec(buf)) !== null) { headers[m[1].toLowerCase()] = m[2].trim(); }
+
+        if (!headers['content-security-policy']) findings.push({ tool: 'curl', severity: 'high', title: 'Missing CSP Header', detail: 'No Content-Security-Policy header found', target, type: 'vuln', extra: {} });
+        if (!headers['strict-transport-security']) findings.push({ tool: 'curl', severity: 'medium', title: 'Missing HSTS Header', detail: 'No Strict-Transport-Security header found', target, type: 'vuln', extra: {} });
+        if (!headers['x-frame-options']) findings.push({ tool: 'curl', severity: 'medium', title: 'Missing X-Frame-Options', detail: 'No X-Frame-Options header found', target, type: 'vuln', extra: {} });
+        if (!headers['x-content-type-options']) findings.push({ tool: 'curl', severity: 'low', title: 'Missing X-Content-Type-Options', detail: 'No X-Content-Type-Options header found', target, type: 'vuln', extra: {} });
+        if (headers['x-powered-by']) findings.push({ tool: 'curl', severity: 'low', title: 'Server Info Leak', detail: `X-Powered-By: ${headers['x-powered-by']}`, target, type: 'vuln', extra: { header: 'X-Powered-By', value: headers['x-powered-by'] } });
+        if (headers['server'] && /\//.test(headers['server'])) findings.push({ tool: 'curl', severity: 'low', title: 'Server Version Leak', detail: `Server: ${headers['server']}`, target, type: 'vuln', extra: { header: 'Server', value: headers['server'] } });
+
+        return findings;
+    }
+
+    // ── Masscan parser ──
+    function parseMasscanFindings(buf, target) {
+        const findings = [];
+        const re = /Discovered open port (\d+)\/(tcp|udp)\s+on\s+(\S+)/g;
+        let m;
+        while ((m = re.exec(buf)) !== null) {
+            const port = parseInt(m[1]);
+            findings.push({ tool: 'masscan', severity: 'info', title: `Port ${m[1]}/${m[2]} Open`, detail: `Open port discovered on ${m[3]}`, target, type: 'port', extra: { port, protocol: m[2], host: m[3] } });
+        }
+        return findings;
+    }
+
     // ── Main parse dispatcher ──
     function parseToolOutput(tool, text, target) {
         let items = [];
         switch (tool) {
-            case 'nmap':      items = parseNmapFindings(text, target); break;
-            case 'gobuster':  items = parseGobusterFindings(text, target); break;
-            case 'dirb':      items = parseGobusterFindings(text, target); break;
-            case 'ffuf':      items = parseFfufFindings(text, target); break;
-            case 'nikto':     items = parseNiktoFindings(text, target); break;
-            case 'whatweb':   items = parseWhatwebFindings(text, target); break;
-            case 'wpscan':    items = parseWpscanFindings(text, target); break;
+            case 'nmap':        items = parseNmapFindings(text, target); break;
+            case 'gobuster':    items = parseGobusterFindings(text, target); break;
+            case 'dirb':        items = parseGobusterFindings(text, target); break;
+            case 'ffuf':        items = parseFfufFindings(text, target); break;
+            case 'nikto':       items = parseNiktoFindings(text, target); break;
+            case 'whatweb':     items = parseWhatwebFindings(text, target); break;
+            case 'wpscan':      items = parseWpscanFindings(text, target); break;
+            case 'wfuzz':       items = parseWfuzzFindings(text, target); break;
+            case 'feroxbuster': items = parseFeroxbusterFindings(text, target); break;
+            case 'cewl':        items = parseCewlFindings(text, target); break;
+            case 'dnsrecon':    items = parseDnsreconFindings(text, target); break;
+            case 'curl':        items = parseCurlFindings(text, target); break;
+            case 'masscan':     items = parseMasscanFindings(text, target); break;
+            case 'hydra-ssh':   items = parseHydraFindings(text, target); break;
+            case 'hydra-ftp':   items = parseHydraFindings(text, target); break;
+            case 'wafw00f':     items = parseWafw00fFindings(text, target); break;
+            case 'sqlmap':      items = parseSqlmapFindings(text, target); break;
+            case 'enum4linux':  items = parseEnum4linuxFindings(text, target); break;
+            case 'smbclient':   items = parseSmbclientFindings(text, target); break;
+            case 'searchsploit':items = parseSearchsploitFindings(text, target); break;
+            case 'theharvester':items = parseTheharvesterFindings(text, target); break;
+            case 'smbmap':      items = parseSmbmapFindings(text, target); break;
         }
         return items;
     }
@@ -977,7 +1231,11 @@ ${bodyHtml}
         const badge = severityBadge(sev);
         const icon = f.tool === 'nmap' ? '🔍' : f.tool === 'gobuster' || f.tool === 'dirb' ? '📁' :
                      f.tool === 'ffuf' ? '🌐' : f.tool === 'nikto' ? '⚠️' :
-                     f.tool === 'whatweb' ? '🔎' : f.tool === 'wpscan' ? '📌' : '🎯';
+                     f.tool === 'whatweb' ? '🔎' : f.tool === 'wpscan' ? '📌' :
+                     f.tool === 'hydra' ? '🔑' : f.tool === 'wafw00f' ? '🛡️' :
+                     f.tool === 'sqlmap' ? '💉' : f.tool === 'enum4linux' ? '🏢' :
+                     f.tool === 'smbclient' || f.tool === 'smbmap' ? '📂' :
+                     f.tool === 'searchsploit' ? '💥' : f.tool === 'theharvester' ? '📧' : '🎯';
         let title = f.title || '';
         let subtitle = '';
         if (f.type === 'port') {
@@ -3051,7 +3309,7 @@ ${bodyHtml}
         }
 
         // Set current tool for report / findings parsing
-        if (['nmap', 'gobuster', 'dirb', 'ffuf', 'nikto', 'whatweb', 'wpscan', 'wfuzz', 'feroxbuster', 'cewl', 'dnsrecon', 'curl'].includes(tool)) {
+        if (['nmap', 'gobuster', 'dirb', 'ffuf', 'nikto', 'whatweb', 'wpscan', 'wfuzz', 'feroxbuster', 'cewl', 'dnsrecon', 'curl', 'masscan', 'hydra-ssh', 'hydra-ftp', 'wafw00f', 'sqlmap', 'enum4linux', 'smbclient', 'searchsploit', 'theharvester', 'smbmap'].includes(tool)) {
             currentToolRunning = tool;
             pendingTool = tool;      // persists until prompt is detected
             _toolParsed = false;
