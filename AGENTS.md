@@ -42,7 +42,7 @@ C:\Users\34678\Desktop\Proyecto ciber\
 │   ├── plugins/               # Plugin directory (example_plugin/)
 │   ├── skills/                # Built-in skill playbooks (recon, webvuln, ssrf, jwt, supabase)
 │   ├── burp_plugin/           # Jython Burp Suite plugin (mirv_burp.py)
-│   ├── tests/                 # 2442 tests across 37 test files
+│   ├── tests/                 # 2647 tests across 39 test files
 │   ├── Dockerfile             # Container image for mirv-backend
 │   └── requirements.txt
 ├── frontend/
@@ -85,7 +85,7 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 **Tests:**
 ```bash
 cd backend
-python -m pytest tests/ -k "not test_slow_hook" -q  # 2442 tests, ~72% coverage
+python -m pytest tests/ -k "not test_slow_hook" -q  # 2647 tests, ~72% coverage
 ```
 
 ## Backend modules (main.py + 28 modules)
@@ -382,6 +382,6 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # 2442 tests, ~72% coverage
 ## Test summary
 
 - **37 test files** in `backend/tests/`
-- **2442 tests** passing
+- **2647 tests** passing
 - **~72% coverage** across measured backend modules
 - **Key test files**: test_database (196), test_api_endpoints (333), test_main_coverage (165), test_burp_bridge (72), test_redact (63), test_skill_playbooks (67), test_audit_log (45), test_plugin_manager (47), test_plugin_watcher (18), test_siem (31), test_coverage (33), test_exif_osint (21), test_canary_tokens (24), test_dlp_scanner (25), test_finding_poc (61), test_intelligence (43), test_permission_system (56), test_opsec, test_scope_guard, test_forensics, test_adb_controller, test_kali_mcp_client, test_mission_store, test_knowledgebase, test_swarm, + scanner tools.

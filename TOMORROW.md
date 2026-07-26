@@ -1,6 +1,6 @@
 # 🔮 TOMORROW.md — Roadmap de trabajo pendiente
 
-> Última actualización: 25 Jul 2026 — MIRV v4.0 | 28 módulos | 208 endpoints | 2442 tests | 25 tabs
+> Última actualización: 25 Jul 2026 — MIRV v4.0 | 28 módulos | 208 endpoints | 2647 tests | 25 tabs
 
 ---
 
@@ -10,8 +10,8 @@
 |---------|-------|
 | Backend modules | 28 (main.py + 27 especializados) |
 | REST endpoints | 208 |
-| Test files | 37 |
-| Tests collected | 2442 |
+| Test files | 39 |
+| Tests collected | 2647 |
 | Coverage | ~72% (módulos core) |
 | Frontend tabs | 25 |
 | Frontend JS | 8729 líneas (main.v2.js) |

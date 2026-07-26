@@ -1,6 +1,6 @@
 # 🗺️ M.I.R.V. — Roadmap de Mejoras
 
-> Última actualización: 25 Jul 2026 — MIRV v4.0 | 28 módulos | 208 endpoints | 2442 tests | 25 tabs
+> Última actualización: 25 Jul 2026 — MIRV v4.0 | 28 módulos | 208 endpoints | 2647 tests | 25 tabs
 
 ## ✅ Completado
 
@@ -51,7 +51,7 @@
 
 ### Fase 8 — Docker + Tests + CI/CD
 - [x] Dockerfile + docker-compose.yml
-- [x] 2442 tests pytest (37 archivos)
+- [x] 2647 tests pytest (39 archivos)
 - [x] ~72% coverage global
 - [x] CI: lint + test-backend + docker-build + deploy
 - [ ] Cobertura > 80%
@@ -173,7 +173,7 @@
 | Fase 5 | Hallazgos persistentes + informes | ✅ |
 | Fase 6 | Scope + OPSEC + Permissions | ✅ |
 | Fase 7 | Producción (Cloudflare Tunnel) | 🚧 Infra |
-| Fase 8 | Docker + Tests + CI/CD | ✅ (2442 tests) |
+| Fase 8 | Docker + Tests + CI/CD | ✅ (2647 tests) |
 | PentesterFlow | Coverage + Skills + Redact + Burp + Audit | ✅ |
 | Plugin System | Hot-reload + Watcher + 5 hooks | ✅ |
 | Session Compaction | Mission store + auto-redact | ✅ |
