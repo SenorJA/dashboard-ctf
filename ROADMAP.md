@@ -1,6 +1,6 @@
 # 🗺️ M.I.R.V. — Roadmap de Mejoras
 
-> Última actualización: 26 Jul 2026 — MIRV v5.0 | 29 módulos | 217 endpoints | 2742 tests | 26 tabs
+> Última actualización: 26 Jul 2026 — MIRV v5.0 | 29 módulos | 226 endpoints | 2837 tests | 27 tabs
 
 ## ✅ Completado
 
@@ -14,7 +14,7 @@
 - [x] Subida de archivos chunked base64 (soporta binarios >1MB)
 - [x] Responsive layout (mobile sidebar + command bar separada)
 - [x] Pestaña **Findings** con tarjetas de severidad
-- [x] Parsers: nmap, whatweb, gobuster, dirb, ffuf, nikto, wpscan
+- [x] Parsers: nmap, whatweb, gobuster, dirb, ffuf, nikto, wpscan, wfuzz, feroxbuster, cewl, dnsrecon, curl, masscan, hydra-ssh/ftp, wafw00f, sqlmap, enum4linux, smbclient, smbmap, searchsploit, theharvester (28 total)
 - [x] Deduplicación de hallazgos por `key:val`
 - [x] Filtros por severidad + export `.txt`/`.md`/`.html`/`PDF`
 - [x] Persistencia en Supabase (CRUD via `/api/findings`)
@@ -51,7 +51,7 @@
 
 ### Fase 8 — Docker + Tests + CI/CD
 - [x] Dockerfile + docker-compose.yml
-- [x] 2742 tests pytest (40 archivos)
+- [x] 2837 tests pytest (41 archivos)
 - [x] ~72% coverage global
 - [x] CI: lint + test-backend + docker-build + deploy
 - [ ] Cobertura > 80%
@@ -120,6 +120,24 @@
 
 ---
 
+## ✅ Browser Capture (Jul 2026)
+
+- [x] `backend/browser_capture.py` (1334L) — HAR 1.2 parser + 10 security check categories
+- [x] Checks: cookies, CSP, HSTS, XFO, XCTO, mixed content, sensitive URLs, insecure redirects, CORS, info leakage, large responses, WebSocket
+- [x] Risk scoring 0–100, MIRV findings export, 9 REST endpoints (`/api/browser-capture/*`)
+- [x] 95 tests covering all analysis categories
+- [x] Frontend tab #26: HAR upload + session list + analysis dashboard
+
+---
+
+## ✅ Finding Parsers Expanded (Jul 2026)
+
+- [x] 14 new parsers added to `frontend/js/main.v2.js` (+267 lines)
+- [x] New tools: wfuzz, feroxbuster, cewl, dnsrecon, curl (security headers), masscan, hydra-ssh/ftp, wafw00f, sqlmap, enum4linux, smbclient, smbmap, searchsploit, theharvester
+- [x] Total parsers: 28 (was 14)
+
+---
+
 ## ✅ Infraestructura completa
 
 - [x] MCP Server + Kali MCP Client
@@ -151,8 +169,8 @@
 - [ ] **Cobertura > 80%** — push más allá de 72% (main.py 53%, módulos specialty)
 
 ### Prioridad MEDIA
-- [ ] **Browser Capture MCP** — capturar tráfico del navegador (esfuerzo ALTO)
-- [ ] **More finding parsers** — curl, dnsrecon, ffuf extendido
+- [x] Browser Capture + 14 new parsers (28 total)
+- [x] ~~**More finding parsers**~~ — 14 new parsers added (28 total)
 - [ ] **Export PDF mejorado** — formato más profesional
 
 ### Prioridad BAJA
@@ -164,7 +182,7 @@
 
 ## 📊 Resumen
 
-| Fase | Descripción | Estado |
+| Phase | Description | Status |
 |------|------------|--------|
 | Fase 1 | Terminal + Findings Panel | ✅ |
 | Fase 2 | AI Assistance | ✅ |
@@ -173,13 +191,15 @@
 | Fase 5 | Hallazgos persistentes + informes | ✅ |
 | Fase 6 | Scope + OPSEC + Permissions | ✅ |
 | Fase 7 | Producción (Cloudflare Tunnel) | 🚧 Infra |
-| Fase 8 | Docker + Tests + CI/CD | ✅ (2742 tests) |
+| Fase 8 | Docker + Tests + CI/CD | ✅ (2837 tests) |
 | PentesterFlow | Coverage + Skills + Redact + Burp + Audit | ✅ |
 | Plugin System | Hot-reload + Watcher + 5 hooks | ✅ |
 | Session Compaction | Mission store + auto-redact | ✅ |
 | Continuous Intelligence | Watch/snapshot/diff/alert | ✅ |
 | Finding PoC | Reproducible PoC + replay + reports | ✅ |
 | Permission Prompts | Interactive command gating | ✅ |
+| Browser Capture | HAR + 10 security checks + 95 tests | ✅ |
+| Finding Parsers | 28 tool parsers (was 14) | ✅ |
 | Arsenal OSINT | 83+ modules total | ✅ |
 | CI/CD | lint + test + Docker + deploy | ✅ |
 

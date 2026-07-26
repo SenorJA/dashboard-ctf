@@ -1,6 +1,6 @@
 # 🔮 TOMORROW.md — Roadmap de trabajo pendiente
 
-> Última actualización: 26 Jul 2026 — MIRV v5.0 | 29 módulos | 217 endpoints | 2742 tests | 26 tabs
+> Última actualización: 26 Jul 2026 — MIRV v5.0 | 29 módulos | 226 endpoints | 2837 tests | 27 tabs
 
 ---
 
@@ -9,12 +9,12 @@
 | Métrica | Valor |
 |---------|-------|
 | Backend modules | 29 (main.py + 28 especializados) |
-| REST endpoints | 217 |
-| Test files | 40 |
-| Tests collected | 2742 |
+| REST endpoints | 226 |
+| Test files | 41 |
+| Tests collected | 2837 |
 | Coverage | ~72% (módulos core) |
 | Frontend tabs | 25 |
-| Frontend JS | 8729 líneas (main.v2.js) |
+| Frontend JS | 9231 líneas (main.v2.js) |
 | Frontend HTML | 2694 líneas (index.html) |
 | GitHub Actions | 2 workflows (CI + Deploy) |
 | Docker images | 2 (mirv-backend + kali-tools) |
@@ -78,7 +78,7 @@
 
 ---
 
-## 🖥️ Frontend — 25 pestañas
+## 🖥️ Frontend — 27 pestañas
 
 | # | Tab | ID | Módulo backend | Descripción |
 |---|-----|----|----------------|-------------|
@@ -105,8 +105,9 @@
 | 20 | Burp Bridge | `tab-burp` | burp_bridge.py | Burp ingest |
 | 21 | Audit Log | `tab-audit` | audit_log.py | JSONL audit viewer |
 | 22 | Skills | `tab-skills` | skill_playbooks.py | Skill playbooks |
-| 23 | **Intelligence** | `tab-intelligence` | intelligence.py | Continuous monitoring |
+| 23 | Intelligence | `tab-intelligence` | intelligence.py | Continuous monitoring |
 | 24 | Docker | — | main.py | Container controls |
+| 25 | **Browser Capture** | `tab-browsercapture` | browser_capture.py | HAR import + security analysis |
 
 ---
 
