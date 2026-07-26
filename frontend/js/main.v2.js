@@ -3163,7 +3163,8 @@ ${bodyHtml}
             burp: 21,
             audit: 22,
             skills: 23,
-            intelligence: 24
+            intelligence: 24,
+            browsercapture: 25
         };
         if (panes[tabName] !== undefined) {
             btns[panes[tabName]].classList.add('active');
@@ -5950,6 +5951,21 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         dockerStop:        { en: '■ Stop',                es: '■ Parar' },
         dockerClean:       { en: '🗑 Clean',              es: '🗑 Limpiar' },
         dockerBuild:       { en: '⚡ Rebuild',            es: '⚡ Reconstruir' },
+
+        // ── Browser Capture ──
+        tabBrowserCapture:   { en: '🌐 Browser Capture',  es: '🌐 Captura Navegador' },
+        bcTitle:             { en: 'Browser Capture',     es: 'Captura de Tráfico del Navegador' },
+        bcImport:            { en: 'Import HAR File',     es: 'Importar Archivo HAR' },
+        bcImportDesc:        { en: 'Export traffic from browser DevTools (F12 → Network → Export HAR)', es: 'Exporta tráfico desde DevTools del navegador (F12 → Red → Exportar HAR)' },
+        bcSessions:          { en: 'Capture Sessions',    es: 'Sesiones de Captura' },
+        bcRefresh:           { en: '↻ Refresh',           es: '↻ Actualizar' },
+        bcNoSessions:        { en: 'No capture sessions yet. Import a .har file to begin.', es: 'Sin sesiones aún. Importa un archivo .har para comenzar.' },
+        bcSessionDetail:     { en: 'Session Detail',      es: 'Detalle de Sesión' },
+        bcAnalyze:           { en: '🔍 Analyze',          es: '🔍 Analizar' },
+        bcExportFindings:    { en: '📤 Export Findings',  es: '📤 Exportar Hallazgos' },
+        bcDelete:            { en: '🗑 Delete',           es: '🗑 Eliminar' },
+        bcAnalysisResults:   { en: 'Security Analysis',   es: 'Análisis de Seguridad' },
+        bcRequests:          { en: 'Captured Requests',   es: 'Peticiones Capturadas' },
     };
 
     window.currentLang = localStorage.getItem('vulnforge_lang') || 'en';
@@ -8724,6 +8740,234 @@ Reglas:
         if (name === 'intelligence') {
             refreshIntel();
         }
+        if (name === 'browsercapture') {
+            refreshBrowserCapture();
+        }
         if (_origSwitchTabIntel) _origSwitchTabIntel(name);
+    };
+
+    // ════════════════════════════════════════════════════════════════
+    //  BROWSER CAPTURE — HAR Import & Traffic Analysis
+    // ════════════════════════════════════════════════════════════════
+
+    let bcCurrentSession = null;
+
+    window.refreshBrowserCapture = async function() {
+        const list = document.getElementById('bc-sessions-list');
+        if (!list) return;
+        try {
+            const resp = await fetch('/api/browser-capture/sessions');
+            const data = await resp.json();
+            const sessions = data.sessions || [];
+            if (sessions.length === 0) {
+                list.innerHTML = '<p class="text-gray-600 text-[10px]" data-i18n="bcNoSessions">No capture sessions yet. Import a .har file to begin.</p>';
+                return;
+            }
+            list.innerHTML = sessions.map(s => `
+                <div class="p-3 bg-deep/50 rounded border border-gray-800 flex justify-between items-center cursor-pointer hover:border-neon/30 transition-colors" onclick="bcSelectSession('${s.id}')">
+                    <div>
+                        <span class="font-semibold text-[11px] text-neon">${_escH(s.name)}</span>
+                        <span class="text-gray-500 text-[10px] ml-2">${_escH(s.target)}</span>
+                        <span class="text-gray-700 text-[9px] ml-2">${s.request_count} requests</span>
+                    </div>
+                    <div class="text-[9px] text-gray-700">${new Date(s.created_at).toLocaleString()}</div>
+                </div>
+            `).join('');
+        } catch(e) {
+            list.innerHTML = '<p class="text-blood text-[10px]">Error loading sessions</p>';
+        }
+    };
+
+    // File import handler
+    document.getElementById('bc-file-input')?.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const status = document.getElementById('bc-import-status');
+        if (status) status.innerHTML = '<span class="text-yellow-400">Importing...</span>';
+        const formData = new FormData();
+        formData.append('file', file);
+        try {
+            const resp = await fetch('/api/browser-capture/import', { method: 'POST', body: formData });
+            const data = await resp.json();
+            if (data.ok && status) {
+                status.innerHTML = `<span class="text-green-400">✓ Imported ${data.session.request_count} requests from ${_escH(data.session.name)}</span>`;
+                refreshBrowserCapture();
+            } else if (status) {
+                status.innerHTML = `<span class="text-blood">✗ ${_escH(data.error || 'Import failed')}</span>`;
+            }
+        } catch(err) {
+            if (status) status.innerHTML = '<span class="text-blood">✗ Network error</span>';
+        }
+        e.target.value = '';
+    });
+
+    window.bcSelectSession = async function(sessionId) {
+        bcCurrentSession = sessionId;
+        const detail = document.getElementById('bc-session-detail');
+        if (detail) detail.classList.remove('hidden');
+        try {
+            const resp = await fetch(`/api/browser-capture/sessions/${sessionId}`);
+            const session = await resp.json();
+            // Overview cards
+            const overview = document.getElementById('bc-overview');
+            if (overview) {
+                const analysis = session.analysis;
+                overview.innerHTML = `
+                    <div class="p-3 bg-deep/50 rounded border border-gray-800 text-center">
+                        <div class="text-2xl font-bold text-neon">${session.request_count}</div>
+                        <div class="text-[9px] text-gray-500">Requests</div>
+                    </div>
+                    <div class="p-3 bg-deep/50 rounded border border-gray-800 text-center">
+                        <div class="text-[11px] font-bold text-cyber truncate">${_escH(session.target)}</div>
+                        <div class="text-[9px] text-gray-500">Target</div>
+                    </div>
+                    <div class="p-3 bg-deep/50 rounded border border-gray-800 text-center">
+                        <div class="text-lg font-bold ${analysis ? (analysis.risk_score > 50 ? 'text-blood' : analysis.risk_score > 20 ? 'text-yellow-400' : 'text-green-400') : 'text-gray-600'}">${analysis ? analysis.risk_score.toFixed(1) : '—'}</div>
+                        <div class="text-[9px] text-gray-500">Risk Score</div>
+                    </div>
+                    <div class="p-3 bg-deep/50 rounded border border-gray-800 text-center">
+                        <div class="text-[11px] font-bold text-gray-400 truncate">${_escH(session.har_creator?.name || 'Unknown')}</div>
+                        <div class="text-[9px] text-gray-500">Browser</div>
+                    </div>
+                `;
+            }
+            // Show analysis if available
+            if (session.analysis) {
+                bcRenderAnalysis(session.analysis);
+            } else {
+                const bcAnalysis = document.getElementById('bc-analysis');
+                if (bcAnalysis) bcAnalysis.classList.add('hidden');
+            }
+            // Load requests
+            bcLoadRequests(sessionId);
+        } catch(e) {
+            console.error('Failed to load session', e);
+        }
+    };
+
+    function bcRenderAnalysis(analysis) {
+        const el = document.getElementById('bc-analysis');
+        if (!el) return;
+        el.classList.remove('hidden');
+        const fc = analysis.findings_count || {};
+        const summaryEl = document.getElementById('bc-analysis-summary');
+        if (summaryEl) {
+            summaryEl.innerHTML = [
+                { label: 'Critical', count: fc.critical || 0, color: 'text-blood' },
+                { label: 'High', count: fc.high || 0, color: 'text-orange-400' },
+                { label: 'Medium', count: fc.medium || 0, color: 'text-yellow-400' },
+                { label: 'Low', count: fc.low || 0, color: 'text-blue-400' },
+                { label: 'Info', count: fc.info || 0, color: 'text-gray-400' },
+            ].map(s => `<div class="p-2 bg-deep/50 rounded border border-gray-800 text-center"><div class="text-xl font-bold ${s.color}">${s.count}</div><div class="text-[9px] text-gray-500">${s.label}</div></div>`).join('');
+        }
+
+        const issues = analysis.security_issues || [];
+        const list = document.getElementById('bc-findings-list');
+        if (!list) return;
+        if (issues.length === 0) {
+            list.innerHTML = '<p class="text-green-400 text-[10px]">No security issues detected</p>';
+            return;
+        }
+        const severityOrder = { critical: 0, high: 1, medium: 2, low: 3, info: 4 };
+        const sorted = [...issues].sort((a, b) => (severityOrder[a.severity] || 5) - (severityOrder[b.severity] || 5));
+        list.innerHTML = sorted.map(i => {
+            const sevColor = {
+                critical: 'border-blood bg-blood/10',
+                high: 'border-orange-400 bg-orange-400/10',
+                medium: 'border-yellow-400 bg-yellow-400/10',
+                low: 'border-blue-400 bg-blue-400/10',
+                info: 'border-gray-600'
+            }[i.severity] || 'border-gray-700';
+            return `<div class="p-2 rounded border-l-4 ${sevColor}">
+                <div class="flex justify-between"><span class="font-semibold text-[10px]">${_escH(i.title)}</span><span class="text-[8px] px-1.5 py-0.5 rounded ${sevColor}">${i.severity}</span></div>
+                <div class="text-[9px] text-gray-500 mt-1">${_escH(i.detail || '')}</div>
+                ${i.recommendation ? `<div class="text-[9px] text-cyber mt-1">💡 ${_escH(i.recommendation)}</div>` : ''}
+            </div>`;
+        }).join('');
+    }
+
+    async function bcLoadRequests(sessionId) {
+        const table = document.getElementById('bc-requests-table');
+        if (!table) return;
+        const method = document.getElementById('bc-method-filter')?.value || '';
+        const domain = document.getElementById('bc-domain-filter')?.value || '';
+        try {
+            let url = `/api/browser-capture/sessions/${sessionId}/requests?limit=100`;
+            if (method) url += `&method=${method}`;
+            if (domain) url += `&domain=${domain}`;
+            const resp = await fetch(url);
+            const data = await resp.json();
+            const reqs = data.requests || [];
+            if (reqs.length === 0) {
+                table.innerHTML = '<p class="text-gray-600 text-[10px]">No requests match filters.</p>';
+                return;
+            }
+            table.innerHTML = `<table class="w-full text-[10px]"><thead><tr class="text-gray-500 border-b border-gray-800">
+                <th class="text-left py-1 px-2">Method</th><th class="text-left py-1 px-2">URL</th><th class="text-left py-1 px-2">Status</th><th class="text-left py-1 px-2">Size</th><th class="text-left py-1 px-2">Time</th>
+            </tr></thead><tbody>${reqs.map(r => {
+                const methodColor = { GET: 'text-green-400', POST: 'text-yellow-400', PUT: 'text-blue-400', DELETE: 'text-blood' }[r.method] || 'text-gray-400';
+                const statusColor = r.response_status >= 200 && r.response_status < 300 ? 'text-green-400' : r.response_status >= 400 ? 'text-blood' : 'text-yellow-400';
+                return `<tr class="border-b border-gray-800/50 hover:bg-neon/5">
+                    <td class="py-1 px-2 font-mono ${methodColor}">${r.method}</td>
+                    <td class="py-1 px-2 text-gray-400 truncate max-w-md">${_escH(r.url)}</td>
+                    <td class="py-1 px-2 font-mono ${statusColor}">${r.response_status || '—'}</td>
+                    <td class="py-1 px-2 text-gray-600">${r.response_body ? (r.response_body.length / 1024).toFixed(1) + 'KB' : '—'}</td>
+                    <td class="py-1 px-2 text-gray-600">${r.timing?.receive || '—'}ms</td>
+                </tr>`;
+            }).join('')}</tbody></table>`;
+        } catch(e) {
+            table.innerHTML = '<p class="text-blood text-[10px]">Error loading requests</p>';
+        }
+    }
+
+    // Filter handlers
+    document.getElementById('bc-method-filter')?.addEventListener('change', () => { if (bcCurrentSession) bcLoadRequests(bcCurrentSession); });
+    document.getElementById('bc-domain-filter')?.addEventListener('input', () => { if (bcCurrentSession) bcLoadRequests(bcCurrentSession); });
+
+    window.bcAnalyzeSession = async function() {
+        if (!bcCurrentSession) return;
+        try {
+            const resp = await fetch(`/api/browser-capture/sessions/${bcCurrentSession}/analyze`, { method: 'POST' });
+            const data = await resp.json();
+            if (data.ok && data.analysis) {
+                bcRenderAnalysis(data.analysis);
+                // Refresh session to update risk score card
+                bcSelectSession(bcCurrentSession);
+            }
+        } catch(e) { console.error('Analyze failed', e); }
+    };
+
+    window.bcExportFindings = async function() {
+        if (!bcCurrentSession) return;
+        try {
+            const resp = await fetch(`/api/browser-capture/sessions/${bcCurrentSession}/findings`, { method: 'POST' });
+            const data = await resp.json();
+            if (data.ok && data.findings) {
+                // Push to global findings
+                for (const f of data.findings) {
+                    await fetch('/api/findings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(f) });
+                }
+                if (typeof showToast === 'function') {
+                    showToast(`✓ Exported ${data.count} findings to Findings tab`);
+                } else {
+                    alert(`✓ Exported ${data.count} findings to Findings tab`);
+                }
+            }
+        } catch(e) { console.error('Export failed', e); }
+    };
+
+    window.bcDeleteSession = async function() {
+        if (!bcCurrentSession || !confirm('Delete this capture session?')) return;
+        try {
+            await fetch(`/api/browser-capture/sessions/${bcCurrentSession}`, { method: 'DELETE' });
+            bcCloseDetail();
+            refreshBrowserCapture();
+        } catch(e) { console.error('Delete failed', e); }
+    };
+
+    window.bcCloseDetail = function() {
+        bcCurrentSession = null;
+        const detail = document.getElementById('bc-session-detail');
+        if (detail) detail.classList.add('hidden');
     };
 });

@@ -181,6 +181,17 @@ from backend.finding_poc import (
 # ── Continuous Intelligence (watches, snapshots, diff, alerts) ──
 from backend import intelligence as intel
 
+# ── Browser Capture (HAR import, session storage, security analysis) ──
+from backend.browser_capture import (
+    import_har as bc_import,
+    list_sessions as bc_sessions,
+    get_session as bc_get_session,
+    delete_session as bc_delete,
+    get_requests as bc_requests,
+    analyze_session as bc_analyze,
+    report_to_mirv_findings as bc_findings,
+)
+
 app = FastAPI(title="VulnForge", version=VERSION)
 
 # ── kali-mcp integration ──
@@ -5203,6 +5214,117 @@ async def intel_diff(watch_id: str, payload: IntelSnapshotModel):
     except Exception:
         logger.exception("intel diff failed")
         return JSONResponse({"ok": False, "error": "diff failed"}, status_code=500)
+
+
+# ── Browser Capture ──────────────────────────────────────────────────
+
+@app.post("/api/browser-capture/import")
+async def api_bc_import(file: UploadFile = File(...)):
+    """Import a HAR file for browser traffic analysis."""
+    try:
+        content = await file.read()
+        result = bc_import(content, file.filename or "upload.har")
+        # import_har returns {"ok": True, "session": {...}} or {"ok": False, "error": ...}
+        if not result.get("ok"):
+            return JSONResponse(result, status_code=400)
+        return result
+    except Exception:
+        logger.exception("browser-capture import failed")
+        return JSONResponse({"ok": False, "error": "import failed"}, status_code=500)
+
+
+@app.get("/api/browser-capture/sessions")
+async def api_bc_sessions(limit: int = 50, offset: int = 0):
+    """List capture sessions."""
+    return {"sessions": bc_sessions(limit, offset)}
+
+
+@app.get("/api/browser-capture/sessions/{session_id}")
+async def api_bc_get_session(session_id: str):
+    """Get a single capture session."""
+    s = bc_get_session(session_id)
+    if not s:
+        return JSONResponse({"error": "Session not found"}, status_code=404)
+    return s
+
+
+@app.delete("/api/browser-capture/sessions/{session_id}")
+async def api_bc_delete(session_id: str):
+    """Delete a capture session."""
+    ok = bc_delete(session_id)
+    if not ok:
+        return JSONResponse({"error": "Session not found"}, status_code=404)
+    return {"ok": True}
+
+
+@app.get("/api/browser-capture/sessions/{session_id}/requests")
+async def api_bc_requests(
+    session_id: str,
+    limit: int = 50,
+    offset: int = 0,
+    method: Optional[str] = None,
+    domain: Optional[str] = None,
+):
+    """Get requests for a session with optional filtering."""
+    reqs = bc_requests(session_id, limit, offset, method, domain)
+    return {"requests": reqs}
+
+
+@app.post("/api/browser-capture/sessions/{session_id}/analyze")
+async def api_bc_analyze(session_id: str):
+    """Run security analysis on a capture session."""
+    from backend.browser_capture import _analyses
+    analysis = bc_analyze(session_id)
+    if not analysis:
+        return JSONResponse({"error": "Session not found"}, status_code=404)
+    # analysis is a CaptureAnalysis dataclass or dict
+    if isinstance(analysis, dict):
+        analysis_dict = analysis
+    else:
+        from dataclasses import asdict
+        analysis_dict = asdict(analysis)
+    return {"ok": True, "analysis": analysis_dict}
+
+
+@app.get("/api/browser-capture/sessions/{session_id}/analysis")
+async def api_bc_get_analysis(session_id: str):
+    """Get cached analysis for a session."""
+    from backend.browser_capture import _analyses
+    a = _analyses.get(session_id)
+    if not a:
+        return JSONResponse({"error": "No analysis found"}, status_code=404)
+    if isinstance(a, dict):
+        return a
+    from dataclasses import asdict
+    return asdict(a)
+
+
+@app.post("/api/browser-capture/sessions/{session_id}/findings")
+async def api_bc_findings(session_id: str):
+    """Export analysis results as MIRV findings."""
+    from backend.browser_capture import _analyses, _sessions
+    session = _sessions.get(session_id)
+    if not session:
+        return JSONResponse({"error": "Session not found"}, status_code=404)
+    analysis = _analyses.get(session_id)
+    if not analysis:
+        return JSONResponse({"error": "Run analysis first"}, status_code=400)
+    findings = bc_findings(analysis)
+    return {"ok": True, "findings": findings, "count": len(findings)}
+
+
+@app.get("/api/browser-capture/stats")
+async def api_bc_stats():
+    """Get browser capture overview statistics."""
+    from backend.browser_capture import _sessions, _analyses
+    sessions = list(_sessions.values())
+    total_requests = sum(s.get("request_count", 0) if isinstance(s, dict) else s.request_count for s in sessions)
+    analyzed = len([s for s in sessions if (s.get("analysis") if isinstance(s, dict) else s.analysis)])
+    return {
+        "total_sessions": len(sessions),
+        "total_requests": total_requests,
+        "analyzed_sessions": analyzed,
+    }
 
 
 # ════════════════════════════════════════════════════════════════
