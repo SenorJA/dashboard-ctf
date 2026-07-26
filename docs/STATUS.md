@@ -1,6 +1,6 @@
 # M.I.R.V. — Estado Completo del Proyecto
 
-> Última actualización: 25 Jul 2026 — MIRV v4.0 | 28 módulos | 208 endpoints | 2346 tests | 25 tabs
+> Última actualización: 25 Jul 2026 — MIRV v4.0 | 28 módulos | 208 endpoints | 2442 tests | 25 tabs
 
 ## Resumen General
 
@@ -144,7 +144,7 @@
 | Mission store (session compaction) | 1 | 63 | 90% |
 | Scanner tools (9 modules) | 9 | 228 | — |
 | Other modules (forensics, swarm, KB, ADB, etc.) | 7 | ~200 | — |
-| **Total** | **35** | **2346** | **~72%** |
+| **Total** | **37** | **2442** | **~72%** |
 
 ### Gestor de paquetes: pnpm
 
@@ -159,7 +159,7 @@
 | Job | Descripción |
 |-----|-------------|
 | **lint** | Ruff (check + format) sobre `backend/` |
-| **test-backend** | pytest con 2346 tests en Python 3.11 |
+| **test-backend** | pytest con 2442 tests en Python 3.11 |
 | **test-frontend** | Playwright + tests con Chromium (pnpm) |
 | **docker-build** | Buildx + push a Docker Hub (solo `main`) |
 | **deploy** | SSH deploy a VPS (solo `main`) |
