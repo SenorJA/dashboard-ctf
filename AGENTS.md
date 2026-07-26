@@ -8,8 +8,8 @@ Two-tier app: **FastAPI backend** serves static frontend + WebSocket SSH proxy +
 Browser → WS (localhost:8000/ws) → FastAPI → Paramiko → Kali SSH
          ↑
    serves /static/* from frontend/
-   REST API (208 endpoints) → Supabase (PostgreSQL)
-   Plugin system (hot-reload) + Burp Bridge + Structured Audit Log + Continuous Intelligence
+   REST API (217 endpoints) → Supabase (PostgreSQL)
+   Plugin system (hot-reload) + Burp Bridge + Browser Capture + Structured Audit Log + Continuous Intelligence
 ```
 
 ```
@@ -27,6 +27,7 @@ C:\Users\34678\Desktop\Proyecto ciber\
 │   ├── redact.py              # Global redaction (20 patterns, shape-preserving)
 │   ├── audit_log.py           # Structured JSONL audit log w/ rotation + SIEM forwarding
 │   ├── burp_bridge.py         # Burp Suite ingest server (captured requests store)
+│   ├── browser_capture.py     # Browser traffic capture & security analysis (HAR 1.2)
 │   ├── mcp_server.py          # MCP Server for AI agents
 │   ├── kali_mcp_client.py     # Client for kali-mcp Docker integration
 │   ├── swarm.py               # Multi-operator coordinator
@@ -42,7 +43,7 @@ C:\Users\34678\Desktop\Proyecto ciber\
 │   ├── plugins/               # Plugin directory (example_plugin/)
 │   ├── skills/                # Built-in skill playbooks (recon, webvuln, ssrf, jwt, supabase)
 │   ├── burp_plugin/           # Jython Burp Suite plugin (mirv_burp.py)
-│   ├── tests/                 # 2647 tests across 39 test files
+│   ├── tests/                 # 2742 tests across 40 test files
 │   ├── Dockerfile             # Container image for mirv-backend
 │   └── requirements.txt
 ├── frontend/
@@ -85,7 +86,7 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 **Tests:**
 ```bash
 cd backend
-python -m pytest tests/ -k "not test_slow_hook" -q  # 2647 tests, ~72% coverage
+python -m pytest tests/ -k "not test_slow_hook" -q  # 2742 tests, ~72% coverage
 ```
 
 ## Backend modules (main.py + 28 modules)
@@ -104,6 +105,7 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # 2647 tests, ~72% coverage
 | `redact.py` | ~430 | 20 redaction patterns, shape-preserving, AI/mission integration | 63 | new |
 | `audit_log.py` | ~470 | JSONL audit log, 4MB rotation, SIEM forwarding, AuditLogHandler | 45 | new |
 | `burp_bridge.py` | ~599 | Burp ingest server, LRU store, finding↔issue conversion | 72 | new |
+| `browser_capture.py` | ~1334 | HAR import, 10 security checks, risk scoring | 95 | new |
 | `mcp_server.py` | ~620 | MCP Server exposes tools to AI agents | — | — |
 | `kali_mcp_client.py` | ~130 | Client for kali-mcp Docker integration | ~20 | 79% |
 | `swarm.py` | ~250 | Multi-operator swarm coordinator (Recon, Scanner, Exploiter, Report) | ~30 | 73% |
@@ -161,8 +163,9 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # 2647 tests, ~72% coverage
 | Audit Log | `tab-audit` | Structured audit log viewer + stats |
 | Skills | `tab-skills` | Skill playbooks (browse, create, render) |
 | Intelligence | `tab-intelligence` | Continuous Intelligence monitoring + alerts |
+| Browser Capture | `tab-browsercapture` | HAR import + security analysis |
 
-- **Single HTML file** (`index.html`, ~2660 lines) — no build step, no bundler, no framework.
+- **Single HTML file** (`index.html`, ~2694 lines) — no build step, no bundler, no framework.
 - **Tailwind via CDN** (`https://cdn.tailwindcss.com`). Custom colors: `neon`, `cyber`, `deep`, `void`, `blood`.
 - **All JS in one file** (`main.v2.js`, ~8700 lines) — DOMContentLoaded closure, functions on `window.*`.
 - **i18n**: 170+ entries (en/es), `data-i18n` attributes, `applyLanguage()`.
@@ -251,6 +254,7 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # 2647 tests, ~72% coverage
 | **Redaction** | `POST /api/redact`, `POST /api/redact/dict`, `GET /api/redact/patterns`, `POST /api/redact/check` |
 | **Audit Log** | `GET /api/audit/logs`, `GET /api/audit/stats`, `POST /api/audit` |
 | **Burp Bridge** | `POST /api/burp/ingest`, `GET /api/burp/{requests,requests/{id},endpoints,tasks,issues}`, `POST /api/burp/{tasks,issues,finding-to-issue,raw,export-findings,snapshot}`, `PATCH /api/burp/tasks/{id}`, `DELETE /api/burp/clear`, `GET /api/burp/status` |
+| **Browser Capture** | `POST /api/browser-capture/import`, `GET /api/browser-capture/sessions`, `GET /api/browser-capture/sessions/{id}`, `DELETE /api/browser-capture/sessions/{id}`, `GET /api/browser-capture/sessions/{id}/requests`, `POST /api/browser-capture/sessions/{id}/analyze`, `GET /api/browser-capture/sessions/{id}/analysis`, `POST /api/browser-capture/sessions/{id}/findings`, `GET /api/browser-capture/stats` |
 | **Finding PoC** | `POST /api/poc/{build,parse-curl,finding-to-md,from-burp,validate,replay}` |
 | **Permissions** | `GET /api/permissions/pending`, `GET /api/permissions/{id}`, `POST /api/permissions/{id}/decide`, `POST /api/permissions/{classify,request,cleanup}`, `DELETE /api/permissions` |
 | **Intelligence** | `POST /api/intelligence/watches`, `GET /api/intelligence/watches`, `GET /api/intelligence/watches/{id}`, `PUT /api/intelligence/watches/{id}`, `DELETE /api/intelligence/watches/{id}`, `POST /api/intelligence/watches/{id}/snapshot`, `GET /api/intelligence/watches/{id}/snapshots`, `GET /api/intelligence/alerts`, `POST /api/intelligence/alerts/{id}/acknowledge`, `DELETE /api/intelligence/alerts`, `POST /api/intelligence/diff/{id}` |
@@ -382,6 +386,6 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # 2647 tests, ~72% coverage
 ## Test summary
 
 - **37 test files** in `backend/tests/`
-- **2647 tests** passing
+- **2742 tests** passing
 - **~72% coverage** across measured backend modules
 - **Key test files**: test_database (196), test_api_endpoints (333), test_main_coverage (165), test_burp_bridge (72), test_redact (63), test_skill_playbooks (67), test_audit_log (45), test_plugin_manager (47), test_plugin_watcher (18), test_siem (31), test_coverage (33), test_exif_osint (21), test_canary_tokens (24), test_dlp_scanner (25), test_finding_poc (61), test_intelligence (43), test_permission_system (56), test_opsec, test_scope_guard, test_forensics, test_adb_controller, test_kali_mcp_client, test_mission_store, test_knowledgebase, test_swarm, + scanner tools.
