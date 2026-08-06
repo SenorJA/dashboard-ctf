@@ -1,0 +1,16 @@
+[run]
+# Exclude test scaffolding and plugin/operator sandboxes from coverage metrics
+omit =
+    */tests/*
+    burp_plugin/*
+    operators/*
+    plugins/*
+    */__init__.py
+
+[report]
+# Fail the build if coverage drops below the project target
+fail_under = 80
+show_missing = True
+
+[html]
+directory = htmlcov

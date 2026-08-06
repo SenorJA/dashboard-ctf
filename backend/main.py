@@ -123,7 +123,7 @@ from backend.forensics import (
 )
 
 # ── Coverage Tracking matrix (endpoint, param, vuln_class) ──
-from backend.coverage import (
+from backend.coverage_matrix import (
     mark_coverage as cov_mark,
     list_coverage as cov_list,
     coverage_summary as cov_summary,
@@ -136,7 +136,7 @@ from backend.coverage import (
     coverage_context_for_prompt as cov_context,
     CoverageEntry as CovEntry,
 )
-from backend.coverage import (
+from backend.coverage_matrix import (
     ALLOWED_VULN_CLASSES as COV_VULN_CLASSES,
     ALLOWED_STATUSES as COV_STATUSES,
 )

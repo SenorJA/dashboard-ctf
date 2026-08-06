@@ -18,8 +18,8 @@ import pytest
 # Path setup (mirrors the project's existing conftest style)
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from backend import coverage as cov
-from backend.coverage import (
+from backend import coverage_matrix as cov
+from backend.coverage_matrix import (
     CoverageEntry,
     clear_coverage,
     coverage_context_for_prompt,
