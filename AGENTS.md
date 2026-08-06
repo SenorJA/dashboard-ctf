@@ -22,7 +22,7 @@ C:\Users\34678\Desktop\Proyecto ciber\
 │   ├── dlp_scanner.py         # Data Loss Prevention (8 PII patterns + Luhn)
 │   ├── siem.py                # SIEM engine (events, 4 correlation rules, alerts)
 │   ├── plugin_manager.py      # Plugin system (hooks, hot-reload via watchdog)
-│   ├── coverage.py            # Coverage tracking matrix (endpoint×param×vuln_class)
+│   ├── coverage_matrix.py      # Coverage tracking matrix (endpoint×param×vuln_class)
 │   ├── skill_playbooks.py     # Markdown skill playbooks (SKILL.md frontmatter)
 │   ├── redact.py              # Global redaction (20 patterns, shape-preserving)
 │   ├── audit_log.py           # Structured JSONL audit log w/ rotation + SIEM forwarding
@@ -100,7 +100,7 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # 2921 tests, ~82% coverage
 | `dlp_scanner.py` | ~453 | 8 PII patterns, Luhn validation, risk scoring | 25 | 67% |
 | `siem.py` | ~743 | SIEM engine: events, 4 correlation rules, alerts, thread-safe | 31 | 84% |
 | `plugin_manager.py` | ~700 | Plugin discovery, hooks, hot-reload via watchdog | 47+18 | 88% |
-| `coverage.py` | ~480 | Coverage matrix (endpoint×param×vuln_class), next_steps estimator | 33 | new |
+| `coverage_matrix.py` | ~480 | Coverage matrix (endpoint×param×vuln_class), next_steps estimator | 33 | new |
 | `skill_playbooks.py` | ~450 | Markdown skill playbooks, frontmatter parser, hot-reload | 67 | new |
 | `redact.py` | ~430 | 20 redaction patterns, shape-preserving, AI/mission integration | 63 | new |
 | `audit_log.py` | ~470 | JSONL audit log, 4MB rotation, SIEM forwarding, AuditLogHandler | 45 | new |

@@ -50,7 +50,7 @@
 | `dlp_scanner.py` | ~453 | 25 | 8 patrones PII + validación Luhn + risk scoring |
 | `burp_bridge.py` | ~599 | 72 | Ingest server + LRU store + finding↔issue + Jython plugin |
 | `finding_poc.py` | 745 | 61 | PoC builder, curl parser, replay (subprocess), markdown reports, evidence hash |
-| `coverage.py` | ~480 | 33 | Matriz (endpoint×param×vuln_class) + next_steps estimator |
+| `coverage_matrix.py` | ~480 | 33 | Matriz (endpoint×param×vuln_class) + next_steps estimator |
 
 ### Plugins y automatización
 
@@ -122,7 +122,7 @@
 | 16 | DLP Scanner | `tab-dlp` | dlp_scanner.py |
 | 17 | SIEM | `tab-siem` | siem.py |
 | 18 | Plugins | `tab-plugins` | plugin_manager.py |
-| 19 | Coverage | `tab-coverage` | coverage.py |
+| 19 | Coverage | `tab-coverage` | coverage_matrix.py |
 | 20 | Burp Bridge | `tab-burp` | burp_bridge.py |
 | 21 | Audit Log | `tab-audit` | audit_log.py |
 | 22 | Skills | `tab-skills` | skill_playbooks.py |
