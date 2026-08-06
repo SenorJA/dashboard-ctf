@@ -1,6 +1,6 @@
 # 🗺️ M.I.R.V. — Roadmap de Mejoras
 
-> Última actualización: 26 Jul 2026 — MIRV v5.0 | 30 módulos | 227 endpoints | 2884 tests | 27 tabs
+> Última actualización: 26 Jul 2026 — MIRV v5.0 | 30 módulos | 227 endpoints | 2921 tests | 27 tabs
 
 ## ✅ Completado
 
@@ -52,7 +52,7 @@
 ### Fase 8 — Docker + Tests + CI/CD
 - [x] Dockerfile + docker-compose.yml
 - [x] 2837 tests pytest (41 archivos)
-- [x] ~72% coverage global
+- [x] ~82% coverage global
 - [x] CI: lint + test-backend + docker-build + deploy
 - [ ] Cobertura > 80%
 
@@ -179,7 +179,7 @@
 
 ### Prioridad ALTA
 - [ ] **Configurar secrets GitHub** (manual, 15 min) → `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`, `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`
-- [ ] **Cobertura > 80%** — push más allá de 72% (main.py 53%, módulos specialty)
+- [x] **Cobertura > 80%** — 82% global (main.py 72%, mcp_server 95%, 44 archivos)
 
 ### Prioridad MEDIA
 - [ ] **Browser Capture MCP** — capturar tráfico del navegador (esfuerzo ALTO)
@@ -204,7 +204,7 @@
 | Fase 5 | Hallazgos persistentes + informes | ✅ |
 | Fase 6 | Scope + OPSEC + Permissions | ✅ |
 | Fase 7 | Producción (Cloudflare Tunnel) | 🚧 Infra |
-| Fase 8 | Docker + Tests + CI/CD | ✅ (2884 tests) |
+| Fase 8 | Docker + Tests + CI/CD | ✅ (2921 tests) |
 | PentesterFlow | Coverage + Skills + Redact + Burp + Audit | ✅ |
 | Plugin System | Hot-reload + Watcher + 5 hooks | ✅ |
 | Session Compaction | Mission store + auto-redact | ✅ |

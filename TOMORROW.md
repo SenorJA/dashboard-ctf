@@ -1,6 +1,6 @@
 # 🔮 TOMORROW.md — Roadmap de trabajo pendiente
 
-> Última actualización: 26 Jul 2026 — MIRV v5.0 | 30 módulos | 227 endpoints | 2884 tests | 27 tabs
+> Última actualización: 26 Jul 2026 — MIRV v5.0 | 30 módulos | 227 endpoints | 2921 tests | 27 tabs
 
 ---
 
@@ -11,8 +11,8 @@
 | Backend modules | 30 (main.py + 29 especializados) |
 | REST endpoints | 227 |
 | Test files | 43 |
-| Tests collected | 2884 |
-| Coverage | ~72% (módulos core) |
+| Tests collected | 2826 |
+| Coverage | ~82% (global) |
 | Frontend tabs | 25 |
 | Frontend JS | 9231 líneas (main.v2.js) |
 | Frontend HTML | 2694 líneas (index.html) |
@@ -155,7 +155,7 @@
   ```
 - [ ] **Verificar CI en GitHub** — tras secrets, push para disparar workflows
 - [ ] **Browser Capture MCP** — capturar tráfico del navegador (esfuerzo ALTO)
-- [ ] **Más tests de integración** — push coverage global más allá de 72%
+- [x] **Cobertura global > 80%** — 82% con test_mcp_server (95%), scope 503 fix, CRUD offline
 
 ### Prioridad BAJA
 - [ ] Fase 7 — Cloudflare Tunnel (dominio + cloudflared)
