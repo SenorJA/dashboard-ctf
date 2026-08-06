@@ -699,12 +699,12 @@ class TestGeneratePDFDeep:
     """POST /api/generate-pdf — ImportError and exception paths."""
 
     def test_generate_pdf_import_error(self, client: TestClient):
-        """ImportError when reportlab not installed returns 500."""
+        """ImportError when pdf_engine unavailable returns 500."""
         import builtins
         real_import = builtins.__import__
 
         def fake_import(name, *args, **kwargs):
-            if name == "reportlab":
+            if name == "backend.pdf_engine":
                 raise ImportError("No module named 'reportlab'")
             return real_import(name, *args, **kwargs)
 

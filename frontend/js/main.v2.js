@@ -4284,6 +4284,52 @@ ${fix || 'Apply appropriate security patches and input validation.'}
         showToast(`⬇ ${format.toUpperCase()} exported`);
     }
 
+    // ── Professional PDF Export ──
+    window.exportProfessionalPdf = function (options) {
+        // options: { title, subtitle, author, target, executiveSummary, sections, findings, fallbackContent }
+        const report = {
+            title: options.title || 'Security Assessment Report',
+            subtitle: options.subtitle || '',
+            author: options.author || 'M.I.R.V.',
+            target: options.target || '',
+            executive_summary: options.executiveSummary || '',
+            sections: (options.sections || []).map(s => ({
+                heading: s.heading,
+                content: s.content,
+                subsections: s.subsections || []
+            })),
+            findings: (options.findings || []).map(f => ({
+                title: f.title,
+                severity: f.severity || 'info',
+                detail: f.detail || '',
+                target: f.target || '',
+                tool: f.tool || '',
+                recommendation: f.recommendation || '',
+                references: f.references || []
+            })),
+            content: options.fallbackContent || ''
+        };
+
+        if (!DataService || !DataService.available) {
+            showToast('⚠️ DB not available, using client-side PDF');
+            const html = buildExportHTML(options.fallbackContent || '', options.title, 'client-pdf');
+            openPDFPreview(html, `${options.title} — ${new Date().toISOString().split('T')[0]}`);
+            return;
+        }
+
+        showToast('⚙ Generating professional PDF on server...');
+        DataService.generatePdfProfessional(report).then(blob => {
+            if (blob) {
+                const safeName = (options.title || 'report').replace(/[^a-z0-9]+/gi, '_').toLowerCase();
+                const date = new Date().toISOString().split('T')[0];
+                DataService.downloadBlob(blob, `${safeName}-${date}.pdf`);
+                showToast('⬇ Professional PDF generated');
+            } else {
+                showToast('⚠️ Server PDF failed');
+            }
+        });
+    };
+
     // ── Updated Bounty Download ──
     window.downloadBountyReport = function () {
         if (!lastBountyReport) return;
@@ -5863,6 +5909,7 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         generateReportBtn: { en: '📊 Generate Report', es: '📊 Generar Informe' },
         suggestBtn:        { en: '🔍 Suggest next step', es: '🔍 Sugerir siguiente paso' },
         exportAll:         { en: '⬇ Export all',      es: '⬇ Exportar todo' },
+        exportProfPdf:     { en: '📄 Professional PDF', es: '📄 PDF Profesional' },
         apiKeyPlaceholder: { en: 'API Key',           es: 'Clave API' },
         modelPlaceholder:  { en: 'Model (eg: gemini-2.0-flash)', es: 'Modelo (ej: gemini-2.0-flash)' },
         orLabel:           { en: 'or',                es: 'o' },

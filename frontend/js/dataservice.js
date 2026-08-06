@@ -211,6 +211,19 @@ const DataService = {
         } catch { return null; }
     },
 
+    async generatePdfProfessional(report) {
+        if (!this.available) return null;
+        try {
+            const r = await fetch(this._api('/api/generate-pdf-professional'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(report)
+            });
+            if (!r.ok) return null;
+            return await r.blob();
+        } catch { return null; }
+    },
+
     // ── Download helper ──
     downloadBlob(blob, filename) {
         const url = URL.createObjectURL(blob);
