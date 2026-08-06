@@ -230,7 +230,7 @@ if PRODUCTION:
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(message)s",
         handlers=[
-            logging.FileHandler(log_file),
+            logging.FileHandler(log_file, encoding="utf-8"),
             logging.StreamHandler(sys.stdout),
         ],
     )
@@ -240,6 +240,15 @@ if PRODUCTION:
     logging.info("=" * 50)
 else:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+
+# Windows console may default to cp1252 which cannot encode log glyphs (ℹ, ──, etc.)
+# Reconfigure to UTF-8 with lossy fallback so logging never crashes on non-ASCII.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        if _stream and hasattr(_stream, "reconfigure"):
+            _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
 
 logger = logging.getLogger("vulnforge")
 
@@ -3698,7 +3707,7 @@ async def scope_update(req: ScopeUpdateRequest):
     }
     ok = save_config(cfg)
     if not ok:
-        return JSONResponse({"ok": False, "error": "Failed to save config"}, status_code=500)
+        return JSONResponse({"ok": False, "error": "Persistence unavailable"}, status_code=503)
     return JSONResponse({"ok": True})
 
 
