@@ -48,6 +48,51 @@ def _clean_intel_state():
     """Reset intelligence module state before every test."""
     intel_reset()
     yield
+
+
+# ═══════════════════════════════════════════════════════════════════════
+#  DB Mocking
+# ═══════════════════════════════════════════════════════════════════════
+#  The CRUD tests were written against the live Supabase instance, which
+#  makes them network-dependent (they 503 with `getaddrinfo failed` when
+#  there is no connectivity). Mock the DB layer so the same endpoints are
+#  exercised deterministically without external calls.
+# ═══════════════════════════════════════════════════════════════════════
+
+
+@pytest.fixture(autouse=True)
+def _mock_db(monkeypatch):
+    """Mock Supabase CRUD functions so CRUD endpoint tests run offline."""
+    from backend import database as db_mod
+
+    state = {"counter": 0}
+
+    def _gen_id() -> str:
+        state["counter"] += 1
+        return f"mock-{state['counter']:08d}-0000-0000-0000-000000000000"
+
+    # save_* return a dict with id (never None -> endpoint returns 201)
+    monkeypatch.setattr(db_mod, "save_finding", lambda item: {"id": _gen_id(), **item})
+    monkeypatch.setattr(db_mod, "save_findings_bulk", lambda items: len(items))
+    monkeypatch.setattr(db_mod, "save_report", lambda item: {"id": _gen_id(), **item})
+    monkeypatch.setattr(db_mod, "save_script", lambda item: {"id": _gen_id(), **item})
+    monkeypatch.setattr(db_mod, "save_connection", lambda item: {"id": _gen_id(), **item})
+    monkeypatch.setattr(db_mod, "save_hak5_payload", lambda item: {"id": _gen_id(), **item})
+    monkeypatch.setattr(db_mod, "save_credential", lambda item: {"id": _gen_id(), **item})
+    monkeypatch.setattr(db_mod, "save_ctf_challenge", lambda item: {"id": state["counter"] + 1000, **item})
+
+    # delete_* return True (never None -> endpoint returns 200 ok=True)
+    monkeypatch.setattr(db_mod, "delete_finding", lambda _fid: True)
+    monkeypatch.setattr(db_mod, "delete_all_findings", lambda: True)
+    monkeypatch.setattr(db_mod, "delete_report", lambda _rid: True)
+    monkeypatch.setattr(db_mod, "delete_script", lambda _sid: True)
+    monkeypatch.setattr(db_mod, "delete_connection", lambda _cid: True)
+    monkeypatch.setattr(db_mod, "delete_hak5_payload", lambda _pid: True)
+    monkeypatch.setattr(db_mod, "delete_credential", lambda _cid: True)
+    monkeypatch.setattr(db_mod, "delete_all_credentials", lambda: True)
+    monkeypatch.setattr(db_mod, "delete_ctf_challenge", lambda _cid: True)
+
+    yield
     intel_reset()
 
 

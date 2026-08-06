@@ -37,3 +37,8 @@ c:*
 # Playwright / test artifacts
 playwright-report/
 test-results/
+
+# Coverage
+.coverage
+htmlcov/
+coverage.xml
