@@ -1,6 +1,6 @@
 # 🔮 TOMORROW.md — Roadmap de trabajo pendiente
 
-> Última actualización: 26 Jul 2026 — MIRV v5.0 | 29 módulos | 226 endpoints | 2837 tests | 27 tabs
+> Última actualización: 26 Jul 2026 — MIRV v5.0 | 30 módulos | 227 endpoints | 2884 tests | 27 tabs
 
 ---
 
@@ -8,10 +8,10 @@
 
 | Métrica | Valor |
 |---------|-------|
-| Backend modules | 29 (main.py + 28 especializados) |
-| REST endpoints | 226 |
-| Test files | 41 |
-| Tests collected | 2837 |
+| Backend modules | 30 (main.py + 29 especializados) |
+| REST endpoints | 227 |
+| Test files | 43 |
+| Tests collected | 2884 |
 | Coverage | ~72% (módulos core) |
 | Frontend tabs | 25 |
 | Frontend JS | 9231 líneas (main.v2.js) |
@@ -47,33 +47,34 @@
 | 10 | **Burp Bridge** | `burp_bridge.py` (599L) | 72 | Ingest server + LRU store + finding↔issue + Jython plugin |
 | 11 | **Finding PoC** | `finding_poc.py` (745L) | 61 | PoC builder, curl parser, replay (subprocess), markdown reports, evidence hash |
 | 12 | **Coverage Tracker** | `coverage.py` (480L) | 33 | Matriz (endpoint×param×vuln_class) + next_steps estimator |
+| 13 | **PDF Engine** | `pdf_engine.py` (1323L) | 47 | Profesional: cover, TOC, severity colors, findings table, code blocks |
 
 ### Plugins y automatización
 | # | Módulo | Archivo | Tests | Qué hace |
 |---|--------|---------|-------|----------|
-| 13 | **Plugin Manager** | `plugin_manager.py` (700L) | 65 | Discovery + 5 hooks + hot-reload (watchdog + polling fallback) |
-| 14 | **Skill Playbooks** | `skill_playbooks.py` (450L) | 67 | 10 playbooks MD (recon, webvuln, ssrf, jwt, supabase, graphql, race, takeover, deserialize, ssti) |
+| 14 | **Plugin Manager** | `plugin_manager.py` (700L) | 65 | Discovery + 5 hooks + hot-reload (watchdog + polling fallback) |
+| 15 | **Skill Playbooks** | `skill_playbooks.py` (450L) | 67 | 10 playbooks MD (recon, webvuln, ssrf, jwt, supabase, graphql, race, takeover, deserialize, ssti) |
 
 ### Infraestructura
 | # | Módulo | Archivo | Tests | Qué hace |
 |---|--------|---------|-------|----------|
-| 15 | **Database** | `database.py` (1344L) | 196 | Supabase CRUD, 17 tablas, 85% coverage |
-| 16 | **Mission Store** | `mission_store.py` (356L) | 30 | Self-improvement loop, session compaction |
-| 17 | **MCP Server** | `mcp_server.py` (620L) | — | Tools para agentes IA |
-| 18 | **Kali MCP Client** | `kali_mcp_client.py` (130L) | 20 | Cliente Docker integration |
-| 19 | **Swarm** | `swarm.py` (250L) | 30 | Multi-operator coordinator |
-| 20 | **Mobile Analyzer** | `mobile_analyzer.py` (707L) | — | APK static + dynamic (ADB/Frida) |
-| 21 | **Forensics** | `forensics.py` (253L) | 30 | Digital forensics (memory, disk, Sleuth Kit) |
-| 22 | **KnowledgeBase** | `knowledgebase.py` (210L) | 45 | CVE + MITRE ATT&CK DB |
-| 23 | **ADB Controller** | `adb_controller.py` (205L) | 25 | Device detection + Frida scripts |
+| 16 | **Database** | `database.py` (1344L) | 196 | Supabase CRUD, 17 tablas, 85% coverage |
+| 17 | **Mission Store** | `mission_store.py` (356L) | 30 | Self-improvement loop, session compaction |
+| 18 | **MCP Server** | `mcp_server.py` (620L) | — | Tools para agentes IA |
+| 19 | **Kali MCP Client** | `kali_mcp_client.py` (130L) | 20 | Cliente Docker integration |
+| 20 | **Swarm** | `swarm.py` (250L) | 30 | Multi-operator coordinator |
+| 21 | **Mobile Analyzer** | `mobile_analyzer.py` (707L) | — | APK static + dynamic (ADB/Frida) |
+| 22 | **Forensics** | `forensics.py` (253L) | 30 | Digital forensics (memory, disk, Sleuth Kit) |
+| 23 | **KnowledgeBase** | `knowledgebase.py` (210L) | 45 | CVE + MITRE ATT&CK DB |
+| 24 | **ADB Controller** | `adb_controller.py` (205L) | 25 | Device detection + Frida scripts |
 
 ### API-based tools (sin SSH)
 | # | Módulo | Archivo | Tests | Qué hace |
 |---|--------|---------|-------|----------|
-| 24 | **HTTP Headers Scanner** | `headers_scanner.py` | 32 | Grade A–F, 7 security headers |
-| 25 | **Secrets Scanner** | `secrets_scanner.py` | 33 | 25 regex patterns |
-| 26 | **Port Scanner** | `port_scanner.py` | 18 | ~1600 puertos async |
-| 27 | **Subdomain Scanner** | `subdomain_scanner.py` | 11 | ~700 prefijos DNS |
+| 25 | **HTTP Headers Scanner** | `headers_scanner.py` | 32 | Grade A–F, 7 security headers |
+| 26 | **Secrets Scanner** | `secrets_scanner.py` | 33 | 25 regex patterns |
+| 27 | **Port Scanner** | `port_scanner.py` | 18 | ~1600 puertos async |
+| 28 | **Subdomain Scanner** | `subdomain_scanner.py` | 11 | ~700 prefijos DNS |
 | 28+ | DNS Lookup, Hash Cracker, Stego, News, API Scanner | — | 126+ | Variados |
 
 ---

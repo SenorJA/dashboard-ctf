@@ -1,6 +1,6 @@
 # 🗺️ M.I.R.V. — Roadmap de Mejoras
 
-> Última actualización: 26 Jul 2026 — MIRV v5.0 | 29 módulos | 226 endpoints | 2837 tests | 27 tabs
+> Última actualización: 26 Jul 2026 — MIRV v5.0 | 30 módulos | 227 endpoints | 2884 tests | 27 tabs
 
 ## ✅ Completado
 
@@ -138,6 +138,19 @@
 
 ---
 
+## ✅ Professional PDF Engine (Aug 2026)
+
+- [x] `backend/pdf_engine.py` (1323L) — PdfEngine + PdfReport/PdfSection/PdfFinding dataclasses
+- [x] Cover page with MIRV branding (navy header, gold title, teal accents, watermark)
+- [x] Auto table of contents + page numbers + header/footer per page
+- [x] Severity color coding (critical/high/medium/low/info) + findings summary table sorted by severity
+- [x] Code blocks with gray background, markdown tables, recursive sections, exec summary
+- [x] New endpoint: `POST /api/generate-pdf-professional` (structured JSON) + legacy `/api/generate-pdf` routed through engine (backward compat)
+- [x] Frontend: `exportProfessionalPdf()` + `generatePdfProfessional()` + "Professional PDF" button in Reports tab (i18n en/es)
+- [x] 47 new tests (test_pdf_engine.py + test_pdf_api.py)
+
+---
+
 ## ✅ Infraestructura completa
 
 - [x] MCP Server + Kali MCP Client
@@ -169,9 +182,9 @@
 - [ ] **Cobertura > 80%** — push más allá de 72% (main.py 53%, módulos specialty)
 
 ### Prioridad MEDIA
-- [x] Browser Capture + 14 new parsers (28 total)
+- [ ] **Browser Capture MCP** — capturar tráfico del navegador (esfuerzo ALTO)
 - [x] ~~**More finding parsers**~~ — 14 new parsers added (28 total)
-- [ ] **Export PDF mejorado** — formato más profesional
+- [x] ~~**Export PDF mejorado**~~ — professional PDF engine (cover, TOC, severity colors)
 
 ### Prioridad BAJA
 - [ ] **Fase 7** — Cloudflare Tunnel (dominio + cloudflared)
@@ -191,7 +204,7 @@
 | Fase 5 | Hallazgos persistentes + informes | ✅ |
 | Fase 6 | Scope + OPSEC + Permissions | ✅ |
 | Fase 7 | Producción (Cloudflare Tunnel) | 🚧 Infra |
-| Fase 8 | Docker + Tests + CI/CD | ✅ (2837 tests) |
+| Fase 8 | Docker + Tests + CI/CD | ✅ (2884 tests) |
 | PentesterFlow | Coverage + Skills + Redact + Burp + Audit | ✅ |
 | Plugin System | Hot-reload + Watcher + 5 hooks | ✅ |
 | Session Compaction | Mission store + auto-redact | ✅ |
@@ -200,6 +213,7 @@
 | Permission Prompts | Interactive command gating | ✅ |
 | Browser Capture | HAR + 10 security checks + 95 tests | ✅ |
 | Finding Parsers | 28 tool parsers (was 14) | ✅ |
+| Professional PDF | Cover + TOC + severity colors + 47 tests | ✅ |
 | Arsenal OSINT | 83+ modules total | ✅ |
 | CI/CD | lint + test + Docker + deploy | ✅ |
 

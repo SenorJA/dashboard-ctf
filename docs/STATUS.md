@@ -1,6 +1,6 @@
 # M.I.R.V. — Estado Completo del Proyecto
 
-> Última actualización: 26 Jul 2026 — MIRV v5.0 | 29 módulos | 226 endpoints | 2837 tests | 27 tabs
+> Última actualización: 26 Jul 2026 — MIRV v5.0 | 30 módulos | 227 endpoints | 2884 tests | 27 tabs
 
 ## Resumen General
 
@@ -159,7 +159,7 @@
 | Job | Descripción |
 |-----|-------------|
 | **lint** | Ruff (check + format) sobre `backend/` |
-| **test-backend** | pytest con 2837 tests en Python 3.11 |
+| **test-backend** | pytest con 2884 tests en Python 3.11 |
 | **test-frontend** | Playwright + tests con Chromium (pnpm) |
 | **docker-build** | Buildx + push a Docker Hub (solo `main`) |
 | **deploy** | SSH deploy a VPS (solo `main`) |
