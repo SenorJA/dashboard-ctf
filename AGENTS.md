@@ -16,7 +16,7 @@ Browser → WS (localhost:8000/ws) → FastAPI → Paramiko → Kali SSH
 C:\Users\34678\Desktop\Proyecto ciber\
 ├── backend/
 │   ├── main.py              # FastAPI app (~5235 lines, 208 endpoints)
-│   ├── database.py           # Supabase CRUD layer (17 tables, 85% coverage)
+│   ├── database.py           # Supabase CRUD layer (17 tables, 99% coverage)
 │   ├── exif_osint.py         # EXIF metadata extraction + GPS + reverse geocoding
 │   ├── canary_tokens.py      # Honeytoken generator (8 types) + activation tracking
 │   ├── dlp_scanner.py         # Data Loss Prevention (8 PII patterns + Luhn)
@@ -43,7 +43,7 @@ C:\Users\34678\Desktop\Proyecto ciber\
 │   ├── plugins/               # Plugin directory (example_plugin/)
 │   ├── skills/                # Built-in skill playbooks (recon, webvuln, ssrf, jwt, supabase)
 │   ├── burp_plugin/           # Jython Burp Suite plugin (mirv_burp.py)
-│   ├── tests/                 # 3163 tests across 45 test files
+│   ├── tests/                 # 3330 tests across 53 test files
 │   ├── Dockerfile             # Container image for mirv-backend
 │   └── requirements.txt
 ├── frontend/
@@ -86,7 +86,7 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 **Tests:**
 ```bash
 cd backend
-python -m pytest tests/ -k "not test_slow_hook" -q  # 3163 tests, ~88% coverage
+python -m pytest tests/ -k "not test_slow_hook" -q  # 3330 tests, ~93% coverage
 ```
 
 ## Backend modules (main.py + 28 modules)
