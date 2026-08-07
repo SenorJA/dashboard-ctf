@@ -43,7 +43,7 @@ C:\Users\34678\Desktop\Proyecto ciber\
 │   ├── plugins/               # Plugin directory (example_plugin/)
 │   ├── skills/                # Built-in skill playbooks (recon, webvuln, ssrf, jwt, supabase)
 │   ├── burp_plugin/           # Jython Burp Suite plugin (mirv_burp.py)
-│   ├── tests/                 # 3043 tests across 44 test files
+│   ├── tests/                 # 3136 tests across 45 test files
 │   ├── Dockerfile             # Container image for mirv-backend
 │   └── requirements.txt
 ├── frontend/
@@ -86,7 +86,7 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 **Tests:**
 ```bash
 cd backend
-python -m pytest tests/ -k "not test_slow_hook" -q  # 3043 tests, ~86% coverage
+python -m pytest tests/ -k "not test_slow_hook" -q  # 3136 tests, ~88% coverage
 ```
 
 ## Backend modules (main.py + 28 modules)
@@ -385,7 +385,7 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # 3043 tests, ~86% coverage
 
 ## Test summary
 
-- **37 test files** in `backend/tests/`
-- **3043 tests** passing
-- **~86% coverage** across measured backend modules
-- **Key test files**: test_database (196), test_api_endpoints (333), test_main_coverage (165), test_burp_bridge (72), test_redact (63), test_skill_playbooks (67), test_audit_log (45), test_plugin_manager (47), test_plugin_watcher (18), test_siem (31), test_coverage (33), test_exif_osint (63), test_mobile_analyzer (54), test_canary_tokens (24), test_dlp_scanner (25), test_finding_poc (61), test_intelligence (43), test_permission_system (56), test_opsec, test_scope_guard, test_forensics, test_adb_controller, test_kali_mcp_client, test_mission_store, test_knowledgebase, test_swarm, + scanner tools.
+- **45 test files** in `backend/tests/`
+- **3136 tests** passing
+- **~88% coverage** across measured backend modules
+- **Key test files**: test_database (196), test_api_endpoints (333), test_main_coverage (165), test_main_extra (93), test_burp_bridge (72), test_redact (63), test_skill_playbooks (67), test_audit_log (45), test_plugin_manager (47), test_plugin_watcher (18), test_siem (31), test_coverage (33), test_exif_osint (63), test_mobile_analyzer (54), test_canary_tokens (24), test_dlp_scanner (25), test_finding_poc (61), test_intelligence (43), test_permission_system (56), test_opsec, test_scope_guard, test_forensics, test_adb_controller, test_kali_mcp_client, test_mission_store, test_knowledgebase, test_swarm, + scanner tools.
