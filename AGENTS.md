@@ -86,10 +86,10 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 **Tests:**
 ```bash
 cd backend
-python -m pytest tests/ -k "not test_slow_hook" -q  # ~3450 tests, ~94% coverage
+python -m pytest tests/ -k "not test_slow_hook" -q  # ~3490 tests, ~95% coverage
 ```
 
-## Backend modules (main.py + 28 modules)
+## Backend modules (main.py + 30 modules)
 
 | File | Lines | Purpose | Tests | Coverage |
 |------|-------|---------|-------|----------|
@@ -98,15 +98,17 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~3450 tests, ~94% coverage
 | `exif_osint.py` | ~812 | EXIF GPS extraction, camera metadata, reverse geocoding, Leaflet map | 21 | 63% |
 | `canary_tokens.py` | ~442 | 8 honeytoken types, activation tracking, expiration | 24 | 99% |
 | `dlp_scanner.py` | ~453 | 8 PII patterns, Luhn validation, risk scoring | 25 | 67% |
-| `siem.py` | ~743 | SIEM engine: events, 4 correlation rules, alerts, thread-safe | 31 | 84% |
-| `plugin_manager.py` | ~700 | Plugin discovery, hooks, hot-reload via watchdog | 47+18 | 91% |
-| `coverage_matrix.py` | ~480 | Coverage matrix (endpoint×param×vuln_class), next_steps estimator | 33 | 93% |
-| `skill_playbooks.py` | ~450 | Markdown skill playbooks, frontmatter parser, hot-reload | 67 | 91% |
+| `siem.py` | ~743 | SIEM engine: events, 4 correlation rules, alerts, thread-safe | 31+13 | 100% |
+| `plugin_manager.py` | ~700 | Plugin discovery, hooks, hot-reload via watchdog | 47+18+15 | 100% |
+| `coverage_matrix.py` | ~480 | Coverage matrix (endpoint×param×vuln_class), next_steps estimator | 33+17 | 99% |
+| `skill_playbooks.py` | ~450 | Markdown skill playbooks, frontmatter parser, hot-reload | 67+16 | 100% |
 | `redact.py` | ~430 | 20 redaction patterns, shape-preserving, AI/mission integration | 63 | 100% |
 | `audit_log.py` | ~470 | JSONL audit log, 4MB rotation, SIEM forwarding, AuditLogHandler | 45 | 100% |
-| `burp_bridge.py` | ~599 | Burp ingest server, LRU store, finding↔issue conversion | 72 | 95% |
+| `burp_bridge.py` | ~599 | Burp ingest server, LRU store, finding↔issue conversion | 72+14 | 100% |
 | `browser_capture.py` | ~1334 | HAR import, 10 security checks, risk scoring | 95 | 96% |
-| `mcp_server.py` | ~620 | MCP Server exposes tools to AI agents | — | 95% |
+| `mcp_server.py` | ~620 | MCP Server exposes tools to AI agents | +6 | 100% |
+| `news_scraper.py` | ~385 | Security news RSS/Atom aggregator | 8+7 | 100% |
+| `api_scanner.py` | ~420 | REST API misconfig/header/CORS probe | 31+6 | 100% |
 | `kali_mcp_client.py` | ~130 | Client for kali-mcp Docker integration | ~20 | 100% |
 | `swarm.py` | ~250 | Multi-operator swarm coordinator (Recon, Scanner, Exploiter, Report) | ~30 | 100% |
 | `mobile_analyzer.py` | ~707 | APK static analysis (apktool, jadx, mobsf) + dynamic (ADB/Frida) | — | 99% |
@@ -386,6 +388,6 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~3450 tests, ~94% coverage
 ## Test summary
 
 - **45 test files** in `backend/tests/`
-- **~3450 tests** passing
-- **~94% coverage** across measured backend modules
+- **~3490 tests** passing
+- **~95% coverage** across measured backend modules
 - **Key test files**: test_database (196), test_api_endpoints (333), test_main_coverage (165), test_main_extra (120), test_burp_bridge (72), test_redact (63), test_skill_playbooks (67), test_audit_log (45), test_plugin_manager (47), test_plugin_watcher (18), test_siem (31), test_coverage (33), test_exif_osint (63), test_mobile_analyzer (54), test_canary_tokens (24), test_dlp_scanner (25), test_finding_poc (61), test_intelligence (43), test_permission_system (56), test_opsec, test_scope_guard, test_forensics, test_adb_controller, test_kali_mcp_client, test_mission_store, test_knowledgebase, test_swarm, + scanner tools + gap files (test_*_gaps.py: redact, dlp_scanner, mission_store, dns_lookup, pdf_engine, database, finding_poc, headers_scanner, hash_cracker, adb_controller, skill_playbooks, audit_log, intelligence, opsec, scope_guard).
