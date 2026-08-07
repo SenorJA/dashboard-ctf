@@ -32,7 +32,14 @@ from main import (
     _run_docker_cmd as main_run_docker_cmd,
     _docker_compose as main_docker_compose,
     _docker_task_runner as main_docker_task_runner,
+    _http_post_json as main_http_post_json,
+    _http_get as main_http_get,
+    get_active_ssh_client as main_get_active_ssh_client,
+    _ensure_ssh_connection as main_ensure_ssh_connection,
+    _check_kali_mcp as main_check_kali_mcp,
+    _call_llm_sync as main_call_llm_sync,
 )
+import urllib.error as main_urlerror
 from exif_osint import (
     EXIFResult,
     ImageInfo,
@@ -731,185 +738,8 @@ def test_pdf_professional_generic_error(client):
 
 
 # ──────────────────────────────────────────────
-# Browser Capture endpoints
-# ──────────────────────────────────────────────
-
-def test_bc_import_success(client):
-    with patch("main.bc_import", return_value={"ok": True, "session": {"id": "s1"}}):
-        resp = client.post(
-            "/api/browser-capture/import",
-            files={"file": ("capture.har", io.BytesIO(b"{}"), "application/json")},
-        )
-    assert resp.status_code == 200
-    assert resp.json()["session"]["id"] == "s1"
-
-
-def test_bc_import_not_ok(client):
-    with patch("main.bc_import", return_value={"ok": False, "error": "bad har"}):
-        resp = client.post(
-            "/api/browser-capture/import",
-            files={"file": ("capture.har", io.BytesIO(b"{}"), "application/json")},
-        )
-    assert resp.status_code == 400
-
-
-def test_bc_import_error(client):
-    with patch("main.bc_import", side_effect=RuntimeError("boom")):
-        resp = client.post(
-            "/api/browser-capture/import",
-            files={"file": ("capture.har", io.BytesIO(b"{}"), "application/json")},
-        )
-    assert resp.status_code == 500
-
-
-def test_bc_sessions(client):
-    with patch("main.bc_sessions", return_value=[{"id": "s1"}]):
-        resp = client.get("/api/browser-capture/sessions")
-    assert resp.status_code == 200
-    assert resp.json()["sessions"] == [{"id": "s1"}]
-
-
-def test_bc_get_session_found(client):
-    with patch("main.bc_get_session", return_value={"id": "s1", "name": "x"}):
-        resp = client.get("/api/browser-capture/sessions/s1")
-    assert resp.status_code == 200
-    assert resp.json()["name"] == "x"
-
-
-def test_bc_get_session_not_found(client):
-    with patch("main.bc_get_session", return_value=None):
-        resp = client.get("/api/browser-capture/sessions/ghost")
-    assert resp.status_code == 404
-
-
-def test_bc_delete_found(client):
-    with patch("main.bc_delete", return_value=True):
-        resp = client.delete("/api/browser-capture/sessions/s1")
-    assert resp.status_code == 200
-    assert resp.json()["ok"] is True
-
-
-def test_bc_delete_not_found(client):
-    with patch("main.bc_delete", return_value=False):
-        resp = client.delete("/api/browser-capture/sessions/ghost")
-    assert resp.status_code == 404
-
-
-def test_bc_requests(client):
-    with patch("main.bc_requests", return_value=[{"id": 1}]):
-        resp = client.get("/api/browser-capture/sessions/s1/requests",
-                          params={"method": "GET", "domain": "example.com"})
-    assert resp.status_code == 200
-    assert resp.json()["requests"] == [{"id": 1}]
-
-
-def test_bc_analyze_not_found(client):
-    with patch("main.bc_analyze", return_value=None):
-        resp = client.post("/api/browser-capture/sessions/ghost/analyze")
-    assert resp.status_code == 404
-
-
-def test_bc_analyze_dict(client):
-    with patch("main.bc_analyze", return_value={"score": 50}):
-        resp = client.post("/api/browser-capture/sessions/s1/analyze")
-    assert resp.status_code == 200
-    assert resp.json()["analysis"] == {"score": 50}
-
-
-def test_bc_analyze_dataclass(client):
-    from dataclasses import dataclass, field
-
-    @dataclass
-    class _Analysis:
-        score: int = 50
-        checks: list = field(default_factory=list)
-
-    with patch("main.bc_analyze", return_value=_Analysis()):
-        resp = client.post("/api/browser-capture/sessions/s1/analyze")
-    assert resp.status_code == 200
-    assert resp.json()["analysis"]["score"] == 50
-
-
-def test_bc_get_analysis_cached_dict(client):
-    with patch.dict("backend.browser_capture._analyses", {"s1": {"score": 10}}):
-        resp = client.get("/api/browser-capture/sessions/s1/analysis")
-    assert resp.status_code == 200
-    assert resp.json()["score"] == 10
-
-
-def test_bc_get_analysis_dataclass(client):
-    from dataclasses import dataclass, field
-
-    @dataclass
-    class _Analysis:
-        score: int = 10
-        checks: list = field(default_factory=list)
-
-    with patch.dict("backend.browser_capture._analyses", {"s1": _Analysis()}):
-        resp = client.get("/api/browser-capture/sessions/s1/analysis")
-    assert resp.status_code == 200
-    assert resp.json()["score"] == 10
-
-
-def test_bc_get_analysis_not_found(client):
-    with patch.dict("backend.browser_capture._analyses", {}):
-        resp = client.get("/api/browser-capture/sessions/ghost/analysis")
-    assert resp.status_code == 404
-
-
-def test_bc_findings_success(client):
-    with patch.dict("backend.browser_capture._sessions", {"s1": {"id": "s1"}}), \
-         patch.dict("backend.browser_capture._analyses", {"s1": {"score": 1}}), \
-         patch("main.bc_findings", return_value=[{"title": "XSS"}]):
-        resp = client.post("/api/browser-capture/sessions/s1/findings")
-    assert resp.status_code == 200
-    assert resp.json()["count"] == 1
-
-
-def test_bc_findings_session_missing(client):
-    with patch.dict("backend.browser_capture._sessions", {}):
-        resp = client.post("/api/browser-capture/sessions/ghost/findings")
-    assert resp.status_code == 404
-
-
-def test_bc_findings_no_analysis(client):
-    with patch.dict("backend.browser_capture._sessions", {"s1": {"id": "s1"}}), \
-         patch.dict("backend.browser_capture._analyses", {}):
-        resp = client.post("/api/browser-capture/sessions/s1/findings")
-    assert resp.status_code == 400
-    assert "analysis" in resp.json()["error"].lower()
-
-
-def test_bc_stats_dict_sessions(client):
-    with patch.dict("backend.browser_capture._sessions",
-                    {"s1": {"request_count": 3, "analysis": {"ok": True}}}), \
-         patch.dict("backend.browser_capture._analyses", {}):
-        resp = client.get("/api/browser-capture/stats")
-    assert resp.status_code == 200
-    assert resp.json()["total_sessions"] == 1
-    assert resp.json()["total_requests"] == 3
-    assert resp.json()["analyzed_sessions"] == 1
-
-
-def test_bc_stats_object_sessions(client):
-    obj = SimpleNamespace(request_count=7, analysis={"ok": True})
-    with patch.dict("backend.browser_capture._sessions", {"s1": obj}), \
-         patch.dict("backend.browser_capture._analyses", {}):
-        resp = client.get("/api/browser-capture/stats")
-    assert resp.status_code == 200
-    assert resp.json()["total_requests"] == 7
-    assert resp.json()["analyzed_sessions"] == 1
-
-
-# ──────────────────────────────────────────────
 # POC endpoints (parse-curl / finding-to-md / from-burp)
 # ──────────────────────────────────────────────
-
-def test_poc_parse_curl_missing(client):
-    resp = client.post("/api/poc/parse-curl", json={"curl": ""})
-    assert resp.status_code == 400
-    assert "curl" in resp.json()["error"].lower()
-
 
 def _make_poc(**overrides):
     defaults = dict(
@@ -920,6 +750,12 @@ def _make_poc(**overrides):
     )
     defaults.update(overrides)
     return FindingPoC(**defaults)
+
+
+def test_poc_parse_curl_missing(client):
+    resp = client.post("/api/poc/parse-curl", json={"curl": ""})
+    assert resp.status_code == 400
+    assert "curl" in resp.json()["error"].lower()
 
 
 def test_poc_parse_curl_success(client):
@@ -1157,4 +993,316 @@ def test_bc_stats_object_sessions(client):
     assert resp.json()["analyzed_sessions"] == 1
 
 
+# ──────────────────────────────────────────────
+# Internal helpers: _http_post_json / _http_get
+# ──────────────────────────────────────────────
 
+class _FakeResponse:
+    def __init__(self, body: bytes = b"{}", status: int = 200):
+        self._body = body
+        self.status = status
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+    def read(self):
+        return self._body
+
+
+class _FakeHTTPError(main_urlerror.HTTPError):
+    def __init__(self, code: int = 400, body: bytes = b"err"):
+        self._body = body
+        super().__init__("http://fake", code, "err", {}, None)
+
+    def read(self):
+        return self._body
+
+
+def _urlerror_factory(reason: str):
+    return main_urlerror.URLError(reason)
+
+
+def test_http_post_json_success():
+    with patch("main.urllib.request.urlopen", return_value=_FakeResponse(b'{"ok": true}', 200)):
+        status, text = main_http_post_json("http://n8n/webhook", {"a": 1})
+    assert status == 200
+    assert text == '{"ok": true}'
+
+
+def test_http_post_json_http_error():
+    with patch("main.urllib.request.urlopen", side_effect=_FakeHTTPError(422, b"bad")):
+        status, text = main_http_post_json("http://n8n/webhook", {})
+    assert status == 422
+    assert text == "bad"
+
+
+def test_http_post_json_url_error():
+    err = _urlerror_factory("connection refused")
+    with patch("main.urllib.request.urlopen", side_effect=err):
+        try:
+            main_http_post_json("http://n8n/webhook", {})
+            raise AssertionError("expected ConnectionError")
+        except ConnectionError as e:
+            assert "unreachable" in str(e)
+
+
+def test_http_get_success():
+    with patch("main.urllib.request.urlopen", return_value=_FakeResponse(b"", 200)):
+        assert main_http_get("http://example.com") == 200
+
+
+def test_http_get_url_error():
+    err = _urlerror_factory("timed out")
+    with patch("main.urllib.request.urlopen", side_effect=err):
+        assert main_http_get("http://example.com") == 0
+
+
+# ──────────────────────────────────────────────
+# SSH helpers: get_active_ssh_client / _ensure_ssh_connection
+# ──────────────────────────────────────────────
+
+def _fake_transport(active: bool):
+    return SimpleNamespace(is_active=lambda: active)
+
+
+def _fake_ssh_client(transport=None, connect_exc=None):
+    client = SimpleNamespace()
+    client.transport = transport
+    client.get_transport = lambda: transport
+    client.set_missing_host_key_policy = lambda *a, **kw: None
+    if connect_exc:
+        def _connect(*a, **kw):
+            raise connect_exc
+        client.connect = _connect
+    else:
+        client.connect = lambda *a, **kw: None
+    return client
+
+
+def test_get_active_ssh_client_none():
+    saved = sys.modules["main"]._active_ssh_client
+    sys.modules["main"]._active_ssh_client = None
+    try:
+        assert main_get_active_ssh_client() is None
+    finally:
+        sys.modules["main"]._active_ssh_client = saved
+
+
+def test_get_active_ssh_client_active():
+    client = _fake_ssh_client(transport=_fake_transport(True))
+    saved = sys.modules["main"]._active_ssh_client
+    sys.modules["main"]._active_ssh_client = client
+    try:
+        assert main_get_active_ssh_client() is client
+    finally:
+        sys.modules["main"]._active_ssh_client = saved
+
+
+def test_get_active_ssh_client_inactive_resets():
+    client = _fake_ssh_client(transport=_fake_transport(False))
+    saved = sys.modules["main"]._active_ssh_client
+    sys.modules["main"]._active_ssh_client = client
+    try:
+        assert main_get_active_ssh_client() is None
+        assert sys.modules["main"]._active_ssh_client is None
+    finally:
+        sys.modules["main"]._active_ssh_client = saved
+
+
+def test_ensure_ssh_connection_returns_existing():
+    client = _fake_ssh_client(transport=_fake_transport(True))
+    with patch("main.get_active_ssh_client", return_value=client):
+        assert _call_async(lambda: main_ensure_ssh_connection()) is client
+
+
+def test_ensure_ssh_connection_connect_success():
+    client = _fake_ssh_client()
+    with patch("main.get_active_ssh_client", return_value=None), \
+         patch("main.paramiko.SSHClient", return_value=client), \
+         patch("main.mobile_set_ssh_client") as set_client, \
+         patch.dict("main._ssh_credentials", {"ip": None, "user": None, "pass": None}, clear=True):
+        result = _call_async(lambda: main_ensure_ssh_connection())
+    assert result is client
+    set_client.assert_called_once_with(client)
+    assert sys.modules["main"]._active_ssh_client is client
+
+
+def test_ensure_ssh_connection_connect_failure():
+    client = _fake_ssh_client(connect_exc=Exception("auth failed"))
+    with patch("main.get_active_ssh_client", return_value=None), \
+         patch("main.paramiko.SSHClient", return_value=client), \
+         patch.dict("main._ssh_credentials", {"ip": None, "user": None, "pass": None}, clear=True):
+        result = _call_async(lambda: main_ensure_ssh_connection())
+    assert result is None
+
+
+# ──────────────────────────────────────────────
+# _check_kali_mcp (startup handler)
+# ──────────────────────────────────────────────
+
+def _async_value(v):
+    async def _inner():
+        return v
+    return _inner()
+
+
+def _fake_httpx_client(status_code: int = 200, exc: Exception = None):
+    if exc:
+        async def _get(url):
+            raise exc
+    else:
+        async def _get(url):
+            return SimpleNamespace(status_code=status_code)
+
+    class _AClient:
+        async def __aenter__(self):
+            return SimpleNamespace(get=_get)
+
+        async def __aexit__(self, *a):
+            return False
+
+    return SimpleNamespace(AsyncClient=lambda **kw: _AClient())
+
+
+def test_check_kali_mcp_detected():
+    saved_url = sys.modules["main"].KALI_MCP_URL
+    saved_flag = sys.modules["main"]._kali_mcp_available
+    try:
+        sys.modules["main"].KALI_MCP_URL = "http://kali:3001/mcp"
+        sys.modules["main"]._kali_mcp_available = False
+        with patch.dict(sys.modules, {"httpx": _fake_httpx_client(status_code=200)}):
+            _call_async(lambda: main_check_kali_mcp())
+        assert sys.modules["main"]._kali_mcp_available is True
+    finally:
+        sys.modules["main"].KALI_MCP_URL = saved_url
+        sys.modules["main"]._kali_mcp_available = saved_flag
+
+
+def test_check_kali_mcp_bad_status():
+    saved_url = sys.modules["main"].KALI_MCP_URL
+    try:
+        sys.modules["main"].KALI_MCP_URL = "http://kali:3001/mcp"
+        sys.modules["main"]._kali_mcp_available = True
+        with patch.dict(sys.modules, {"httpx": _fake_httpx_client(status_code=500)}):
+            _call_async(lambda: main_check_kali_mcp())
+        assert sys.modules["main"]._kali_mcp_available is True  # unchanged
+    finally:
+        sys.modules["main"].KALI_MCP_URL = saved_url
+
+
+def test_check_kali_mcp_exception():
+    saved_url = sys.modules["main"].KALI_MCP_URL
+    try:
+        sys.modules["main"].KALI_MCP_URL = "http://kali:3001/mcp"
+        with patch.dict(sys.modules, {"httpx": _fake_httpx_client(exc=RuntimeError("boom"))}):
+            _call_async(lambda: main_check_kali_mcp())
+    finally:
+        sys.modules["main"].KALI_MCP_URL = saved_url
+
+
+# ──────────────────────────────────────────────
+# _call_llm_sync
+# ──────────────────────────────────────────────
+
+def test_llm_openai_success():
+    resp = _FakeResponse(b'{"choices": [{"message": {"content": "hello"}}]}', 200)
+    with patch("main.urllib.request.urlopen", return_value=resp):
+        text = main_call_llm_sync("openai", "k", "gpt-4o-mini", [{"role": "user", "content": "hi"}])
+    assert text == "hello"
+
+
+def test_llm_openai_no_choices():
+    resp = _FakeResponse(b'{"choices": []}', 200)
+    with patch("main.urllib.request.urlopen", return_value=resp):
+        text = main_call_llm_sync("openai", "k", "", [{"role": "user", "content": "hi"}])
+    assert "choices" in text
+
+
+def test_llm_openai_unicode_error():
+    resp = _FakeResponse(b"\xff\xfe not utf8", 200)
+    with patch("main.urllib.request.urlopen", return_value=resp):
+        try:
+            main_call_llm_sync("openai", "k", "m", [{"role": "user", "content": "hi"}])
+            raise AssertionError("expected RuntimeError")
+        except RuntimeError as e:
+            assert "Encoding" in str(e)
+
+
+def test_llm_openai_http_error():
+    with patch("main.urllib.request.urlopen", side_effect=_FakeHTTPError(404, b"model not found")):
+        try:
+            main_call_llm_sync("openai", "k", "bad-model", [{"role": "user", "content": "hi"}])
+            raise AssertionError("expected RuntimeError")
+        except RuntimeError as e:
+            assert "404" in str(e)
+
+
+def test_llm_other_openai_providers():
+    for provider in ("openrouter", "deepseek", "groq"):
+        resp = _FakeResponse(b'{"choices": [{"message": {"content": "x"}}]}', 200)
+        with patch("main.urllib.request.urlopen", return_value=resp):
+            text = main_call_llm_sync(provider, "k", "model-x", [{"role": "user", "content": "hi"}])
+        assert text == "x"
+
+
+def test_llm_gemini_success():
+    body = b'{"candidates": [{"content": {"parts": [{"text": "gem"}]}}]}'
+    with patch("main.urllib.request.urlopen", return_value=_FakeResponse(body, 200)):
+        text = main_call_llm_sync("gemini", "k", "", [{"role": "assistant", "content": "hi"}])
+    assert text == "gem"
+
+
+def test_llm_gemini_no_candidates():
+    with patch("main.urllib.request.urlopen", return_value=_FakeResponse(b'{"candidates": []}', 200)):
+        text = main_call_llm_sync("gemini", "k", "m", [{"role": "user", "content": "hi"}])
+    assert "candidates" in text
+
+
+def test_llm_anthropic_success():
+    body = b'{"content": [{"text": "claude"}]}'
+    with patch("main.urllib.request.urlopen", return_value=_FakeResponse(body, 200)):
+        text = main_call_llm_sync("anthropic", "k", "", [{"role": "system", "content": "sys"}, {"role": "user", "content": "hi"}])
+    assert text == "claude"
+
+
+def test_llm_anthropic_no_content():
+    with patch("main.urllib.request.urlopen", return_value=_FakeResponse(b'{"content": []}', 200)):
+        text = main_call_llm_sync("anthropic", "k", "m", [{"role": "user", "content": "hi"}])
+    assert "content" in text
+
+
+def test_llm_local_success():
+    resp = _FakeResponse(b'{"choices": [{"message": {"content": "local"}}]}', 200)
+    with patch("main.urllib.request.urlopen", return_value=resp):
+        text = main_call_llm_sync("local", "", "", [{"role": "user", "content": "hi"}])
+    assert text == "local"
+
+
+def test_llm_local_http_error():
+    with patch("main.urllib.request.urlopen", side_effect=_FakeHTTPError(500, b"down")):
+        try:
+            main_call_llm_sync("local", "", "", [{"role": "user", "content": "hi"}])
+            raise AssertionError("expected RuntimeError")
+        except RuntimeError as e:
+            assert "Local AI" in str(e)
+
+
+def test_llm_local_url_error():
+    err = _urlerror_factory("conn refused")
+    with patch("main.urllib.request.urlopen", side_effect=err):
+        try:
+            main_call_llm_sync("local", "", "", [{"role": "user", "content": "hi"}])
+            raise AssertionError("expected RuntimeError")
+        except RuntimeError as e:
+            assert "Ollama" in str(e)
+
+
+def test_llm_unknown_provider():
+    try:
+        main_call_llm_sync("bogus", "", "", [{"role": "user", "content": "hi"}])
+        raise AssertionError("expected ValueError")
+    except ValueError as e:
+        assert "Unknown provider" in str(e)
