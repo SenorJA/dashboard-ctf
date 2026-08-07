@@ -86,7 +86,7 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 **Tests:**
 ```bash
 cd backend
-python -m pytest tests/ -k "not test_slow_hook" -q  # 3330 tests, ~93% coverage
+python -m pytest tests/ -k "not test_slow_hook" -q  # ~3450 tests, ~94% coverage
 ```
 
 ## Backend modules (main.py + 28 modules)
@@ -99,25 +99,25 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # 3330 tests, ~93% coverage
 | `canary_tokens.py` | ~442 | 8 honeytoken types, activation tracking, expiration | 24 | 99% |
 | `dlp_scanner.py` | ~453 | 8 PII patterns, Luhn validation, risk scoring | 25 | 67% |
 | `siem.py` | ~743 | SIEM engine: events, 4 correlation rules, alerts, thread-safe | 31 | 84% |
-| `plugin_manager.py` | ~700 | Plugin discovery, hooks, hot-reload via watchdog | 47+18 | 88% |
-| `coverage_matrix.py` | ~480 | Coverage matrix (endpoint×param×vuln_class), next_steps estimator | 33 | new |
-| `skill_playbooks.py` | ~450 | Markdown skill playbooks, frontmatter parser, hot-reload | 67 | new |
-| `redact.py` | ~430 | 20 redaction patterns, shape-preserving, AI/mission integration | 63 | new |
-| `audit_log.py` | ~470 | JSONL audit log, 4MB rotation, SIEM forwarding, AuditLogHandler | 45 | new |
-| `burp_bridge.py` | ~599 | Burp ingest server, LRU store, finding↔issue conversion | 72 | new |
-| `browser_capture.py` | ~1334 | HAR import, 10 security checks, risk scoring | 95 | new |
-| `mcp_server.py` | ~620 | MCP Server exposes tools to AI agents | — | — |
-| `kali_mcp_client.py` | ~130 | Client for kali-mcp Docker integration | ~20 | 79% |
-| `swarm.py` | ~250 | Multi-operator swarm coordinator (Recon, Scanner, Exploiter, Report) | ~30 | 73% |
-| `mobile_analyzer.py` | ~707 | APK static analysis (apktool, jadx, mobsf) + dynamic (ADB/Frida) | — | — |
-| `forensics.py` | ~253 | Digital forensics (memory, disk, Sleuth Kit) | ~30 | 99% |
+| `plugin_manager.py` | ~700 | Plugin discovery, hooks, hot-reload via watchdog | 47+18 | 91% |
+| `coverage_matrix.py` | ~480 | Coverage matrix (endpoint×param×vuln_class), next_steps estimator | 33 | 93% |
+| `skill_playbooks.py` | ~450 | Markdown skill playbooks, frontmatter parser, hot-reload | 67 | 91% |
+| `redact.py` | ~430 | 20 redaction patterns, shape-preserving, AI/mission integration | 63 | 100% |
+| `audit_log.py` | ~470 | JSONL audit log, 4MB rotation, SIEM forwarding, AuditLogHandler | 45 | 100% |
+| `burp_bridge.py` | ~599 | Burp ingest server, LRU store, finding↔issue conversion | 72 | 95% |
+| `browser_capture.py` | ~1334 | HAR import, 10 security checks, risk scoring | 95 | 96% |
+| `mcp_server.py` | ~620 | MCP Server exposes tools to AI agents | — | 95% |
+| `kali_mcp_client.py` | ~130 | Client for kali-mcp Docker integration | ~20 | 100% |
+| `swarm.py` | ~250 | Multi-operator swarm coordinator (Recon, Scanner, Exploiter, Report) | ~30 | 100% |
+| `mobile_analyzer.py` | ~707 | APK static analysis (apktool, jadx, mobsf) + dynamic (ADB/Frida) | — | 99% |
+| `forensics.py` | ~253 | Digital forensics (memory, disk, Sleuth Kit) | ~30 | 100% |
 | `knowledgebase.py` | ~210 | CVE database + MITRE ATT&CK techniques | 45 | 100% |
-| `scope_guard.py` | ~755 | Scope validation + Interactive Permission Prompts (Warn/Block) | ~56 | 97% |
-| `adb_controller.py` | ~205 | ADB device detection + Frida scripts (run/stop/clear) | ~25 | 98% |
-| `opsec.py` | ~400 | OPSEC Levels — 30 tools with Silent/Covert/Loud modifiers | ~25 | 88% |
-| `mission_store.py` | ~356 | Self-Improvement Loop — mission history + AI context (auto-redacts) | ~30 | 90% |
-| `finding_poc.py` | ~735 | Reproducible Finding PoC — curl replay, markdown reports, evidence hash | 61 | new |
-| `intelligence.py` | ~500 | Continuous Intelligence — watch/snapshot/diff/alert system | 43 | new |
+| `scope_guard.py` | ~755 | Scope validation + Interactive Permission Prompts (Warn/Block) | ~56 | 99% |
+| `adb_controller.py` | ~205 | ADB device detection + Frida scripts (run/stop/clear) | ~25 | 100% |
+| `opsec.py` | ~400 | OPSEC Levels — 30 tools with Silent/Covert/Loud modifiers | ~25 | 100% |
+| `mission_store.py` | ~356 | Self-Improvement Loop — mission history + AI context (auto-redacts) | ~30 | 100% |
+| `finding_poc.py` | ~735 | Reproducible Finding PoC — curl replay, markdown reports, evidence hash | 61 | 99% |
+| `intelligence.py` | ~500 | Continuous Intelligence — watch/snapshot/diff/alert system | 43 | 99% |
 
 ## Backend quirks (main.py)
 
@@ -386,6 +386,6 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # 3330 tests, ~93% coverage
 ## Test summary
 
 - **45 test files** in `backend/tests/`
-- **3163 tests** passing
-- **~88% coverage** across measured backend modules
-- **Key test files**: test_database (196), test_api_endpoints (333), test_main_coverage (165), test_main_extra (120), test_burp_bridge (72), test_redact (63), test_skill_playbooks (67), test_audit_log (45), test_plugin_manager (47), test_plugin_watcher (18), test_siem (31), test_coverage (33), test_exif_osint (63), test_mobile_analyzer (54), test_canary_tokens (24), test_dlp_scanner (25), test_finding_poc (61), test_intelligence (43), test_permission_system (56), test_opsec, test_scope_guard, test_forensics, test_adb_controller, test_kali_mcp_client, test_mission_store, test_knowledgebase, test_swarm, + scanner tools.
+- **~3450 tests** passing
+- **~94% coverage** across measured backend modules
+- **Key test files**: test_database (196), test_api_endpoints (333), test_main_coverage (165), test_main_extra (120), test_burp_bridge (72), test_redact (63), test_skill_playbooks (67), test_audit_log (45), test_plugin_manager (47), test_plugin_watcher (18), test_siem (31), test_coverage (33), test_exif_osint (63), test_mobile_analyzer (54), test_canary_tokens (24), test_dlp_scanner (25), test_finding_poc (61), test_intelligence (43), test_permission_system (56), test_opsec, test_scope_guard, test_forensics, test_adb_controller, test_kali_mcp_client, test_mission_store, test_knowledgebase, test_swarm, + scanner tools + gap files (test_*_gaps.py: redact, dlp_scanner, mission_store, dns_lookup, pdf_engine, database, finding_poc, headers_scanner, hash_cracker, adb_controller, skill_playbooks, audit_log, intelligence, opsec, scope_guard).
