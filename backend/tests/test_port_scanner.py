@@ -14,17 +14,21 @@ from __future__ import annotations
 
 import pytest
 import socket
+import asyncio
 
 import sys
 import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
+import port_scanner
 from port_scanner import (
     COMMON_PORTS,
     PortResult,
     ScanReport,
     scan,
+    _get_service,
+    _scan_port,
     report_to_mirv_findings,
 )
 
@@ -315,3 +319,169 @@ class TestEdgeCases:
         r2 = await scan(SCANME, ports=SCANME_PORTS, timeout=10.0)
         assert r1.open_ports == r2.open_ports
         assert {p.port for p in r1.results} == {p.port for p in r2.results}
+
+
+# ===================================================================
+# 7. Unit tests — _get_service() & _scan_port() internals
+# ===================================================================
+
+class TestGetService:
+    """_get_service() resolves port numbers to service names."""
+
+    def test_known_common_port(self):
+        assert _get_service(80) == "HTTP"
+
+    def test_unknown_port_looks_up_socket_db(self, monkeypatch):
+        # Remove 5432 from COMMON_PORTS so the socket lookup branch runs
+        monkeypatch.delitem(port_scanner.COMMON_PORTS, 5432, raising=False)
+
+        def fake_getservbyport(port, proto):
+            assert port == 5432
+            assert proto == "tcp"
+            return "postgresql"
+
+        monkeypatch.setattr(port_scanner.socket, "getservbyport", fake_getservbyport)
+        assert _get_service(5432) == "postgresql"
+
+    def test_unknown_port_socket_lookup_oserror(self, monkeypatch):
+        monkeypatch.delitem(port_scanner.COMMON_PORTS, 5432, raising=False)
+
+        def fake_getservbyport(port, proto):
+            raise OSError("unknown service")
+
+        monkeypatch.setattr(port_scanner.socket, "getservbyport", fake_getservbyport)
+        assert _get_service(5432) == "unknown"
+
+    def test_high_port_returns_unknown(self, monkeypatch):
+        monkeypatch.delitem(port_scanner.COMMON_PORTS, 60000, raising=False)
+        assert _get_service(60000) == "unknown"
+
+
+class TestScanPortInternals:
+    """_scan_port() error handling and banner grabbing (fully mocked)."""
+
+    class _FakeWriter:
+        def __init__(self):
+            self.closed = False
+
+        async def write(self, data):
+            pass
+
+        async def drain(self):
+            pass
+
+        def close(self):
+            self.closed = True
+
+        async def wait_closed(self):
+            self.closed = True
+
+    class _FakeReader:
+        def __init__(self, data=b""):
+            self.data = data
+
+        async def read(self, n):
+            return self.data
+
+    @pytest.mark.asyncio
+    async def test_open_port_without_banner(self):
+        async def fake_open_connection(host, port):
+            return None, self._FakeWriter()
+
+        monkeypatch = __import__("pytest").MonkeyPatch()
+        monkeypatch.setattr(
+            port_scanner.asyncio, "open_connection", fake_open_connection
+        )
+        try:
+            result = await _scan_port("127.0.0.1", 80, timeout=1.0, grab_banner=False)
+        finally:
+            monkeypatch.undo()
+        assert result.state == "open"
+        assert result.banner is None
+
+    @pytest.mark.asyncio
+    async def test_open_port_grab_banner(self):
+        call_count = {"n": 0}
+
+        async def fake_open_connection(host, port):
+            call_count["n"] += 1
+            if call_count["n"] == 1:
+                return None, self._FakeWriter()
+            return self._FakeReader(b"SSH-2.0-OpenSSH_8.2\r\n"), self._FakeWriter()
+
+        monkeypatch = __import__("pytest").MonkeyPatch()
+        monkeypatch.setattr(
+            port_scanner.asyncio, "open_connection", fake_open_connection
+        )
+        try:
+            result = await _scan_port("127.0.0.1", 22, timeout=1.0, grab_banner=True)
+        finally:
+            monkeypatch.undo()
+        assert result.state == "open"
+        assert result.banner == "SSH-2.0-OpenSSH_8.2"
+
+    @pytest.mark.asyncio
+    async def test_open_port_banner_exception_swallowed(self):
+        call_count = {"n": 0}
+
+        async def fake_open_connection(host, port):
+            call_count["n"] += 1
+            if call_count["n"] == 1:
+                return None, self._FakeWriter()
+            raise RuntimeError("banner read failed")
+
+        monkeypatch = __import__("pytest").MonkeyPatch()
+        monkeypatch.setattr(
+            port_scanner.asyncio, "open_connection", fake_open_connection
+        )
+        try:
+            result = await _scan_port("127.0.0.1", 22, timeout=1.0, grab_banner=True)
+        finally:
+            monkeypatch.undo()
+        assert result.state == "open"
+        assert result.banner is None
+
+    @pytest.mark.asyncio
+    async def test_connection_refused_returns_closed(self):
+        async def fake_open_connection(host, port):
+            raise ConnectionRefusedError()
+
+        monkeypatch = __import__("pytest").MonkeyPatch()
+        monkeypatch.setattr(
+            port_scanner.asyncio, "open_connection", fake_open_connection
+        )
+        try:
+            result = await _scan_port("127.0.0.1", 81, timeout=1.0)
+        finally:
+            monkeypatch.undo()
+        assert result.state == "closed"
+
+    @pytest.mark.asyncio
+    async def test_connection_timeout_returns_closed(self):
+        async def fake_open_connection(host, port):
+            raise asyncio.TimeoutError()
+
+        monkeypatch = __import__("pytest").MonkeyPatch()
+        monkeypatch.setattr(
+            port_scanner.asyncio, "open_connection", fake_open_connection
+        )
+        try:
+            result = await _scan_port("127.0.0.1", 81, timeout=1.0)
+        finally:
+            monkeypatch.undo()
+        assert result.state == "closed"
+
+    @pytest.mark.asyncio
+    async def test_unexpected_error_returns_filtered(self):
+        async def fake_open_connection(host, port):
+            raise RuntimeError("unexpected")
+
+        monkeypatch = __import__("pytest").MonkeyPatch()
+        monkeypatch.setattr(
+            port_scanner.asyncio, "open_connection", fake_open_connection
+        )
+        try:
+            result = await _scan_port("127.0.0.1", 81, timeout=1.0)
+        finally:
+            monkeypatch.undo()
+        assert result.state == "filtered"

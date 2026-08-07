@@ -21,6 +21,7 @@ from kali_mcp_client import (
     KALI_MCP_URL,
     is_available,
     execute_command,
+    list_available_tools,
     nmap_scan,
     gobuster_dir,
     nikto_scan,
@@ -296,3 +297,92 @@ class TestConvenienceWrappers:
             result = await whatweb_scan("http://10.0.0.1")
             assert "whatweb" in mock_exec.call_args[0][0]
             assert "http://10.0.0.1" in mock_exec.call_args[0][0]
+
+
+# ════════════════════════════════════════════════════════════════
+#  list_available_tools()
+# ════════════════════════════════════════════════════════════════
+
+class _FakeMcpResponse:
+    def __init__(self, data):
+        self._data = data
+
+    def json(self):
+        return self._data
+
+
+class _FakeMcpClient:
+    def __init__(self, response=None):
+        self.response = response or _FakeMcpResponse({"result": {"tools": []}})
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *args):
+        return False
+
+    async def post(self, *args, **kwargs):
+        return self.response
+
+
+class _FakeMcpClientFailing(_FakeMcpClient):
+    async def post(self, *args, **kwargs):
+        raise RuntimeError("mcp connection failed")
+
+
+class TestListAvailableTools:
+    @pytest.mark.asyncio
+    async def test_no_url_returns_empty(self):
+        kali_mcp_client.KALI_MCP_URL = ""
+        result = await list_available_tools()
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_with_tools_returns_names(self):
+        kali_mcp_client.KALI_MCP_URL = "http://localhost:9001/mcp"
+        client = _FakeMcpClient(
+            _FakeMcpResponse(
+                {"result": {"tools": [{"name": "nmap"}, {"name": "gobuster"}]}}
+            )
+        )
+        with patch("httpx.AsyncClient", return_value=client):
+            result = await list_available_tools()
+        assert result == ["nmap", "gobuster"]
+
+    @pytest.mark.asyncio
+    async def test_skips_items_without_name(self):
+        kali_mcp_client.KALI_MCP_URL = "http://localhost:9001/mcp"
+        client = _FakeMcpClient(
+            _FakeMcpResponse(
+                {
+                    "result": {
+                        "tools": [
+                            {"name": "nmap"},
+                            {"other": "not-a-name"},
+                            "not-a-dict",
+                            {},
+                        ]
+                    }
+                }
+            )
+        )
+        with patch("httpx.AsyncClient", return_value=client):
+            result = await list_available_tools()
+        assert result == ["nmap"]
+
+    @pytest.mark.asyncio
+    async def test_empty_tools_returns_empty(self):
+        kali_mcp_client.KALI_MCP_URL = "http://localhost:9001/mcp"
+        client = _FakeMcpClient()
+        with patch("httpx.AsyncClient", return_value=client):
+            result = await list_available_tools()
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_exception_returns_empty(self, caplog):
+        kali_mcp_client.KALI_MCP_URL = "http://localhost:9001/mcp"
+        client = _FakeMcpClientFailing()
+        with patch("httpx.AsyncClient", return_value=client):
+            result = await list_available_tools()
+        assert result == []
+        assert "list_available_tools failed" in caplog.text

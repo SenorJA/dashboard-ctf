@@ -26,8 +26,8 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-import scope_guard
-from scope_guard import (
+import backend.scope_guard as scope_guard
+from backend.scope_guard import (
     classify_command,
     request_permission,
     decide_permission,
