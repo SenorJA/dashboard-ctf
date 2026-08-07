@@ -766,14 +766,14 @@ class TestScopeEndpoints:
 
     @patch("main.save_config")
     def test_post_scope_save_failure(self, mock_save, client: TestClient):
-        """POST /api/scope returns 500 when save fails."""
+        """POST /api/scope returns 503 when persistence is unavailable."""
         mock_save.return_value = False
         resp = client.post("/api/scope", json={
             "enabled": True,
             "mode": "warn",
             "targets": [],
         })
-        assert resp.status_code == 500
+        assert resp.status_code == 503
         data = resp.json()
         assert data["ok"] is False
 

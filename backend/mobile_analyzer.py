@@ -216,9 +216,9 @@ def _parse_aapt_output(aapt_out: str) -> dict:
             if m:
                 info["version_name"] = m.group(1)
         elif line.startswith("sdkVersion:"):
-            info["min_sdk"] = line.split(":")[1].strip()
+            info["min_sdk"] = line.split(":", 1)[1].strip().strip("'\"")
         elif line.startswith("targetSdkVersion:"):
-            info["target_sdk"] = line.split(":")[1].strip()
+            info["target_sdk"] = line.split(":", 1)[1].strip().strip("'\"")
     return info
 
 
@@ -618,9 +618,10 @@ def analyze_apk(apk_path: str, apk_id: str = None) -> dict:
         for comp_type in ["activities", "services", "providers", "receivers"]:
             for comp in comps.get(comp_type, []):
                 if comp.get("exported"):
+                    label = "Activity" if comp_type == "activities" else comp_type[:-1].title()
                     result["findings"].append({
                         "severity": "high",
-                        "title": f"Exported {comp_type[:-1].title()}: {comp['name']}",
+                        "title": f"Exported {label}: {comp['name']}",
                         "description": f"The {comp_type[:-1].lower()} '{comp['name']}' is exported. Any app can launch it.",
                         "category": "components",
                         "file": "AndroidManifest.xml",
