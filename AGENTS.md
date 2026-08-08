@@ -94,10 +94,10 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~3490 tests, ~95% coverage
 | File | Lines | Purpose | Tests | Coverage |
 |------|-------|---------|-------|----------|
 | `main.py` | ~5200 | FastAPI app, WebSocket SSH proxy, 170+ REST endpoints + CSP middleware | ~333 | 53% |
-| `database.py` | ~1344 | Supabase CRUD (17 tables) | 196 | 85% |
+| `database.py` | ~1344 | Supabase CRUD (17 tables) | 196 | 100% |
 | `exif_osint.py` | ~812 | EXIF GPS extraction, camera metadata, reverse geocoding, Leaflet map | 21+11 | 99% |
 | `canary_tokens.py` | ~442 | 8 honeytoken types, activation tracking, expiration | 24 | 99% |
-| `dlp_scanner.py` | ~453 | 8 PII patterns, Luhn validation, risk scoring | 25 | 67% |
+| `dlp_scanner.py` | ~453 | 8 PII patterns, Luhn validation, risk scoring | 25 | 100% |
 | `siem.py` | ~743 | SIEM engine: events, 4 correlation rules, alerts, thread-safe | 31+13 | 100% |
 | `plugin_manager.py` | ~700 | Plugin discovery, hooks, hot-reload via watchdog | 47+18+15 | 100% |
 | `coverage_matrix.py` | ~480 | Coverage matrix (endpoint×param×vuln_class), next_steps estimator | 33+17 | 99% |
