@@ -1,6 +1,6 @@
 # 🔮 TOMORROW.md — Roadmap de trabajo pendiente
 
-> Última actualización: 26 Jul 2026 — MIRV v5.0 | 30 módulos | 227 endpoints | 2921 tests | 27 tabs
+> Última actualización: 8 Ago 2026 — MIRV v5.0 | 30 módulos | 227 endpoints | 3834 tests | 25 tabs | main.py 100%
 
 ---
 
@@ -10,9 +10,9 @@
 |---------|-------|
 | Backend modules | 30 (main.py + 29 especializados) |
 | REST endpoints | 227 |
-| Test files | 43 |
-| Tests collected | 2826 |
-| Coverage | ~82% (global) |
+| Test files | 76 |
+| Tests collected | 3834 |
+| Coverage | ~95% global — **main.py 100%** |
 | Frontend tabs | 25 |
 | Frontend JS | 9231 líneas (main.v2.js) |
 | Frontend HTML | 2694 líneas (index.html) |
@@ -155,7 +155,7 @@
   ```
 - [ ] **Verificar CI en GitHub** — tras secrets, push para disparar workflows
 - [ ] **Browser Capture MCP** — capturar tráfico del navegador (esfuerzo ALTO)
-- [x] **Cobertura global > 80%** — 82% con test_mcp_server (95%), scope 503 fix, CRUD offline
+- [x] **Cobertura global > 80%** — ~95%; **main.py 100%** (2847/2847) vía test_main_gaps.py (295) + test_main_websocket_gaps.py (19)
 
 ### Prioridad BAJA
 - [ ] Fase 7 — Cloudflare Tunnel (dominio + cloudflared)
@@ -171,7 +171,8 @@
 3. **Module identity split** — tests importan `backend.modulo` vs `modulo`
 4. **exif_osint.py coverage 63%** — requiere imágenes/reales
 5. **dlp_scanner.py coverage 67%** — patrones archivo/URL
-6. **main.py coverage 53%** — 832+ statements sin cubrir
+6. ~~**main.py coverage 53%**~~ — ✅ **100%** (2847/2847) con test_main_gaps.py + test_main_websocket_gaps.py
+7. **`test_full_session` (websocket)** — flaky por contención de TestClient al correr el archivo completo; pasa al ejecutarlo en solitario
 
 ---
 

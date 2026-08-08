@@ -1,6 +1,6 @@
 # 🗺️ M.I.R.V. — Roadmap de Mejoras
 
-> Última actualización: 26 Jul 2026 — MIRV v5.0 | 30 módulos | 227 endpoints | 2921 tests | 27 tabs
+> Última actualización: 8 Ago 2026 — MIRV v5.0 | 30 módulos | 227 endpoints | 3834 tests | 25 tabs | main.py 100%
 
 ## ✅ Completado
 
@@ -51,10 +51,10 @@
 
 ### Fase 8 — Docker + Tests + CI/CD
 - [x] Dockerfile + docker-compose.yml
-- [x] 2837 tests pytest (41 archivos)
-- [x] ~82% coverage global
+- [x] 3834 tests pytest (76 archivos)
+- [x] ~95% coverage global — **`main.py` al 100%** (2847/2847 statements)
 - [x] CI: lint + test-backend + docker-build + deploy
-- [ ] Cobertura > 80%
+- [x] Cobertura > 80%
 
 ---
 
@@ -179,7 +179,7 @@
 
 ### Prioridad ALTA
 - [ ] **Configurar secrets GitHub** (manual, 15 min) → `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`, `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`
-- [x] **Cobertura > 80%** — 82% global (main.py 72%, mcp_server 95%, 44 archivos)
+- [x] **Cobertura > 80%** — ~95% global, main.py 100%, database 100%, browser_capture 100%, plugin_manager 100%
 
 ### Prioridad MEDIA
 - [ ] **Browser Capture MCP** — capturar tráfico del navegador (esfuerzo ALTO)
@@ -204,7 +204,7 @@
 | Fase 5 | Hallazgos persistentes + informes | ✅ |
 | Fase 6 | Scope + OPSEC + Permissions | ✅ |
 | Fase 7 | Producción (Cloudflare Tunnel) | 🚧 Infra |
-| Fase 8 | Docker + Tests + CI/CD | ✅ (2921 tests) |
+| Fase 8 | Docker + Tests + CI/CD | ✅ (3834 tests, main.py 100%) |
 | PentesterFlow | Coverage + Skills + Redact + Burp + Audit | ✅ |
 | Plugin System | Hot-reload + Watcher + 5 hooks | ✅ |
 | Session Compaction | Mission store + auto-redact | ✅ |

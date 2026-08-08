@@ -1,6 +1,6 @@
 # M.I.R.V. — Estado Completo del Proyecto
 
-> Última actualización: 7 Ago 2026 — MIRV v5.0 | 30 módulos | 227 endpoints | 3043 tests | 27 tabs
+> Última actualización: 8 Ago 2026 — MIRV v5.0 | 30 módulos | 227 endpoints | 3834 tests | 25 tabs | main.py 100%
 
 ## Resumen General
 
@@ -63,7 +63,7 @@
 
 | Archivo | Líneas | Tests | Propósito |
 |---------|--------|-------|-----------|
-| `main.py` | 5235 | 333 | FastAPI app central, WebSocket SSH proxy, 208+ endpoints, CSP middleware |
+| `main.py` | 5235 | 100% | FastAPI app central, WebSocket SSH proxy, 208+ endpoints, CSP middleware |
 | `database.py` | ~1344 | 196 | Supabase CRUD, 17 tablas, 85% coverage |
 | `mission_store.py` | ~356 | 63 | Self-improvement loop, session compaction (SessionMemory dataclass) |
 | `mcp_server.py` | ~620 | — | MCP Server para agentes IA |
@@ -131,21 +131,21 @@
 
 ---
 
-## Tests (pytest) — Julio 2026
+## Tests (pytest) — Ago 2026
 
 | Categoría | Archivos | Tests | Cobertura |
 |-----------|----------|-------|-----------|
 | Core security (scope, opsec, redact, audit) | 4 | 188 | ~88% |
 | Intelligence + SIEM + EXIF + Canary | 4 | 119 | ~80% |
 | Burp + POC + Coverage + Skills | 4 | 233 | ~78% |
-| Database | 1 | 196 | 85% |
-| API endpoints | 1 | 333+ | 53% |
+| Database | 1 | 196 | 100% |
+| API endpoints (test_api_endpoints + test_main_gaps + websocket) | 3 | 647 | **main.py 100%** |
 | Plugin system (manager + watcher) | 2 | 65 | 88% |
 | Mission store (session compaction) | 1 | 63 | 90% |
 | Scanner tools (9 modules) | 9 | 228 | — |
 | MCP + swarm + mobile (new) | 3 | 140 | 95-100% |
 | Other modules (forensics, KB, ADB, etc.) | 7 | ~200 | — |
-| **Total** | **44** | **3043** | **~86%** |
+| **Total** | **76** | **3834** | **~95%** |
 
 ### Gestor de paquetes: pnpm
 
@@ -172,6 +172,10 @@ Secrets requeridos: `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`, `VPS_HOST`, `VPS_US
 ## Últimos Commits
 
 ```
+4b77aeb test: database 100% — CRUD exception paths, _ensure_tables outer failure, not-available guards
+355cc45 test: exif_osint 99% — analyze_url paths, reverse_geocode, Image.open failure
+849e0e1 test: browser_capture 100% — category buckets, timing variants, decode fallbacks
+5c0bbb7 test: plugin_manager/skill_playbooks/siem 100%, burp_bridge/mcp_server/news_scraper/api_scanner 100% — global 95%
 fdd25fd feat: rebuild Docker from scratch (clean images + containers)
 4412892 docs: AGENTS.md — 28 modules, 170+ endpoints, 25 tabs, 1660+ tests
 7cb960a feat: Intelligence — 6 watch types, diff engine, alerts, 43 tests, 11 endpoints, frontend tab
@@ -182,6 +186,8 @@ d07ce37 feat: Finding PoC — build/poc/replay/markdown/curl parser, 61 tests, 6
 ...
 396f025 feat: Coverage Tracking + Skill Playbooks + Redaction + Burp Bridge + Audit Log + Plugin Watcher + Session Compaction (PentesterFlow-inspired)
 ```
+
+> **Pendiente de commit:** `backend/tests/test_main_gaps.py` (295 tests, REST gap coverage) y `backend/tests/test_main_websocket_gaps.py` (19 tests, `/ws` SSH proxy: `read_shell` break + outer `WebSocketDisconnect`) — llevan `main.py` a **100%** (2847/2847).
 
 ---
 

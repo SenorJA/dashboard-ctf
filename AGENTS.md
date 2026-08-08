@@ -86,14 +86,14 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 **Tests:**
 ```bash
 cd backend
-python -m pytest tests/ -k "not test_slow_hook" -q  # ~3490 tests, ~95% coverage
+python -m pytest tests/ -k "not test_slow_hook" -q  # ~3834 tests, ~95% coverage
 ```
 
 ## Backend modules (main.py + 30 modules)
 
 | File | Lines | Purpose | Tests | Coverage |
 |------|-------|---------|-------|----------|
-| `main.py` | ~5200 | FastAPI app, WebSocket SSH proxy, 170+ REST endpoints + CSP middleware | ~333 | 53% |
+| `main.py` | ~5200 | FastAPI app, WebSocket SSH proxy, 170+ REST endpoints + CSP middleware | 333+295+19 | 100% |
 | `database.py` | ~1344 | Supabase CRUD (17 tables) | 196 | 100% |
 | `exif_osint.py` | ~812 | EXIF GPS extraction, camera metadata, reverse geocoding, Leaflet map | 21+11 | 99% |
 | `canary_tokens.py` | ~442 | 8 honeytoken types, activation tracking, expiration | 24 | 99% |
@@ -117,7 +117,7 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~3490 tests, ~95% coverage
 | `scope_guard.py` | ~755 | Scope validation + Interactive Permission Prompts (Warn/Block) | ~56 | 99% |
 | `adb_controller.py` | ~205 | ADB device detection + Frida scripts (run/stop/clear) | ~25 | 100% |
 | `opsec.py` | ~400 | OPSEC Levels — 30 tools with Silent/Covert/Loud modifiers | ~25 | 100% |
-| `mission_store.py` | ~356 | Self-Improvement Loop — mission history + AI context (auto-redacts) | ~30 | 100% |
+| `mission_store.py` | ~356 | Self-Improvement Loop — mission history + AI context (auto-redacts) + Session Compaction | ~30+63 | 100% |
 | `finding_poc.py` | ~735 | Reproducible Finding PoC — curl replay, markdown reports, evidence hash | 61 | 99% |
 | `intelligence.py` | ~500 | Continuous Intelligence — watch/snapshot/diff/alert system | 43 | 99% |
 
@@ -387,7 +387,13 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~3490 tests, ~95% coverage
 
 ## Test summary
 
-- **45 test files** in `backend/tests/`
-- **~3490 tests** passing
+- **76 test files** in `backend/tests/`
+- **~3834 tests** collected (295 in `test_main_gaps.py` + 19 in `test_main_websocket_gaps.py`)
 - **~95% coverage** across measured backend modules
-- **Key test files**: test_database (196), test_api_endpoints (333), test_main_coverage (165), test_main_extra (120), test_burp_bridge (72), test_redact (63), test_skill_playbooks (67), test_audit_log (45), test_plugin_manager (47), test_plugin_watcher (18), test_siem (31), test_coverage (33), test_exif_osint (63), test_mobile_analyzer (54), test_canary_tokens (24), test_dlp_scanner (25), test_finding_poc (61), test_intelligence (43), test_permission_system (56), test_opsec, test_scope_guard, test_forensics, test_adb_controller, test_kali_mcp_client, test_mission_store, test_knowledgebase, test_swarm, + scanner tools + gap files (test_*_gaps.py: redact, dlp_scanner, mission_store, dns_lookup, pdf_engine, database, finding_poc, headers_scanner, hash_cracker, adb_controller, skill_playbooks, audit_log, intelligence, opsec, scope_guard).
+- **`backend/main.py` = 100%** (2847/2847 statements; last gaps were websocket `read_shell` break on OSError/EOFError + outer `WebSocketDisconnect`)
+- **Key test files**: test_database (196), test_api_endpoints (333), test_main_gaps (295), test_main_coverage (165), test_main_extra (120), test_crud_endpoints (67), test_deep_coverage_1/2 (205), test_compaction (63), test_burp_bridge (72), test_redact (63), test_skill_playbooks (67), test_audit_log (45), test_plugin_manager (47), test_plugin_watcher (18), test_siem (31), test_coverage (33), test_exif_osint (63), test_mobile_analyzer (54), test_canary_tokens (24), test_dlp_scanner (25), test_finding_poc (61), test_intelligence (43), test_permission_system (56), test_opsec, test_scope_guard, test_forensics, test_adb_controller, test_kali_mcp_client, test_mission_store, test_knowledgebase, test_swarm, + scanner tools + gap files (test_*_gaps.py: redact, dlp_scanner, mission_store, dns_lookup, pdf_engine, database, finding_poc, headers_scanner, hash_cracker, adb_controller, skill_playbooks, audit_log, intelligence, opsec, scope_guard).
+
+### main.py coverage tests (gaps)
+
+- `test_main_gaps.py` (295 tests) — REST endpoint gap coverage: redact, findings fallback, canary, DLP, SIEM, audit, plugins, static files, plugin watcher, skills, news, API/headers scanner, startup/shutdown handlers, docker helpers, permissions, credentials, forensics, missions, coverage errors, burp bridge, finding PoC, intelligence, diff severity, `__main__` guard (runpy).
+- `test_main_websocket_gaps.py` (19 tests, separate process) — `/ws` SSH proxy: auth errors (bad JSON / wrong type / missing creds), SSH connect failures, full session (tab-complete, scope block/warn, re-connect, resize), `read_shell` break on OSError/EOFError (via direct `asyncio.run(websocket_endpoint)` with fake websocket), and outer `WebSocketDisconnect` when client disconnects before auth.
