@@ -105,7 +105,7 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~3490 tests, ~95% coverage
 | `redact.py` | ~430 | 20 redaction patterns, shape-preserving, AI/mission integration | 63 | 100% |
 | `audit_log.py` | ~470 | JSONL audit log, 4MB rotation, SIEM forwarding, AuditLogHandler | 45 | 100% |
 | `burp_bridge.py` | ~599 | Burp ingest server, LRU store, finding↔issue conversion | 72+14 | 100% |
-| `browser_capture.py` | ~1334 | HAR import, 10 security checks, risk scoring | 95 | 96% |
+| `browser_capture.py` | ~1334 | HAR import, 10 security checks, risk scoring | 95+15 | 100% |
 | `mcp_server.py` | ~620 | MCP Server exposes tools to AI agents | +6 | 100% |
 | `news_scraper.py` | ~385 | Security news RSS/Atom aggregator | 8+7 | 100% |
 | `api_scanner.py` | ~420 | REST API misconfig/header/CORS probe | 31+6 | 100% |
