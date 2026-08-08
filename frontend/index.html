@@ -1276,12 +1276,19 @@
                     </div>
                 </div>
 
-                <!-- Target + Start -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+                <!-- Target + Mode + Start -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
                     <div class="md:col-span-2">
                         <label class="text-[9px] text-gray-600 uppercase tracking-wider mb-1 block">Target (IP or domain)</label>
                         <input id="swarm-target" type="text" placeholder="192.168.1.1 or example.com"
                             class="w-full bg-deep border border-gray-800 rounded px-3 py-2 text-[11px] text-gray-300 placeholder-gray-700 focus:outline-none focus:border-neon/50 font-mono">
+                    </div>
+                    <div>
+                        <label class="text-[9px] text-gray-600 uppercase tracking-wider mb-1 block">Mode</label>
+                        <select id="swarm-mode" class="w-full bg-deep border border-gray-800 rounded px-2 py-2 text-[11px] text-gray-300 focus:outline-none focus:border-neon/50 font-mono">
+                            <option value="full">🐝 Full — 7 operators</option>
+                            <option value="core">⚙️ Core — 4 operators</option>
+                        </select>
                     </div>
                     <div class="flex items-end gap-2">
                         <button data-action="swarm-start" id="btn-swarm-start"
@@ -1308,7 +1315,7 @@
                 </div>
 
                 <!-- Operator cards -->
-                <div id="swarm-operators" class="grid grid-cols-1 md:grid-cols-2 gap-2 mb-4">
+                <div id="swarm-operators" class="grid grid-cols-1 md:grid-cols-3 gap-2 mb-4">
                     <!-- Dynamic cards rendered by JS -->
                 </div>
 

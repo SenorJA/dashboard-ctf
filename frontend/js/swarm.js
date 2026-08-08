@@ -18,6 +18,7 @@ window.swarmStart = async function () {
 
     const btn = document.getElementById('btn-swarm-start');
     const btnCancel = document.getElementById('btn-swarm-cancel');
+    const mode = document.getElementById('swarm-mode')?.value || 'full';
     btn.disabled = true;
     btn.textContent = '⏳ Starting...';
     btnCancel.classList.remove('hidden');
@@ -26,7 +27,7 @@ window.swarmStart = async function () {
         const resp = await fetch('/api/swarm/start', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ target })
+            body: JSON.stringify({ target, mode })
         });
         const data = await resp.json();
         if (!data.ok) throw new Error(data.error || 'Failed to start swarm');
@@ -35,6 +36,8 @@ window.swarmStart = async function () {
         document.getElementById('swarm-progress').classList.remove('hidden');
         document.getElementById('swarm-findings').classList.remove('hidden');
         document.getElementById('swarm-logs').classList.remove('hidden');
+        document.getElementById('swarm-status-msg').textContent =
+            mode === 'full' ? 'Mode: full — 7 operators' : 'Mode: core — 4 operators';
 
         // Start polling
         if (swarmPollInterval) clearInterval(swarmPollInterval);
@@ -91,15 +94,26 @@ window.swarmRender = function (s) {
 
     statusMsg.textContent =
         s.status === 'completed' ? `All operators finished. ${(s.findings || []).length} findings.` :
-        s.status === 'error' ? 'An operator encountered an error. Check logs.' : '';
+        s.status === 'error' ? 'An operator encountered an error. Check logs.' :
+        s.status === 'cancelled' ? 'Swarm cancelled.' :
+        s.mode || s.operator_names?.length
+            ? `Mode: ${s.mode || (s.operator_names && s.operator_names.length === 7 ? 'full' : 'core')} — ${s.operator_names?.length || (s.mode === 'full' ? 7 : 4)} operators`
+            : '';
 
     // Operator cards
     const container = document.getElementById('swarm-operators');
-    const opIcons = { recon: '🔍', scanner: '🛡️', exploiter: '💥', report: '📄' };
-    const opLabels = { recon: 'Reconnaissance', scanner: 'Vulnerability Scanner', exploiter: 'Exploit Researcher', report: 'Report Generator' };
+    const opIcons = { recon: '🔍', osint: '🌐', scanner: '🛡️', web: '🕸️', vuln: '🧨', exploiter: '💥', report: '📄' };
+    const opLabels = {
+        recon: 'Reconnaissance', osint: 'OSINT Recon', scanner: 'Vulnerability Scanner',
+        web: 'Web App Scanner', vuln: 'Vuln Researcher', exploiter: 'Exploit Researcher',
+        report: 'Report Generator'
+    };
     const opDesc = {
         recon: 'Port scanning, web tech detection, DNS enumeration',
+        osint: 'Passive OSINT gathering (theHarvester, whois, DNS)',
         scanner: 'Vulnerability scanning (nikto, wpscan, nuclei)',
+        web: 'Fingerprinting + content discovery (whatweb, nikto, dirb)',
+        vuln: 'CVE research + matching (searchsploit, vulners, nuclei)',
         exploiter: 'Exploit research (searchsploit)',
         report: 'Compile findings into final report'
     };

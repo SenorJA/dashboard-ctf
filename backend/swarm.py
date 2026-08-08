@@ -2,7 +2,8 @@
 VulnForge — Swarm Coordinator
 
 Manages multi-operator attack pipelines:
-  Recon → Scanner → Exploiter → Report
+  full: Recon → OSINT → Scanner → Web → Vuln → Exploiter → Report
+  core: Recon → Scanner → Exploiter → Report
 
 Each swarm session runs as an asyncio background task.
 """
@@ -15,7 +16,10 @@ from typing import Optional
 
 from backend.operators import (
     ReconOperator,
+    OSINTOperator,
     ScannerOperator,
+    WebOperator,
+    VulnOperator,
     ExploiterOperator,
     ReportOperator,
 )
@@ -50,7 +54,7 @@ class SwarmCoordinator:
     """
 
     def __init__(self, target: str, ssh_ip: str, ssh_user: str, ssh_pass: str,
-                 ssh_port: int = 22):
+                 ssh_port: int = 22, mode: str = "full"):
         self.session_id = str(uuid.uuid4())
         self.target = target
         self.ssh_config = {
@@ -59,6 +63,7 @@ class SwarmCoordinator:
             "user": ssh_user,
             "pass": ssh_pass,
         }
+        self.mode = (mode or "full").lower()
         self.status = "pending"  # pending | running | completed | error | cancelled
         self.progress = 0
         self.current_operator = None
@@ -66,10 +71,47 @@ class SwarmCoordinator:
         self.completed_at = None
         self.logs = []
         self.findings = []
-        self.operators = []
+        self.operators = self._build_operators(mode)
         self.ssh = None
         self._cancel = False
         self._task = None
+
+    # ── Operator pipeline construction ──
+
+    def _build_operators(self, mode: str) -> list:
+        """
+        Build the operator pipeline for the requested mode.
+
+        - "full": Recon → OSINT → Scanner → Web → Vuln → Exploiter → Report
+        - "core": Recon → Scanner → Exploiter → Report (legacy pipeline)
+        - any other value: falls back to "full" with a log entry.
+
+        Operators are always instantiated fresh so a swarm can be restarted
+        without carrying over stale findings.
+        """
+        mode = (mode or "full").lower()
+        if mode not in ("full", "core"):
+            self.add_log(f"⚠ Unknown swarm mode '{mode}' — falling back to 'full'")
+            self.mode = "full"
+            mode = "full"
+
+        if mode == "core":
+            return [
+                ReconOperator(),
+                ScannerOperator(),
+                ExploiterOperator(),
+                ReportOperator(),
+            ]
+
+        return [
+            ReconOperator(),
+            OSINTOperator(),
+            ScannerOperator(),
+            WebOperator(),
+            VulnOperator(),
+            ExploiterOperator(),
+            ReportOperator(),
+        ]
 
     # ── Logging ──
 
@@ -149,13 +191,8 @@ class SwarmCoordinator:
             return
 
         try:
-            # Define operators
-            self.operators = [
-                ReconOperator(),
-                ScannerOperator(),
-                ExploiterOperator(),
-                ReportOperator(),
-            ]
+            # Define operators (fresh instances honouring the session mode)
+            self.operators = self._build_operators(self.mode)
 
             total_operators = len(self.operators)
 
@@ -229,6 +266,7 @@ class SwarmCoordinator:
         return {
             "session_id": self.session_id,
             "target": self.target,
+            "mode": self.mode,
             "status": self.status,
             "progress": self.progress,
             "current_operator": self.current_operator,
@@ -245,6 +283,7 @@ class SwarmCoordinator:
                 }
                 for op in self.operators
             ],
+            "operator_names": [op.name for op in self.operators],
             "logs": self.logs[-200:],  # Last 200 log entries
             "findings": self.findings,
         }

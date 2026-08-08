@@ -3332,6 +3332,7 @@ class SwarmStartRequest(BaseModel):
     ssh_ip: str = ""
     ssh_user: str = ""
     ssh_pass: str = ""
+    mode: str = "full"
 
 
 @app.post("/api/swarm/start")
@@ -3345,11 +3346,17 @@ async def swarm_start(req: SwarmStartRequest):
     ssh_user = req.ssh_user or os.getenv("KALI_USER", "javi")
     ssh_pass = req.ssh_pass or os.getenv("KALI_PASS", "javi")
 
+    # Validate pipeline mode: only "full" and "core" are supported.
+    mode = (req.mode or "full").lower()
+    if mode not in ("full", "core"):
+        mode = "full"
+
     swarm = SwarmCoordinator(
         target=req.target,
         ssh_ip=ssh_ip,
         ssh_user=ssh_user,
         ssh_pass=ssh_pass,
+        mode=mode,
     )
     swarm.start()
 
@@ -3357,6 +3364,7 @@ async def swarm_start(req: SwarmStartRequest):
         "ok": True,
         "session_id": swarm.session_id,
         "status": swarm.status,
+        "mode": swarm.mode,
     }, status_code=201)
 
 

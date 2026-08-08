@@ -554,6 +554,7 @@ class TestSwarmStart:
         mock_instance = MagicMock()
         mock_instance.session_id = "test-session-123"
         mock_instance.status = "pending"
+        mock_instance.mode = "full"
         MockSwarm.return_value = mock_instance
         resp = client.post("/api/swarm/start", json={
             "target": "10.0.0.1",
@@ -565,7 +566,61 @@ class TestSwarmStart:
         data = resp.json()
         assert data["ok"] is True
         assert "session_id" in data
+        assert data["mode"] == "full"
         mock_instance.start.assert_called_once()
+        # Mode must be forwarded to the coordinator.
+        MockSwarm.assert_called_once_with(
+            target="10.0.0.1",
+            ssh_ip="192.168.1.100",
+            ssh_user="kali",
+            ssh_pass="pass",
+            mode="full",
+        )
+
+    @patch("main.SwarmCoordinator")
+    def test_swarm_start_core_mode(self, MockSwarm, client: TestClient):
+        """Start a swarm in core mode."""
+        mock_instance = MagicMock()
+        mock_instance.session_id = "test-session-456"
+        mock_instance.status = "pending"
+        mock_instance.mode = "core"
+        MockSwarm.return_value = mock_instance
+        resp = client.post("/api/swarm/start", json={
+            "target": "10.0.0.2",
+            "mode": "core",
+        })
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["mode"] == "core"
+        MockSwarm.assert_called_once_with(
+            target="10.0.0.2",
+            ssh_ip="192.168.214.142",
+            ssh_user="javi",
+            ssh_pass="javi",
+            mode="core",
+        )
+
+    @patch("main.SwarmCoordinator")
+    def test_swarm_start_invalid_mode_falls_back_to_full(self, MockSwarm, client: TestClient):
+        """An unsupported mode is normalized to 'full'."""
+        mock_instance = MagicMock()
+        mock_instance.session_id = "test-session-789"
+        mock_instance.status = "pending"
+        mock_instance.mode = "full"
+        MockSwarm.return_value = mock_instance
+        resp = client.post("/api/swarm/start", json={
+            "target": "10.0.0.3",
+            "mode": "turbo",
+        })
+        assert resp.status_code == 201
+        assert resp.json()["mode"] == "full"
+        MockSwarm.assert_called_once_with(
+            target="10.0.0.3",
+            ssh_ip="192.168.214.142",
+            ssh_user="javi",
+            ssh_pass="javi",
+            mode="full",
+        )
 
 
 class TestSwarmStatus:

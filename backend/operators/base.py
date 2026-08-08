@@ -177,10 +177,16 @@ class BaseOperator:
                 header_found = True
                 continue
             if header_found and line.strip() and "|" in line:
+                # Skip the table header row itself (Exploit Title | Path)
+                lower = line.lower()
+                if "title" in lower and "path" in lower:
+                    continue
                 parts = [p.strip() for p in line.split("|")]
-                if len(parts) >= 3:
-                    exploit_path = parts[0]
-                    title = parts[1] if len(parts) > 1 else ""
+                # Real searchsploit uses 2 columns (Title | Path); newer
+                # versions may include a third (Type) column.
+                if len(parts) >= 2:
+                    exploit_path = parts[1]
+                    title = parts[0]
                     findings.append({
                         "tool": "searchsploit",
                         "severity": "high",

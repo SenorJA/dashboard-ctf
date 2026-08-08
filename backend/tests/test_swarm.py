@@ -395,12 +395,15 @@ class FakeOperator:
 class TestRunPipelineFull:
     @pytest.mark.asyncio
     async def test_pipeline_completes_and_persists(self, coordinator):
+        fakes = [
+            FakeOperator("Recon", "Recon Operator"),
+            FakeOperator("Scanner", "Scanner Operator"),
+            FakeOperator("Exploiter", "Exploiter Operator"),
+            FakeOperator("Report", "Report Operator"),
+        ]
         with patch.object(coordinator, "connect_ssh", new_callable=AsyncMock) as mock_connect:
             mock_connect.return_value = True
-            with patch("swarm.ReconOperator", return_value=FakeOperator("Recon", "Recon Operator")), \
-                 patch("swarm.ScannerOperator", return_value=FakeOperator("Scanner", "Scanner Operator")), \
-                 patch("swarm.ExploiterOperator", return_value=FakeOperator("Exploiter", "Exploiter Operator")), \
-                 patch("swarm.ReportOperator", return_value=FakeOperator("Report", "Report Operator")), \
+            with patch.object(coordinator, "_build_operators", return_value=fakes), \
                  patch("backend.database.save_swarm_session") as mock_save:
                 await coordinator.run_pipeline()
 
@@ -423,12 +426,15 @@ class TestRunPipelineFull:
 
     @pytest.mark.asyncio
     async def test_pipeline_continues_after_operator_failure(self, coordinator):
+        fakes = [
+            FakeOperator("Recon", "Recon Operator", fail=True),
+            FakeOperator("Scanner", "Scanner Operator"),
+            FakeOperator("Exploiter", "Exploiter Operator"),
+            FakeOperator("Report", "Report Operator"),
+        ]
         with patch.object(coordinator, "connect_ssh", new_callable=AsyncMock) as mock_connect:
             mock_connect.return_value = True
-            with patch("swarm.ReconOperator", return_value=FakeOperator("Recon", "Recon Operator", fail=True)), \
-                 patch("swarm.ScannerOperator", return_value=FakeOperator("Scanner", "Scanner Operator")), \
-                 patch("swarm.ExploiterOperator", return_value=FakeOperator("Exploiter", "Exploiter Operator")), \
-                 patch("swarm.ReportOperator", return_value=FakeOperator("Report", "Report Operator")), \
+            with patch.object(coordinator, "_build_operators", return_value=fakes), \
                  patch("backend.database.save_swarm_session"):
                 await coordinator.run_pipeline()
 
@@ -442,12 +448,15 @@ class TestRunPipelineFull:
 
     @pytest.mark.asyncio
     async def test_pipeline_db_failure_keeps_session(self, coordinator):
+        fakes = [
+            FakeOperator("Recon", "Recon Operator"),
+            FakeOperator("Scanner", "Scanner Operator"),
+            FakeOperator("Exploiter", "Exploiter Operator"),
+            FakeOperator("Report", "Report Operator"),
+        ]
         with patch.object(coordinator, "connect_ssh", new_callable=AsyncMock) as mock_connect:
             mock_connect.return_value = True
-            with patch("swarm.ReconOperator", return_value=FakeOperator("Recon", "Recon Operator")), \
-                 patch("swarm.ScannerOperator", return_value=FakeOperator("Scanner", "Scanner Operator")), \
-                 patch("swarm.ExploiterOperator", return_value=FakeOperator("Exploiter", "Exploiter Operator")), \
-                 patch("swarm.ReportOperator", return_value=FakeOperator("Report", "Report Operator")), \
+            with patch.object(coordinator, "_build_operators", return_value=fakes), \
                  patch("backend.database.save_swarm_session", side_effect=ConnectionError("no db")):
                 await coordinator.run_pipeline()
 
@@ -458,11 +467,50 @@ class TestRunPipelineFull:
     async def test_pipeline_constructor_error_sets_status_error(self, coordinator):
         with patch.object(coordinator, "connect_ssh", new_callable=AsyncMock) as mock_connect:
             mock_connect.return_value = True
-            with patch("swarm.ReconOperator", side_effect=RuntimeError("construct failed")):
+            with patch.object(coordinator, "_build_operators",
+                              side_effect=RuntimeError("construct failed")):
                 await coordinator.run_pipeline()
 
         assert coordinator.status == "error"
         assert any("Swarm error" in log for log in coordinator.logs)
+
+
+# ════════════════════════════════════════════════════════════════
+#  _build_operators() / mode
+# ════════════════════════════════════════════════════════════════
+
+class TestBuildOperators:
+    def test_default_mode_is_full(self, coordinator):
+        assert coordinator.mode == "full"
+        names = [op.name for op in coordinator.operators]
+        assert names == ["recon", "osint", "scanner", "web", "vuln", "exploiter", "report"]
+        assert len(coordinator.operators) == 7
+
+    def test_core_mode_builds_original_four(self):
+        c = SwarmCoordinator("10.0.0.1", "ip", "u", "p", mode="core")
+        assert c.mode == "core"
+        names = [op.name for op in c.operators]
+        assert names == ["recon", "scanner", "exploiter", "report"]
+        assert len(c.operators) == 4
+
+    def test_unknown_mode_falls_back_to_full(self):
+        c = SwarmCoordinator("10.0.0.1", "ip", "u", "p", mode="chaos")
+        assert c.mode == "full"
+        assert len(c.operators) == 7
+        assert any("falling back to 'full'" in log for log in c.logs)
+
+    def test_unknown_mode_case_insensitive(self):
+        c = SwarmCoordinator("10.0.0.1", "ip", "u", "p", mode="CORE")
+        assert c.mode == "core"
+        assert len(c.operators) == 4
+
+    def test_to_dict_includes_mode_and_operator_names(self, coordinator):
+        d = coordinator.to_dict()
+        assert d["mode"] == "full"
+        assert d["operator_names"] == [
+            "recon", "osint", "scanner", "web", "vuln", "exploiter", "report"
+        ]
+        assert len(d["operators"]) == 7
 
 
 # ════════════════════════════════════════════════════════════════
