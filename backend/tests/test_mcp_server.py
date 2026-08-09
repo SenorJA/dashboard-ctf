@@ -43,6 +43,13 @@ def test_tools_defined_with_expected_schema():
         "vulnforge_scope_check",
         "vulnforge_run_command",
         "vulnforge_findings_list",
+        "vulnforge_browser_import",
+        "vulnforge_browser_list_sessions",
+        "vulnforge_browser_get_session",
+        "vulnforge_browser_analyze",
+        "vulnforge_browser_get_analysis",
+        "vulnforge_browser_create_findings",
+        "vulnforge_browser_stats",
     ]
     for tool in mcp.TOOLS:
         assert tool["description"]
