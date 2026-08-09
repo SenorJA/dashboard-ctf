@@ -40,8 +40,12 @@ jobs:
           cache-to: type=gha,mode=max
 
       # ── Deploy to VPS via SSH ──
+      # NOTE: `secrets` cannot be used inside `if:` conditions (GitHub blocks
+      # it). Inject the secret as a step env var and check `env.VPS_HOST` instead.
       - name: Deploy to VPS
-        if: secrets.VPS_HOST != ''
+        if: env.VPS_HOST != ''
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.VPS_HOST }}
