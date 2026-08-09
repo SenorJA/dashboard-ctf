@@ -33,7 +33,11 @@ jobs:
         run: |
           # --timeout=60: prevents slow/hanging tests (network/timers) from
           # blocking the whole pipeline for hours. See TOMORROW.md bugs #1/#7.
-          python -m pytest tests/ -k "not test_slow_hook" --timeout=60 --timeout-method=thread --cov=. --cov-config=.coveragerc --cov-report=xml --cov-report=term-missing -q
+          # -m "not slow": the 53 @pytest.mark.slow tests need real network
+          # (SSH to Kali, DNS, port-scan, news RSS) and fail/hang on the runner;
+          # the correct filter is by MARKER, not -k "not test_slow_hook"
+          # (which only matches test names). Keep both filters.
+          python -m pytest tests/ -m "not slow" -k "not test_slow_hook" --timeout=60 --timeout-method=thread --cov=. --cov-config=.coveragerc --cov-report=xml --cov-report=term-missing -q
       - name: Upload coverage to Codecov
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: codecov/codecov-action@v4
