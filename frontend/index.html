@@ -58,6 +58,17 @@
         #tab-completions::-webkit-scrollbar { width: 4px; }
         #tab-completions::-webkit-scrollbar-thumb { background: #d4a84366 !important; border-radius: 2px; }
         #tab-completions::-webkit-scrollbar-track { background: transparent; }
+
+        /* ☀ LIGHT THEME overrides — dark amber on light surface */
+        body.light .text-neon { color: #8a6418 !important; }
+        body.light .bg-neon\/10 { background: rgba(138,100,24,0.10) !important; }
+        body.light .bg-neon\/20 { background: rgba(138,100,24,0.16) !important; }
+        body.light .bg-neon\/5 { background: rgba(138,100,24,0.05) !important; }
+        body.light .border-neon\/30 { border-color: rgba(138,100,24,0.28) !important; }
+        body.light .status-dot.online { background: #8a6418 !important; box-shadow: 0 0 8px rgba(138,100,24,0.35) !important; }
+        body.light .tab-btn.active { color: #8a6418 !important; border-bottom-color: #8a6418 !important; }
+        body.light ::-webkit-scrollbar-thumb { background: #b9c2d1 !important; }
+        body.light #tab-completions::-webkit-scrollbar-thumb { background: #8a641866 !important; }
     </style>
 
     <link rel="stylesheet" href="css/style.css">
@@ -101,7 +112,7 @@
             <!-- Theme Toggle -->
             <button data-action="theme" id="btn-theme"
                 class="text-[10px] text-gray-600 hover:text-gray-400 transition-colors px-2 py-1 border border-gray-800 rounded font-mono tracking-wider"
-                title="Toggle B/W mode">
+                title="Toggle theme (dark / light / mono)">
                 <span id="theme-icon">☾</span>
             </button>
             <!-- Language Toggle -->

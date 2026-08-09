@@ -871,3 +871,306 @@ body {
         max-height: 180px !important;
     }
 }
+
+/* ================================================================
+   LIGHT MODE (Real Light Theme)
+   Mirror of the monochrome block — overrides every colored
+   Tailwind utility with a readable-on-white equivalent while
+   keeping the SIGINT identity (dark amber on light surface).
+   ================================================================ */
+body.light {
+    --light-bg: #f2f4f8;
+    --light-surface: #ffffff;
+    --light-border: #d7dce4;
+    --light-text: #1f2430;
+    --light-text-dim: #5a6474;
+    --light-text-tertiary: #6b7484;
+    --light-accent: #8a6418;
+    --light-accent-strong: #6d4f12;
+    --light-cyber: #25635f;
+    --light-blood: #9b2c24;
+}
+
+body.light,
+body.light .bg-deep { background: var(--light-bg) !important; }
+body.light .bg-void { background: var(--light-surface) !important; }
+
+body.light .bg-neon\/10 { background: rgba(138,100,24,0.10) !important; }
+body.light .bg-neon\/20 { background: rgba(138,100,24,0.16) !important; }
+body.light .bg-neon\/5 { background: rgba(138,100,24,0.05) !important; }
+body.light .bg-cyber\/10 { background: rgba(37,99,95,0.10) !important; }
+body.light .bg-cyber\/20 { background: rgba(37,99,95,0.16) !important; }
+body.light .bg-blood\/10 { background: rgba(155,44,36,0.10) !important; }
+body.light .bg-blood\/20 { background: rgba(155,44,36,0.16) !important; }
+body.light .bg-amber\/10 { background: rgba(138,100,24,0.10) !important; }
+
+body.light .bg-slate-700\/50,
+body.light .bg-slate-800,
+body.light .bg-slate-900,
+body.light .bg-\[\#0f172a\],
+body.light .bg-\[\#1e293b\] { background: var(--light-surface) !important; }
+
+body.light .text-neon { color: var(--light-accent) !important; }
+body.light .text-cyber { color: var(--light-cyber) !important; }
+body.light .text-blood { color: var(--light-blood) !important; }
+body.light .text-emerald-400,
+body.light .text-emerald-500 { color: #1f6e4f !important; }
+
+body.light .text-neon\/70 { color: var(--light-accent) !important; }
+body.light .text-neon\/90 { color: var(--light-accent-strong) !important; }
+body.light .text-cyber\/60 { color: rgba(37,99,95,0.60) !important; }
+body.light .text-cyber\/70 { color: rgba(37,99,95,0.70) !important; }
+body.light .text-blood\/60 { color: rgba(155,44,36,0.60) !important; }
+body.light .text-blood\/70 { color: rgba(155,44,36,0.70) !important; }
+
+body.light .text-gray-300,
+body.light .text-gray-400,
+body.light .text-slate-200,
+body.light .text-slate-300,
+body.light .text-slate-400 { color: var(--light-text) !important; }
+body.light .text-gray-500,
+body.light .text-gray-600,
+body.light .text-slate-500,
+body.light .text-slate-600 { color: var(--light-text-dim) !important; }
+body.light .text-gray-700,
+body.light .text-gray-800,
+body.light .text-slate-700,
+body.light .text-slate-800 { color: var(--light-text-tertiary) !important; }
+
+body.light .border-neon\/30 { border-color: rgba(138,100,24,0.28) !important; }
+body.light .border-neon\/40 { border-color: rgba(138,100,24,0.36) !important; }
+body.light .border-cyber\/30 { border-color: rgba(37,99,95,0.28) !important; }
+body.light .border-cyber\/40 { border-color: rgba(37,99,95,0.36) !important; }
+body.light .border-blood\/30 { border-color: rgba(155,44,36,0.28) !important; }
+body.light .border-emerald-500,
+body.light .border-emerald-500\/60,
+body.light .hover\:border-emerald-500\/60:hover { border-color: rgba(31,110,79,0.50) !important; }
+
+body.light .border-gray-800,
+body.light .border-gray-800\/50,
+body.light .border-slate-600,
+body.light .border-slate-700 { border-color: var(--light-border) !important; }
+
+body.light .shadow-\[0_0_8px_rgba\(16\,185\,129\,0\.6\)\],
+body.light .shadow-\[0_0_8px_rgba\(239\,68\,68\,0\.6\)\],
+body.light .shadow-\[0_0_12px_rgba\(0\,255\,65\,0\.15\)\],
+body.light .terminal-glow,
+body.light .amber-glow,
+body.light .teal-glow { box-shadow: 0 1px 3px rgba(31,36,48,0.08) !important; }
+
+body.light body::before {
+    background: linear-gradient(90deg,
+        rgba(138,100,24,0) 0%,
+        rgba(138,100,24,0.45) 20%,
+        rgba(138,100,24,0.60) 50%,
+        rgba(138,100,24,0.45) 80%,
+        rgba(138,100,24,0) 100%
+    ) !important;
+    box-shadow: 0 0 12px rgba(138,100,24,0.15) !important;
+}
+
+body.light .cursor-blink::after { color: var(--light-accent) !important; }
+
+body.light .port-badge {
+    background: rgba(138,100,24,0.10) !important;
+    color: var(--light-accent) !important;
+    border-color: rgba(138,100,24,0.28) !important;
+}
+body.light .service-tag {
+    background: rgba(31,36,48,0.04) !important;
+    color: var(--light-text-dim) !important;
+    border-color: var(--light-border) !important;
+}
+body.light .report-card { background: var(--light-surface) !important; border-color: var(--light-border) !important; border-left-color: var(--light-accent) !important; }
+body.light .conn-card { border-left-color: var(--light-text-dim) !important; }
+body.light .status-dot.online { background: var(--light-accent) !important; box-shadow: 0 0 8px rgba(138,100,24,0.35) !important; }
+body.light .status-dot.offline { background: var(--light-text-tertiary) !important; box-shadow: none !important; }
+
+body.light .text-sky-400 { color: #0369a1 !important; }
+body.light .text-violet-400 { color: #6d28d9 !important; }
+body.light .text-amber-400 { color: #92400e !important; }
+body.light .text-fuchsia-400 { color: #a21caf !important; }
+body.light .text-yellow-400 { color: #a16207 !important; }
+body.light .text-red-400 { color: #b91c1c !important; }
+body.light .text-cyan-400 { color: #0e7490 !important; }
+
+body.light .hak5-device-btn { color: var(--light-text-dim) !important; border-color: var(--light-border) !important; }
+body.light .hak5-device-btn:hover { color: var(--light-accent) !important; border-color: var(--light-accent) !important; }
+body.light .hak5-device-btn.active { color: var(--light-accent) !important; border-color: var(--light-accent) !important; background: rgba(138,100,24,0.10) !important; }
+body.light .hak5-device-btn[data-device="bunny"].active,
+body.light .hak5-device-btn[data-device="omg"].active,
+body.light .hak5-device-btn[data-device="m5"].active,
+body.light .hak5-device-btn[data-device="shack"].active { color: var(--light-accent) !important; border-color: var(--light-accent) !important; }
+body.light .hak5-device-btn[data-device="bunny"]:hover,
+body.light .hak5-device-btn[data-device="omg"]:hover,
+body.light .hak5-device-btn[data-device="m5"]:hover,
+body.light .hak5-device-btn[data-device="shack"]:hover { color: var(--light-accent) !important; border-color: var(--light-accent) !important; }
+
+body.light iframe { filter: none !important; }
+
+body.light .script-editor {
+    background: #ffffff !important;
+    color: var(--light-text) !important;
+    border-color: var(--light-border) !important;
+}
+
+body.light .toast {
+    background: var(--light-surface) !important;
+    border-color: var(--light-accent) !important;
+    color: var(--light-accent) !important;
+    box-shadow: 0 2px 12px rgba(31,36,48,0.12) !important;
+}
+
+body.light ::-webkit-scrollbar-track { background: #e8ebf1 !important; }
+body.light ::-webkit-scrollbar-thumb {
+    background: #b9c2d1 !important;
+    box-shadow: none !important;
+}
+body.light * {
+    scrollbar-color: #b9c2d1 #e8ebf1;
+}
+
+body.light .tab-btn.active {
+    color: var(--light-accent) !important;
+    border-bottom-color: var(--light-accent) !important;
+}
+
+body.light .report-export-btn {
+    color: var(--light-text-dim) !important;
+    border-color: var(--light-border) !important;
+}
+body.light .report-export-btn:hover {
+    color: var(--light-accent) !important;
+    border-color: var(--light-accent) !important;
+    background: rgba(138,100,24,0.08) !important;
+}
+
+body.light .format-select,
+body.light #bounty-format,
+body.light #ai-format,
+body.light #reports-format {
+    background: var(--light-surface) !important;
+    border-color: var(--light-border) !important;
+    color: var(--light-text-dim) !important;
+}
+body.light .format-select:focus,
+body.light #bounty-format:focus,
+body.light #ai-format:focus,
+body.light #reports-format:focus {
+    border-color: var(--light-accent) !important;
+}
+
+body.light #ps-status-badge.text-neon {
+    color: var(--light-accent) !important;
+    border-color: var(--light-accent) !important;
+}
+body.light #ps-connect-form input {
+    background: var(--light-surface) !important;
+    border-color: var(--light-border) !important;
+    color: var(--light-text) !important;
+}
+
+body.light #n8n-status-badge.text-neon {
+    color: var(--light-accent) !important;
+    border-color: var(--light-accent) !important;
+}
+
+/* ================================================================
+   LIGHT MODE — UI AUDITOR FIXES
+   Surfaces that stayed dark now receive light equivalents, so
+   re-mapped dark text never lands on a dark surface.
+   ================================================================ */
+
+/* 1. Report cards: light surface + light border */
+body.light .report-card {
+    background: var(--light-surface) !important;
+    border-color: var(--light-border) !important;
+    border-left-color: var(--light-accent) !important;
+}
+
+/* 2. Tab completions dropdown: light container + hover text */
+body.light #tab-completions {
+    background: var(--light-surface) !important;
+    box-shadow: 0 4px 16px rgba(31,36,48,0.12) !important;
+}
+body.light #tab-completions .hover\:text-white:hover { color: var(--light-accent-strong) !important; }
+
+/* 3. Translucent dark surfaces → light rgba overlays */
+body.light .bg-deep\/30 { background: rgba(31,36,48,0.03) !important; }
+body.light .bg-deep\/50 { background: rgba(31,36,48,0.05) !important; }
+body.light .bg-deep\/60 { background: rgba(31,36,48,0.06) !important; }
+body.light .bg-void\/40 { background: rgba(31,36,48,0.04) !important; }
+body.light .bg-void\/50 { background: rgba(31,36,48,0.05) !important; }
+body.light .bg-void\/60 { background: rgba(31,36,48,0.06) !important; }
+
+/* 4. Gray button/surface backgrounds → light surface */
+body.light .bg-gray-800,
+body.light .bg-gray-800\/50,
+body.light .bg-gray-800\/30,
+body.light .bg-gray-700 { background: var(--light-surface) !important; border-color: var(--light-border) !important; }
+
+/* 5. Solid accent backgrounds (buttons, indicators) */
+body.light .bg-neon { background: var(--light-accent) !important; }
+body.light .bg-cyber { background: var(--light-cyber) !important; }
+
+/* 6. text-white inside surfaces that turn light → dark text.
+      Solid-accent buttons (bg-neon/bg-cyber/bg-blood) keep white text
+      for contrast — excluded via :not() so they are NOT remapped. */
+body.light .bg-deep .text-white:not(.bg-cyber):not(.bg-neon):not(.bg-blood),
+body.light .bg-void .text-white:not(.bg-cyber):not(.bg-neon):not(.bg-blood),
+body.light .bg-deep\/30 .text-white:not(.bg-cyber):not(.bg-neon):not(.bg-blood),
+body.light .bg-deep\/50 .text-white:not(.bg-cyber):not(.bg-neon):not(.bg-blood),
+body.light .bg-deep\/60 .text-white:not(.bg-cyber):not(.bg-neon):not(.bg-blood),
+body.light .bg-void\/40 .text-white:not(.bg-cyber):not(.bg-neon):not(.bg-blood),
+body.light .bg-void\/50 .text-white:not(.bg-cyber):not(.bg-neon):not(.bg-blood),
+body.light .bg-void\/60 .text-white:not(.bg-cyber):not(.bg-neon):not(.bg-blood) { color: var(--light-text) !important; }
+
+/* 7. Extra status colors → dark, readable on white */
+body.light .text-green-400 { color: #1f6e4f !important; }
+body.light .text-orange-400 { color: #9a3412 !important; }
+body.light .text-yellow-500 { color: #a16207 !important; }
+body.light .text-blue-400 { color: #0369a1 !important; }
+body.light .text-amber-400\/80 { color: rgba(146,64,14,0.80) !important; }
+body.light .text-amber-400\/60 { color: rgba(146,64,14,0.60) !important; }
+body.light .text-amber-500\/70 { color: rgba(146,64,14,0.70) !important; }
+
+/* 8. Tabs bar + inactive tab buttons */
+body.light .tabs-bar { background: var(--light-surface) !important; border-bottom-color: var(--light-border) !important; }
+body.light .tab-btn { color: var(--light-text-dim) !important; }
+
+/* 9. Script template buttons */
+body.light .script-template-btn { background: var(--light-surface) !important; color: var(--light-text-dim) !important; border-color: var(--light-border) !important; }
+
+/* 10. Sidebar category hover */
+body.light .cat-header:hover { color: var(--light-accent) !important; }
+
+/* 11. Modal borders */
+body.light .modal-content { border-color: var(--light-border) !important; }
+
+/* ================================================================
+   LIGHT MODE — RE-AUDIT FIXES (5 surgical gaps)
+   ================================================================ */
+
+/* 1. text-amber-500/80 (mobile-ask-ai, forensics-ask-ai) — 1.86:1 on light */
+body.light .text-amber-500\/80 { color: rgba(146,64,14,0.80) !important; }
+
+/* 2. Same-element bg+text: inputs/selects that carry BOTH bg-deep and
+      text-white on the same node (descendant selector can't reach them):
+      #exif-url-input, #canary-type, #canary-name, #canary-notes,
+      #dlp-text-input, #dlp-url-input, #siem-filter-severity,
+      #siem-filter-source — all use plain bg-deep; /30 /50 /60 variants
+      included defensively. */
+body.light .bg-deep.text-white { background: var(--light-surface) !important; color: var(--light-text) !important; border-color: var(--light-border) !important; }
+body.light .bg-deep\/30.text-white { background: var(--light-surface) !important; color: var(--light-text) !important; border-color: var(--light-border) !important; }
+body.light .bg-deep\/50.text-white { background: var(--light-surface) !important; color: var(--light-text) !important; border-color: var(--light-border) !important; }
+body.light .bg-deep\/60.text-white { background: var(--light-surface) !important; color: var(--light-text) !important; border-color: var(--light-border) !important; }
+
+/* 3. hover:text-white (#exif-copy-json, plugins-modal close) */
+body.light .hover\:text-white:hover { color: var(--light-accent-strong) !important; }
+
+/* 4. hover:bg-gray-700 (cov-export buttons, #bc-close-detail, docker modal) */
+body.light .hover\:bg-gray-700:hover { background: rgba(31,36,48,0.08) !important; }
+
+/* 5. border-gray-700 + #docker-dot (same buttons + Docker status dot) */
+body.light .border-gray-700 { border-color: var(--light-border) !important; }
+body.light #docker-dot { background: var(--light-text-dim) !important; }

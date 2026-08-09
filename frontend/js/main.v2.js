@@ -521,10 +521,18 @@ ${bodyHtml}
 
     // Severity helpers
     function severityColor(sev) {
+        if (window.getCurrentTheme() === 'light') {
+            const map = { critical: '#b91c1c', high: '#c2410c', medium: '#a16207', low: '#0369a1', info: '#5a6474' };
+            return map[sev] || '#5a6474';
+        }
         const map = { critical: '#f87171', high: '#fb923c', medium: '#facc15', low: '#60a5fa', info: '#94a3b8' };
         return map[sev] || '#666';
     }
     function severityBg(sev) {
+        if (window.getCurrentTheme() === 'light') {
+            const map = { critical: '#fde8e8', high: '#fff3e0', medium: '#fdf6d8', low: '#e8f0fd', info: '#f0f2f5' };
+            return map[sev] || '#f0f2f5';
+        }
         const map = { critical: '#1a0a0a', high: '#1a0f0a', medium: '#1a180a', low: '#0a0f1a', info: '#0a0a0a' };
         return map[sev] || '#0a0a0a';
     }
@@ -1379,12 +1387,14 @@ ${bodyHtml}
     document.addEventListener('click', (e) => {
         const btn = e.target.closest('.finding-filter');
         if (!btn) return;
+        const isLight = window.getCurrentTheme() === 'light';
+        const sevLight = { all: '#5a6474', critical: '#b91c1c', high: '#c2410c', medium: '#a16207', low: '#0369a1', info: '#5a6474' };
         document.querySelectorAll('.finding-filter').forEach(b => {
             b.style.background = 'transparent';
-            b.style.color = '#888';
+            b.style.color = isLight ? '#5a6474' : '#888';
         });
-        btn.style.background = '#ffffff0a';
-        btn.style.color = '#fff';
+        btn.style.background = isLight ? '#ffffff' : '#ffffff0a';
+        btn.style.color = isLight ? (sevLight[btn.dataset.severity] || '#5a6474') : '#fff';
         renderFindings(btn.dataset.severity);
     });
 
@@ -5822,20 +5832,35 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
     setTimeout(_dockerPollLoop, 2000);
 
     // ============================================================
-    //  THEME TOGGLE (Monochrome Mode)
+    //  THEME TOGGLE (neon → light → mono cycle)
     // ============================================================
+    window.getCurrentTheme = function () {
+        if (document.body.classList.contains('monochrome')) return 'mono';
+        if (document.body.classList.contains('light')) return 'light';
+        return 'neon';
+    };
+    window.setTheme = function (state) {
+        document.body.classList.remove('monochrome', 'light');
+        if (state === 'mono') document.body.classList.add('monochrome');
+        if (state === 'light') document.body.classList.add('light');
+        localStorage.setItem('vulnforge_theme', state);
+        const icons = { neon: '☾', light: '☀', mono: '◇' };
+        const el = document.getElementById('theme-icon');
+        if (el) el.textContent = icons[state] || '☾';
+        const meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute('content', state === 'light' ? '#f2f4f8' : '#0a0a0f');
+    };
     window.toggleTheme = function () {
-        const isMono = document.body.classList.toggle('monochrome');
-        localStorage.setItem('vulnforge_theme', isMono ? 'mono' : 'neon');
-        document.getElementById('theme-icon').textContent = isMono ? '◇' : '☾';
-        showToast(isMono ? '◼ Monochrome mode' : '🟢 Neon mode');
+        const order = ['neon', 'light', 'mono'];
+        const cur = window.getCurrentTheme();
+        const next = order[(order.indexOf(cur) + 1) % order.length];
+        window.setTheme(next);
     };
 
     // Load saved theme
-    if (localStorage.getItem('vulnforge_theme') === 'mono') {
-        document.body.classList.add('monochrome');
-        document.getElementById('theme-icon').textContent = '◇';
-    }
+    const savedTheme = localStorage.getItem('vulnforge_theme');
+    if (savedTheme === 'mono' || savedTheme === 'light') window.setTheme(savedTheme);
+    else window.setTheme('neon');
 
     // ============================================================
     //  LANGUAGE (ES/EN)
@@ -7156,7 +7181,10 @@ Reglas:
         // Severity banner
         const sevBanner = document.getElementById('exif-severity-banner');
         sevBanner.classList.remove('hidden');
-        const sevColors = { high: 'bg-red-900/50 text-red-400 border border-red-700', medium: 'bg-yellow-900/50 text-yellow-400 border border-yellow-700', low: 'bg-blue-900/50 text-blue-400 border border-blue-700', info: 'bg-gray-800 text-gray-400 border border-gray-700' };
+        const isExifLight = window.getCurrentTheme() === 'light';
+        const sevColors = isExifLight
+            ? { high: 'bg-[#fff3e0] text-[#c2410c] border border-orange-200', medium: 'bg-[#fdf6d8] text-[#a16207] border border-yellow-200', low: 'bg-[#e8f0fd] text-[#0369a1] border border-sky-200', info: 'bg-[#f0f2f5] text-[#5a6474] border border-slate-200' }
+            : { high: 'bg-red-900/50 text-red-400 border border-red-700', medium: 'bg-yellow-900/50 text-yellow-400 border border-yellow-700', low: 'bg-blue-900/50 text-blue-400 border border-blue-700', info: 'bg-gray-800 text-gray-400 border border-gray-700' };
         const sevLabels = { high: window.currentLang === 'es' ? 'ALTO - Contiene datos de ubicación GPS' : 'HIGH - Contains GPS location data', medium: window.currentLang === 'es' ? 'MEDIO - Información de cámara detectada' : 'MEDIUM - Camera information detected', low: window.currentLang === 'es' ? 'BAJO - Metadatos básicos encontrados' : 'LOW - Basic metadata found', info: window.currentLang === 'es' ? 'INFO - Sin metadatos EXIF' : 'INFO - No EXIF metadata' };
         sevBanner.className = `px-4 py-3 rounded-lg text-sm font-mono ${sevColors[data.severity] || 'bg-gray-800 text-gray-400'}`;
         sevBanner.textContent = `\u26A0 ${sevLabels[data.severity] || data.severity}`;
@@ -7372,12 +7400,12 @@ Reglas:
     }
 
     function buildExifHTML(data) {
-        const isDark = !document.body.classList.contains('monochrome');
-        const bg = isDark ? '#0b0e14' : '#1a1a2e';
-        const card = isDark ? '#111520' : '#16213e';
-        const border = isDark ? '#1a1f2e' : '#0f3460';
-        const text = '#e0e0e0';
-        const neon = isDark ? '#d4a843' : '#3b8f8a';
+        const isDark = !document.body.classList.contains('monochrome') && !document.body.classList.contains('light');
+        const bg = isDark ? '#0b0e14' : '#f2f4f8';
+        const card = isDark ? '#111520' : '#ffffff';
+        const border = isDark ? '#1a1f2e' : '#d7dce4';
+        const text = isDark ? '#e0e0e0' : '#1f2430';
+        const neon = isDark ? '#d4a843' : '#8f6a1e';
 
         let html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>EXIF Report - ${data.filename || 'image'}</title>
 <style>*{margin:0;padding:0;box-sizing:border-box}body{background:${bg};color:${text};font-family:'Courier New',monospace;padding:20px}.container{max-width:800px;margin:0 auto}h1{color:${neon};border-bottom:2px solid ${neon};padding-bottom:10px;margin-bottom:20px}h2{color:${neon};margin-top:25px;margin-bottom:10px}table{width:100%;border-collapse:collapse;margin:10px 0 20px}th,td{padding:8px 12px;text-align:left;border:1px solid ${border}}th{background:${card};color:${neon}}td{background:${bg}}.sev-high{color:#ff4444}.sev-medium{color:#ffaa00}.sev-low{color:#44aaff}.sev-info{color:#888}.tag{font-size:0.9em;color:#aaa}a{color:${neon}}.footer{margin-top:40px;padding-top:15px;border-top:1px solid ${border};font-size:0.8em;color:#666}</style></head><body><div class="container">`;
