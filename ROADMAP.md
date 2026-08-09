@@ -182,14 +182,24 @@
 - [x] **Cobertura > 80%** — ~95% global, main.py 100%, database 100%, browser_capture 100%, plugin_manager 100%
 
 ### Prioridad MEDIA
-- [ ] **Browser Capture MCP** — capturar tráfico del navegador (esfuerzo ALTO)
+- [x] ~~**Browser Capture MCP**~~ — 7 tools MCP envolviendo browser_capture (import/analyze/findings)
 - [x] ~~**More finding parsers**~~ — 14 new parsers added (28 total)
 - [x] ~~**Export PDF mejorado**~~ — professional PDF engine (cover, TOC, severity colors)
 
 ### Prioridad BAJA
 - [ ] **Fase 7** — Cloudflare Tunnel (dominio + cloudflared)
-- [ ] **Swarm** — más operadores (OSINT, Web, Vuln)
-- [ ] **Dark mode toggle** — no solo monochrome
+- [x] ~~**Swarm** — más operadores (OSINT, Web, Vuln)~~ — 3 operadores nuevos, mode full/core
+- [x] ~~**Dark mode toggle**~~ — theme real de 3 estados (neon/light/mono) con WCAG AA
+
+## ✅ Browser Capture MCP + Swarm Ops + Light Theme (Aug 2026)
+
+- [x] `backend/mcp_server.py` — 7 tools `vulnforge_browser_*`: import HAR, list/get sessions, analyze (10-checks), get_analysis, create_findings (→ session findings store), stats
+- [x] Flujo encadenable: **import → analyze → findings_list** para agentes AI
+- [x] 33 tests nuevos (`test_mcp_browser_tools.py`), 187 passed MCP/browser, `mcp_server.py` 100% coverage
+- [x] `backend/operators/{osint,web,vuln}.py` — 3 operadores Swarm nuevos; `swarm.py` `_build_operators(mode)` full/core; frontend selector de modo + grid 3 cols
+- [x] 89 tests Swarm, cobertura swarm 100% / osint 85% / web 85% / vuln 89%
+- [x] Light theme real: `body.light` (tokens, WCAG AA 15.5:1 texto / 5.36:1 acentos), ciclo neon→light→mono, helpers JS theme-aware
+- [x] Commits: `dedfda6` (swarm), `2f5ef00` (light theme), `022f349` (browser MCP)
 
 ---
 

@@ -154,13 +154,13 @@
   # Añadir: DOCKERHUB_USERNAME, DOCKERHUB_TOKEN, VPS_HOST, VPS_USER, VPS_SSH_KEY
   ```
 - [ ] **Verificar CI en GitHub** — tras secrets, push para disparar workflows
-- [ ] **Browser Capture MCP** — capturar tráfico del navegador (esfuerzo ALTO)
+- [x] ~~**Browser Capture MCP**~~ — 7 tools MCP envolviendo browser_capture (022f349)
 - [x] **Cobertura global > 80%** — ~95%; **main.py 100%** (2847/2847) vía test_main_gaps.py (295) + test_main_websocket_gaps.py (19)
 
 ### Prioridad BAJA
 - [ ] Fase 7 — Cloudflare Tunnel (dominio + cloudflared)
 - [ ] Export findings a PDF mejorado
-- [ ] Swarm: más operadores (OSINT, Web, Vuln)
+- [x] ~~Swarm: más operadores (OSINT, Web, Vuln)~~ — 3 operadores nuevos + mode full/core (dedfda6)
 
 ---
 
