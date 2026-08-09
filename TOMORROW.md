@@ -148,11 +148,7 @@
 - [x] ~~Continuous Intelligence~~ — ✅ intelligence.py 890L + 43 tests + 11 endpoints + frontend tab
 
 ### Prioridad MEDIA
-- [ ] **Configurar secrets GitHub** (manual, 15 min) — habilita deploy automático
-  ```bash
-  # Ir a https://github.com/SenorJA/dashboard-ctf/settings/secrets/actions
-  # Añadir: DOCKERHUB_USERNAME, DOCKERHUB_TOKEN, VPS_HOST, VPS_USER, VPS_SSH_KEY
-  ```
+- [x] ~~**Configurar secrets GitHub**~~ — DOCKERHUB_USERNAME + DOCKERHUB_TOKEN añadidos (9 Ago 2026); VPS pendiente
 - [ ] **Verificar CI en GitHub** — tras secrets, push para disparar workflows
 - [x] ~~**Browser Capture MCP**~~ — 7 tools MCP envolviendo browser_capture (022f349)
 - [x] **Cobertura global > 80%** — ~95%; **main.py 100%** (2847/2847) vía test_main_gaps.py (295) + test_main_websocket_gaps.py (19)
