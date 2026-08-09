@@ -554,13 +554,29 @@ class AuditLogHandler(logging.Handler):
 
     ``emit()`` swallows all exceptions -- a logging handler must never
     crash the code that called ``logger.info(...)``.
+
+    Re-entrancy guard: :func:`audit` may emit a ``logger.warning()`` on
+    SIEM-forward failure (see ``audit()``), which would route back into
+    this handler and recurse forever. Nested invocations on the same
+    thread are therefore skipped (per-thread via :class:`threading.local`
+    so concurrent emits from other threads are unaffected); the warning
+    still reaches the logger's other handlers (e.g. the StreamHandler).
     """
 
     def __init__(self, category: str = "system"):
         super().__init__()
         self._category = category
+        # Re-entrancy guard: audit() may emit logger.warning() on SIEM
+        # failure, which would route back into this handler and cause
+        # infinite recursion. Track per-thread to allow concurrent emits.
+        self._local = threading.local()
 
     def emit(self, record: logging.LogRecord) -> None:
+        # Skip nested invocations (e.g. the "SIEM forward failed" warning
+        # raised inside audit()) to prevent infinite recursion.
+        if getattr(self._local, "in_emit", False):
+            return
+        self._local.in_emit = True
         try:
             audit(
                 level=record.levelname,
@@ -575,6 +591,8 @@ class AuditLogHandler(logging.Handler):
             )
         except Exception:  # pragma: no cover -- defensive
             pass
+        finally:
+            self._local.in_emit = False
 
 
 def get_audit_logger(name: str = "vulnforge",
