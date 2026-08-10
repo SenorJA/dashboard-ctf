@@ -37,7 +37,21 @@ jobs:
           # (SSH to Kali, DNS, port-scan, news RSS) and fail/hang on the runner;
           # the correct filter is by MARKER, not -k "not test_slow_hook"
           # (which only matches test names). Keep both filters.
-          python -m pytest tests/ -m "not slow" -k "not test_slow_hook" --timeout=60 --timeout-method=thread --cov=. --cov-config=.coveragerc --cov-report=xml --cov-report=term-missing -q
+          # set -o pipefail: tee must not mask pytest's exit code.
+          set -o pipefail
+          python -m pytest tests/ -m "not slow" -k "not test_slow_hook" --timeout=60 --timeout-method=thread --cov=. --cov-config=.coveragerc --cov-report=xml --cov-report=term-missing -q 2>&1 | tee pytest.log
+      - name: Show failure summary (diagnostic)
+        if: always()
+        working-directory: backend
+        run: |
+          # Render the pytest verdict on the job page ($GITHUB_STEP_SUMMARY)
+          # so the cause is visible without downloading the (large) raw log.
+          {
+            echo "## Pytest result summary"
+            echo '```'
+            grep -E "FAILED|ERROR|Coverage failure|fail-under|passed|failed" pytest.log | tail -60
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Upload coverage to Codecov
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: codecov/codecov-action@v4
