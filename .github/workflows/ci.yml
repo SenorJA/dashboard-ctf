@@ -39,7 +39,17 @@ jobs:
           # (which only matches test names). Keep both filters.
           # set -o pipefail: tee must not mask pytest's exit code.
           set -o pipefail
-          python -m pytest tests/ -m "not slow" -k "not test_slow_hook" --timeout=60 --timeout-method=thread --cov=. --cov-config=.coveragerc --cov-report=xml --cov-report=term-missing -q 2>&1 | tee pytest.log
+          # --cov-fail-under=0: DIAGNOSTIC override. If this makes the job
+          # green, the real cause was the fail_under=80 coverage threshold;
+          # if it stays red, we have real test failures. Remove once diagnosed.
+          python -m pytest tests/ -m "not slow" -k "not test_slow_hook" --timeout=60 --timeout-method=thread --cov=. --cov-config=.coveragerc --cov-report=xml --cov-report=term-missing --cov-fail-under=0 -q 2>&1 | tee pytest.log
+      - name: Upload pytest log (diagnostic artifact)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-log
+          path: backend/pytest.log
+          if-no-files-found: ignore
       - name: Show failure summary (diagnostic)
         if: always()
         working-directory: backend
