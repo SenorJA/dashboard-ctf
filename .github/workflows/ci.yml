@@ -52,6 +52,10 @@ jobs:
             grep -E "FAILED|ERROR|Coverage failure|fail-under|passed|failed" pytest.log | tail -60
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+          # ALSO emit the verdict as ::error:: workflow commands so it is
+          # queryable via the check-runs annotations API (not just the UI).
+          grep -E "FAILED|ERROR|Coverage failure|fail-under" pytest.log | tail -10 | sed 's/^/::error::/'
+          tail -3 pytest.log | grep -E "passed|failed" | sed 's/^/::error::/'
       - name: Upload coverage to Codecov
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: codecov/codecov-action@v4
