@@ -36,7 +36,7 @@ from pathlib import Path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import pytest
-from audit_log import (
+from backend.audit_log import (
     AuditEvent,
     AuditLogHandler,
     audit,
@@ -49,8 +49,8 @@ from audit_log import (
     _reset_state_for_tests,
     CATEGORIES,
 )
-import audit_log as al_mod
-import siem
+import backend.audit_log as al_mod
+from backend import siem
 
 
 # ──────────────────────────────────────────────
@@ -73,9 +73,13 @@ def isolated_audit_env(tmp_path, monkeypatch):
                    level="INFO", siem_min_level="WARNING")
     siem.reset()
     yield log_file
-    # Detach any AuditLogHandler the test added to existing loggers
-    for nm in ("vulnforge", "vulnforge.test", "vulnforge.handler_test",
-               "audit_test"):
+    # Detach any AuditLogHandler the test added to existing loggers.
+    # Include "vulnforge.audit": the warning emitted by audit() when SIEM
+    # forwarding fails propagates up to "vulnforge" via this child logger;
+    # if we don't clear it, stale Handlers accumulate across suites and
+    # cause exponential emit() recursion (see CI runs #47/#48).
+    for nm in ("vulnforge", "vulnforge.audit", "vulnforge.audit_siem_fail",
+               "vulnforge.test", "vulnforge.handler_test", "audit_test"):
         lg = logging.getLogger(nm)
         lg.handlers = [h for h in lg.handlers
                        if not isinstance(h, AuditLogHandler)]

@@ -49,6 +49,29 @@ from backend import siem
 
 logger = logging.getLogger("vulnforge.audit")
 
+# ── Module-level re-entrancy guard for AuditLogHandler.emit() ──
+# The previous per-instance guard (self._local) only stops a SINGLE
+# handler from re-entering itself. If the ancestor logger "vulnforge"
+# accumulates multiple AuditLogHandlers (e.g. main.py adding one per
+# FastAPI startup), each duplicate carries its own self._local and
+# re-enters independently -> exponential call explosion -> runaway
+# recursion (see CI runs #47/#48, test_siem_forward_failure_is_swallowed).
+# A single per-thread guard shared by ALL instances stops the FIRST
+# re-entry regardless of how many handlers exist or which module copy
+# created them. Concurrent emits from other threads remain unaffected
+# because threading.local() is per-thread.
+_emit_guard = threading.local()
+
+# ── Internal logger for audit-pipeline failures ──
+# propagate=False + NullHandler ensures these warnings CANNOT re-enter
+# the AuditLogHandler pipeline via the ancestor "vulnforge" logger,
+# which would otherwise recurse. Operators who want to SEE these
+# internal diagnostics can attach a handler to "vulnforge.audit.internal".
+_internal_warn_logger = logging.getLogger("vulnforge.audit.internal")
+_internal_warn_logger.propagate = False
+if not _internal_warn_logger.handlers:
+    _internal_warn_logger.addHandler(logging.NullHandler())
+
 
 # ══════════════════════════════════════════════════════════════════
 #  AuditEvent dataclass
@@ -373,7 +396,9 @@ def audit(
     try:
         rotate_if_needed()
     except Exception as exc:  # pragma: no cover -- defensive
-        logger.warning("audit_log: rotation failed: %s", exc)
+        # Internal-only: must NOT propagate to ancestor handlers
+        # (would re-enter AuditLogHandler and recurse). See _emit_guard.
+        _internal_warn_logger.warning("audit_log: rotation failed: %s", exc)
 
     # ── Forward to SIEM (best-effort) ──
     if _levels[level_u] >= _levels[_siem_min_level]:
@@ -389,7 +414,9 @@ def audit(
             )
         except Exception as exc:
             # SIEM ingestion must never break audit logging.
-            logger.warning("audit_log: SIEM forward failed: %s", exc)
+            # Internal-only: must NOT propagate to ancestor handlers
+            # (would re-enter AuditLogHandler and recurse). See _emit_guard.
+            _internal_warn_logger.warning("audit_log: SIEM forward failed: %s", exc)
 
     return {"ok": True, "event": payload}
 
@@ -555,28 +582,31 @@ class AuditLogHandler(logging.Handler):
     ``emit()`` swallows all exceptions -- a logging handler must never
     crash the code that called ``logger.info(...)``.
 
-    Re-entrancy guard: :func:`audit` may emit a ``logger.warning()`` on
-    SIEM-forward failure (see ``audit()``), which would route back into
-    this handler and recurse forever. Nested invocations on the same
-    thread are therefore skipped (per-thread via :class:`threading.local`
-    so concurrent emits from other threads are unaffected); the warning
-    still reaches the logger's other handlers (e.g. the StreamHandler).
+    Re-entrancy guard: :func:`audit` may emit a ``_internal_warn_logger``
+    warning on SIEM-forward failure (see ``audit()``); even with that
+    warning routed on a non-propagating logger, defence-in-depth demands
+    that any other log record reaching this handler while we are already
+    inside ``audit()`` be skipped. The guard is a single module-level
+    :class:`threading.local` (``_emit_guard``) shared by ALL
+    :class:`AuditLogHandler` instances: the previous per-instance guard
+    could not stop N duplicate handlers re-entering independently and was
+    the root cause of the runaway recursion in CI runs #47/#48
+    (``test_siem_forward_failure_is_swallowed``).
     """
 
     def __init__(self, category: str = "system"):
         super().__init__()
         self._category = category
-        # Re-entrancy guard: audit() may emit logger.warning() on SIEM
-        # failure, which would route back into this handler and cause
-        # infinite recursion. Track per-thread to allow concurrent emits.
-        self._local = threading.local()
 
     def emit(self, record: logging.LogRecord) -> None:
-        # Skip nested invocations (e.g. the "SIEM forward failed" warning
-        # raised inside audit()) to prevent infinite recursion.
-        if getattr(self._local, "in_emit", False):
+        # MODULE-LEVEL guard (shared by all instances on this thread):
+        # stops any nested emit() the moment the first one enters audit(),
+        # regardless of how many duplicate AuditLogHandlers live on the
+        # ancestor ``vulnforge`` logger. threading.local keeps other
+        # threads' concurrent emits unaffected.
+        if getattr(_emit_guard, "in_emit", False):
             return
-        self._local.in_emit = True
+        _emit_guard.in_emit = True
         try:
             audit(
                 level=record.levelname,
@@ -592,7 +622,7 @@ class AuditLogHandler(logging.Handler):
         except Exception:  # pragma: no cover -- defensive
             pass
         finally:
-            self._local.in_emit = False
+            _emit_guard.in_emit = False
 
 
 def get_audit_logger(name: str = "vulnforge",
@@ -627,6 +657,13 @@ def _reset_state_for_tests() -> None:
         _min_level = "INFO"
         _siem_min_level = "WARNING"
         _initialized = False
+    # Defensive: clear any stale re-entrancy guard left on this thread by
+    # an interrupted previous test (the finally in emit() should already
+    # have cleared it, but be safe).
+    try:
+        _emit_guard.in_emit = False
+    except Exception:
+        pass
 
 
 __all__ = [

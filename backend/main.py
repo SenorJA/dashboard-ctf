@@ -2289,8 +2289,13 @@ async def _record_startup():
     # Initialize structured JSONL audit logger (rotation + redaction + SIEM)
     try:
         al_init()
-        # Mirror existing logger.info(...) calls into the JSONL audit trail
-        logger.addHandler(AuditLogHandler(category="system"))
+        # Mirror existing logger.info(...) calls into the JSONL audit trail.
+        # al_logger() is idempotent: it adds an AuditLogHandler only if no
+        # AuditLogHandler is already attached, which prevents the
+        # handler-accumulation bug where each FastAPI startup (one per
+        # TestClient) appended a new handler to "vulnforge" and eventually
+        # caused exponential emit() recursion. See CI runs #47/#48.
+        al_logger("vulnforge", "system")
         al_audit("INFO", "system", "startup", "VulnForge backend started")
     except Exception as _al_exc:
         logger.warning("audit log init failed: %s", _al_exc)

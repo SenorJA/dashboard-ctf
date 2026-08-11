@@ -1,6 +1,7 @@
 # 🔮 TOMORROW.md — Roadmap de trabajo pendiente
 
-> Última actualización: 8 Ago 2026 — MIRV v5.0 | 30 módulos | 227 endpoints | 3834 tests | 25 tabs | main.py 100%
+> Última actualización: 11 Ago 2026 — MIRV v5.0 | 30 módulos | 227 endpoints | 3834 tests | 25 tabs | main.py 100%
+> ✅ Hotfix CI #47/#48 (recursión `AuditLogHandler` en `tests/test_audit_log.py`) aplicado y verificado — ver § Postmortem al final.
 
 ---
 
@@ -206,3 +207,64 @@ git push origin main
 ---
 
 *Documento generado: 25 Jul 2026*
+
+---
+
+## 🩺 Postmortem — CI runs #47/#48: recursión infinita en `AuditLogHandler`
+
+> Fecha: 11 Ago 2026 — Hotfix aplicado y verificado (3908/3909 tests verdes; el único `F` restante es un test de DNS con bug de IPv6 unrelated).
+
+### Síntomas
+- CI rojo: ~12 tests `F` en `tests/test_audit_log.py` + 1 test colgado (`test_siem_forward_failure_is_swallowed`) matado por `pytest-timeout` a 60 s.
+- El traceback interrumpido por el timeout mostraba pila recursiva:
+  `AuditLogHandler.emit()` → `audit()` → `siem.ingest_event(boom)` → `logger.warning("SIEM forward failed")` → `vulnforge` handlers → `AuditLogHandler.emit()` → …
+- Reproducción local fiel: `pytest tests/test_api_endpoints.py tests/test_audit_log.py` colgaba con `threading.wait()` bloqueado en el event loop del `TestClient`.
+
+### Causa raíz (triple)
+
+1. **Doble import de módulo (la verdadera causa)**
+   - `tests/test_audit_log.py:39` importaba `from audit_log import (...)` (módulo top-level `audit_log`),
+     mientras que **todo el backend** importa `from backend.audit_log import …` (módulo `backend.audit_log`).
+   - Con `working-directory: backend` + `testpaths = tests`, ambos resolves apuntan al **mismo archivo `audit_log.py`** pero los mapean a **dos módulos Python distintos** con estado global y clases `AuditLogHandler` **independientes**.
+   - Consecuencia: los handlers que `main.py` (startup) añadía a `vulnforge` eran instancias de `backend.audit_log.AuditLogHandler`, pero el fixture limpiaba con `isinstance(h, AuditLogHandler)` **de la otra clase** → `isinstance` devolvía `False` → **los handlers no se limpiaban nunca**.
+
+2. **Acumulación de handlers sin idempotencia**
+   - `main.py:2293` (en cada `@app.on_event("startup")`) ejecutaba `logger.addHandler(AuditLogHandler(category="system"))` **sin verificar si ya existía uno**.
+   - Cada `TestClient` corre startup → añade un handler más a `vulnforge`. En CI, `test_api_endpoints.py` corre primero con ~333 `TestClient`s → cientos de handlers duplicados en `vulnforge` cuando arranca `test_audit_log.py`.
+
+3. **Guard de reentrada per-instancia**
+   - `audit_log.py` (commit `72c5db3`) intentó cortar la recursión con `self._local` (per-instancia, `threading.local`).
+   - Eso corta la recursión de **un** handler consigo mismo, pero NO la de **N handlers duplicados**, porque cada uno lleva su propio `_local` y entra independientemente.
+   - Resultado con N handlers: 1 warning → N emits → cada uno llama `audit()` → N warnings → N² emits → … explosión exponencial → recursión infinita → timeout.
+
+### Fixes aplicados
+
+| # | Archivo | Cambio | Tipo |
+|---|---------|--------|------|
+| 1 | `tests/test_audit_log.py` | Unificar imports a `backend.*` (`from backend.audit_log import …`, `import backend.audit_log as al_mod`, `from backend import siem`) + ampliar `vulnforge.audit` en el cleanup del fixture | **Causa raíz** |
+| 2 | `audit_log.py` | Guard de reentrada **global** (`_emit_guard = threading.local()` a nivel de módulo) compartido por todas las instancias; reset en `_reset_state_for_tests()` | Defensa en profundidad |
+| 3 | `audit_log.py` | Logger interno `_internal_warn_logger` con `propagate=False` + `NullHandler` para los warnings de rotación/SIEM-failure → ya no pueden re-entrar por el ancestro `vulnforge` | Defensa en profundidad |
+| 4 | `main.py:2293` | Sustituir `logger.addHandler(AuditLogHandler(...))` por `al_logger("vulnforge", "system")` (ya idempotente por dentro) → nunca acumula handlers duplicados | Causa raíz #2 |
+
+### Por qué las capas son complementarias
+- Fix 1 + Fix 4 eliminan las causas que permiten que haya handlers duplicados en `vulnforge`.
+- Fix 2 corta la recursión **al primer nivel** aunque en el futuro aparezcan duplicados por cualquier otra vía (p.ej. plugins, imports laterales). Es una red de seguridad.
+- Fix 3 evita que los warnings del propio pipeline de audit vuelvan a entrar, **independientemente** del guard, porque no propagan a `vulnforge`. Garantiza que los handlers de root/consola nunca vuelvan a disparar `audit()`.
+
+### Verificación
+| Suite | Antes | Después |
+|---|---|---|
+| `test_api_endpoints.py + test_audit_log.py` (escenario CI exacto) | 🟥 TIMEOUT 60 s (colgado) | ✅ 378 passed, 87.72 s |
+| `test_audit_log.py + gaps + test_siem + test_siem_gaps2` | 🟥 12 F + cuelgue | ✅ 109 passed, 1.68 s |
+| `test_main_gaps.py + test_main_extra.py` | — | ✅ 415 passed, 13.90 s |
+| **Suite completa CI** (`tests/ -k "not test_slow_hook"`) | 🟥 timeout rojo | ✅ **3908 passed**, 1 unrelated IPv6 fail, 397 s |
+
+### Lecciones para el repo
+1. **Convención de imports**: los tests deben importar SIEMPRE con el prefijo del paquete (`from backend.X import …`), igual que el código de aplicación. Mezclar `from audit_log …` con `from backend.audit_log …` crea dos módulos Python distintos para el mismo archivo → estados paralelos, clases incompatibles, fixtures que no limpian lo que deben. **Añadido como regla de estilo en AGENTS.md** (ver línea de tests).
+2. **Re-entrada en logging**: cualquier `logging.Handler` que mute estado global o llame a una función que loguea a su vez necesita un guard de reentrada **compartido** (no per-instancia), y los warnings internos deben ir a un logger con `propagate=False` + `NullHandler` para no tocar la cadena principal.
+3. **Idempotencia en startups**: añadir handlers/listeners en `on_event("startup")` SIEMPRE debe comprobar `any(isinstance(h, MiHandler) for h in log.handlers)` antes de `addHandler`.
+4. **Reproducción de bugs de CI localmente**: cuando un test cuelga en CI pero no en local aislado, simular el **orden de archivos** completo (los que corren antes pueden mutar estado global persistente como loggers a través de `TestClient` startups).
+
+### Estado CI esperado en próximo push
+- ✅ Verde: `test_audit_log.py` suite completa, escenario `test_api_endpoints + test_audit_log`, y `tests/` completo.
+- ⚠️ El único `F` residual (`test_subdomain_scanner.py::test_scan_example_com`) es un bug unrelated: el test asume que `example.com` sólo responde IPv4, pero Cloudflare sirve AAAA records (`2606:4700:10::ac42:93f3`) y el assert `len(octets) == 4` falla con IPv6. Se arreglará por separado extendiendo el parser a `ipaddress`/IPv6.

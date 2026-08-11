@@ -371,6 +371,9 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~3834 tests, ~95% coverage
 - **HTML**: Tailwind utility classes, `data-i18n` for translations, `onclick` for events.
 - **CSS**: Custom properties for colors, `!important` in monochrome overrides.
 - **Tests**: pytest, `unittest.mock` for external deps, `TestClient(app)` for endpoints, `@patch` for DB.
+  - **Imports in tests MUST use the package prefix**: every test file imports backend modules as `from backend.X import …` and `import backend.X as alias` — **never** the bare `from X import …` / `import X as alias`. Mixing both forms produces two distinct Python modules pointing at the same file (different identity, separate global state, incompatible `isinstance()` checks), which silently breaks fixtures (e.g. handler cleanup that compares against the wrong class) and is the root cause of the CI #47/#48 audit-log recursion. See `TOMORROW.md` § Postmortem.
+  - **`logging.Handler` re-entrancy**: any custom handler that calls back into the logging pipeline must use a **module-level** per-thread guard (`threading.local()` shared by all instances), not a per-instance `self._local`. Internal warnings of the handler's own pipeline must go to a dedicated logger with `propagate=False` + `NullHandler()`.
+  - **`on_event("startup")` idempotency**: any `logger.addHandler(MyHandler())` inside a startup hook must be guarded by `if not any(isinstance(h, MyHandler) for h in log.handlers):` (or delegated to an already-idempotent helper like `audit_log.get_audit_logger()`), because FastAPI runs startup once per `TestClient` and tests reuse the same app instance across hundreds of clients.
 
 ## OpenCode agents
 
