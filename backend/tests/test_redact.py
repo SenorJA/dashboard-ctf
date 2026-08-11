@@ -25,7 +25,7 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import pytest
-from redact import (
+from backend.redact import (
     REDACT_PATTERNS,
     redact_string,
     redact_dict,

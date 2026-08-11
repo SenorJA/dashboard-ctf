@@ -38,7 +38,7 @@ from unittest.mock import patch, MagicMock, PropertyMock
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-import database as db
+import backend.database as db
 
 
 # ════════════════════════════════════════════════════════════════

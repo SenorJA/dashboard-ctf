@@ -15,8 +15,8 @@ from unittest.mock import patch, MagicMock, AsyncMock
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-import kali_mcp_client
-from kali_mcp_client import (
+import backend.kali_mcp_client as kali_mcp_client
+from backend.kali_mcp_client import (
     IS_KALI_CONTAINER,
     KALI_MCP_URL,
     is_available,

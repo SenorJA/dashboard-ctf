@@ -62,7 +62,7 @@ def _build_httpx_mock(response_content=b"", raise_error=None, json_data=None):
 #  1. SIEM Tests — toggle_rule, resolve_alert
 # ════════════════════════════════════════════════════════════════
 
-from siem import (
+from backend.siem import (
     toggle_rule,
     resolve_alert,
     ingest_event,
@@ -159,7 +159,7 @@ class TestSIEMGaps:
 #  2. EXIF OSINT Tests — analyze_url, reverse_geocode
 # ════════════════════════════════════════════════════════════════
 
-from exif_osint import analyze_url, reverse_geocode, EXIFResult
+from backend.exif_osint import analyze_url, reverse_geocode, EXIFResult
 
 
 class TestEXIFGaps:
@@ -323,7 +323,7 @@ class TestEXIFGaps:
 #  3. DLP Scanner Tests — scan_url, _strings_like
 # ════════════════════════════════════════════════════════════════
 
-from dlp_scanner import scan_url, _strings_like
+from backend.dlp_scanner import scan_url, _strings_like
 
 
 class TestDLPGaps:

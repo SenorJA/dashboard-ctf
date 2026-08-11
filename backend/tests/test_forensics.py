@@ -23,8 +23,8 @@ from unittest.mock import patch, MagicMock, mock_open
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-import forensics
-from forensics import (
+import backend.forensics as forensics
+from backend.forensics import (
     _compute_hashes,
     _run_local,
     _id_file,

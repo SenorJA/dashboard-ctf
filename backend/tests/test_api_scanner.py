@@ -18,7 +18,7 @@ import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from api_scanner import (
+from backend.api_scanner import (
     ApiScanReport,
     ApiIssue,
     ApiEndpoint,

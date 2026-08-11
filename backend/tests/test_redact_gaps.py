@@ -23,7 +23,7 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from redact import (
+from backend.redact import (
     RedactingStreamWrapper,
     _luhn_check,
     is_sensitive_value,

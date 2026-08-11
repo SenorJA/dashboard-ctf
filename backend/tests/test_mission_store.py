@@ -17,8 +17,8 @@ from unittest.mock import patch, MagicMock
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-import mission_store
-from mission_store import (
+import backend.mission_store as mission_store
+from backend.mission_store import (
     _SEVERITY_WEIGHT,
     save_mission,
     list_missions,

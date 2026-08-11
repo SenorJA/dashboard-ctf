@@ -21,8 +21,8 @@ import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-import port_scanner
-from port_scanner import (
+import backend.port_scanner as port_scanner
+from backend.port_scanner import (
     COMMON_PORTS,
     PortResult,
     ScanReport,

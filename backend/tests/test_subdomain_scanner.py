@@ -19,9 +19,11 @@ NOTE: Tests 1-2 involve real DNS lookups and may be slow or
 
 from __future__ import annotations
 
+import ipaddress
+
 import pytest
 
-from subdomain_scanner import (
+from backend.subdomain_scanner import (
     COMMON_SUBDOMAINS,
     SubdomainReport,
     SubdomainResult,
@@ -59,8 +61,11 @@ async def test_scan_example_com():
         assert r.domain == "example.com"
         assert len(r.resolved_ips) >= 1
         for ip in r.resolved_ips:
-            octets = ip.split(".")
-            assert len(octets) == 4, f"Expected IPv4, got {ip!r}"
+            # Accept both IPv4 and IPv6: Cloudflare and most CDNs serve
+            # AAAA records for example.com (e.g. 2606:4700:10::ac42:93f3),
+            # so asserting only dotted-quad would wrongly fail on IPv6.
+            parsed = ipaddress.ip_address(ip)
+            assert parsed.version in (4, 6), f"Unexpected IP: {ip!r}"
 
 
 # ──────────────────────────────────────────────

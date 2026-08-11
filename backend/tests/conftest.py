@@ -1,6 +1,7 @@
 """
 Shared fixtures for MIRV API tests.
 """
+import importlib
 import pytest
 from fastapi.testclient import TestClient
 import sys
@@ -8,7 +9,46 @@ import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from main import app
+from main import app  # noqa: E402  -- imports backend.* package tree first
+
+# ───────────────────────────────────────────────────────────────────
+#  Module-identity aliasing -- prevent "split-module" monkeypatch bugs
+# ───────────────────────────────────────────────────────────────────
+#
+# The application imports ``backend.X`` (e.g. ``from backend.audit_log
+# import audit``). When a test file historically did ``from X import``
+# (without the ``backend.`` prefix), Python loaded the same .py file
+# under *two* distinct module names -- top-level ``X`` and package
+# ``backend.X`` -- with separate global state and *incompatible*
+# ``isinstance`` checks. That split broke fixtures
+# (handler-cleanup-by-isinstance silently matched nothing) and monkey
+# patches (``@patch("X.attr")`` patched the wrong module while the
+# production code path used ``backend.X.attr``). This was the root cause
+# of the CI #47/#48 audit-log recursion (see TOMORROW.md § Postmortem).
+#
+# Solution (defence-in-depth): tests now import with the ``backend.``
+# prefix (style rule) AND this aliasing in conftest guarantees that any
+# legacy ``@patch("X.attr")`` string-based patches still resolve to the
+# *same* module object that production code uses, by aliasing
+# ``sys.modules["X"]`` to ``backend.X``.
+_BACKEND_MODULES_TO_ALIAS = [
+    "audit_log", "siem", "database", "redact", "opsec",
+    "coverage_matrix", "mission_store", "browser_capture", "burp_bridge",
+    "finding_poc", "scope_guard", "knowledgebase", "exif_osint",
+    "canary_tokens", "dlp_scanner", "mobile_analyzer", "adb_controller",
+    "forensics", "swarm", "intelligence", "mcp_server", "pdf_engine",
+    "kali_mcp_client", "news_scraper", "api_scanner", "headers_scanner",
+    "secrets_scanner", "port_scanner", "subdomain_scanner", "dns_lookup",
+    "hash_cracker", "stego_tool", "plugin_manager", "skill_playbooks",
+]
+for _name in _BACKEND_MODULES_TO_ALIAS:
+    try:
+        sys.modules.setdefault(_name,
+                               importlib.import_module(f"backend.{_name}"))
+    except (ImportError, ModuleNotFoundError):
+        # If a module is renamed/removed later, ignore silently so the
+        # whole test collection doesn't break on import.
+        pass
 
 
 @pytest.fixture

@@ -32,8 +32,8 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-import mission_store
-from mission_store import (
+import backend.mission_store as mission_store
+from backend.mission_store import (
     _as_json,
     _collect_commands,
     _extract_credentials,

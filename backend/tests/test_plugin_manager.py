@@ -24,7 +24,7 @@ import pytest
 # Ensure backend package is importable
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-import plugin_manager as pm
+import backend.plugin_manager as pm
 
 
 # ──────────────────────────────────────────────

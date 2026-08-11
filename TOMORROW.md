@@ -165,7 +165,7 @@
 
 1. **`test_slow_hook`** excluido de CI — tarda 35s
 2. **Plugin watcher tests** — timers 250ms+ por debounce
-3. **Module identity split** — tests importan `backend.modulo` vs `modulo`
+3. ~~**Module identity split** — tests importan `backend.modulo` vs `modulo`~~ — ✅ **RESUELTO AGO 2026**: unificados los 30+ tests a `from backend.X import …` + conftest aliasa `sys.modules["X"] = backend.X` para mantener compat con los ~216 `@patch("X.attr")` strings legacy. Ver § Postmortem Module-Identity al final.
 4. **exif_osint.py coverage 63%** — requiere imágenes/reales
 5. **dlp_scanner.py coverage 67%** — patrones archivo/URL
 6. ~~**main.py coverage 53%**~~ — ✅ **100%** (2847/2847) con test_main_gaps.py + test_main_websocket_gaps.py
@@ -268,3 +268,46 @@ git push origin main
 ### Estado CI esperado en próximo push
 - ✅ Verde: `test_audit_log.py` suite completa, escenario `test_api_endpoints + test_audit_log`, y `tests/` completo.
 - ⚠️ El único `F` residual (`test_subdomain_scanner.py::test_scan_example_com`) es un bug unrelated: el test asume que `example.com` sólo responde IPv4, pero Cloudflare sirve AAAA records (`2606:4700:10::ac42:93f3`) y el assert `len(octets) == 4` falla con IPv6. Se arreglará por separado extendiendo el parser a `ipaddress`/IPv6.
+
+---
+
+## 🩺 Postmortem — Module-identity split (bug #3 de TODOs, resuelto AGO 2026)
+
+> Fecha: 11 Ago 2026 — Fixeado y verificado (3909/3910 tests verdes).
+
+### Síntomas
+- 30+ archivos de tests importaban sus módulos backend con el patrón **bare** `from X import …` (top-level) en lugar de `from backend.X import …`. Mismo archivo `.py`, **dos módulos Python distintos** con estado global y clases `incompatibles`.
+- Síntoma descubiertos Tras audit_log fix #47/#48: identificación de que `from patch("X.attr")` strings + `from X import Y` style crearon dobles módulos.
+
+### Causa raíz
+- `pytest` arranca con `cd backend/` + `sys.path.insert(0, "..")` → `backend/` está en sys.path.
+- `from X import Y` crea módulo top-level `"X"` apuntando a `backend/X.py`.
+- `main.py` hace `from backend.X import …`  y crea módulo `"backend.X"` apuntando al mismo archivo.
+- Python los trata como **dos módulos distintos** → estados paralelos, `isinstance` roto, y `@patch("X.attr")` parchea el módulo equivocado (production code usa `backend.X.attr` y no ve el patch).
+
+### Fixes aplicados (defensa en profundidad)
+
+1. **30+ test files — unificación de imports**:
+   - `from X import …` → `from backend.X import …`
+   - `import X as alias` → `import backend.X as alias`
+   - En archivos que referencian `X.Y` como Python name (e.g. `@patch.object(X, …)` o `monkeypatch.setattr(X, …)`), se mantuvo el alias explícito: `import backend.X as X`
+
+2. **`conftest.py` — aliasing de `sys.modules`** (red de seguridad):
+   - Para los ~216 strings `@patch("X.attr")` legacy que ya están escritos, aliasa `sys.modules["X"] = backend.X` al arrancar los tests. Así `mock.patch("X.attr")` resuelve al módulo **compartido** y el patch afecta el código de production path.
+   - Es la red que previene futuras regressiones: si alguien añade un test con `from X import Y` legacy, sigue funcionando.
+   - Lista de 36 módulos `backend.*` aliasados al inicio.
+
+### Verificación
+| Suite | Resultado |
+|---|---|
+| Suite completa (`tests/ -k "not test_slow_hook"`) tras fixes | ✅ **3909 passed**, 0 failed, 409.92 s |
+| test_adb_controller + hash_cracker + dns_lookup + stego + port_scanner | ✅ 160 passed |
+| test_mission_store* + compaction + forensics + swarm | ✅ 265 passed |
+
+### Lecciones (reforzadas)
+- La regla de style import-prefix en tests (añadida tras audit_log fix) es **obligatoria**; el aliasing en conftest es **defensa secundaria**.
+- Antes de cambiar imports masivamente, hay que revisar los `@patch("X.attr")` strings también: cambian significado si el namespace top-level desaparece. El aliasing en conftest lo cubre.
+- Aislar un bug puede requerir **correr tests individualmente** vs **en grupo** para detectar fallos por estado compartido.
+
+### Estado CI esperado en próximo push
+- ✅ **CI CI Green 100%** — los 3909 tests pasan sin exclusiones (excluido slow_hook por timeout del propio plugin).

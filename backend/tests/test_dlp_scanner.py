@@ -14,7 +14,7 @@ import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import pytest
-from dlp_scanner import (
+from backend.dlp_scanner import (
     scan_text, scan_file, scan_url,
     report_to_mirv_findings,
     _luhn_check,

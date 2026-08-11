@@ -18,7 +18,7 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from dns_lookup import (
+from backend.dns_lookup import (
     RECORD_TYPES,
     _query_doh,
     _rtype_to_str,

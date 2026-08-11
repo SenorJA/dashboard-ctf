@@ -15,7 +15,7 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import pytest
-from canary_tokens import (
+from backend.canary_tokens import (
     generate_token,
     list_tokens,
     get_token,

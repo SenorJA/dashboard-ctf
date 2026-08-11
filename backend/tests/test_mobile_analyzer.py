@@ -10,7 +10,7 @@ import subprocess
 import pytest
 from unittest.mock import MagicMock, patch
 
-import mobile_analyzer as mobile
+import backend.mobile_analyzer as mobile
 
 
 @pytest.fixture(autouse=True)

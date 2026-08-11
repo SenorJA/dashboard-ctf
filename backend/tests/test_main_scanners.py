@@ -23,15 +23,15 @@ from fastapi.testclient import TestClient
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from main import app
-from secrets_scanner import ScanReport as SecretsReport, SecretFinding, SecretPattern
-from port_scanner import ScanReport as PortReport, PortResult
-from subdomain_scanner import SubdomainReport, SubdomainResult
-from dns_lookup import DNSReport, DNSRecord
-from hash_cracker import CrackReport, HashResult
-from stego_tool import StegoResult, ImageInfo
-from news_scraper import NewsReport, NewsArticle
-from api_scanner import ApiScanReport
-from headers_scanner import ScanReport as HeadersReport
+from backend.secrets_scanner import ScanReport as SecretsReport, SecretFinding, SecretPattern
+from backend.port_scanner import ScanReport as PortReport, PortResult
+from backend.subdomain_scanner import SubdomainReport, SubdomainResult
+from backend.dns_lookup import DNSReport, DNSRecord
+from backend.hash_cracker import CrackReport, HashResult
+from backend.stego_tool import StegoResult, ImageInfo
+from backend.news_scraper import NewsReport, NewsArticle
+from backend.api_scanner import ApiScanReport
+from backend.headers_scanner import ScanReport as HeadersReport
 
 
 @pytest.fixture()

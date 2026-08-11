@@ -17,7 +17,7 @@ import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from opsec import (
+from backend.opsec import (
     LEVEL_SILENT,
     LEVEL_COVERT,
     LEVEL_LOUD,

@@ -18,7 +18,7 @@ import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from secrets_scanner import (
+from backend.secrets_scanner import (
     scan_text,
     scan_url,
     ScanReport,

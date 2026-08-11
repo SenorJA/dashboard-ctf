@@ -17,7 +17,7 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from stego_tool import (
+from backend.stego_tool import (
     StegoResult,
     analyze,
     report_to_mirv_findings,

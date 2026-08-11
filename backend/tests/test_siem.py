@@ -22,7 +22,7 @@ import time
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import pytest
-from siem import (
+from backend.siem import (
     ingest_event,
     get_events,
     get_stats,

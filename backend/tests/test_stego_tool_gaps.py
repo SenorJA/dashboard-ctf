@@ -21,7 +21,7 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from stego_tool import (
+from backend.stego_tool import (
     ImageInfo,
     StegoResult,
     analyze,

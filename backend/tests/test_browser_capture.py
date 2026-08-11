@@ -18,7 +18,7 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import pytest
-from browser_capture import (
+from backend.browser_capture import (
     parse_har,
     import_har,
     analyze_session,

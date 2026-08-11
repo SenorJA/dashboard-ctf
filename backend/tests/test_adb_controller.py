@@ -21,8 +21,8 @@ from unittest.mock import patch, MagicMock, mock_open
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-import adb_controller
-from adb_controller import (
+import backend.adb_controller as adb_controller
+from backend.adb_controller import (
     FRIDA_SCRIPTS_META,
     FRIDA_SCRIPTS_DIR,
     _get_ssh,

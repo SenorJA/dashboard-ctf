@@ -20,8 +20,8 @@ from unittest.mock import patch, MagicMock, AsyncMock
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-import swarm
-from swarm import (
+import backend.swarm as swarm
+from backend.swarm import (
     SwarmCoordinator,
     get_session,
     list_sessions,

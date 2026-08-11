@@ -23,7 +23,7 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from news_scraper import (
+from backend.news_scraper import (
     NewsArticle,
     NewsReport,
     fetch_news,

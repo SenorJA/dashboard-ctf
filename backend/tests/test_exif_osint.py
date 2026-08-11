@@ -21,7 +21,7 @@ from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from exif_osint import (
+from backend.exif_osint import (
     EXIFResult,
     analyze_image,
     report_to_mirv_findings,
@@ -363,7 +363,7 @@ async def test_raw_tags_empty_no_exif(jpeg_without_exif: bytes):
 # 7. Helpers — lazy PIL tags, DMS conversion, GPS parsing
 # ──────────────────────────────────────────────
 
-from exif_osint import (
+from backend.exif_osint import (
     _extract_gps,
     _dms_to_decimal,
     _load_pil_tags,

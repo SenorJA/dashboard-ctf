@@ -19,8 +19,8 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-import browser_capture as bc
-from browser_capture import (
+import backend.browser_capture as bc
+from backend.browser_capture import (
     CapturedRequest,
     analyze_request,
     analyze_session,

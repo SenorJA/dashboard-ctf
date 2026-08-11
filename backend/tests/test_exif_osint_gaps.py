@@ -17,8 +17,8 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-import exif_osint as eo
-from exif_osint import analyze_url, reverse_geocode
+import backend.exif_osint as eo
+from backend.exif_osint import analyze_url, reverse_geocode
 
 
 class _FakeImage:

@@ -15,7 +15,7 @@ from __future__ import annotations
 import pytest
 import pytest_asyncio
 
-from dns_lookup import (
+from backend.dns_lookup import (
     DNSRecord,
     DNSReport,
     lookup,

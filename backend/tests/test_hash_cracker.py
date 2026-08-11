@@ -14,7 +14,7 @@ import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from hash_cracker import (
+from backend.hash_cracker import (
     identify_hash_type,
     crack,
     _crack_single,

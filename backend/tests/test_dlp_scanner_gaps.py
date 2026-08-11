@@ -21,7 +21,7 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from dlp_scanner import (
+from backend.dlp_scanner import (
     _adjust_severity,
     _get_context,
     _is_valid_match,

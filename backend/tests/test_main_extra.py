@@ -40,7 +40,7 @@ from main import (
     _call_llm_sync as main_call_llm_sync,
 )
 import urllib.error as main_urlerror
-from exif_osint import (
+from backend.exif_osint import (
     EXIFResult,
     ImageInfo,
     GPSInfo,
@@ -48,7 +48,7 @@ from exif_osint import (
     MetadataInfo,
 )
 from backend.intelligence import DiffResult
-from swarm import SwarmCoordinator
+from backend.swarm import SwarmCoordinator
 from backend.finding_poc import FindingPoC
 
 
