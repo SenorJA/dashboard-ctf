@@ -57,8 +57,12 @@ class _FakeEvent:
 def watchdog_enabled():
     """Inject fake watchdog modules and reload plugin_manager.
 
-    After the test the module is reloaded cleanly so the original
-    polling-fallback globals (HAS_WATCHDOG=False, Observer=None) are restored.
+    After the test the module is reloaded cleanly so the original globals
+    are restored. Whether ``HAS_WATCHDOG`` returns to True or False depends
+    on whether the real ``watchdog`` package is importable in this
+    environment (it is in CI Linux where requirements.txt installs it,
+    it is not on some dev machines) -- so we capture the ORIGINAL value
+    before injecting fakes and assert the teardown restores it exactly.
     """
     watchdog_pkg = types.ModuleType("watchdog")
     observers_mod = types.ModuleType("watchdog.observers")
@@ -66,13 +70,22 @@ def watchdog_enabled():
     events_mod = types.ModuleType("watchdog.events")
     events_mod.FileSystemEventHandler = FakeFileSystemEventHandler
 
+    # Capture the pre-existing watchdog modules (real ones if installed,
+    # None if not). Used to restore on teardown.
     original = {name: sys.modules.get(name) for name in
                 ("watchdog", "watchdog.observers", "watchdog.events")}
+    # Capture the pre-existing HAS_WATCHDOG flag. Whether True or False
+    # depends on the environment (watchdog installed or not), and the
+    # teardown must restore whichever value was there originally.
+    original_has_watchdog = pm.HAS_WATCHDOG
+
     sys.modules["watchdog"] = watchdog_pkg
     sys.modules["watchdog.observers"] = observers_mod
     sys.modules["watchdog.events"] = events_mod
 
     importlib.reload(pm)
+    # With fakes injected, HAS_WATCHDOG must now be True regardless of
+    # whether the real watchdog was previously installed or not.
     assert pm.HAS_WATCHDOG is True
     try:
         yield
@@ -84,7 +97,13 @@ def watchdog_enabled():
             else:
                 sys.modules[name] = mod
         importlib.reload(pm)
-        assert pm.HAS_WATCHDOG is False
+        # The teardown must restore HAS_WATCHDOG to whatever it was BEFORE
+        # we injected fakes. Do NOT hard-assert False: on CI Linux,
+        # requirements.txt installs the real ``watchdog`` package, so the
+        # original value is True; on minimal dev setups without watchdog,
+        # the original is False. Asserting the pre-existing value keeps
+        # the suite green in both environments.
+        assert pm.HAS_WATCHDOG is original_has_watchdog
 
 
 def _make_handler(tmp_path):
