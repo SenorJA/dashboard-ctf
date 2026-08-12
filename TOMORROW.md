@@ -310,4 +310,51 @@ git push origin main
 - Aislar un bug puede requerir **correr tests individualmente** vs **en grupo** para detectar fallos por estado compartido.
 
 ### Estado CI esperado en próximo push
-- ✅ **CI CI Green 100%** — los 3909 tests pasan sin exclusiones (excluido slow_hook por timeout del propio plugin).
+- ⚠️ **NO green al 100% todavía**: el hotfix del `watchdog_gaps` teardown **desbloqueó** el resto de la suite (antes el `tail -10` del step diagnostic solo mostraba los primeros 11 fallos de watchdog_gaps). El fix los eliminó y ahora se ven **otros ~11 fallos pre-existentes** que siempre estuvieron ahí pero ocultos tras el cap. **No son regresiones introducidas por estos fixes** — son bugs de tests que asumen entorno inexistente en CI.
+
+---
+
+## 🩺 Postmortem — Failures "desenmascarados" por el fix del watchdog_gaps (post-525ea54)
+
+> Fecha: 11 Ago 2026 — Tras corregir los 11 `test_plugin_manager_watchdog_gaps.py` (teardown erroneo `assert HAS_WATCHDOG is False`), CI Linux corre la suite completa y ahora se ven ~11 fallos pre-existentes en OTROS archivos.
+
+### Por qué no se veían antes
+- El step "Show failure summary" de `ci.yml` emite como máximo 10 annotations vía `grep ... | tail -10 | sed 's/^/::error::/'` (línea 67).
+- Antes de 525ea54, las primeras 10 líneas de `FAILED` eran TODAS de `test_plugin_manager_watchdog_gaps.py` (alfabéticamente anterior a `test_plugin_watcher.py`, `test_main_coverage.py`, `test_crud_endpoints.py`, etc.), así que el resto nunca aparecía en annotations.
+- Tras 525ea54, esos 11 pasan, y la cola — recién visible — muestra 11 fallos más en archivos diferentes.
+
+### Los ~11 fallos pre-existentes desenmascarados
+
+| # | Archivo | Test | Causa probable | Tipo |
+|---|---|---|---|---|
+| 1 | `test_plugin_watcher.py` | `test_concurrent_start_watcher_calls` | `assert 0 == 1` — polling-path assumption; con watchdog real, observer counters diffieren | watchdog_installed |
+| 2 | `test_plugin_watcher.py` | `test_stop_watcher_thread_exits_cleanly` | `AttributeError: 'NoneType'.join` — `_watcher_thread is None` con watchdog (no usa polling thread) | watchdog_installed |
+| 3 | `test_plugin_watcher.py` | `test_stop_watcher_clears_flag` | mismo AttributeError | watchdog_installed |
+| 4 | `test_plugin_watcher.py` | `test_start_watcher_is_idempotent` | `assert None is not None` — polling-only path assumption | watchdog_installed |
+| 5 | `test_plugin_manager_gaps.py` | `TestWatcherErrorBranches::test_start_watcher_thread_start_fails` | `assert True is False` — ThreadError mock expected pero watchdog lanza distinto | watchdog_installed |
+| 6 | `test_main_websocket_gaps.py` | `TestWebSocketSsh::test_full_session` | `Expected 'resize_pty' to have been called once. Called 0 times` — flaky async timing (bug #7 conocido) | flaky_async |
+| 7 | `test_main_coverage.py` | `TestSwarmStart::test_swarm_start_invalid_mode_falls_back_to_full` | "expected call not found" — mock call-order assumption, posiblemente platform-timing | mock_order |
+| 8 | `test_main_coverage.py` | `TestSwarmStart::test_swarm_start_core_mode` | mismo pattern | mock_order |
+| 9 | `test_crud_endpoints.py` | `TestPayloadsCRUD::test_get_payloads_returns_200` | `assert 503 == 200` — CI env `SUPABASE_URL=""` → "Database not configured" | db_not_configured |
+| 10 | `test_api_endpoints.py` | `TestFilesEndpoint::test_files_has_data` | `assert 'data' in {'ok': False, 'error': 'Database not configured'}` | db_not_configured |
+
+### Diagnóstico y próximos pasos sugeridos (en orden de facilidad)
+
+1. **Aumentar cap de annotations** en `ci.yml` (línea 67) de `tail -10` a `tail -50` para no ocultar fallos futuros. ~2 min.
+2. **watchdog-group (#1-5)**: misma familia que `test_plugin_manager_watchdog_gaps.py`. Aplicar el mismo patrón: skipcondicional cuando `watchdog is real-installed` o refactorizar los tests para que no asuman el polling fallback. Alternativa: instalar un `FakeObserver` global en conftest para neutralizar el real watchdog en TODOS los tests (no solo los que activamente lo usan). ~30-60 min.
+3. **db_not_configured (#9-10)**: los tests que esperan datos reales deberían marcarse `@pytest.mark.slow` (que CI ya excluye) o mockear la capa `database` con fixture. Confirmaars si hay otros marcados que se ejecutan por error. ~15-30 min.
+4. **flaky_async test_full_session (#6)**: bug #7 abierto hace rato — hacer skip no-destructivo en `after_deploy`, o esperar retry (`@pytest.mark.flaky(reruns=2)` con `pytest-rerunfailures`). ~30 min.
+5. **mock_order swarm (#7-8)**: dos tests asumen orden de mock calls específica. Verificar si es problema en el test o en main.py swarm endpoint. ~1h.
+
+### Estado actual CI
+- `lint` ✅ _success_
+- `build-and-deploy` ✅ _success_
+- `test` 🟥 _failure_ (11 tests pre-existentes desenmascarados; no son regresiones)
+
+### Lo que Sí está cerrado (verificado en cada paso del path)
+- ✅ Audit-log recursión CI #47/#48 (commit `d8569d8`)
+- ✅ Module identity split — imports unificados en 30+ tests + conftest aliasing (commit `25d6204`)
+- ✅ IPv6 `test_scan_example_com` (commit `25d6204`)
+- ✅ `watchdog_gaps` teardown assertion (commit `525ea54`)
+
+Localmente (Windows, sin watchdog): `3909 passed` con `-k "not test_slow_hook"` (sin filtro `-m "not slow"` porque muchos de los marcados slow se excluían via deselect en Windows). Con `-m "not slow"` adicional: `3859 passed, 51 deselected, 0 failed`. CI Linux difiere por watchdog installed, db vacío, async timing.
