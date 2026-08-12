@@ -1,7 +1,8 @@
 # 🔮 TOMORROW.md — Roadmap de trabajo pendiente
 
-> Última actualización: 12 Ago 2026 — MIRV v5.0 | 30 módulos | 227 endpoints | 3910 tests | 25 tabs | main.py 100%
+> Última actualización: 12 Ago 2026 — MIRV v5.0 | 30 módulos | 227 endpoints | 3923 tests | 25 tabs | main.py 100%
 > ✅ **CI 100% VERDE** — recursión `AuditLogHandler` (CI #47/#48) + 11 fallos pre-existentes desenmascarados, todos resueltos en la serie `d8569d8`→`3cb20fb`. Ver § Postmortems al final.
+> ✅ **exif_osint.py y dlp_scanner.py al 100% de cobertura** (bugs #4/#5 cerrados, 12 Ago 2026).
 
 ---
 
@@ -12,8 +13,8 @@
 | Backend modules | 30 (main.py + 29 especializados) |
 | REST endpoints | 227 |
 | Test files | 76 |
-| Tests collected | 3910 (3858 pass / 52 slow-deselected) |
-| Coverage | ~95% global — **main.py 100%** |
+| Tests collected | 3923 (3871 pass / 52 slow-deselected) |
+| Coverage | ~96% global — **main.py 100%**, **exif_osint 100%**, **dlp_scanner 100%** |
 | Frontend tabs | 25 |
 | Frontend JS | 9231 líneas (main.v2.js) |
 | Frontend HTML | 2694 líneas (index.html) |
@@ -166,8 +167,8 @@
 1. **`test_slow_hook`** excluido de CI — tarda 35s
 2. **Plugin watcher tests** — timers 250ms+ por debounce
 3. ~~**Module identity split** — tests importan `backend.modulo` vs `modulo`~~ — ✅ **RESUELTO AGO 2026**: unificados los 30+ tests a `from backend.X import …` + conftest aliasa `sys.modules["X"] = backend.X` para mantener compat con los ~216 `@patch("X.attr")` strings legacy. Ver § Postmortem Module-Identity al final.
-4. **exif_osint.py coverage 63%** — requiere imágenes/reales
-5. **dlp_scanner.py coverage 67%** — patrones archivo/URL
+4. ~~**exif_osint.py coverage 63%**~~ — ✅ **100%** (12 Ago 2026): `test_exif_osint_gaps.py` reescrito — 16 tests (Image.open failure, tuple conversion, thumbnail defensivo línea 425, analyze_url 6 ramas, reverse_geocode 4 ramas)
+5. ~~**dlp_scanner.py coverage 67%**~~ — ✅ **100%** (12 Ago 2026): `test_dlp_scanner_gaps.py` reescrito — 29 tests (_get_context, _is_valid_match ipv4, _adjust_severity, _strings_like, dedup, fallbacks scan_file, scan_url 6 ramas)
 6. ~~**main.py coverage 53%**~~ — ✅ **100%** (2847/2847) con test_main_gaps.py + test_main_websocket_gaps.py
 7. ~~**`test_full_session` (websocket)**~~ — ✅ **RESUELTO AGO 2026**: flaky por contención de TestClient al correr el archivo completo; pasa al ejecutarlo en solitario. Marcado `@pytest.mark.slow` → excluido en CI (`-m "not slow"`), sigue ejecutable localmente en solitario. Detalles en § Postmortem CI-verde (bug #7).
 
