@@ -64,7 +64,12 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           # ALSO emit the verdict as ::error:: workflow commands so it is
           # queryable via the check-runs annotations API (not just the UI).
-          grep -E "FAILED|ERROR|Coverage failure|fail-under" pytest.log | tail -10 | sed 's/^/::error::/'
+          # NOTE: cap raised from tail -10 to tail -50 (2026-08-11). With
+          # the previous tail -10, when a single suite (e.g. watchdog_gaps)
+          # produced >10 failures, the cap hid OTHER failures in later
+          # suites, making diagnosis effectively blind. tail -50 keeps
+          # check-runs annotations cheap while showing the full picture.
+          grep -E "FAILED|ERROR|Coverage failure|fail-under" pytest.log | tail -50 | sed 's/^/::error::/'
           tail -3 pytest.log | grep -E "passed|failed" | sed 's/^/::error::/'
       - name: Upload coverage to Codecov
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'

@@ -306,10 +306,14 @@ async def _ensure_ssh_connection(ssh_ip: str = None, ssh_user: str = None, ssh_p
     if client:
         return client
 
-    # Use provided creds or stored creds or env defaults
-    ip = ssh_ip or _ssh_credentials.get("ip") or os.getenv("KALI_IP", "192.168.214.142")
-    user = ssh_user or _ssh_credentials.get("user") or os.getenv("KALI_USER", "javi")
-    pwd = ssh_pass or _ssh_credentials.get("pass") or os.getenv("KALI_PASS", "javi")
+    # Use provided creds or stored creds or env defaults.
+    # The extra `or "..."` fall-through treats an env var that is SET
+    # but EMPTY (CI sets ``KALI_IP=""``) the same as unset, so the
+    # hard-coded default still applies. See /api/swarm/start for the
+    # same pattern and the matching rationale.
+    ip = ssh_ip or _ssh_credentials.get("ip") or os.getenv("KALI_IP") or "192.168.214.142"
+    user = ssh_user or _ssh_credentials.get("user") or os.getenv("KALI_USER") or "javi"
+    pwd = ssh_pass or _ssh_credentials.get("pass") or os.getenv("KALI_PASS") or "javi"
     port = int(os.getenv("KALI_PORT", "22"))
 
     try:
@@ -3346,10 +3350,15 @@ async def swarm_start(req: SwarmStartRequest):
     if not req.target:
         return JSONResponse({"ok": False, "error": "Target is required"}, status_code=400)
 
-    # Use defaults if SSH credentials not provided
-    ssh_ip = req.ssh_ip or os.getenv("KALI_IP", "192.168.214.142")
-    ssh_user = req.ssh_user or os.getenv("KALI_USER", "javi")
-    ssh_pass = req.ssh_pass or os.getenv("KALI_PASS", "javi")
+    # Use defaults if SSH credentials not provided.
+    # Note the `or "..."` chain: when an env var is SET but EMPTY (e.g. CI
+    # sets ``KALI_IP=""``), ``os.getenv("KALI_IP", default)`` returns the
+    # empty string (because the var is present), so we fall through to the
+    # hard-coded default with a second ``or``. This keeps the endpoints
+    # well-defined in environments where the env was deliberately emptied.
+    ssh_ip = req.ssh_ip or os.getenv("KALI_IP") or "192.168.214.142"
+    ssh_user = req.ssh_user or os.getenv("KALI_USER") or "javi"
+    ssh_pass = req.ssh_pass or os.getenv("KALI_PASS") or "javi"
 
     # Validate pipeline mode: only "full" and "core" are supported.
     mode = (req.mode or "full").lower()

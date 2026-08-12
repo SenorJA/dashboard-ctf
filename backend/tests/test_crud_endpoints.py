@@ -92,6 +92,20 @@ def _mock_db(monkeypatch):
     monkeypatch.setattr(db_mod, "delete_all_credentials", lambda: True)
     monkeypatch.setattr(db_mod, "delete_ctf_challenge", lambda _cid: True)
 
+    # ── Mock list_* functions (GET endpoints) ──
+    # Without these mocks, GET endpoints fall through to the real DB
+    # and return 503 / {"ok": False, "error": "Database not configured"}
+    # when no Supabase is reachable (e.g. CI env SUPABASE_URL="").
+    # Return empty lists just like a fresh Supabase table would.
+    monkeypatch.setattr(db_mod, "list_findings", lambda *a, **kw: [])
+    monkeypatch.setattr(db_mod, "list_reports", lambda *a, **kw: [])
+    monkeypatch.setattr(db_mod, "list_scripts", lambda *a, **kw: [])
+    monkeypatch.setattr(db_mod, "list_connections", lambda *a, **kw: [])
+    monkeypatch.setattr(db_mod, "list_hak5_payloads", lambda *a, **kw: [])
+    monkeypatch.setattr(db_mod, "list_credentials", lambda *a, **kw: [])
+    monkeypatch.setattr(db_mod, "list_uploaded_files", lambda *a, **kw: [])
+    monkeypatch.setattr(db_mod, "list_ctf_challenges", lambda *a, **kw: [])
+
     yield
     intel_reset()
 

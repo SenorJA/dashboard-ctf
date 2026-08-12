@@ -35,6 +35,34 @@ def client():
         yield c
 
 
+# ──────────────────────────────────────────────────────────────────────
+#  DB Mocking -- mirror of test_crud_endpoints.py's _mock_db
+# ──────────────────────────────────────────────────────────────────────
+#  Several endpoint smoke tests (findings, credentials, reports, scripts,
+#  connections, files, payloads, ctf) call into the Supabase CRUD layer
+#  and depend on a live DB. When CI runs with ``SUPABASE_URL=""`` the
+#  ``database.list_*`` functions return ``None`` and the endpoint returns
+#  a 503 "Database not configured" error -- breaking these smoke tests
+#  that only assert the SHAPE of the response, not a specific dataset.
+#  Mock the ``list_*`` functions to return empty lists (matching a fresh
+#  Supabase table) so endpoints respond 200 + ``{"ok": True, "data": []}``
+#  deterministically. Per-test ``monkeypatch.setattr`` overrides still
+#  take effect because they are applied at function scope AFTER the
+#  fixture's setup (fixtures run first).
+@pytest.fixture(autouse=True)
+def _mock_no_db(monkeypatch):
+    from backend import database as db_mod
+    monkeypatch.setattr(db_mod, "list_findings", lambda *a, **kw: [])
+    monkeypatch.setattr(db_mod, "list_reports", lambda *a, **kw: [])
+    monkeypatch.setattr(db_mod, "list_scripts", lambda *a, **kw: [])
+    monkeypatch.setattr(db_mod, "list_connections", lambda *a, **kw: [])
+    monkeypatch.setattr(db_mod, "list_hak5_payloads", lambda *a, **kw: [])
+    monkeypatch.setattr(db_mod, "list_credentials", lambda *a, **kw: [])
+    monkeypatch.setattr(db_mod, "list_uploaded_files", lambda *a, **kw: [])
+    monkeypatch.setattr(db_mod, "list_ctf_challenges", lambda *a, **kw: [])
+    yield
+
+
 # ═══════════════════════════════════════════════════════════════════════
 #  1. Health endpoint
 # ═══════════════════════════════════════════════════════════════════════

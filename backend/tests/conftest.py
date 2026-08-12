@@ -2,6 +2,7 @@
 Shared fixtures for MIRV API tests.
 """
 import importlib
+import types
 import pytest
 from fastapi.testclient import TestClient
 import sys
@@ -49,6 +50,57 @@ for _name in _BACKEND_MODULES_TO_ALIAS:
         # If a module is renamed/removed later, ignore silently so the
         # whole test collection doesn't break on import.
         pass
+
+
+# ───────────────────────────────────────────────────────────────────
+#  Neutralize real `watchdog` for the whole suite (force polling fallback)
+# ───────────────────────────────────────────────────────────────────
+#
+# ``backend/plugin_manager.py`` does ``try: from watchdog.observers
+# import Observer``. When the real ``watchdog`` is installed (which it
+# IS on CI Linux because `requirements.txt` includes it), ``HAS_WATCHDOG``
+# ends up True and ``start_watcher()`` uses the Observer-based backend
+# (assigning ``_watcher_observer``) instead of the polling thread
+# (assigning ``_watcher_thread``). The catch: dozens of tests in
+# ``test_plugin_watcher.py`` (and one in ``test_plugin_manager_gaps.py``)
+# were written assuming the POLLING path -- they assert on
+# ``pm._watcher_thread``/``pm._watcher_started``/threading semantics
+# that simply do not exist on the Observer branch. The mismatch
+# produced the ~11 failures unmasked after the watchdog_gaps fix.
+#
+# Fix: replace the three watchdog modules in sys.modules with EMPTY
+# stubs whose `Observer`/`FileSystemEventHandler` attributes are
+# missing (or None), then reload ``backend.plugin_manager`` so it
+# re-evaluates the try/except import and falls through to
+# ``HAS_WATCHDOG = False``. Tests in
+# ``test_plugin_manager_watchdog_gaps.py`` are unaffected because
+# they inject their OWN fakes inside their `watchdog_enabled`
+# fixture and reload the module themselves; their teardown now sees
+# ``original_has_watchdog == False`` (which this neutralization set),
+# so the ordering invariant ("restore to original") still holds.
+#
+# The stubs must NOT raise on attribute access (importlib.reload would
+# surface unrelated AttributeErrors); they just need to lack the two
+# symbols so `from watchdog.observers import Observer` raises
+# ImportError cleanly, which the plugin_manager try/except catches.
+def _neutralize_watchdog() -> None:
+    pkg = types.ModuleType("watchdog")
+    obs = types.ModuleType("watchdog.observers")
+    # `hasattr(obs, "Observer")` is False → `from … import Observer`
+    # raises ImportError, caught by plugin_manager's try/except.
+    events = types.ModuleType("watchdog.events")
+    sys.modules["watchdog"] = pkg
+    sys.modules["watchdog.observers"] = obs
+    sys.modules["watchdog.events"] = events
+    try:
+        pm = importlib.import_module("backend.plugin_manager")
+        importlib.reload(pm)
+    except Exception:
+        # Defensive: never blow up test collection.
+        pass
+
+
+_neutralize_watchdog()
 
 
 @pytest.fixture
