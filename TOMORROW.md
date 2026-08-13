@@ -165,7 +165,7 @@
 ## 🐛 Bugs conocidos / TODOs
 
 1. **`test_slow_hook`** excluido de CI — tarda 35s
-2. **Plugin watcher tests** — timers 250ms+ por debounce
+2. ~~**Plugin watcher tests** — timers 250ms+ por debounce~~ — ✅ **RESUELTO AGO 2026**: acelerados a ventana de 80ms (debounce 0.08 > poll 0.05) en `test_plugin_watcher.py`; archivo 4.4s → ~1.8s (2.5x), sin tocar producción (0.25/2.0 intactos). De paso se eliminaron 2 races latentes: snapshot baseline del poller (`_wait_watcher_ready()`) y debounce == poll interval que producía doble reload (~50% del bursty test). 40+ runs sin flakiness. Ver § Nota bug #2.
 3. ~~**Module identity split** — tests importan `backend.modulo` vs `modulo`~~ — ✅ **RESUELTO AGO 2026**: unificados los 30+ tests a `from backend.X import …` + conftest aliasa `sys.modules["X"] = backend.X` para mantener compat con los ~216 `@patch("X.attr")` strings legacy. Ver § Postmortem Module-Identity al final.
 4. ~~**exif_osint.py coverage 63%**~~ — ✅ **100%** (12 Ago 2026): `test_exif_osint_gaps.py` reescrito — 16 tests (Image.open failure, tuple conversion, thumbnail defensivo línea 425, analyze_url 6 ramas, reverse_geocode 4 ramas)
 5. ~~**dlp_scanner.py coverage 67%**~~ — ✅ **100%** (12 Ago 2026): `test_dlp_scanner_gaps.py` reescrito — 29 tests (_get_context, _is_valid_match ipv4, _adjust_severity, _strings_like, dedup, fallbacks scan_file, scan_url 6 ramas)
@@ -407,3 +407,33 @@ Localmente (Windows, sin watchdog): `3909 passed` con `-k "not test_slow_hook"` 
 | `525ea54` | test(plugin_manager): fix teardown `watchdog_gaps` |
 | `b1a79d4` | docs(tomorrow): documentar 11 fallos desenmascarados |
 | `3cb20fb` | fix(ci): env-vacío fallbacks (main.py) + `_neutralize_watchdog` + DB mocks + `@pytest.mark.slow` en test_full_session + tail-50 |
+
+---
+
+## 📝 Nota bug #2 — Plugin watcher tests acelerados (12 Ago 2026)
+
+> Fecha: 12 Ago 2026 — `test_plugin_watcher.py`: 4.42s → ~1.78s (2.5x), sin flakiness en 40+ runs.
+
+### Qué se hizo (solo `backend/tests/test_plugin_watcher.py`, producción intacta)
+
+| Cambio | Antes | Después |
+|---|---|---|
+| Fixture `clean_state` setup | `_POLL_INTERVAL=0.15`, `_DEBOUNCE_SECONDS=0.25` | `_POLL_INTERVAL=0.05`, `_DEBOUNCE_SECONDS=0.08` |
+| Fixture teardown | `2.0`/`0.25` | `2.0`/`0.25` (restaura producción) |
+| `_wait_for` cadencia | `interval=0.1` | `interval=0.05` |
+| Bursty test writes | `sleep(0.03)` entre writes, extra `sleep(1.0)` | `sleep(0.015)` (margen 5x), extra `sleep(0.3)` (3.75x) |
+| Guard anti-race | — | Nuevo helper `_wait_watcher_ready()` en 5 tests discovery/reload |
+
+### Dos races latentes eliminadas de paso
+
+1. **Race de snapshot baseline** (~1/70): `_DirPoller.run()` empieza con `_snapshot()`; si el thread no la ejecuta antes de que el test toque el filesystem, el cambio queda en el baseline y NUNCA se detecta → timeout silencioso de 6s. Guard: esperar a `thread.ident` + margen 20ms. 0/100 misses tras el fix.
+2. **Race de debounce** (~50% del bursty test con los valores originales 0.05==0.05): un scan que detecta writes parciales agenda un Timer que dispara justo cuando el siguiente scan agenda otro; `threading.Timer.cancel()` es no-op si el callback ya arrancó → 2 reloads. Fix: **invariante `debounce > poll interval`** (0.08 > 0.05). Es una lección para futuros tests de timers.
+
+### Verificación
+
+| Run | Resultado |
+|---|---|
+| `test_plugin_watcher.py` ×3 (verificación propia) | ✅ 18 passed, ~1.78s cada uno |
+| `test_plugin_watcher.py` ×40 (subagente, incl. bajo carga CPU) | ✅ 18 passed, 1.64–2.43s, 0 flaky |
+| `watchdog_gaps + manager_gaps` | ✅ 48 passed, 0.40s |
+| **Suite completa CI-emulada** | ✅ **3871 passed, 52 deselected, 0 failed** |

@@ -6,7 +6,8 @@ Covers:
   - ``stop_watcher`` cleanup semantics
   - New plugin dir auto-discovery
   - Loaded plugin's main.py modification → auto-reload
-  - 250 ms debounce collapses bursty changes into ONE reload
+  - Debounce collapses bursty changes into ONE reload (80 ms window in
+    these tests; production uses 250 ms — the fixture accelerates timers)
   - ``list_watch_events`` ring buffer (max 50, FIFO eviction)
   - ``auto_load_new`` False/True behaviour (security default)
   - Graceful handling when ``PLUGINS_DIR`` does not exist
@@ -81,8 +82,10 @@ def _bump_main_py(plugin_dir, counter):
     )
 
 
-def _wait_for(predicate, timeout=8.0, interval=0.1):
+def _wait_for(predicate, timeout=8.0, interval=0.05):
     """Poll-time helper. Returns True if predicate becomes truthy in time."""
+    # 50ms poll cadence: below the 80ms debounce window so we notice the
+    # debounced reload promptly (timeout default stays at production-safe 8s).
     deadline = time.time() + timeout
     while time.time() < deadline:
         try:
@@ -91,6 +94,33 @@ def _wait_for(predicate, timeout=8.0, interval=0.1):
         except Exception:
             pass
         time.sleep(interval)
+    return False
+
+
+def _wait_watcher_ready(timeout=2.0):
+    """Wait until the watcher backend has taken its initial snapshot.
+
+    Root-cause guard for a rare but real race: ``_DirPoller.run()`` begins
+    with ``_snapshot()``. If the poller thread has not executed it yet when
+    a test creates/modifies files, those changes land in the poller's
+    baseline and are NEVER detected (silent ``_wait_for`` 6s timeout).
+    ``thread.ident`` is set as soon as ``run()`` starts, so waiting for it
+    plus a short margin guarantees the initial snapshot is done before the
+    test touches the filesystem.
+    """
+    if pm._watcher_observer is not None:
+        # Watchdog observer backend (defensive; conftest neutralizes it):
+        # event-driven, so there is no baseline snapshot race.
+        return True
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        thread = pm._watcher_thread
+        if thread is not None and thread.ident is not None:
+            # ident is set at thread bootstrap, run() → _snapshot() runs
+            # microseconds later; 20ms is ~1000x that, plenty of margin.
+            time.sleep(0.02)
+            return True
+        time.sleep(0.01)
     return False
 
 
@@ -113,9 +143,18 @@ def clean_state():
     """Reset watcher + plugin state before AND after each test."""
     pm.reset()
     pm._clear_watch_events()
-    # Fast polling for responsive tests.
-    pm._POLL_INTERVAL = 0.15
-    pm._DEBOUNCE_SECONDS = 0.25
+    # Fast polling for responsive tests (test-only acceleration — production
+    # values _POLL_INTERVAL=2.0 / _DEBOUNCE_SECONDS=0.25 stay untouched).
+    # Must be set BEFORE start_watcher(): _DirPoller.__init__ captures the
+    # interval at construction time, while _schedule_reload reads the debounce
+    # at runtime.
+    # NOTE: debounce (0.08) MUST stay > poll interval (0.05) — otherwise the
+    # timer from one poller scan fires exactly when the next scan schedules
+    # its own, and the pending timer cannot be cancelled (threading.Timer
+    # cancel is a no-op once the callback thread has started), producing TWO
+    # reloads instead of one debounced reload.
+    pm._POLL_INTERVAL = 0.05
+    pm._DEBOUNCE_SECONDS = 0.08
     yield
     try:
         pm.stop_watcher()
@@ -123,6 +162,7 @@ def clean_state():
         pass
     pm.reset()
     pm._clear_watch_events()
+    # Restore production timing (never leak accelerated test timers out).
     pm._POLL_INTERVAL = 2.0
     pm._DEBOUNCE_SECONDS = 0.25
 
@@ -234,6 +274,9 @@ def test_concurrent_start_watcher_calls(watcher_with_tmp):
 def test_new_plugin_dir_triggers_discover_event(watcher_with_empty_tmp):
     """Creating a new plugin dir + plugin.json triggers an auto-discover event."""
     pm.start_watcher(auto_load_new=False)
+    # Ensure the poller's initial snapshot ran BEFORE creating files below
+    # (otherwise the new dir lands in the baseline and is never detected).
+    assert _wait_watcher_ready(), "poller did not become ready in time"
     # Sanity: nothing in events yet about new plugin
     _make_plugin_dir(watcher_with_empty_tmp, "newcomer", counter=1)
 
@@ -252,6 +295,8 @@ def test_new_plugin_dir_triggers_discover_event(watcher_with_empty_tmp):
 def test_modify_loaded_plugin_triggers_auto_reload(watcher_with_tmp):
     """Modifying a loaded plugin's main.py triggers an auto-reload."""
     pm.start_watcher(auto_load_new=False)
+    # Snapshot guard: see _wait_watcher_ready docstring (baseline race).
+    assert _wait_watcher_ready(), "poller did not become ready in time"
     pm.discover_plugins()
     pdir = watcher_with_tmp / "seed-plugin"
     res = pm.load_plugin("seed-plugin")
@@ -272,8 +317,11 @@ def test_modify_loaded_plugin_triggers_auto_reload(watcher_with_tmp):
 
 
 def test_debounce_collapses_bursty_changes(watcher_with_tmp):
-    """Rapid successive changes within 250ms result in only ONE reload."""
+    """Rapid successive changes within the 80ms debounce window (accelerated
+    test timing; production uses 250ms) result in only ONE reload."""
     pm.start_watcher(auto_load_new=False)
+    # Snapshot guard: see _wait_watcher_ready docstring (baseline race).
+    assert _wait_watcher_ready(), "poller did not become ready in time"
     pm.discover_plugins()
     pm.load_plugin("seed-plugin")
     pdir = watcher_with_tmp / "seed-plugin"
@@ -287,13 +335,15 @@ def test_debounce_collapses_bursty_changes(watcher_with_tmp):
         return real_process_change(name)
 
     with patch.object(pm, "_process_change", _wrapped):
-        # 4 writes ~30ms apart all within 250ms window.
+        # 4 writes ~15ms apart, all within the 80ms debounce window
+        # (15ms gap = 5x margin under the window; no timer can fire in between).
         for i in range(10, 14):
             _bump_main_py(pdir, counter=i)
-            time.sleep(0.03)
+            time.sleep(0.015)
         # wait long enough for the single debounce timer to fire.
         _wait_for(lambda: calls["count"] >= 1, timeout=4.0)
-        time.sleep(1.0)  # extra window to be sure no second timer fires
+        # 300ms extra (3.75x the 80ms window) to be sure no second timer fires.
+        time.sleep(0.3)
 
     assert calls["count"] == 1, f"expected exactly ONE reload, got {calls['count']}"
 
@@ -301,6 +351,8 @@ def test_debounce_collapses_bursty_changes(watcher_with_tmp):
 def test_auto_load_new_false_discovered_not_loaded(watcher_with_empty_tmp):
     """auto_load_new=False → newly added plugin is discovered but NOT loaded."""
     pm.start_watcher(auto_load_new=False)
+    # Snapshot guard: see _wait_watcher_ready docstring (baseline race).
+    assert _wait_watcher_ready(), "poller did not become ready in time"
     _make_plugin_dir(watcher_with_empty_tmp, "ghost", counter=1)
     found = _wait_for(
         lambda: pm.get_plugin_info("ghost") is not None, timeout=6.0,
@@ -316,6 +368,8 @@ def test_auto_load_new_false_discovered_not_loaded(watcher_with_empty_tmp):
 def test_auto_load_new_true_loads_new(watcher_with_empty_tmp):
     """auto_load_new=True → newly added plugin is discovered AND loaded."""
     pm.start_watcher(auto_load_new=True)
+    # Snapshot guard: see _wait_watcher_ready docstring (baseline race).
+    assert _wait_watcher_ready(), "poller did not become ready in time"
     _make_plugin_dir(watcher_with_empty_tmp, "autoload", counter=42)
     found = _wait_for(
         lambda: pm.get_plugin_info("autoload") is not None,
