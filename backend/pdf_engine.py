@@ -16,22 +16,21 @@ from __future__ import annotations
 
 import io
 import logging
+import math
 import re
-from dataclasses import dataclass, field
-from datetime import datetime
-from typing import List, Optional
+from collections import Counter
+from dataclasses import dataclass, field, replace
+from datetime import datetime, timezone
+from typing import List
 
 from reportlab.lib import colors
-from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
-from reportlab.lib.units import cm, mm
+from reportlab.lib.units import mm
 from reportlab.platypus import (
-    BaseDocTemplate,
-    Frame,
-    NextPageTemplate,
+    KeepTogether,
     PageBreak,
-    PageTemplate,
     Paragraph,
     Preformatted,
     SimpleDocTemplate,
@@ -41,7 +40,7 @@ from reportlab.platypus import (
 )
 from reportlab.platypus.flowables import HRFlowable
 
-logger = logging.getLogger("vulnforge.pdf")
+logger = logging.getLogger("mirv.pdf")
 
 __all__ = ["PdfEngine", "PdfReport", "PdfSection", "PdfFinding"]
 
@@ -67,6 +66,10 @@ class PdfFinding:
     tool: str = ""
     recommendation: str = ""
     references: List[str] = field(default_factory=list)
+    status: str = ""
+    cve: str = ""
+    cvss: float | None = None
+    evidence: str = ""
 
 
 @dataclass
@@ -87,7 +90,7 @@ class PdfReport:
     subtitle: str = ""
     author: str = "M.I.R.V."
     date: str = field(
-        default_factory=lambda: datetime.utcnow().strftime("%Y-%m-%d")
+        default_factory=lambda: datetime.now(timezone.utc).strftime("%Y-%m-%d")
     )
     target: str = ""
     executive_summary: str = ""
@@ -124,7 +127,7 @@ class PdfEngine:
 
     SEVERITY_ORDER: List[str] = ["critical", "high", "medium", "low", "info"]
 
-    # Frame dimensions for BaseDocTemplate (A4 minus margins)
+    # Page margins (A4 minus margins)
     _MARGIN_LEFT = 20 * mm
     _MARGIN_RIGHT = 20 * mm
     _MARGIN_TOP = 25 * mm
@@ -359,10 +362,21 @@ class PdfEngine:
     # ===================================================================
 
     def generate(self, report: PdfReport) -> bytes:
-        """Generate complete PDF report. Returns raw PDF bytes."""
+        """Generate complete PDF report. Returns raw PDF bytes.
+
+        When findings exist and ``report.executive_summary`` is empty, an
+        automatic executive summary (severity/tool/target metrics) is
+        generated; an explicitly provided summary is never overwritten.
+        """
         buffer = io.BytesIO()
-        doc = self._build_document(buffer, report)
-        story = self._build_story(report)
+
+        # Auto-generate executive summary when missing but findings exist.
+        work = report
+        if report.findings and not (report.executive_summary or "").strip():
+            work = replace(report, executive_summary=self._auto_executive_summary(report))
+
+        doc = self._build_document(buffer, work)
+        story = self._build_story(work)
 
         try:
             doc.build(
@@ -423,7 +437,12 @@ class PdfEngine:
             story.extend(self._findings_summary_table(report))
             story.append(PageBreak())
 
-        # 5. Content sections
+        # 5. Findings detail blocks (one per finding)
+        if report.findings:
+            story.extend(self._findings_detail(report))
+            story.append(PageBreak())
+
+        # 6. Content sections
         for section in report.sections:
             story.extend(self._render_section(section, level=0))
 
@@ -543,6 +562,7 @@ class PdfEngine:
             toc_entries.append("Executive Summary")
         if report.findings:
             toc_entries.append("Findings Summary")
+            toc_entries.append("Findings Detail")
 
         # Walk sections
         for idx, section in enumerate(report.sections, start=1):
@@ -637,6 +657,67 @@ class PdfEngine:
 
         return flowables
 
+    def _auto_executive_summary(self, report: PdfReport) -> str:
+        """Build a metrics-driven executive summary in markdown.
+
+        Includes: total, severity counts, top-5 tools, top-5 targets and a
+        plain-language sentence. Only used when the report has findings and no
+        explicit ``executive_summary`` was provided.
+        """
+        findings = report.findings
+        total = len(findings)
+        counts = self._count_by_severity(findings)
+        noun = "finding" if total == 1 else "findings"
+
+        labels = {
+            "critical": "critical",
+            "high": "high",
+            "medium": "medium",
+            "low": "low",
+            "info": "informational",
+        }
+        present = [
+            f"{counts[s]} {labels[s]}"
+            for s in self.SEVERITY_ORDER
+            if counts.get(s, 0) > 0
+        ]
+        if present:
+            if len(present) == 1:
+                summary_line = f"The analysis identified {total} {noun}: {present[0]}."
+            else:
+                summary_line = (
+                    f"The analysis identified {total} {noun}: "
+                    f"{', '.join(present[:-1])} and {present[-1]}."
+                )
+        else:
+            summary_line = f"The analysis identified {total} {noun}."
+
+        lines: list = [summary_line]
+
+        # Top-5 tools
+        tool_counts = Counter(f.tool for f in findings if f.tool)
+        if tool_counts:
+            lines.append("")
+            lines.append("### Top Tools")
+            lines.append("")
+            lines.append("| Tool | Findings |")
+            lines.append("|------|----------|")
+            for tool, cnt in tool_counts.most_common(5):
+                lines.append(f"| {tool} | {cnt} |")
+
+        # Top-5 targets
+        target_counts = Counter(f.target for f in findings if f.target)
+        if target_counts:
+            lines.append("")
+            lines.append("### Top Targets")
+            lines.append("")
+            lines.append("| Target | Findings |")
+            lines.append("|--------|----------|")
+            for target, cnt in target_counts.most_common(5):
+                lines.append(f"| {target} | {cnt} |")
+
+        return "\n".join(lines)
+
     # ===================================================================
     # Findings summary table
     # ===================================================================
@@ -656,12 +737,7 @@ class PdfEngine:
         )
 
         # Sort by severity
-        sorted_findings = sorted(
-            report.findings,
-            key=lambda f: self.SEVERITY_ORDER.index(f.severity.lower())
-            if f.severity.lower() in self.SEVERITY_ORDER
-            else len(self.SEVERITY_ORDER),
-        )
+        sorted_findings = self._sorted_findings(report)
 
         # Column widths: #, Title, Severity, Tool, Target
         usable_width = PAGE_WIDTH - self._MARGIN_LEFT - self._MARGIN_RIGHT
@@ -746,6 +822,88 @@ class PdfEngine:
         return flowables
 
     # ===================================================================
+    # Findings detail blocks
+    # ===================================================================
+
+    def _findings_detail(self, report: PdfReport) -> list:
+        """Render one detail block per top-level finding.
+
+        Each finding gets a severity-bordered box (title, badge, detail,
+        target/tool, status/CVE/CVSS, evidence, recommendation, references)
+        wrapped in ``KeepTogether`` so blocks are not split mid-finding.
+        Findings too tall for a single page fall back to plain splittable
+        flowables instead of a (non-splittable) bordered box.
+        """
+        flowables: list = []
+
+        flowables.append(Paragraph("Findings Detail", self._h1_style))
+        flowables.append(
+            HRFlowable(
+                width="100%",
+                thickness=0.5,
+                color=colors.HexColor(self.COLORS["accent"]),
+                spaceAfter=4 * mm,
+            )
+        )
+
+        for finding in self._sorted_findings(report):
+            block = self._render_finding(finding)
+            flowables.extend(
+                self._wrap_keep_together(block, self._render_finding_plain(finding))
+            )
+
+        return flowables
+
+    def _sorted_findings(self, report: PdfReport) -> list:
+        """Findings ordered by severity (stable for equal severities)."""
+        return sorted(
+            report.findings,
+            key=lambda f: self.SEVERITY_ORDER.index(f.severity.lower())
+            if f.severity.lower() in self.SEVERITY_ORDER
+            else len(self.SEVERITY_ORDER),
+        )
+
+    def _wrap_keep_together(self, flowables: list, fallback: list = None) -> list:
+        """Wrap a finding block in ``KeepTogether`` when it fits on a page.
+
+        Blocks taller than the printable area use ``fallback`` (plain
+        splittable flowables) so oversized content never raises a LayoutError.
+        """
+        max_height = PAGE_HEIGHT - self._MARGIN_TOP - self._MARGIN_BOTTOM
+        if self._estimate_block_height(flowables) <= max_height:
+            return [KeepTogether(flowables)]
+        return fallback if fallback is not None else flowables
+
+    def _estimate_block_height(self, flowables: list) -> float:
+        """Conservative height estimate for a list of flowables (points)."""
+        usable_width = PAGE_WIDTH - self._MARGIN_LEFT - self._MARGIN_RIGHT - 6 * mm
+        total = 0.0
+        for flowable in flowables:
+            if isinstance(flowable, Spacer):
+                total += getattr(flowable, "height", 0) or 0
+            elif isinstance(flowable, Paragraph):
+                style = flowable.style
+                font_size = getattr(style, "fontSize", 9) or 9
+                leading = getattr(style, "leading", 0) or (font_size * 1.4)
+                plain = re.sub(r"<[^>]+>", "", getattr(flowable, "text", "") or "")
+                chars_per_line = max(10, int(usable_width / (font_size * 0.55)))
+                lines = max(1, math.ceil(len(plain) / chars_per_line))
+                total += lines * leading
+                total += (style.spaceBefore or 0) + (style.spaceAfter or 0)
+            elif isinstance(flowable, Table):
+                # Wrapper table: base padding plus nested cell content.
+                total += 20
+                for row in getattr(flowable, "_cellvalues", []):
+                    for cell in row:
+                        if isinstance(cell, (list, tuple)):
+                            total += self._estimate_block_height(list(cell))
+                        else:
+                            total += 12
+            else:
+                total += 30
+        return total
+
+    # ===================================================================
     # Section renderer
     # ===================================================================
 
@@ -787,7 +945,6 @@ class PdfEngine:
 
     def _render_finding(self, finding: PdfFinding) -> list:
         """Render a single finding block with severity badge."""
-        flowables: list = []
         sev = finding.severity.lower()
         sev_color_hex = self.severity_color(sev)
         badge = self.severity_badge(sev)
@@ -797,16 +954,9 @@ class PdfEngine:
             f'<font color="{sev_color_hex}"><b>[{badge} {sev.upper()}]</b></font>'
             f"  <b>{self._escape(finding.title)}</b>"
         )
-        flowables.append(Paragraph(title_text, self._finding_title_style))
 
         # Colored left border via a 1-cell table trick
         border_color = colors.HexColor(sev_color_hex)
-
-        # Detail
-        if finding.detail:
-            flowables.append(
-                Paragraph(self._escape(finding.detail), self._finding_detail_style)
-            )
 
         # Target & Tool line
         meta_parts = []
@@ -814,61 +964,17 @@ class PdfEngine:
             meta_parts.append(f"Target: {self._escape(finding.target)}")
         if finding.tool:
             meta_parts.append(f"Tool: {self._escape(finding.tool)}")
-        if meta_parts:
-            flowables.append(
-                Paragraph(
-                    " | ".join(meta_parts),
-                    ParagraphStyle(
-                        "FindingMeta",
-                        parent=self._finding_detail_style,
-                        fontName="Helvetica-Oblique",
-                        fontSize=8,
-                        textColor=colors.HexColor(self.COLORS["muted"]),
-                    ),
-                )
-            )
 
-        # Recommendation
-        if finding.recommendation:
-            flowables.append(
-                Paragraph(
-                    f"<b>Recommendation:</b> {self._escape(finding.recommendation)}",
-                    self._finding_detail_style,
-                )
-            )
+        # Status / CVE / CVSS line (only when at least one is present)
+        vuln_parts = []
+        if finding.status:
+            vuln_parts.append(f"Status: {self._escape(finding.status)}")
+        if finding.cve:
+            vuln_parts.append(f"CVE: {self._escape(finding.cve)}")
+        if finding.cvss is not None:
+            vuln_parts.append(f"CVSS: {finding.cvss}")
 
-        # References
-        if finding.references:
-            refs_text = "<b>References:</b> " + ", ".join(
-                self._escape(ref) for ref in finding.references
-            )
-            flowables.append(
-                Paragraph(refs_text, self._finding_detail_style)
-            )
-
-        # Wrap the whole finding in a border table
-        inner_table = Table(
-            [[flowables[-len(flowables):]]],
-            colWidths=[
-                PAGE_WIDTH - self._MARGIN_LEFT - self._MARGIN_RIGHT - 8 * mm
-            ],
-        )
-        inner_table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor(self.COLORS["bg_table"])),
-            ("BOX", (0, 0), (-1, -1), 0.6, border_color),
-            ("LEFTPADDING", (0, 0), (-1, -1), 8),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 8),
-            ("TOPPADDING", (0, 0), (-1, -1), 6),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-            ("LINEBEFOREDECOR", (0, 0), (0, -1), 3, border_color),
-        ]))
-
-        # Replace the individual flowables we just added with the wrapper table.
-        # We pop what we pushed and use the table instead.
-        # Simpler approach: rebuild the finding block cleanly.
-        wrapped: list = []
-
-        # Build content cells for the inner table
+        # Build content cells for the bordered box
         inner_flowables: list = []
 
         inner_flowables.append(Paragraph(title_text, self._finding_title_style))
@@ -878,17 +984,25 @@ class PdfEngine:
                 Paragraph(self._escape(finding.detail), self._finding_detail_style)
             )
 
+        meta_style = ParagraphStyle(
+            "FindingMeta",
+            parent=self._finding_detail_style,
+            fontName="Helvetica-Oblique",
+            fontSize=8,
+            textColor=colors.HexColor(self.COLORS["muted"]),
+        )
         if meta_parts:
+            inner_flowables.append(Paragraph(" | ".join(meta_parts), meta_style))
+
+        if vuln_parts:
+            inner_flowables.append(Paragraph(" | ".join(vuln_parts), meta_style))
+
+        if finding.evidence:
+            evidence_text = self._escape(finding.evidence).replace("\n", "<br/>")
             inner_flowables.append(
                 Paragraph(
-                    " | ".join(meta_parts),
-                    ParagraphStyle(
-                        "FindingMeta2",
-                        parent=self._finding_detail_style,
-                        fontName="Helvetica-Oblique",
-                        fontSize=8,
-                        textColor=colors.HexColor(self.COLORS["muted"]),
-                    ),
+                    f"<b>Evidence:</b> {evidence_text}",
+                    self._finding_detail_style,
                 )
             )
 
@@ -924,11 +1038,83 @@ class PdfEngine:
             ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ]))
 
-        wrapped.append(Spacer(1, 3 * mm))
-        wrapped.append(wrapper)
-        wrapped.append(Spacer(1, 3 * mm))
+        return [Spacer(1, 3 * mm), wrapper, Spacer(1, 3 * mm)]
 
-        return wrapped
+    def _render_finding_plain(self, finding: PdfFinding) -> list:
+        """Render a finding as plain splittable flowables (no bordered box).
+
+        Fallback used by ``_wrap_keep_together`` when a finding block is
+        taller than a single printable page: a flat list of Paragraphs can
+        split cleanly across pages, whereas the single-cell wrapper table
+        from ``_render_finding`` would overflow the frame.
+        """
+        flowables: list = []
+        sev = finding.severity.lower()
+        sev_color_hex = self.severity_color(sev)
+        badge = self.severity_badge(sev)
+
+        # Title with severity badge
+        title_text = (
+            f'<font color="{sev_color_hex}"><b>[{badge} {sev.upper()}]</b></font>'
+            f"  <b>{self._escape(finding.title)}</b>"
+        )
+        flowables.append(Paragraph(title_text, self._finding_title_style))
+
+        if finding.detail:
+            flowables.append(
+                Paragraph(self._escape(finding.detail), self._finding_detail_style)
+            )
+
+        meta_parts = []
+        if finding.target:
+            meta_parts.append(f"Target: {self._escape(finding.target)}")
+        if finding.tool:
+            meta_parts.append(f"Tool: {self._escape(finding.tool)}")
+
+        vuln_parts = []
+        if finding.status:
+            vuln_parts.append(f"Status: {self._escape(finding.status)}")
+        if finding.cve:
+            vuln_parts.append(f"CVE: {self._escape(finding.cve)}")
+        if finding.cvss is not None:
+            vuln_parts.append(f"CVSS: {finding.cvss}")
+
+        meta_style = ParagraphStyle(
+            "FindingMetaPlain",
+            parent=self._finding_detail_style,
+            fontName="Helvetica-Oblique",
+            fontSize=8,
+            textColor=colors.HexColor(self.COLORS["muted"]),
+        )
+        if meta_parts:
+            flowables.append(Paragraph(" | ".join(meta_parts), meta_style))
+        if vuln_parts:
+            flowables.append(Paragraph(" | ".join(vuln_parts), meta_style))
+
+        if finding.evidence:
+            evidence_text = self._escape(finding.evidence).replace("\n", "<br/>")
+            flowables.append(
+                Paragraph(
+                    f"<b>Evidence:</b> {evidence_text}",
+                    self._finding_detail_style,
+                )
+            )
+
+        if finding.recommendation:
+            flowables.append(
+                Paragraph(
+                    f"<b>Recommendation:</b> {self._escape(finding.recommendation)}",
+                    self._finding_detail_style,
+                )
+            )
+
+        if finding.references:
+            refs_text = "<b>References:</b> " + ", ".join(
+                self._escape(ref) for ref in finding.references
+            )
+            flowables.append(Paragraph(refs_text, self._finding_detail_style))
+
+        return flowables
 
     # ===================================================================
     # Markdown parser
@@ -1270,7 +1456,7 @@ class PdfEngine:
         canvas.drawRightString(
             w - self._MARGIN_RIGHT,
             footer_y,
-            datetime.utcnow().strftime("%Y-%m-%d"),
+            datetime.now(timezone.utc).strftime("%Y-%m-%d"),
         )
 
         canvas.restoreState()

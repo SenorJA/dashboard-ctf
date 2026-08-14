@@ -19,7 +19,7 @@ import logging
 import urllib.request
 import urllib.error
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, List, Optional
 
 # ── Production mode detection ──
 # If run WITHOUT --reload, we're in production mode
@@ -3019,6 +3019,132 @@ async def generate_pdf_professional(req: PdfProfessionalRequest):
         return JSONResponse({"ok": False, "error": "reportlab not installed — run: pip install reportlab"}, status_code=500)
     except Exception as e:
         logger.error("Professional PDF generation failed: %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+# ── Unified PDF export (findings detail + auto executive summary) ──
+
+class ReportExportPdfFindingModel(BaseModel):
+    """Single finding for POST /api/report/export-pdf."""
+    title: str = "Untitled"
+    severity: str = "info"
+    detail: str = ""
+    target: str = ""
+    tool: str = ""
+    recommendation: str = ""
+    references: list = []
+    status: str = ""
+    cve: str = ""
+    cvss: Optional[float] = None
+    evidence: str = ""
+
+
+class ReportExportPdfRequest(BaseModel):
+    """Unified professional PDF export request."""
+    title: str = "Security Assessment Report"
+    subtitle: str = ""
+    author: str = "M.I.R.V."
+    target: str = ""
+    executive_summary: str = ""
+    findings: List[ReportExportPdfFindingModel] = []
+
+
+def _finding_to_pdf_finding(fm) -> Optional["PdfFinding"]:
+    """Map a finding dict/object to a backend.pdf_engine.PdfFinding."""
+    from backend.pdf_engine import PdfFinding
+
+    if isinstance(fm, dict):
+        status_val = fm.get("status")
+        status = "" if status_val in (None, "") else str(status_val)
+        return PdfFinding(
+            title=fm.get("title", "Untitled") or "Untitled",
+            severity=fm.get("severity", "info") or "info",
+            detail=fm.get("detail", "") or "",
+            target=fm.get("target", "") or "",
+            tool=fm.get("tool", "") or "",
+            recommendation=fm.get("recommendation", "") or "",
+            references=fm.get("references", []) or [],
+            status=status,
+            cve=fm.get("cve", "") or "",
+            cvss=fm.get("cvss"),
+            evidence=fm.get("evidence", "") or "",
+        )
+    if hasattr(fm, "title"):
+        status_val = getattr(fm, "status", "")
+        status = "" if status_val in (None, "") else str(status_val)
+        return PdfFinding(
+            title=getattr(fm, "title", "Untitled") or "Untitled",
+            severity=getattr(fm, "severity", "info") or "info",
+            detail=getattr(fm, "detail", "") or "",
+            target=getattr(fm, "target", "") or "",
+            tool=getattr(fm, "tool", "") or "",
+            recommendation=getattr(fm, "recommendation", "") or "",
+            references=getattr(fm, "references", []) or [],
+            status=status,
+            cve=getattr(fm, "cve", "") or "",
+            cvss=getattr(fm, "cvss", None),
+            evidence=getattr(fm, "evidence", "") or "",
+        )
+    return None
+
+
+@app.post("/api/report/export-pdf")
+async def report_export_pdf(req: ReportExportPdfRequest):
+    """Generate a professional PDF with per-finding detail blocks.
+
+    Accepts findings in the request body; when none are provided, falls back
+    to ``database.list_findings()``. Returns an ``application/pdf`` stream
+    named ``mirv-report-YYYYMMDD-HHMMSS.pdf``.
+    """
+    try:
+        from backend.pdf_engine import PdfEngine, PdfReport
+
+        payload = req.findings or []
+
+        # Fallback: load findings from the database layer when the body
+        # carries none.
+        if not payload:
+            rows = db.list_findings(limit=200)
+            if rows is None:
+                return JSONResponse(
+                    {"ok": False, "error": "No findings provided and database unavailable"},
+                    status_code=400,
+                )
+            payload = rows or []
+
+        findings = []
+        for fm in payload:
+            mapped = _finding_to_pdf_finding(fm)
+            if mapped is not None:
+                findings.append(mapped)
+
+        report = PdfReport(
+            title=req.title,
+            subtitle=req.subtitle,
+            author=req.author,
+            target=req.target,
+            executive_summary=req.executive_summary,
+            findings=findings,
+        )
+
+        engine = PdfEngine()
+        pdf_bytes = engine.generate(report)
+
+        from fastapi.responses import StreamingResponse
+        filename = f"mirv-report-{datetime.now().strftime('%Y%m%d-%H%M%S')}.pdf"
+        return StreamingResponse(
+            io.BytesIO(pdf_bytes),
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Content-Length": str(len(pdf_bytes)),
+            }
+        )
+
+    except ImportError:
+        return JSONResponse({"ok": False, "error": "reportlab not installed — run: pip install reportlab"}, status_code=500)
+    except Exception as e:
+        logger.error("Report PDF export failed: %s", e)
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 
 

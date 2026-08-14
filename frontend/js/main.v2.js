@@ -1346,8 +1346,19 @@ ${bodyHtml}
         }
         const format = (document.getElementById('findings-format') || { value: 'md' }).value;
         const target = document.getElementById('target-ip')?.value?.trim() || 'unknown';
-        const suggestions = window.suggestions || [];
         const date = new Date().toISOString().slice(0, 10);
+
+        // PDF → real server-side professional PDF (reportlab via /api/report/export-pdf).
+        // Falls back to the print preview inside exportFindingsPdfProfessional on error.
+        if (format === 'pdf') {
+            await exportFindingsPdfProfessional(f, {
+                title: `Findings Report — ${target} — ${new Date().toLocaleString()}`,
+                target
+            });
+            return;
+        }
+
+        const suggestions = window.suggestions || [];
 
         showToast('📝 Generating report...');
 
@@ -1374,9 +1385,6 @@ ${bodyHtml}
                 const html = buildExportHTML(md, 'Findings Report', 'findings');
                 downloadString(html, `${safeName}.html`, 'text/html');
                 showToast('⬇ HTML exported');
-            } else if (format === 'pdf') {
-                const html = buildExportHTML(md, 'Findings Report', 'findings');
-                openPDFPreview(html, `Findings Report — ${date}`);
             }
         } catch (e) {
             showToast('⚠️ Error exporting report: ' + e.message);
@@ -4294,43 +4302,198 @@ ${fix || 'Apply appropriate security patches and input validation.'}
         showToast(`⬇ ${format.toUpperCase()} exported`);
     }
 
-    // ── Professional PDF Export ──
-    window.exportProfessionalPdf = function (options) {
-        // options: { title, subtitle, author, target, executiveSummary, sections, findings, fallbackContent }
-        const report = {
-            title: options.title || 'Security Assessment Report',
+    // ── Download a Blob as a file ──
+    function downloadBlob(blob, filename) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+    }
+
+    /**
+     * Export findings as a REAL professional PDF via the new backend endpoint:
+     * POST /api/report/export-pdf (reportlab → cover, TOC, exec summary, summary table, detail).
+     * On failure it falls back to the classic print preview so the user is never left without an option.
+     *
+     * @param {Array}  findings - Array of MIRV finding objects (window.findings shape)
+     * @param {Object} options  - Optional { title, subtitle, author, target, executive_summary }
+     * @returns {Promise<void>}
+     */
+    window.exportFindingsPdfProfessional = async function (findings, options) {
+        options = options || {};
+        const f = Array.isArray(findings) ? findings : [];
+        const title = options.title || 'Security Assessment Report';
+        const date = new Date().toISOString().slice(0, 10);
+
+        if (f.length === 0) {
+            console.warn('[PDF] exportFindingsPdfProfessional called with no findings — opening print preview');
+            const html = buildExportHTML(`# ${title}\n\nNo findings to export.`, title, 'findings');
+            openPDFPreview(html, `${title} — ${date}`);
+            showToast('⚠️ No findings to export');
+            return;
+        }
+
+        // Map MIRV findings to the /api/report/export-pdf contract
+        const payload = {
+            title,
             subtitle: options.subtitle || '',
             author: options.author || 'M.I.R.V.',
             target: options.target || '',
-            executive_summary: options.executiveSummary || '',
+            executive_summary: options.executive_summary || '',
+            findings: f.map(finding => {
+                // Compute a display title like _renderOneFinding does for typed findings
+                let ftitle = finding.title || '';
+                if (!ftitle) {
+                    if (finding.type === 'port') {
+                        ftitle = `${finding.port || '?'}/${finding.protocol || 'tcp'} — ${finding.service || 'unknown'}`;
+                    } else if (finding.type === 'directory') {
+                        ftitle = finding.path || '/';
+                    } else if (finding.type === 'os') {
+                        ftitle = 'OS Detected';
+                    } else if (finding.type === 'vuln') {
+                        ftitle = 'Potential vulnerability';
+                    } else if (finding.type === 'tech') {
+                        ftitle = 'Technology detected';
+                    } else {
+                        ftitle = finding.tool ? `${finding.tool} finding` : 'Untitled';
+                    }
+                }
+
+                // Build a detail from available fields when no explicit detail exists
+                let detail = finding.detail || '';
+                if (!detail) {
+                    const bits = [];
+                    if (finding.type === 'port') {
+                        bits.push(`Port ${finding.port}/${finding.protocol || 'tcp'} is open (${finding.service || 'unknown'})${finding.version ? `, running ${finding.version}` : ''}.`);
+                    } else if (finding.type === 'directory') {
+                        bits.push(`Path ${finding.path} returned HTTP status ${finding.status}.`);
+                    } else if (finding.type === 'os') {
+                        bits.push('Target operating system detected.');
+                    }
+                    if (finding.raw) bits.push(`Raw output: ${finding.raw}`);
+                    detail = bits.join(' ') || '';
+                }
+
+                return {
+                    title: ftitle,
+                    severity: ['critical', 'high', 'medium', 'low', 'info'].includes(finding.severity) ? finding.severity : 'info',
+                    detail: detail || '',
+                    target: finding.target || options.target || '',
+                    tool: finding.tool || '',
+                    recommendation: finding.recommendation || '',
+                    references: Array.isArray(finding.references) ? finding.references : [],
+                    status: (finding.status !== undefined && finding.status !== null && finding.status !== 0) ? String(finding.status) : '',
+                    cve: finding.cve || '',
+                    cvss: (finding.cvss !== undefined && finding.cvss !== null && !isNaN(finding.cvss)) ? Number(finding.cvss) : null,
+                    evidence: finding.evidence || finding.raw || ''
+                };
+            })
+        };
+
+        showToast('📄 Generating professional PDF...');
+        try {
+            const resp = await fetch('/api/report/export-pdf', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (resp.ok) {
+                const blob = await resp.blob();
+                const safeName = title.replace(/[^a-z0-9]+/gi, '_').toLowerCase() || 'security-assessment';
+                downloadBlob(blob, `${safeName}-${date}.pdf`);
+                showToast('⬇ Professional PDF downloaded');
+                return;
+            }
+            // Non-200 → parse JSON error for the console, then fall back to print
+            let errText = `HTTP ${resp.status}`;
+            try {
+                const errJson = await resp.json();
+                if (errJson && errJson.error) errText = errJson.error;
+            } catch (_) { /* body was not JSON */ }
+            console.warn('[PDF] /api/report/export-pdf failed:', errText);
+        } catch (e) {
+            console.warn('[PDF] /api/report/export-pdf error:', e.message);
+        }
+
+        // Fallback: client-side print preview so the user is never left without an option
+        const md = [
+            `# ${title}`,
+            options.target ? `**Target:** ${options.target}` : '',
+            `**Date:** ${date}`,
+            '',
+            options.executive_summary ? `## Executive Summary\n\n${options.executive_summary}` : '',
+            '',
+            '## Findings',
+            '',
+            ...payload.findings.map(fx => [
+                `### [${fx.severity.toUpperCase()}] ${fx.title}`,
+                fx.target ? `- **Target:** ${fx.target}` : '',
+                fx.tool ? `- **Tool:** ${fx.tool}` : '',
+                fx.detail ? `\n${fx.detail}` : '',
+                fx.recommendation ? `\n**Recommendation:** ${fx.recommendation}` : '',
+                ''
+            ].join('\n'))
+        ].filter(Boolean).join('\n');
+        const html = buildExportHTML(md, title, 'findings');
+        openPDFPreview(html, `${title} — ${date}`);
+        showToast('⚠️ Server PDF unavailable — opened print preview');
+    };
+
+    // ── Professional PDF Export ──
+    window.exportProfessionalPdf = function (options) {
+        // options: { title, subtitle, author, target, executiveSummary, sections, findings, fallbackContent }
+        options = options || {};
+        const title = options.title || 'Security Assessment Report';
+        const subtitle = options.subtitle || '';
+        const author = options.author || 'M.I.R.V.';
+        const target = options.target || document.getElementById('target-ip')?.value?.trim() || '';
+        const executiveSummary = options.executiveSummary || '';
+
+        // Prefer explicit findings; otherwise use the live Findings tab state
+        const srcFindings = (options.findings && options.findings.length)
+            ? options.findings
+            : (window.findings || []);
+
+        if (srcFindings.length > 0) {
+            // Real findings → new reportlab PDF endpoint (print preview fallback inside)
+            exportFindingsPdfProfessional(srcFindings, {
+                title, subtitle, author, target, executive_summary: executiveSummary
+            });
+            return;
+        }
+
+        // No findings → keep the historical template-based behavior so the button never breaks
+        console.warn('[PDF] No findings available for professional export — using template content');
+        const report = {
+            title,
+            subtitle,
+            author,
+            target,
+            executive_summary: executiveSummary,
             sections: (options.sections || []).map(s => ({
                 heading: s.heading,
                 content: s.content,
                 subsections: s.subsections || []
             })),
-            findings: (options.findings || []).map(f => ({
-                title: f.title,
-                severity: f.severity || 'info',
-                detail: f.detail || '',
-                target: f.target || '',
-                tool: f.tool || '',
-                recommendation: f.recommendation || '',
-                references: f.references || []
-            })),
+            findings: [],
             content: options.fallbackContent || ''
         };
 
         if (!DataService || !DataService.available) {
             showToast('⚠️ DB not available, using client-side PDF');
-            const html = buildExportHTML(options.fallbackContent || '', options.title, 'client-pdf');
-            openPDFPreview(html, `${options.title} — ${new Date().toISOString().split('T')[0]}`);
+            const html = buildExportHTML(options.fallbackContent || '', title, 'client-pdf');
+            openPDFPreview(html, `${title} — ${new Date().toISOString().split('T')[0]}`);
             return;
         }
 
         showToast('⚙ Generating professional PDF on server...');
         DataService.generatePdfProfessional(report).then(blob => {
             if (blob) {
-                const safeName = (options.title || 'report').replace(/[^a-z0-9]+/gi, '_').toLowerCase();
+                const safeName = title.replace(/[^a-z0-9]+/gi, '_').toLowerCase();
                 const date = new Date().toISOString().split('T')[0];
                 DataService.downloadBlob(blob, `${safeName}-${date}.pdf`);
                 showToast('⬇ Professional PDF generated');

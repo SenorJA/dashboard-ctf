@@ -26,6 +26,29 @@
 - deploy gracefully SKIPS Docker push step if `DOCKERHUB_USERNAME` var not set
 - deploy gracefully SKIPS VPS step if `VPS_HOST` secret not set (so first run just tests locally)
 
+## Current status (14 Aug 2026)
+
+| Secret / Variable | Status |
+|-------------------|--------|
+| `DOCKERHUB_USERNAME` (variable) | ✅ Configured |
+| `DOCKERHUB_TOKEN` (secret) | ✅ Configured |
+| `VPS_HOST` (secret) | ⬜ Pending — no VPS provisioned yet |
+| `VPS_USER` (secret) | ⬜ Pending |
+| `VPS_SSH_KEY` (secret) | ⬜ Pending — key pair already generated (see below) |
+| `VPS_PORT` / `VPS_DEPLOY_PATH` | ⬜ Optional — set only if non-default |
+
+> ⚠️ Until `VPS_HOST` is set, `deploy.yml` runs Docker build + push only and **gracefully skips** the VPS step.
+
+### SSH deploy key pair (already generated, 14 Aug 2026)
+
+- **Private:** `~/.ssh/mirv_deploy` — paste as GitHub secret `VPS_SSH_KEY` (NEVER commit this file)
+- **Public:** `~/.ssh/mirv_deploy.pub` — add to VPS `~/.ssh/authorized_keys`
+
+Public key (mirv-deploy-ci):
+```
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMfYY8p9+rQyqhQ18lCL6i9ch413e95i0SMsHqreo7Hc mirv-deploy-ci
+```
+
 ## Required setup steps
 
 ### 1. Create Docker Hub access token
@@ -52,11 +75,29 @@ docker compose -p proyectociber up -d --build
 
 ### 4. Add SSH public key to VPS
 ```bash
-# On your workstation:
-ssh-keygen -t ed25519 -f ~/.ssh/mirv_deploy
-# Copy ~/.ssh/mirv_deploy.pub content to VPS ~/.ssh/authorized_keys
-# Paste ~/.ssh/mirv_deploy (PRIVATE) as GitHub secret VPS_SSH_KEY
+# On your workstation (ALREADY DONE — key pair exists):
+# ~/.ssh/mirv_deploy          (private)
+# ~/.ssh/mirv_deploy.pub      (public, printed above)
+
+# On VPS, append the PUBLIC key to authorized_keys:
+mkdir -p ~/.ssh && chmod 700 ~/.ssh
+echo 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMfYY8p9+rQyqhQ18lCL6i9ch413e95i0SMsHqreo7Hc mirv-deploy-ci' >> ~/.ssh/authorized_keys
+chmod 600 ~/.ssh/authorized_keys
+
+# On GitHub, paste the PRIVATE key content as secret VPS_SSH_KEY.
+# With gh CLI installed this is: gh secret set VPS_SSH_KEY < ~/.ssh/mirv_deploy
 ```
+
+### 5. (Alternative) Set the VPS secrets via gh CLI
+```bash
+# Once a VPS exists and the public key is in authorized_keys:
+gh secret set VPS_HOST
+gh secret set VPS_USER
+gh secret set VPS_SSH_KEY < ~/.ssh/mirv_deploy
+# Optional: gh secret set VPS_PORT; gh secret set VPS_DEPLOY_PATH
+```
+> The `gh` CLI is not installed on the current dev machine, so these must be set
+> via the GitHub web UI (Settings → Secrets and variables → Actions → New repository secret).
 
 ## Optional Codecov
 For coverage tracking, sign up at codecov.io, link the GitHub repo, add `CODECOV_TOKEN` secret (optional — CI uploads without it).

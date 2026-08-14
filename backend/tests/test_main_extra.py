@@ -1183,6 +1183,7 @@ def test_check_kali_mcp_detected():
 
 def test_check_kali_mcp_bad_status():
     saved_url = sys.modules["main"].KALI_MCP_URL
+    saved_flag = sys.modules["main"]._kali_mcp_available
     try:
         sys.modules["main"].KALI_MCP_URL = "http://kali:3001/mcp"
         sys.modules["main"]._kali_mcp_available = True
@@ -1191,6 +1192,7 @@ def test_check_kali_mcp_bad_status():
         assert sys.modules["main"]._kali_mcp_available is True  # unchanged
     finally:
         sys.modules["main"].KALI_MCP_URL = saved_url
+        sys.modules["main"]._kali_mcp_available = saved_flag
 
 
 def test_check_kali_mcp_exception():
