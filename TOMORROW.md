@@ -4,7 +4,7 @@
 > ✅ **CI 100% VERDE** — recursión `AuditLogHandler` (CI #47/#48) + 11 fallos pre-existentes desenmascarados, todos resueltos en la serie `d8569d8`→`3cb20fb`. Ver § Postmortems al final.
 > ✅ **exif_osint.py y dlp_scanner.py al 100% de cobertura** (bugs #4/#5 cerrados, 12 Ago 2026).
 > ✅ **Export findings a PDF profesional** (14 Ago 2026): endpoint unificado `POST /api/report/export-pdf` + detalle por finding + resumen ejecutivo automático + frontend conectado (commit `92f4fa3`, CI ✅ Deploy ✅).
-> 📌 **Próximos hitos** (14 Ago 2026): **Secrets GitHub VPS** (clave SSH ya generada; pendiente crear VPS + setear secrets) y **Fase 7 — Cloudflare Tunnel**.
+> ✅ **Andamiaje Hitos A/B desplegable** (14 Ago 2026, commit `b6a1d4b`): `deploy/bootstrap-vps.sh` + `deploy/README.md` + servicio `cloudflared` (profile) + `deploy/cloudflared/setup-cloudflared.sh` + `PRODUCTION_PLAN.md` estado actualizado. ⬜ Solo quedan pasos manuales del usuario (crear VPS + comprar dominio).
 
 ---
 
@@ -158,8 +158,8 @@
 - [x] **Cobertura global > 80%** — ~95%; **main.py 100%** (2847/2847) vía test_main_gaps.py (295) + test_main_websocket_gaps.py (19)
 
 ### Prioridad BAJA
-- [ ] **Hito A — Secrets GitHub VPS** (14 Ago 2026): clave SSH `~/.ssh/mirv_deploy` generada + `.github/SECRETS.md` documentado. ⬜ Pendiente usuario: crear VPS, añadir pública a `authorized_keys`, setear `VPS_HOST`/`VPS_USER`/`VPS_SSH_KEY` (web UI o `gh`). Hasta entonces deploy.yml hace Docker push y salta el VPS.
-- [ ] **Fase 7 — Cloudflare Tunnel** (dominio + cloudflared): plan detallado en `PRODUCTION_PLAN.md`. ⬜ Pendiente usuario: comprar dominio + descargar cloudflared + autenticar.
+- [x] ~~**Hito A — Secrets GitHub VPS**~~ — **ANDAMIAJE LISTO** (14 Ago 2026): clave SSH `~/.ssh/mirv_deploy` generada + `.github/SECRETS.md` + `deploy/bootstrap-vps.sh` + `deploy/README.md` (commit `b6a1d4b`). ⬜ **Solo usuario**: crear VPS → `ssh root@TU_VPS "bash -s" < deploy/bootstrap-vps.sh` → editar `.env` → setear `VPS_HOST`/`VPS_USER`/`VPS_SSH_KEY`. Hasta entonces deploy.yml hace Docker push y salta el VPS.
+- [x] ~~**Fase 7 — Cloudflare Tunnel**~~ — **ANDAMIAJE LISTO** (14 Ago 2026): servicio `cloudflared` con `profiles: [cloudflared]` en docker-compose + `deploy/cloudflared/setup-cloudflared.sh` + `PRODUCTION_PLAN.md` actualizado (commit `b6a1d4b`). ⬜ **Solo usuario**: comprar dominio → setup script (login + crear túnel) → `CF_TUNNEL_TOKEN` en `.env` → `docker compose --profile cloudflared up -d` → `tunnel route dns`.
 - [x] ~~Export findings a PDF mejorado~~ — ✅ **14 Ago 2026**: `POST /api/report/export-pdf` (detalle por finding, auto exec summary, 400/422/500) + frontend conectado (tab Findings + botón Professional PDF). Commit `92f4fa3`, CI ✅ Deploy ✅. Ver § Nota PDF profesional.
 - [x] ~~Swarm: más operadores (OSINT, Web, Vuln)~~ — 3 operadores nuevos + mode full/core (dedfda6)
 
@@ -480,5 +480,31 @@ Localmente (Windows, sin watchdog): `3909 passed` con `-k "not test_slow_hook"` 
 4. **`exportProfessionalPdf` con findings reales** vs template hardcodeado: delegar al endpoint nuevo cuando hay datos es mejor que mantener payloads fijos.
 
 ### Estado de los dos hitos abiertos (14 Ago 2026)
-1. **Hito A — Secrets GitHub VPS**: andamiaje listo (clave SSH + SECRETS.md). ⬜ Solo queda acción del usuario: crear VPS, añadir pública a `authorized_keys`, setear `VPS_HOST`/`VPS_USER`/`VPS_SSH_KEY`.
-2. **Fase 7 — Cloudflare Tunnel**: plan detallado en `PRODUCTION_PLAN.md`. ⬜ Pendiente usuario: comprar dominio + descargar cloudflared + autenticar.
+1. **Hito A — Secrets GitHub VPS**: andamiaje listo (clave SSH + SECRETS.md + `deploy/bootstrap-vps.sh` + `deploy/README.md`). ⬜ Solo queda acción del usuario: crear VPS, `ssh root@TU_VPS "bash -s" < deploy/bootstrap-vps.sh`, editar `.env`, setear `VPS_HOST`/`VPS_USER`/`VPS_SSH_KEY`.
+2. **Fase 7 — Cloudflare Tunnel**: andamiaje listo (servicio cloudflared con profile + `deploy/cloudflared/setup-cloudflared.sh` + `PRODUCTION_PLAN.md`). ⬜ Solo queda usuario: comprar dominio, `bash deploy/cloudflared/setup-cloudflared.sh`, `CF_TUNNEL_TOKEN` en `.env`, `docker compose --profile cloudflared up -d`, `tunnel route dns`.
+
+---
+
+## 📝 Nota — Andamiaje Hitos A/B (14 Ago 2026, commit `b6a1d4b`)
+
+> Tras el cierre del PDF profesional, se preparó el andamiaje desplegable de los dos hitos de producción pendientes: secrets VPS (Hito A) y Cloudflare Tunnel (Fase 7).
+
+### Archivos creados
+| Archivo | Propósito |
+|---|---|
+| `deploy/bootstrap-vps.sh` | Bootstrap VPS idempotente: docker (get.docker.com), plugin compose, clone/pull `/opt/mirv`, `.env` desde example (nunca sobreescribe), `up -d --build`, health check 60×5s |
+| `deploy/README.md` | Flujo completo usuario Hito A (6 pasos) + troubleshooting |
+| `deploy/cloudflared/setup-cloudflared.sh` | Instala cloudflared oficial (amd64/arm64), `tunnel login` interactivo, crea túnel `mirv`, muestra `CF_TUNNEL_TOKEN`, imprime `route dns` |
+| `docker-compose.yml` (+19L) | Servicio `cloudflared` con `profiles: [cloudflared]` — el stack normal no lo arranca ni falla sin token |
+| `PRODUCTION_PLAN.md` (+40L) | Sección "Estado 14 Ago 2026": andamiaje listo + 5 pasos manuales; pasos del plan original anotados ✅/⚠️ |
+
+### Verificación
+- `bash -n` ambos scripts: ✅
+- `docker compose config --quiet` + `--services`: ✅ base intacta (kali-tools, mirv-backend)
+- `docker compose --profile cloudflared config --services`: ✅ (kali-tools, mirv-backend, cloudflared)
+- **CI GitHub** commit `b6a1d4b`: ✅ `lint`/`test`/`deploy` success
+
+### Decisiones de diseño
+1. **Profile en vez de servicio activo** para cloudflared: sin `CF_TUNNEL_TOKEN` el contenedor saldría; con profile solo arranca con `--profile cloudflared` y el `up` normal del deploy.yml no se ve afectado.
+2. **Bootstrap idempotente**: el usuario puede ejecutarlo varias veces; `.env` nunca se sobreescribe.
+3. **Sin secrets en los scripts**: solo referencias a `.env` (supabase) y tokens por env var.
