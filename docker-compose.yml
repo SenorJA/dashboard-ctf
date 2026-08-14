@@ -65,6 +65,25 @@ services:
       retries: 3
       start_period: 15s
 
+  # ── Cloudflare Tunnel (optional) ──
+  # Expose the dashboard at https://<your-domain> without opening firewall
+  # ports. Set CF_TUNNEL_TOKEN in .env after creating a tunnel in Zero Trust
+  # (see deploy/cloudflared/setup-cloudflared.sh).
+  # Started ONLY with:  docker compose --profile cloudflared up -d
+  # The profile keeps the normal stack untouched: without CF_TUNNEL_TOKEN the
+  # container would exit, so it never starts on a plain `docker compose up`.
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: mirv-cloudflared
+    restart: unless-stopped
+    profiles: ["cloudflared"]
+    command: tunnel --no-autoupdate run --token ${CF_TUNNEL_TOKEN:-}
+    environment:
+      - TUNNEL_TOKEN=${CF_TUNNEL_TOKEN:-}
+    depends_on:
+      mirv-backend:
+        condition: service_healthy
+
 volumes:
   kali-sessions:
   kali-wordlists:

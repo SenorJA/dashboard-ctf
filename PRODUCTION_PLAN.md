@@ -1,5 +1,27 @@
 # 🚀 Plan de Producción — M.I.R.V. (Windows)
 
+## Estado 14 Ago 2026 — Andamiaje VPS/Cloudflare preparado
+
+> **Nuevo andamiaje de despliegue ya incluido en el repo** (no sustituye el flujo Windows de abajo, lo complementa con un stack Docker en VPS):
+>
+> | Artefacto | Descripción |
+> |-----------|-------------|
+> | `deploy/bootstrap-vps.sh` | Bootstrap idempotente del VPS: instala Docker + Compose, clona el repo en `/opt/mirv`, crea `.env`, levanta el stack y comprueba `http://localhost:8000/api/health` |
+> | `deploy/README.md` | Flujo completo del Hito A (VPS + secrets de GitHub Actions: `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`) |
+> | `deploy/cloudflared/setup-cloudflared.sh` | Instala cloudflared, hace `tunnel login`, crea el túnel `mirv` y muestra `CF_TUNNEL_TOKEN` |
+> | `docker-compose.yml` | Servicio `cloudflared` opcional bajo el **profile `cloudflared`** — solo arranca con `docker compose --profile cloudflared up -d`; el stack normal (kali-tools + mirv-backend) no se ve afectado |
+
+**Pasos que siguen siendo 100% manuales del usuario:**
+1. Comprar el dominio y añadirlo a Cloudflare (Paso 3)
+2. `cloudflared tunnel login` — autenticación interactiva en el navegador
+3. Copiar `CF_TUNNEL_TOKEN=<token>` al `.env` del VPS
+4. `docker compose -p proyectociber --profile cloudflared up -d` en el VPS
+5. `cloudflared tunnel route dns mirv mirv.TU-DOMINIO.com` — enrutar DNS (requiere dominio)
+
+Los pasos 1 (descargar cloudflared), 4 (crear túnel), 5 (configurar túnel) y 8 (auto-arranque) quedan **automatizados** por el andamiaje cuando se despliega en el VPS.
+
+---
+
 ## Escenario
 
 ```
@@ -32,6 +54,8 @@ Portátil (cualquier sitio)
 
 ## Paso 1 — Descargar cloudflared
 
+> ✅ **Automatizado (VPS/Linux/macOS):** `deploy/cloudflared/setup-cloudflared.sh` descarga e instala cloudflared (amd64/arm64) solo. En Windows sigue siendo manual.
+
 1. Ir a: https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/
 2. Descargar `cloudflared.exe` para Windows (64-bit)
 3. Crear carpeta `C:\cloudflared\` y copiar el `.exe` ahí
@@ -44,6 +68,8 @@ Portátil (cualquier sitio)
 
 ## Paso 2 — Autenticar cloudflared
 
+> ⚠️ **Sigue siendo manual e interactivo** (abre el navegador): `cloudflared tunnel login`. El script `deploy/cloudflared/setup-cloudflared.sh` lo invoca automáticamente, pero la autenticación en sí la haces tú.
+
 ```cmd
 C:\cloudflared\cloudflared.exe tunnel login
 ```
@@ -52,6 +78,8 @@ Se abrirá el navegador. Inicia sesión en Cloudflare y autoriza el túnel. Se g
 ---
 
 ## Paso 3 — Comprar dominio + configurar Cloudflare
+
+> ⚠️ **100% manual** — requiere comprar el dominio y añadirlo a Cloudflare (no automatizable).
 
 1. Comprar un dominio (ej: `tudominio.com`) en Namecheap o Cloudflare Registrar (3-5€/año)
 2. En el panel de Cloudflare → Añadir sitio → introducir el dominio
@@ -62,6 +90,8 @@ Se abrirá el navegador. Inicia sesión en Cloudflare y autoriza el túnel. Se g
 ---
 
 ## Paso 4 — Crear el túnel
+
+> ✅ **Automatizado:** `deploy/cloudflared/setup-cloudflared.sh` crea el túnel `mirv` si no existe. En Windows sigue siendo manual (comando de abajo).
 
 ```cmd
 C:\cloudflared\cloudflared.exe tunnel create mirv
@@ -75,6 +105,8 @@ Guarda el UUID. Lo necesitas para los siguientes pasos.
 ---
 
 ## Paso 5 — Configurar el túnel
+
+> ✅ **Automatizado (VPS):** el túnel se configura con `CF_TUNNEL_TOKEN` en el `.env` del VPS — no se necesita `config.yml`. El servicio `cloudflared` de `docker-compose.yml` (profile `cloudflared`) lo arranca. El `config.yml` de abajo sigue siendo válido para el flujo Windows.
 
 Editar `C:\Users\TU_USUARIO\.cloudflared\config.yml`:
 
@@ -92,6 +124,8 @@ ingress:
 
 ## Paso 6 — Enrutar DNS
 
+> ⚠️ **Manual (requiere dominio):** el script `deploy/cloudflared/setup-cloudflared.sh` imprime el comando exacto, pero no lo ejecuta.
+
 ```cmd
 C:\cloudflared\cloudflared.exe tunnel route dns mirv mirv.TU-DOMINIO.com
 ```
@@ -101,6 +135,8 @@ Cloudflare crea automáticamente un registro CNAME desde `mirv.TU-DOMINIO.com` a
 ---
 
 ## Paso 7 — Probar el túnel
+
+> ✅ **Automatizado (VPS):** `docker compose -p proyectociber --profile cloudflared up -d` arranca el túnel tras el healthcheck de `mirv-backend`. Para Windows sigue valiendo el comando de abajo.
 
 ```cmd
 C:\cloudflared\cloudflared.exe tunnel run mirv
@@ -114,6 +150,8 @@ Abre `https://mirv.TU-DOMINIO.com` para verificar que funciona por el túnel.
 ---
 
 ## Paso 8 — Auto-arranque en Windows
+
+> ✅ **Automatizado (VPS):** el servicio `cloudflared` de `docker-compose.yml` usa `restart: unless-stopped`, así que se auto-reinicia tras reinicios del VPS junto al stack. En Windows sigue valiendo lo de abajo.
 
 ### Opción A: Script directo (recomendado)
 
@@ -219,4 +257,4 @@ type "backend\logs\mirv.log"
                                            └──────────────────┘
 ```
 
-*Última actualización: Julio 2026 — M.I.R.V. v3.0 — Pendiente: comprar dominio + descargar cloudflared + configurar túnel*
+*Última actualización: 14 Ago 2026 — M.I.R.V. v3.0 — Andamiaje VPS + Cloudflare Tunnel listo (hito A + hito B). Pendiente usuario: comprar dominio, `tunnel login`, setear `CF_TUNNEL_TOKEN` y secrets de GitHub `VPS_*`.*
