@@ -1,8 +1,10 @@
 # 🔮 TOMORROW.md — Roadmap de trabajo pendiente
 
-> Última actualización: 12 Ago 2026 — MIRV v5.0 | 30 módulos | 227 endpoints | 3923 tests | 25 tabs | main.py 100%
+> Última actualización: 14 Ago 2026 — MIRV v5.0 | 30 módulos | 228 endpoints | 3944 tests | 25 tabs | main.py 100%
 > ✅ **CI 100% VERDE** — recursión `AuditLogHandler` (CI #47/#48) + 11 fallos pre-existentes desenmascarados, todos resueltos en la serie `d8569d8`→`3cb20fb`. Ver § Postmortems al final.
 > ✅ **exif_osint.py y dlp_scanner.py al 100% de cobertura** (bugs #4/#5 cerrados, 12 Ago 2026).
+> ✅ **Export findings a PDF profesional** (14 Ago 2026): endpoint unificado `POST /api/report/export-pdf` + detalle por finding + resumen ejecutivo automático + frontend conectado (commit `92f4fa3`, CI ✅ Deploy ✅).
+> 📌 **Próximos hitos** (14 Ago 2026): **Secrets GitHub VPS** (clave SSH ya generada; pendiente crear VPS + setear secrets) y **Fase 7 — Cloudflare Tunnel**.
 
 ---
 
@@ -11,16 +13,16 @@
 | Métrica | Valor |
 |---------|-------|
 | Backend modules | 30 (main.py + 29 especializados) |
-| REST endpoints | 227 |
-| Test files | 76 |
-| Tests collected | 3923 (3871 pass / 52 slow-deselected) |
-| Coverage | ~96% global — **main.py 100%**, **exif_osint 100%**, **dlp_scanner 100%** |
+| REST endpoints | 228 (+1: `/api/report/export-pdf`) |
+| Test files | 77 (+1: `test_report_export_pdf.py`) |
+| Tests collected | 3944 (3892 pass / 52 slow-deselected) |
+| Coverage | ~96% global — **main.py 100%**, **exif_osint 100%**, **dlp_scanner 100%**, **pdf_engine 99%** |
 | Frontend tabs | 25 |
-| Frontend JS | 9231 líneas (main.v2.js) |
+| Frontend JS | 9469 líneas (main.v2.js) |
 | Frontend HTML | 2694 líneas (index.html) |
 | GitHub Actions | 2 workflows (CI + Deploy) |
 | Docker images | 2 (mirv-backend + kali-tools) |
-| GitHub commits | 11+ esta serie |
+| GitHub commits | 12+ esta serie |
 
 ---
 
@@ -49,7 +51,7 @@
 | 10 | **Burp Bridge** | `burp_bridge.py` (599L) | 72 | Ingest server + LRU store + finding↔issue + Jython plugin |
 | 11 | **Finding PoC** | `finding_poc.py` (745L) | 61 | PoC builder, curl parser, replay (subprocess), markdown reports, evidence hash |
 | 12 | **Coverage Tracker** | `coverage.py` (480L) | 33 | Matriz (endpoint×param×vuln_class) + next_steps estimator |
-| 13 | **PDF Engine** | `pdf_engine.py` (1323L) | 47 | Profesional: cover, TOC, severity colors, findings table, code blocks |
+| 13 | **PDF Engine** | `pdf_engine.py` (1323L) | 82 | Profesional: cover, TOC, severity colors, findings table, code blocks, **detalle por finding + resumen ejecutivo automático** |
 
 ### Plugins y automatización
 | # | Módulo | Archivo | Tests | Qué hace |
@@ -137,7 +139,7 @@
 | Docker | 6 | status, start, stop, clean, build, task |
 | MCP | 3 | status, tools, exec |
 | AI | 2 | chat (auto-redacts), suggest (+ coverage context) |
-| **Total** | **208** | |
+| **Total** | **209** | |
 
 ---
 
@@ -150,14 +152,15 @@
 - [x] ~~Continuous Intelligence~~ — ✅ intelligence.py 890L + 43 tests + 11 endpoints + frontend tab
 
 ### Prioridad MEDIA
-- [x] ~~**Configurar secrets GitHub**~~ — DOCKERHUB_USERNAME + DOCKERHUB_TOKEN añadidos (9 Ago 2026); VPS pendiente
+- [x] ~~**Configurar secrets GitHub**~~ — DOCKERHUB_USERNAME + DOCKERHUB_TOKEN añadidos (9 Ago 2026); **VPS pendiente — ver Hito VPS abajo**
 - [x] ~~**Verificar CI en GitHub**~~ — ✅ **12 Ago 2026**: CI 100% verde en `3cb20fb` — `lint` ✅ + `test` ✅ (3858 passed, 52 deselected) + `build-and-deploy` ✅
 - [x] ~~**Browser Capture MCP**~~ — 7 tools MCP envolviendo browser_capture (022f349)
 - [x] **Cobertura global > 80%** — ~95%; **main.py 100%** (2847/2847) vía test_main_gaps.py (295) + test_main_websocket_gaps.py (19)
 
 ### Prioridad BAJA
-- [ ] Fase 7 — Cloudflare Tunnel (dominio + cloudflared)
-- [ ] Export findings a PDF mejorado
+- [ ] **Hito A — Secrets GitHub VPS** (14 Ago 2026): clave SSH `~/.ssh/mirv_deploy` generada + `.github/SECRETS.md` documentado. ⬜ Pendiente usuario: crear VPS, añadir pública a `authorized_keys`, setear `VPS_HOST`/`VPS_USER`/`VPS_SSH_KEY` (web UI o `gh`). Hasta entonces deploy.yml hace Docker push y salta el VPS.
+- [ ] **Fase 7 — Cloudflare Tunnel** (dominio + cloudflared): plan detallado en `PRODUCTION_PLAN.md`. ⬜ Pendiente usuario: comprar dominio + descargar cloudflared + autenticar.
+- [x] ~~Export findings a PDF mejorado~~ — ✅ **14 Ago 2026**: `POST /api/report/export-pdf` (detalle por finding, auto exec summary, 400/422/500) + frontend conectado (tab Findings + botón Professional PDF). Commit `92f4fa3`, CI ✅ Deploy ✅. Ver § Nota PDF profesional.
 - [x] ~~Swarm: más operadores (OSINT, Web, Vuln)~~ — 3 operadores nuevos + mode full/core (dedfda6)
 
 ---
@@ -437,3 +440,45 @@ Localmente (Windows, sin watchdog): `3909 passed` con `-k "not test_slow_hook"` 
 | `test_plugin_watcher.py` ×40 (subagente, incl. bajo carga CPU) | ✅ 18 passed, 1.64–2.43s, 0 flaky |
 | `watchdog_gaps + manager_gaps` | ✅ 48 passed, 0.40s |
 | **Suite completa CI-emulada** | ✅ **3871 passed, 52 deselected, 0 failed** |
+
+---
+
+## 📝 Nota — Export findings a PDF profesional (14 Ago 2026)
+
+> Fecha: 14 Ago 2026 — Commit `92f4fa3`. Cierre del ítem "Export findings a PDF mejorado" + documentación de secrets VPS.
+
+### Qué se hizo
+
+**Backend (`backend/pdf_engine.py` + `backend/main.py`)**
+- **Limpieza de deuda técnica**: bloque muerto `inner_table` eliminado, 6 imports sin usar borrados (`BaseDocTemplate`, `Frame`, `NextPageTemplate`, `PageTemplate`, `TA_RIGHT`, `cm`), `datetime.utcnow()` → `datetime.now(timezone.utc)` (2 usos), logger `"vulnforge.pdf"` → `"mirv.pdf"`.
+- **Detalle por finding**: `PdfFinding` extendido con `status/cve/cvss/evidence` (defaults vacíos → compatibilidad total). Cada finding top-level se renderiza como bloque con borde de severidad (título + badge + target/tool + detail + recommendation + references + evidence multilínea), envuelto con `KeepTogether` y fallback `_render_finding_plain` para findings que exceden la página.
+- **Resumen ejecutivo automático**: si `executive_summary` vacío y hay findings → métricas (total, por severidad, top-5 herramientas, top-5 targets) + párrafo descriptivo. Si viene texto explícito, no se reemplaza (y no muta el report del caller: `dataclasses.replace`).
+- **Nuevo endpoint `POST /api/report/export-pdf`**: body tipado (`ReportExportPdfRequest`), fallback a `database.list_findings(limit=200)`, 400 si DB no configurada, 422 con body inválido, 500 con ImportError; `StreamingResponse` `application/pdf` + `Content-Disposition: attachment; filename="mirv-report-YYYYMMDD-HHMMSS.pdf"` + Content-Length. Endpoints legacy `/api/generate-pdf` y `/api/generate-pdf-professional` intactos.
+
+**Frontend (`frontend/js/main.v2.js` + `frontend/index.html`)**
+- El formato **PDF del tab Findings** ahora llama al endpoint real (antes `window.print()`); fallback a print preview si el servidor falla.
+- El botón **"Professional PDF"** del tab Reports usa los findings vivos de `window.findings` cuando hay; sin findings conserva el template histórico (nunca se rompe).
+
+**Secrets VPS**
+- Clave SSH de deploy generada: `~/.ssh/mirv_deploy` (privada, NO commitear) + `~/.ssh/mirv_deploy.pub` (pública: `ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMfYY8p9+rQyqhQ18lCL6i9ch413e95i0SMsHqreo7Hc mirv-deploy-ci`).
+- `.github/SECRETS.md` actualizado: estado actual (DockerHub ✅, VPS ⬜), clave pública, pasos exactos VPS + alternativa `gh`.
+
+### Verificación
+
+| Suite | Resultado |
+|---|---|
+| PDF suite (`test_pdf_engine.py` + gaps + api + export_pdf) | ✅ 82 passed, cobertura pdf_engine **99%** |
+| Regresión endpoints (5 archivos main) | ✅ 1010 passed |
+| **Suite completa CI-emulada** (`SUPABASE_URL="" SUPABASE_KEY="" KALI_IP="" KALI_MCP_URL=""` + `-m "not slow" -k "not test_slow_hook" --timeout=60`) | ✅ **3892 passed, 52 deselected, 0 failed** (298.91s) |
+| `node --check frontend/js/main.v2.js` | ✅ SYNTAX OK |
+| **CI GitHub real** (commit `92f4fa3`) | ✅ `lint` success · `test` success · `deploy` success |
+
+### Lecciones
+1. **`reportlab` no soporta SVG nativamente** para el logo de la cover — si se quiere el logo real hay que pasar un PNG o convertirlo.
+2. **Los findings del tab Findings no tienen `recommendation/references/cve/cvss/evidence`** — el mapper del frontend reconstruye `detail` desde `port/service/version/status/raw` y pasa vacíos al contrato (el backend los tolera).
+3. **`List[Model] = []` en Pydantic** debe tiparse con `List` importado de `typing` — un `list` sin tipo acepta strings y produce 500 en vez de 422.
+4. **`exportProfessionalPdf` con findings reales** vs template hardcodeado: delegar al endpoint nuevo cuando hay datos es mejor que mantener payloads fijos.
+
+### Estado de los dos hitos abiertos (14 Ago 2026)
+1. **Hito A — Secrets GitHub VPS**: andamiaje listo (clave SSH + SECRETS.md). ⬜ Solo queda acción del usuario: crear VPS, añadir pública a `authorized_keys`, setear `VPS_HOST`/`VPS_USER`/`VPS_SSH_KEY`.
+2. **Fase 7 — Cloudflare Tunnel**: plan detallado en `PRODUCTION_PLAN.md`. ⬜ Pendiente usuario: comprar dominio + descargar cloudflared + autenticar.

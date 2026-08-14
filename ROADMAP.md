@@ -178,18 +178,26 @@
 ## 🚧 Pendientes
 
 ### Prioridad ALTA
-- [ ] **Configurar secrets GitHub** (manual, 15 min) → `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`, `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`
+- [ ] **Configurar secrets GitHub** (manual, 15 min) → `DOCKERHUB_USERNAME` ✅, `DOCKERHUB_TOKEN` ✅ (9 Ago 2026); `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY` ⬜ — clave `~/.ssh/mirv_deploy` generada + docs en `.github/SECRETS.md` (14 Ago 2026); falta crear VPS + setear secrets
 - [x] **Cobertura > 80%** — ~95% global, main.py 100%, database 100%, browser_capture 100%, plugin_manager 100%
 
 ### Prioridad MEDIA
 - [x] ~~**Browser Capture MCP**~~ — 7 tools MCP envolviendo browser_capture (import/analyze/findings)
 - [x] ~~**More finding parsers**~~ — 14 new parsers added (28 total)
-- [x] ~~**Export PDF mejorado**~~ — professional PDF engine (cover, TOC, severity colors)
+- [x] ~~**Export PDF mejorado**~~ — professional PDF engine (cover, TOC, severity colors) + **14 Ago 2026**: detalle por finding + resumen ejecutivo automático + endpoint `POST /api/report/export-pdf` + frontend conectado (`92f4fa3`)
 
 ### Prioridad BAJA
-- [ ] **Fase 7** — Cloudflare Tunnel (dominio + cloudflared)
+- [ ] **Fase 7** — Cloudflare Tunnel (dominio + cloudflared) — plan en `PRODUCTION_PLAN.md`
 - [x] ~~**Swarm** — más operadores (OSINT, Web, Vuln)~~ — 3 operadores nuevos, mode full/core
 - [x] ~~**Dark mode toggle**~~ — theme real de 3 estados (neon/light/mono) con WCAG AA
+
+## ✅ PDF profesional + secrets VPS (Aug 2026)
+
+- [x] `backend/pdf_engine.py` — limpieza deuda (inner_table muerto, imports, utcnow, logger) + `PdfFinding` con `status/cve/cvss/evidence` + detalle por finding (KeepTogether + fallback plain) + resumen ejecutivo automático (severidad/herramienta/target) — cobertura 99%
+- [x] `POST /api/report/export-pdf` — body tipado, fallback DB, 400/422/500, `mirv-report-YYYYMMDD-HHMMSS.pdf`; endpoints legacy intactos
+- [x] Frontend: tab Findings PDF real + botón "Professional PDF" con findings vivos (fallback print)
+- [x] Clave SSH deploy `~/.ssh/mirv_deploy` + `.github/SECRETS.md` actualizado (VPS pendiente usuario)
+- [x] 21 tests nuevos; suite CI-emulada **3892 passed, 52 deselected**; commit `92f4fa3` — CI ✅ Deploy ✅
 
 ## ✅ Browser Capture MCP + Swarm Ops + Light Theme (Aug 2026)
 
@@ -224,6 +232,7 @@
 | Browser Capture | HAR + 10 security checks + 95 tests | ✅ |
 | Finding Parsers | 28 tool parsers (was 14) | ✅ |
 | Professional PDF | Cover + TOC + severity colors + 47 tests | ✅ |
+| Professional PDF v2 | Detalle por finding + auto exec summary + `export-pdf` (82 tests, 99%) | ✅ |
 | Arsenal OSINT | 83+ modules total | ✅ |
 | CI/CD | lint + test + Docker + deploy | ✅ |
 
