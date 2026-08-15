@@ -2014,6 +2014,20 @@
                         </div>
                         <div id="osint-github-result" class="mt-3 text-sm"></div>
                     </div>
+
+                    <!-- Instagram Recon -->
+                    <div class="bg-deep rounded-lg border border-cyber p-4">
+                        <h3 class="text-sm font-semibold text-neon mb-3" data-i18n="osint-instagram-title">📸 Instagram Recon</h3>
+                        <div class="flex gap-2 flex-wrap items-center">
+                            <input type="text" id="osint-instagram-input" placeholder="username o user_id" class="flex-1 min-w-[160px] bg-void border border-cyber rounded px-3 py-2 text-white placeholder-gray-600 focus:border-neon outline-none">
+                            <label class="flex items-center gap-1.5 text-[11px] text-gray-400 cursor-pointer select-none whitespace-nowrap">
+                                <input type="checkbox" id="osint-instagram-lookup" class="w-4 h-4 accent-neon cursor-pointer">
+                                <span data-i18n="osint-instagram-lookup">include lookup</span>
+                            </label>
+                            <button onclick="osintInstagram()" class="px-4 py-2 bg-cyber hover:bg-neon text-white rounded font-mono text-sm transition-colors" data-i18n="osint-fetch">Fetch</button>
+                        </div>
+                        <div id="osint-instagram-result" class="mt-3 text-sm"></div>
+                    </div>
                 </div>
             </div>
 

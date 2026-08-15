@@ -2293,6 +2293,16 @@ class OsintUsernameRequest(BaseModel):
     username: str
 
 
+class OsintInstagramRequest(BaseModel):
+    """Body for POST /api/osint/instagram — public Instagram profile OSINT.
+
+    Uses the operator's own IG_SESSIONID env var; public profile data only.
+    """
+    username: str = ""
+    user_id: str = ""
+    skip_lookup: bool = True
+
+
 @app.post("/api/osint/email")
 async def api_osint_email(body: OsintEmailRequest):
     """
@@ -2448,6 +2458,40 @@ async def api_osint_github(username: str = ""):
         return JSONResponse(result)
     except Exception as e:
         logger.error("[osint github] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/osint/instagram")
+async def api_osint_instagram(body: OsintInstagramRequest):
+    """
+    Public Instagram profile intel (ghostig port) — operator session only.
+
+    Body: {"username": "target", "user_id": "", "skip_lookup": true}
+    Sources: Instagram private API (web_profile_info + users/{id}/info +
+    optional users/lookup).  The session cookie is the operator's own
+    ``IG_SESSIONID`` env var — never hardcoded, never stored.
+    """
+    username = body.username.strip()
+    user_id = body.user_id.strip()
+    if not username and not user_id:
+        return JSONResponse({"ok": False, "error": "Provide 'username' or 'user_id'"}, status_code=422)
+    if username and user_id:
+        return JSONResponse(
+            {"ok": False, "error": "Provide either 'username' or 'user_id', not both"},
+            status_code=422,
+        )
+    if not os.getenv("IG_SESSIONID", "").strip():
+        return JSONResponse(
+            {"ok": False, "error": "IG_SESSIONID env var not configured", "code": "session_missing"},
+            status_code=400,
+        )
+    try:
+        from backend.instagram_osint import get_instagram_profile
+        result = await get_instagram_profile(username=username, user_id=user_id,
+                                             skip_lookup=body.skip_lookup)
+        return JSONResponse(result)
+    except Exception as e:
+        logger.error("[osint instagram] %s", e)
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 
 

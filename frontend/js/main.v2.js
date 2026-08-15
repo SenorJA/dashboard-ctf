@@ -6384,6 +6384,8 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         "osint-ip-title":     { en: '📍 IP Geolocation', es: '📍 Geolocalización IP' },
         "osint-username-title":{ en: '👤 Username Recon', es: '👤 Recon de Usuario' },
         "osint-github-title": { en: '🐙 GitHub Recon',  es: '🐙 Recon GitHub' },
+        "osint-instagram-title": { en: '📸 Instagram Recon', es: '📸 Recon de Instagram' },
+        "osint-instagram-lookup": { en: 'include lookup', es: 'incluir lookup' },
         "osint-check":        { en: 'Check',            es: 'Comprobar' },
         "osint-search":       { en: 'Search',           es: 'Buscar' },
         "osint-lookup":       { en: 'Lookup',           es: 'Buscar' },
@@ -9489,9 +9491,9 @@ Reglas:
     };
 
     // ════════════════════════════════════════════════════════════════
-    //  OSINT RECON — 8 passive lookups (email, dork, phone, reverse
-    //  image, wayback, IP geo, username, github).  Public data only,
-    //  consumed from backend /api/osint/* (backend/osint_recon.py).
+    //  OSINT RECON — 9 passive lookups (email, dork, phone, reverse
+    //  image, wayback, IP geo, username, github, instagram).  Public
+    //  data only, consumed from backend /api/osint/* (backend/osint_recon.py).
     // ════════════════════════════════════════════════════════════════
 
     async function _osintFetch(url, opts) {
@@ -9877,6 +9879,89 @@ Reglas:
         }
     };
 
+    // ── 9. Instagram Recon ─────────────────────────────────────────
+    window.osintInstagram = async function () {
+        const raw = (document.getElementById('osint-instagram-input')?.value || '').trim();
+        if (!raw) { showToast('🕵️ Enter an Instagram username or user_id'); return; }
+        const includeLookup = !!document.getElementById('osint-instagram-lookup')?.checked;
+        const body = /^\d+$/.test(raw)
+            ? { user_id: raw, skip_lookup: !includeLookup }
+            : { username: raw, skip_lookup: !includeLookup };
+        _osintLoading('osint-instagram-result', '🕵️ Fetching Instagram profile...');
+        showToast('🕵️ Instagram recon...');
+        try {
+            const data = await _osintFetch('/api/osint/instagram', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            if (!data.ok) {
+                const code = data.code || '';
+                if (code === 'session_missing') {
+                    _osintRenderError('osint-instagram-result', 'IG_SESSIONID no configurado — añade tu propia cookie de sesión en el entorno del backend');
+                    showToast('🕵️ IG_SESSIONID no configurado');
+                } else if (code === 'rate_limited') {
+                    _osintRenderError('osint-instagram-result', 'Rate limit de Instagram alcanzado — espera un rato');
+                    showToast('🕵️ Rate limit de Instagram alcanzado');
+                } else if (code === 'not_found') {
+                    _osintRenderError('osint-instagram-result', 'Usuario no encontrado');
+                    showToast('🕵️ Usuario no encontrado');
+                } else {
+                    _osintRenderError('osint-instagram-result', data.error || 'Instagram recon failed');
+                    showToast('🕵️ Instagram recon failed');
+                }
+                return;
+            }
+            const p = data.profile || {};
+            const fmt = (n) => (typeof n === 'number' ? n.toLocaleString('en-US') : (n ?? '—'));
+            const badges = [];
+            if (p.is_verified) badges.push('<span class="text-green-400 font-bold" title="verified">✓</span>');
+            if (p.is_business) badges.push('<span class="inline-block bg-void border border-cyber rounded px-1.5 py-0.5 text-[9px] text-neon" title="business">💼 biz</span>');
+            if (p.is_private) badges.push('<span class="inline-block bg-void border border-cyber rounded px-1.5 py-0.5 text-[9px] text-gray-300" title="private">🔒 private</span>');
+            if (p.is_memorialized) badges.push('<span class="inline-block bg-void border border-cyber rounded px-1.5 py-0.5 text-[9px] text-gray-400" title="memorialized">🕊 memorial</span>');
+            if (p.is_new_to_instagram) badges.push('<span class="inline-block bg-void border border-cyber rounded px-1.5 py-0.5 text-[9px] text-cyber" title="new to instagram">🆕 new</span>');
+            const statBox = (label, val) => `<div class="bg-deep border border-cyber rounded px-3 py-1.5 text-center"><div class="text-sm font-bold text-white">${_escH(fmt(val))}</div><div class="text-[9px] text-gray-500">${_escH(label)}</div></div>`;
+            const rows = [];
+            if (p.full_name) rows.push(`<div class="flex justify-between gap-2 py-1 border-b border-gray-800/50"><span class="text-[10px] text-gray-500">full name</span><span class="text-[11px] text-white text-right break-all">${_escH(p.full_name)}</span></div>`);
+            if (p.external_url) rows.push(`<div class="flex justify-between gap-2 py-1 border-b border-gray-800/50"><span class="text-[10px] text-gray-500">website</span><a class="text-[11px] text-cyber hover:text-neon text-right break-all" href="${_escH(p.external_url)}" target="_blank" rel="noopener">${_escH(p.external_url)} ↗</a></div>`);
+            if (p.public_email) rows.push(`<div class="flex justify-between gap-2 py-1 border-b border-gray-800/50"><span class="text-[10px] text-gray-500">email</span><span class="text-[11px] text-cyber text-right break-all">${_escH(p.public_email)}</span></div>`);
+            const phone = p.public_phone_number ? `${p.public_phone_country_code || ''}${p.public_phone_number}` : '';
+            if (phone) rows.push(`<div class="flex justify-between gap-2 py-1 border-b border-gray-800/50"><span class="text-[10px] text-gray-500">phone</span><span class="text-[11px] text-neon text-right break-all">${_escH(phone)}</span></div>`);
+            const lookupHtml = (data.lookup && (data.lookup.message || data.lookup.obfuscated_email || data.lookup.obfuscated_phone))
+                ? `<div class="mt-3 bg-void border border-yellow-700/50 rounded p-3">
+                    <div class="text-[10px] text-yellow-400 mb-1">LOOKUP — Instagram obfuscates these</div>
+                    ${data.lookup.message ? `<div class="text-[10px] text-gray-400 mb-1">${_escH(data.lookup.message)}</div>` : ''}
+                    ${data.lookup.obfuscated_email ? `<div class="text-[11px] font-mono text-gray-300">email: ${_escH(data.lookup.obfuscated_email)}</div>` : ''}
+                    ${data.lookup.obfuscated_phone ? `<div class="text-[11px] font-mono text-gray-300">phone: ${_escH(data.lookup.obfuscated_phone)}</div>` : ''}
+                    <div class="text-[10px] text-yellow-400/70 mt-1">⚠ Datos obfuscados por Instagram — no son valores reales.</div>
+                </div>` : '';
+            _osintRender('osint-instagram-result', `
+                <div class="bg-void border border-cyber rounded p-4">
+                    <div class="flex items-center gap-4 flex-wrap">
+                        ${p.hd_profile_pic_url ? `<img class="w-16 h-16 rounded-full border border-cyber object-cover" src="${_escH(p.hd_profile_pic_url)}" alt="avatar" onerror="this.style.display='none'">` : ''}
+                        <div class="flex-1 min-w-[160px]">
+                            <div class="text-base font-bold text-neon">${_escH(p.username || '')} ${badges.join(' ')}</div>
+                            <div class="text-[10px] text-gray-500 font-mono">user_id: ${_escH(p.user_id ?? '—')}</div>
+                            ${p.is_whatsapp_linked ? '<div class="text-[10px] text-green-400 mt-0.5">WhatsApp linked</div>' : ''}
+                        </div>
+                        <div class="grid grid-cols-3 gap-2 text-center">
+                            ${statBox('followers', p.follower_count)}
+                            ${statBox('following', p.following_count)}
+                            ${statBox('media', p.media_count)}
+                        </div>
+                    </div>
+                    ${p.biography ? `<div class="mt-3 bg-deep border border-cyber/50 rounded p-2 text-[11px] text-gray-300">${_escH(p.biography)}</div>` : ''}
+                    ${rows.length ? `<div class="mt-3">${rows.join('')}</div>` : ''}
+                    ${typeof p.total_igtv_videos === 'number' ? `<div class="text-[10px] text-gray-600 mt-2">${_escH(p.total_igtv_videos)} IGTV videos</div>` : ''}
+                </div>
+                ${lookupHtml}`);
+            showToast('🕵️ Instagram recon complete');
+        } catch (err) {
+            _osintRenderError('osint-instagram-result', 'Network error: ' + (err.message || err));
+            showToast('🕵️ Instagram recon failed');
+        }
+    };
+
     // ── Enter-key bindings for OSINT inputs ────────────────────────
     const _osintEnterMap = [
         ['osint-email-input', 'osintEmail'],
@@ -9886,7 +9971,8 @@ Reglas:
         ['osint-wayback-domain', 'osintWayback'],
         ['osint-ip-input', 'osintIp'],
         ['osint-username-input', 'osintUsername'],
-        ['osint-github-input', 'osintGithub']
+        ['osint-github-input', 'osintGithub'],
+        ['osint-instagram-input', 'osintInstagram']
     ];
     _osintEnterMap.forEach(([inputId, fnName]) => {
         const el = document.getElementById(inputId);

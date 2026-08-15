@@ -13,6 +13,7 @@ allowed_tools:
   - whois
   - dig
   - holehe
+  - instagram
 version: "1.0.0"
 author: "MIRV"
 ---
