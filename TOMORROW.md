@@ -1,11 +1,12 @@
 # 🔮 TOMORROW.md — Roadmap de trabajo pendiente
 
-> Última actualización: 15 Ago 2026 — MIRV v5.1 | 31 módulos | 236 endpoints | 4030 tests | 26 tabs | main.py 100%
+> Última actualización: 15 Ago 2026 — MIRV v5.2 | 32 módulos | 237 endpoints | 4071 tests | 26 tabs | main.py 100%
 > ✅ **CI 100% VERDE** — recursión `AuditLogHandler` (CI #47/#48) + 11 fallos pre-existentes desenmascarados, todos resueltos en la serie `d8569d8`→`3cb20fb`. Ver § Postmortems al final.
 > ✅ **exif_osint.py y dlp_scanner.py al 100% de cobertura** (bugs #4/#5 cerrados, 12 Ago 2026).
 > ✅ **Export findings a PDF profesional** (14 Ago 2026): endpoint unificado `POST /api/report/export-pdf` + detalle por finding + resumen ejecutivo automático + frontend conectado (commit `92f4fa3`, CI ✅ Deploy ✅).
 > ✅ **Andamiaje Hitos A/B desplegable** (14 Ago 2026, commit `b6a1d4b`): `deploy/bootstrap-vps.sh` + `deploy/README.md` + servicio `cloudflared` (profile) + `deploy/cloudflared/setup-cloudflared.sh` + `PRODUCTION_PLAN.md` estado actualizado. ⬜ Solo quedan pasos manuales del usuario (crear VPS + comprar dominio).
 > ✅ **Suite OSINT pasivo integrada** (15 Ago 2026, commit `4918397`): skill `osint` (11º playbook) + `subdomain_scanner` pasivo (crt.sh + Wayback) + módulo `osint_recon.py` (9 funciones) + 8 endpoints `/api/osint/*` + tab OSINT Recon. CI ✅ Deploy ✅.
+> ✅ **Fase 3 OSINT** (15 Ago 2026, commit `eb6542e`, re-verificado `945b726`): skill `password-audit` (12º playbook) + port `ghostig` → `backend/instagram_osint.py` + endpoint `/api/osint/instagram` + 9ª tarjeta Instagram Recon en tab OSINT. CI ✅ Deploy ✅ (primer run killed por OOM del runner a los 140s — flake transitorio del runner, código verificado localmente + re-run OK; ver § Nota runner flake eb6542e).
 
 ---
 
@@ -13,17 +14,17 @@
 
 | Métrica | Valor |
 |---------|-------|
-| Backend modules | 31 (main.py + 30 especializados) |
-| REST endpoints | 236 (+8: `/api/osint/*`) |
-| Test files | 79 (+2: `test_osint_recon.py`, `test_subdomain_scanner_gaps.py`) |
-| Tests collected | 4030 (3978 pass / 52 slow-deselected) |
-| Coverage | ~96% global — **main.py 100%**, **exif_osint 100%**, **dlp_scanner 100%**, **pdf_engine 99%**, **osint_recon 91%**, **subdomain_scanner 96%** |
+| Backend modules | 32 (main.py + 31 especializados) |
+| REST endpoints | 237 (+1: `/api/osint/instagram`) |
+| Test files | 80 (+1: `test_instagram_osint.py`) |
+| Tests collected | 4071 (4019 pass / 52 slow-deselected) |
+| Coverage | ~97% global — **main.py 100%**, **exif_osint 100%**, **dlp_scanner 100%**, **pdf_engine 99%**, **osint_recon 91%**, **subdomain_scanner 96%**, **instagram_osint 100%** |
 | Frontend tabs | 26 |
-| Frontend JS | ~9919 líneas (main.v2.js) |
-| Frontend HTML | ~2799 líneas (index.html) |
+| Frontend JS | ~10013 líneas (main.v2.js) |
+| Frontend HTML | ~2813 líneas (index.html) |
 | GitHub Actions | 2 workflows (CI + Deploy) |
 | Docker images | 2 (mirv-backend + kali-tools) |
-| GitHub commits | 13+ esta serie |
+| GitHub commits | 14+ esta serie |
 
 ---
 
@@ -58,7 +59,7 @@
 | # | Módulo | Archivo | Tests | Qué hace |
 |---|--------|---------|-------|----------|
 | 14 | **Plugin Manager** | `plugin_manager.py` (700L) | 65 | Discovery + 5 hooks + hot-reload (watchdog + polling fallback) |
-| 15 | **Skill Playbooks** | `skill_playbooks.py` (450L) | 67 | 11 playbooks MD (recon, webvuln, ssrf, jwt, supabase, graphql, race, takeover, deserialize, ssti, **osint**) |
+| 15 | **Skill Playbooks** | `skill_playbooks.py` (450L) | 67 | 12 playbooks MD (recon, webvuln, ssrf, jwt, supabase, graphql, race, takeover, deserialize, ssti, **osint**, **password-audit**) |
 
 ### Infraestructura
 | # | Módulo | Archivo | Tests | Qué hace |
@@ -81,7 +82,8 @@
 | 27 | **Port Scanner** | `port_scanner.py` | 18 | ~1600 puertos async |
 | 28 | **Subdomain Scanner** | `subdomain_scanner.py` | 24 | ~700 prefijos DNS brute + **pasivo (crt.sh + Wayback CDX)** |
 | 29 | **OSINT Recon** | `osint_recon.py` (818L) | 75 | 9 funciones OSINT pasivas (email breach/verify, dorking, phone, reverse-image, wayback, IP geo, username, github) — stdlib only, API keys opcionales por env |
-| 29+ | DNS Lookup, Hash Cracker, Stego, News, API Scanner | — | 126+ | Variados |
+| 30 | **Instagram OSINT** | `instagram_osint.py` (412L) | 39 | Port de `ghostig`: perfil público de Instagram vía `web_profile_info` + `users/{id}/info` + lookup avanzado (email/phone obfuscados). Sesión del operador por env `IG_SESSIONID`, stdlib only, 100% cobertura, manejo 404/429/parse-error |
+| 30+ | DNS Lookup, Hash Cracker, Stego, News, API Scanner | — | 126+ | Variados |
 
 ---
 
@@ -135,7 +137,7 @@
 | EXIF | 2 | analyze (POST/GET) |
 | Canary | 5 | create, list, activate, events, delete |
 | DLP | 3 | scan, scan-file, scan-url |
-| OSINT | 8 | email, dork, phone, reverse-image, wayback, ip, username, github |
+| OSINT | 9 | email, dork, phone, reverse-image, wayback, ip, username, github, **instagram** |
 | Redaction | 4 | redact, dict, patterns, check |
 | Missions | 5 | CRUD + similar |
 | Plans | 3 | CRUD |
@@ -159,8 +161,9 @@
 - [x] ~~**Configurar secrets GitHub**~~ — DOCKERHUB_USERNAME + DOCKERHUB_TOKEN añadidos (9 Ago 2026); **VPS pendiente — ver Hito VPS abajo**
 - [x] ~~**Verificar CI en GitHub**~~ — ✅ **12 Ago 2026**: CI 100% verde en `3cb20fb` — `lint` ✅ + `test` ✅ (3858 passed, 52 deselected) + `build-and-deploy` ✅
 - [x] ~~**Browser Capture MCP**~~ — 7 tools MCP envolviendo browser_capture (022f349)
-- [x] **Cobertura global > 80%** — ~95%; **main.py 100%** (2847/2847) vía test_main_gaps.py (295) + test_main_websocket_gaps.py (19)
+- [x] **Cobertura global > 80%** — ~97%; **main.py 100%** (2847/2847) vía test_main_gaps.py (295) + test_main_websocket_gaps.py (19)
 - [x] ~~**Suite OSINT pasivo (BlackTrace/ShadowEnum port)**~~ — ✅ **15 Ago 2026**: skill `osint` + subdomain pasivo + `osint_recon.py` + 8 endpoints + tab. Commit `4918397`, CI ✅ Deploy ✅. Ver § Nota suite OSINT.
+- [x] ~~**Fase 3 OSINT** (skill password-audit + port ghostig)~~ — ✅ **15 Ago 2026**: 12º skill `password-audit` + `backend/instagram_osint.py` (39 tests, 100% cov) + `POST /api/osint/instagram` + 9ª tarjeta Instagram Recon. Commit `eb6542e`, re-verificado `945b726` (primer run killed por OOM del runner). Ver § Nota Fase 3 OSINT.
 
 ### Prioridad BAJA
 - [x] ~~**Hito A — Secrets GitHub VPS**~~ — **ANDAMIAJE LISTO** (14 Ago 2026): clave SSH `~/.ssh/mirv_deploy` generada + `.github/SECRETS.md` + `deploy/bootstrap-vps.sh` + `deploy/README.md` (commit `b6a1d4b`). ⬜ **Solo usuario**: crear VPS → `ssh root@TU_VPS "bash -s" < deploy/bootstrap-vps.sh` → editar `.env` → setear `VPS_HOST`/`VPS_USER`/`VPS_SSH_KEY`. Hasta entonces deploy.yml hace Docker push y salta el VPS.
@@ -550,4 +553,59 @@ Localmente (Windows, sin watchdog): `3909 passed` con `-k "not test_slow_hook"` 
 ### Estado del plan OSINT (3 fases)
 - ✅ **Fase 1** — skill `osint` + subdomain pasivo (crt.sh/Wayback)
 - ✅ **Fase 2** — `osint_recon.py` + 8 endpoints + tab OSINT Recon
-- ⬜ **Fase 3 (opcional)** — skill password-auditing (del repo password-cracking-research) + CLI ghostig (Instagram OSINT de ghostig repo) — pendiente de decisión del usuario
+- ✅ **Fase 3** — skill `password-audit` + port ghostig → `instagram_osint.py` + `/api/osint/instagram` + tarjeta Instagram Recon (commit `eb6542e`)
+
+---
+
+## 📝 Nota — Fase 3 OSINT (15 Ago 2026, commit `eb6542e`, re-verificado `945b726`)
+
+> Cierre del plan OSINT (3 fases) del repo `fawadqureshi007`: 12º skill playbook + port ético del CLI `ghostig` al módulo MIRV. Igual que en las Fases 1-2, todo pasivo, stdlib-only y con API keys / sesión del propio operador por env var.
+
+### Qué se hizo
+
+| Pieza | Archivo | Detalle |
+|---|---|---|
+| Skill password-audit | `backend/skills/password-audit/SKILL.md` | 12º playbook built-in (frontmatter correcto: `hashcat`, `john`, `hydra`, `ncrack`, `medusa`, `patator`, `crowbar`, `ophcrack`, `rainbowcrack`, `crackmapexec`, `hashcat-utils`). 7 secciones: hash identification, estrategias offline (wordlist→rules→mask→incremental), wordlists/reglas/máscaras, online control-test (Hydra/Medusa/Ncrack/Patator SOLO autorizado, lockout-respecting), Windows/AD (NTLM/Kerberoast/AS-REP — defensivo), file/key recovery (office/archive/pdf/db/browser/cloud/ssh-key), defensa/detección. Tests `BUILTIN_NAMES` actualizados 11→12 |
+| Port ghostig | `backend/instagram_osint.py` (412L) | Dataclasses `UserProfile` (20 campos, `from_payload`) y `LookupInsight` (`has_data()`); funciones `get_instagram_profile(username\|user_id, *, skip_lookup=True)` y `instagram_lookup`; sesión del operador vía env `IG_SESSIONID` (nunca hardcodeada, nunca logueada); manejo 404/429/400 y respuestas no-JSON con codes (`not_found`/`rate_limited`/`parse_error`/`session_missing`); stdlib urllib, `_urlopen_sync` bloqueante en `asyncio.to_thread`, timeouts 15s, cap 1 MiB |
+| Endpoint | `backend/main.py` (+44) | `POST /api/osint/instagram` — body `{username XOR user_id, skip_lookup}`; 200 con perfil+lookup · 400 `code: session_missing` si falta `IG_SESSIONID` (chequeado **antes** de cualquier petición de red) · 422 si ambos vacíos o ambos presentes · 500 con excepción |
+| Skill `osint` (frontmatter) | `backend/skills/osint/SKILL.md` (+1) | `allowed_tools` ahora incluye `instagram` |
+| Tests | `backend/tests/test_instagram_osint.py` (nuevo, 39) | Mocks de `urlopen` con `_FakeResp` + dispatch por URL (web_profile_info / user info / lookup) + monkeypatch de `IG_SESSIONID` env; casos por flujo (perfil por username/id, lookup opcional con/sin datos, 404, 429, ≥400, parse error, session_missing, validación XOR) + endpoints (200, 400 session missing, 422, 500). Cobertura **100%** (168/168 stmts). `test_skill_playbooks.py` actualizado 11→12 builtins |
+| Frontend | `frontend/index.html` (+14), `frontend/js/main.v2.js` (+94) | 9ª tarjeta **Instagram Recon** en el tab OSINT existente (no tab nuevo — encaja en la grid 2×4+1): input username/user_id + checkbox "include lookup" (inverso de `skip_lookup`); `window.osintInstagram()` con detección auto username vs user_id (regex `/^\d+$/`), render del perfil (avatar `hd_profile_pic_url` con `onerror` defensivo + badges ✓ 💼 🔒 🕊 🆕 + stats followers/following/media con `toLocaleString`), sección Lookup con aviso ámbar de "datos obfuscados por Instagram"; errores específicos por `code` (`session_missing` con mensaje claro, `rate_limited`, `not_found`); i18n en/es + Enter-key binding |
+
+### Verificación
+
+| Suite | Resultado |
+|---|---|
+| `test_instagram_osint.py` (39) | ✅ 39 passed — cobertura **100%** |
+| `test_skill_playbooks.py` (12 builtins) | ✅ 67 passed (fix: `BUILTIN_NAMES` 11→12) |
+| Regresión main.py (`test_main_gaps`+`extra`+`coverage`) | ✅ 582 passed |
+| **Suite completa CI-emulada** (`SUPABASE_URL="" ...` + comando CI EXACTO con `--cov=. --cov-config=.coveragerc --cov-fail-under=0`) | ✅ **4019 passed, 52 deselected, 0 failed**, cobertura **99%** global |
+| `node --check frontend/js/main.v2.js` | ✅ SYNTAX OK |
+| **CI GitHub primer run** (commit `eb6542e`) | 🟥 CI `31874577197` failure — job killed a los **140s** sin líneas FAILED (flake runner OOM) |
+| **CI GitHub re-run** (commit `945b726` = mismo código + 6 líneas de diagnóstico en el step summary) | ✅ CI success · Deploy `31874911387` success |
+
+### Lecciones nuevas
+1. **Cookie del operador ≠ credencial robada**: ghostig exige `sessionid` (cookie de Instagram). En MIRV se toma de `IG_SESSIONID` (env var, cuenta del propio operador), nunca hardcodeada, nunca logueada, nunca persistida, y las funciones degradan con `code: session_missing` si no está. El endpoint comprueba con `os.getenv()` antes de hacer cualquier request de red. Docstring del módulo documenta el alcance (solo datos públicos).
+2. **API interna de Instagram cambia sin aviso** (`i.instagram.com/api/v1/*`): headers (UA, `x-ig-app-id`, `X-IG-App-ID`) y rutas pueden romperse. Mitigado: headers upstream fieles al original + manejo `HTTPError`/`URLError`/timeout + `code: parse_error` ante body no-JSON o vacío. Sin crash, degradación limpia.
+3. **Datos obfuscados ≠ datos reales**: el endpoint `users/lookup` devuelve `obfuscated_email`/`obfuscated_phone` ya enmascarados por la propia API de Instagram. El frontend lo señala con un aviso ámbar explícito para no inducir a error al analista.
+4. **Runner flake vs bug real**: cuando un job CI muere con `exit code 1` a mitad de camino (en este caso 140s) y el log NO contiene líneas FAILED/ERROR/passed → es casi siempre **OOM del runner o crash nativo del proceso** (SIGKILL), no fallo de tests. El comando `head -30 pytest.log` + `wc -l pytest.log` añadido al step "Show failure summary" (commit `945b726`) hará visibles estas señales en próximos jobs.
+
+### Postmortem breve — runner flake eb6542e
+
+| Campo | Valor |
+|---|---|
+| Run | `31874577197` (commit `eb6542e`) |
+| Job `test` | step 5 "Run tests with coverage" duró 140s, exit code 1 |
+| pytest.log | **1686 bytes** (corto para 4019 tests con `-q`) — sin líneas FAILED/ERROR/passed/fail-under → el grep del step resumen no encontró nada → **sin annotations `::error::`** en check-runs |
+| Comparación con el job anterior | commit `4918397` (mismo Dockerfile, mismas deps) pasó el mismo step en ~4.28 min sin issues |
+| Código | localmente pasa **4019/4019** con el comando CI EXACTO (`--cov=.` + `.coveragerc` + `--cov-fail-under=0`) en 464s, cobertura 99% — **mismo código, mismo test suite** |
+| Diagnóstico | pytest fue **SIGKILL-eado a mitad** (OOM killer del runner Ubuntu-latest o crash nativo transitorio). El step "Upload pytest log" corrió con `if: always()` y subió el log truncado (1686 bytes ≈ ~1600 dots = ~58% del recorrido esperado) |
+| Mitigación | re-run disparó un runner distinto / estado de memoria limpio → CI ✅ + Deploy ✅ en `945b726` |
+| Diagnóstico futuro | el step "Show failure summary" ahora emite también `head -30 pytest.log` y `wc -l pytest.log` como `::error::` annotations — si vuelve a pasar, la annotation incluirá las primeras/últimas líneas del log y el conteo, haciendo evidente un corte temprano |
+
+### Estado final del plan OSINT
+- ✅ **Fase 1** (skill `osint` + subdomain pasivo)
+- ✅ **Fase 2** (`osint_recon.py` + 8 endpoints + tab OSINT Recon)
+- ✅ **Fase 3** (skill `password-audit` + `instagram_osint.py` + tarjeta Instagram Recon)
+
+Plan OSINT cerrado. Próximos hitos abiertos siguen siendo los manuales del usuario (VPS + Cloudflare Tunnel, andamiaje ya listo).
