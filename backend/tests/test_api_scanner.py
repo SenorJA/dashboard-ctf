@@ -97,12 +97,22 @@ def _assert_finding_schema(finding: dict) -> None:
 class TestScanHttpbin:
     """Integration tests hitting https://httpbin.org."""
 
+    # NOTE: marked @pytest.mark.slow because these tests make REAL network
+    # calls to httpbin.org. The CI runner has flaky outbound connectivity
+    # to external services — httpbin.org occasionally responds slowly
+    # (HTTP 404 to /api/v1 paths seen in CI 2026-08-15 with 106s step
+    # duration, exit 1 due to per-test timeout). The ci.yml workflow
+    # already filters with `-m "not slow"`, so these will be skipped on
+    # the runner and still runnable locally with `pytest test_api_scanner.py`.
+
+    @pytest.mark.slow
     @pytest.mark.asyncio
     async def test_scan_returns_report(self):
         """scan(httpbin.org) returns a well-formed ApiScanReport."""
         report = await scan("https://httpbin.org", timeout=15.0)
         _assert_report_shape(report)
 
+    @pytest.mark.slow
     @pytest.mark.asyncio
     async def test_scan_probes_endpoints(self):
         """httpbin.org should respond to at least some common paths."""
@@ -111,12 +121,14 @@ class TestScanHttpbin:
             f"Expected at least 1 endpoint scanned, got {report.endpoints_scanned}"
         )
 
+    @pytest.mark.slow
     @pytest.mark.asyncio
     async def test_scan_base_url_preserved(self):
         """The base_url in the report matches the input URL."""
         report = await scan("https://httpbin.org", timeout=15.0)
         assert report.base_url == "https://httpbin.org"
 
+    @pytest.mark.slow
     @pytest.mark.asyncio
     async def test_scan_finds_issues_or_not(self):
         """Report may or may not find issues — but the list must be valid."""
@@ -126,6 +138,7 @@ class TestScanHttpbin:
             assert isinstance(issue, ApiIssue)
             assert issue.severity in VALID_SEVERITIES
 
+    @pytest.mark.slow
     @pytest.mark.asyncio
     async def test_scan_mirv_findings_format(self):
         """report_to_mirv_findings produces valid finding dicts from httpbin scan."""
@@ -138,6 +151,7 @@ class TestScanHttpbin:
         for f in findings:
             _assert_finding_schema(f)
 
+    @pytest.mark.slow
     @pytest.mark.asyncio
     async def test_scan_first_finding_is_summary(self):
         """The first MIRV finding is always the summary entry."""
@@ -151,6 +165,7 @@ class TestScanHttpbin:
         assert "endpoints_scanned" in summary["extra"]
         assert "issues_count" in summary["extra"]
 
+    @pytest.mark.slow
     @pytest.mark.asyncio
     async def test_scan_duration_positive(self):
         """Duration should be a positive number (the scan actually did work)."""
@@ -347,6 +362,7 @@ class TestScanExampleCom:
 class TestEdgeCases:
     """Smaller targeted tests for edge-case behaviour."""
 
+    @pytest.mark.slow
     @pytest.mark.asyncio
     async def test_scan_with_custom_paths(self):
         """Passing a short custom path list limits the scan scope."""
@@ -361,6 +377,7 @@ class TestEdgeCases:
         assert report.endpoints_scanned <= 2
         _assert_report_shape(report)
 
+    @pytest.mark.slow
     @pytest.mark.asyncio
     async def test_scan_concurrency_does_not_crash(self):
         """Low concurrency setting should still produce a valid report."""
