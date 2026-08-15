@@ -1,10 +1,11 @@
 # 🔮 TOMORROW.md — Roadmap de trabajo pendiente
 
-> Última actualización: 14 Ago 2026 — MIRV v5.0 | 30 módulos | 228 endpoints | 3944 tests | 25 tabs | main.py 100%
+> Última actualización: 15 Ago 2026 — MIRV v5.1 | 31 módulos | 236 endpoints | 4030 tests | 26 tabs | main.py 100%
 > ✅ **CI 100% VERDE** — recursión `AuditLogHandler` (CI #47/#48) + 11 fallos pre-existentes desenmascarados, todos resueltos en la serie `d8569d8`→`3cb20fb`. Ver § Postmortems al final.
 > ✅ **exif_osint.py y dlp_scanner.py al 100% de cobertura** (bugs #4/#5 cerrados, 12 Ago 2026).
 > ✅ **Export findings a PDF profesional** (14 Ago 2026): endpoint unificado `POST /api/report/export-pdf` + detalle por finding + resumen ejecutivo automático + frontend conectado (commit `92f4fa3`, CI ✅ Deploy ✅).
 > ✅ **Andamiaje Hitos A/B desplegable** (14 Ago 2026, commit `b6a1d4b`): `deploy/bootstrap-vps.sh` + `deploy/README.md` + servicio `cloudflared` (profile) + `deploy/cloudflared/setup-cloudflared.sh` + `PRODUCTION_PLAN.md` estado actualizado. ⬜ Solo quedan pasos manuales del usuario (crear VPS + comprar dominio).
+> ✅ **Suite OSINT pasivo integrada** (15 Ago 2026, commit `4918397`): skill `osint` (11º playbook) + `subdomain_scanner` pasivo (crt.sh + Wayback) + módulo `osint_recon.py` (9 funciones) + 8 endpoints `/api/osint/*` + tab OSINT Recon. CI ✅ Deploy ✅.
 
 ---
 
@@ -12,17 +13,17 @@
 
 | Métrica | Valor |
 |---------|-------|
-| Backend modules | 30 (main.py + 29 especializados) |
-| REST endpoints | 228 (+1: `/api/report/export-pdf`) |
-| Test files | 77 (+1: `test_report_export_pdf.py`) |
-| Tests collected | 3944 (3892 pass / 52 slow-deselected) |
-| Coverage | ~96% global — **main.py 100%**, **exif_osint 100%**, **dlp_scanner 100%**, **pdf_engine 99%** |
-| Frontend tabs | 25 |
-| Frontend JS | 9469 líneas (main.v2.js) |
-| Frontend HTML | 2694 líneas (index.html) |
+| Backend modules | 31 (main.py + 30 especializados) |
+| REST endpoints | 236 (+8: `/api/osint/*`) |
+| Test files | 79 (+2: `test_osint_recon.py`, `test_subdomain_scanner_gaps.py`) |
+| Tests collected | 4030 (3978 pass / 52 slow-deselected) |
+| Coverage | ~96% global — **main.py 100%**, **exif_osint 100%**, **dlp_scanner 100%**, **pdf_engine 99%**, **osint_recon 91%**, **subdomain_scanner 96%** |
+| Frontend tabs | 26 |
+| Frontend JS | ~9919 líneas (main.v2.js) |
+| Frontend HTML | ~2799 líneas (index.html) |
 | GitHub Actions | 2 workflows (CI + Deploy) |
 | Docker images | 2 (mirv-backend + kali-tools) |
-| GitHub commits | 12+ esta serie |
+| GitHub commits | 13+ esta serie |
 
 ---
 
@@ -57,7 +58,7 @@
 | # | Módulo | Archivo | Tests | Qué hace |
 |---|--------|---------|-------|----------|
 | 14 | **Plugin Manager** | `plugin_manager.py` (700L) | 65 | Discovery + 5 hooks + hot-reload (watchdog + polling fallback) |
-| 15 | **Skill Playbooks** | `skill_playbooks.py` (450L) | 67 | 10 playbooks MD (recon, webvuln, ssrf, jwt, supabase, graphql, race, takeover, deserialize, ssti) |
+| 15 | **Skill Playbooks** | `skill_playbooks.py` (450L) | 67 | 11 playbooks MD (recon, webvuln, ssrf, jwt, supabase, graphql, race, takeover, deserialize, ssti, **osint**) |
 
 ### Infraestructura
 | # | Módulo | Archivo | Tests | Qué hace |
@@ -78,8 +79,9 @@
 | 25 | **HTTP Headers Scanner** | `headers_scanner.py` | 32 | Grade A–F, 7 security headers |
 | 26 | **Secrets Scanner** | `secrets_scanner.py` | 33 | 25 regex patterns |
 | 27 | **Port Scanner** | `port_scanner.py` | 18 | ~1600 puertos async |
-| 28 | **Subdomain Scanner** | `subdomain_scanner.py` | 11 | ~700 prefijos DNS |
-| 28+ | DNS Lookup, Hash Cracker, Stego, News, API Scanner | — | 126+ | Variados |
+| 28 | **Subdomain Scanner** | `subdomain_scanner.py` | 24 | ~700 prefijos DNS brute + **pasivo (crt.sh + Wayback CDX)** |
+| 29 | **OSINT Recon** | `osint_recon.py` (818L) | 75 | 9 funciones OSINT pasivas (email breach/verify, dorking, phone, reverse-image, wayback, IP geo, username, github) — stdlib only, API keys opcionales por env |
+| 29+ | DNS Lookup, Hash Cracker, Stego, News, API Scanner | — | 126+ | Variados |
 
 ---
 
@@ -102,17 +104,18 @@
 | 12 | Mobile | `tab-mobile` | mobile_analyzer.py | APK analysis lab |
 | 13 | Forensics | `tab-forensics` | forensics.py | Forense digital |
 | 14 | EXIF OSINT | `tab-exif` | exif_osint.py | Metadata + GPS map |
-| 15 | Canary Tokens | `tab-canary` | canary_tokens.py | Honeytokens |
-| 16 | DLP Scanner | `tab-dlp` | dlp_scanner.py | PII detection |
-| 17 | SIEM | `tab-siem` | siem.py | Event feed + alerts |
-| 18 | Plugins | `tab-plugins` | plugin_manager.py | Plugin management |
-| 19 | Coverage | `tab-coverage` | coverage.py | Coverage matrix |
-| 20 | Burp Bridge | `tab-burp` | burp_bridge.py | Burp ingest |
-| 21 | Audit Log | `tab-audit` | audit_log.py | JSONL audit viewer |
-| 22 | Skills | `tab-skills` | skill_playbooks.py | Skill playbooks |
-| 23 | Intelligence | `tab-intelligence` | intelligence.py | Continuous monitoring |
-| 24 | Docker | — | main.py | Container controls |
-| 25 | **Browser Capture** | `tab-browsercapture` | browser_capture.py | HAR import + security analysis |
+| 15 | **OSINT Recon** | `tab-osint` | osint_recon.py | 8 herramientas pasivas: email, dork, phone, reverse-image, wayback, IP, username, github |
+| 16 | Canary Tokens | `tab-canary` | canary_tokens.py | Honeytokens |
+| 17 | DLP Scanner | `tab-dlp` | dlp_scanner.py | PII detection |
+| 18 | SIEM | `tab-siem` | siem.py | Event feed + alerts |
+| 19 | Plugins | `tab-plugins` | plugin_manager.py | Plugin management |
+| 20 | Coverage | `tab-coverage` | coverage.py | Coverage matrix |
+| 21 | Burp Bridge | `tab-burp` | burp_bridge.py | Burp ingest |
+| 22 | Audit Log | `tab-audit` | audit_log.py | JSONL audit viewer |
+| 23 | Skills | `tab-skills` | skill_playbooks.py | Skill playbooks |
+| 24 | Intelligence | `tab-intelligence` | intelligence.py | Continuous monitoring |
+| 25 | Docker | — | main.py | Container controls |
+| 26 | **Browser Capture** | `tab-browsercapture` | browser_capture.py | HAR import + security analysis |
 
 ---
 
@@ -132,6 +135,7 @@
 | EXIF | 2 | analyze (POST/GET) |
 | Canary | 5 | create, list, activate, events, delete |
 | DLP | 3 | scan, scan-file, scan-url |
+| OSINT | 8 | email, dork, phone, reverse-image, wayback, ip, username, github |
 | Redaction | 4 | redact, dict, patterns, check |
 | Missions | 5 | CRUD + similar |
 | Plans | 3 | CRUD |
@@ -139,7 +143,7 @@
 | Docker | 6 | status, start, stop, clean, build, task |
 | MCP | 3 | status, tools, exec |
 | AI | 2 | chat (auto-redacts), suggest (+ coverage context) |
-| **Total** | **209** | |
+| **Total** | **217** | |
 
 ---
 
@@ -156,6 +160,7 @@
 - [x] ~~**Verificar CI en GitHub**~~ — ✅ **12 Ago 2026**: CI 100% verde en `3cb20fb` — `lint` ✅ + `test` ✅ (3858 passed, 52 deselected) + `build-and-deploy` ✅
 - [x] ~~**Browser Capture MCP**~~ — 7 tools MCP envolviendo browser_capture (022f349)
 - [x] **Cobertura global > 80%** — ~95%; **main.py 100%** (2847/2847) vía test_main_gaps.py (295) + test_main_websocket_gaps.py (19)
+- [x] ~~**Suite OSINT pasivo (BlackTrace/ShadowEnum port)**~~ — ✅ **15 Ago 2026**: skill `osint` + subdomain pasivo + `osint_recon.py` + 8 endpoints + tab. Commit `4918397`, CI ✅ Deploy ✅. Ver § Nota suite OSINT.
 
 ### Prioridad BAJA
 - [x] ~~**Hito A — Secrets GitHub VPS**~~ — **ANDAMIAJE LISTO** (14 Ago 2026): clave SSH `~/.ssh/mirv_deploy` generada + `.github/SECRETS.md` + `deploy/bootstrap-vps.sh` + `deploy/README.md` (commit `b6a1d4b`). ⬜ **Solo usuario**: crear VPS → `ssh root@TU_VPS "bash -s" < deploy/bootstrap-vps.sh` → editar `.env` → setear `VPS_HOST`/`VPS_USER`/`VPS_SSH_KEY`. Hasta entonces deploy.yml hace Docker push y salta el VPS.
@@ -508,3 +513,41 @@ Localmente (Windows, sin watchdog): `3909 passed` con `-k "not test_slow_hook"` 
 1. **Profile en vez de servicio activo** para cloudflared: sin `CF_TUNNEL_TOKEN` el contenedor saldría; con profile solo arranca con `--profile cloudflared` y el `up` normal del deploy.yml no se ve afectado.
 2. **Bootstrap idempotente**: el usuario puede ejecutarlo varias veces; `.env` nunca se sobreescribe.
 3. **Sin secrets en los scripts**: solo referencias a `.env` (supabase) y tokens por env var.
+
+---
+
+## 📝 Nota — Suite OSINT pasivo integrada (15 Ago 2026, commit `4918397`)
+
+> Cierre de Fases 1+2 de la propuesta aprobada del repo `fawadqureshi007` (BlackTrace / ShadowEnum / OSINT-Beginner-Field-Guide). Port ético: **solo fuentes públicas y pasivas**, stdlib (`urllib`), timeouts, sin excepciones al caller, API keys opcionales por env con degradación elegante.
+
+### Qué se hizo
+
+| Pieza | Archivo | Detalle |
+|---|---|---|
+| Skill playbook OSINT | `backend/skills/osint/SKILL.md` | 11º skill built-in (frontmatter correcto + 6 secciones de metodología + IMPORTANT). Tests `BUILTIN_NAMES` actualizados (10→11) |
+| Subdomain pasivo | `backend/subdomain_scanner.py` (+282) | `scan_passive()` (crt.sh `%25.{domain}` + Wayback CDX, fuentes en paralelo con aislamiento de error por fuente, dedup, resolución DNS acotada máx 200, `sources`/`errors` con defaults retrocompatibles) + `scan_combined()` (brute+pasivo unidos, gana el con IPs resueltas) |
+| Módulo OSINT | `backend/osint_recon.py` (818L) | 9 funciones async: `check_email_breach` (HackerTarget pastebin + HIBP opcional), `verify_email` (formato + MX vía dns.google/socket), `google_dorking` (DDG + Bing, ≤5 páginas), `phone_number_lookup` (numverify opcional + fallback), `reverse_image_search` (TinEye opcional + fallback 6 engines), `wayback_machine_lookup` (CDX), `ip_geolocation` (ipinfo + AbuseIPDB opcional), `username_recon` (18 plataformas, semáforo 4), `github_recon` (perfil + top-10 repos, 403→rate-limited) |
+| Endpoints | `backend/main.py` (+189) | 8 endpoints `/api/osint/{email,dork,phone,reverse-image,wayback,ip,username,github}` — Pydantic models, import lazy, 422/500 JSON consistentes |
+| Frontend | `frontend/index.html` (+105), `frontend/js/main.v2.js` (+450) | Tab **OSINT Recon** (26º, `data-tab` + mapa posicional `switchTab` reindexado), 8 tarjetas de herramienta, i18n en/es (18 keys), helper `_osintFetch`/`_osintRenderError`, escape HTML `_escH` |
+
+### Verificación
+
+| Suite | Resultado |
+|---|---|
+| `test_osint_recon.py` (75) + `test_subdomain_scanner_gaps.py` (13) + `test_subdomain_scanner.py` (11) | ✅ 99 passed — osint_recon **91%**, subdomain_scanner **96%** |
+| Regresión main.py (`test_main_gaps`+`extra`+`coverage`) | ✅ 582 passed |
+| **Suite completa CI-emulada** (`SUPABASE_URL="" ...` + `-m "not slow" -k "not test_slow_hook" --timeout=60`) | ✅ **3978 passed, 52 deselected, 0 failed** (433.97s) — fix previo: 2 tests skill_playbooks esperaban 10 builtins → 11 |
+| `node --check frontend/js/main.v2.js` | ✅ SYNTAX OK |
+| **CI GitHub real** (commit `4918397`) | ✅ CI `31873411505` success · Deploy `31873411509` success |
+
+### Lecciones
+1. **Tests con aserciones de conteo fijo de recursos** (10 builtins, 25 tabs, etc.) se rompen al añadir recursos nuevos — al ampliar un catálogo hay que buscar `len(...) == N`/sets fijos en los tests (grep `== 10` etc.) y actualizarlos en el mismo commit.
+2. **`switchTab` usa un mapa posicional** sobre la NodeList de `.tab-btn`: insertar un botón en el sidebar obliga a reindexar los siguientes (+1) o el tab abre el pane equivocado.
+3. **Import lazy de módulos pesados en endpoints** (`from backend.osint_recon import ...`) es testeable con `@patch`/`AsyncMock` y evita cargar deps opcionales al arrancar FastAPI.
+4. **urllib capitaliza las cabeceras** (`Hibp-api-key`, `User-agent`) y `Request.get_header()` hace lookup directo sin capitalizar → los tests deben comparar case-insensitive.
+5. **Ports de repos públicos**: filtrar siempre por uso ético (se descartaron Insta-king phish kit, SYNStorm DoS, H3-DirFuzzer redundante, RedTeam-Python sin inspeccionar, wireless-hacker con hardware).
+
+### Estado del plan OSINT (3 fases)
+- ✅ **Fase 1** — skill `osint` + subdomain pasivo (crt.sh/Wayback)
+- ✅ **Fase 2** — `osint_recon.py` + 8 endpoints + tab OSINT Recon
+- ⬜ **Fase 3 (opcional)** — skill password-auditing (del repo password-cracking-research) + CLI ghostig (Instagram OSINT de ghostig repo) — pendiente de decisión del usuario
