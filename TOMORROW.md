@@ -6,7 +6,7 @@
 > ✅ **Export findings a PDF profesional** (14 Ago 2026): endpoint unificado `POST /api/report/export-pdf` + detalle por finding + resumen ejecutivo automático + frontend conectado (commit `92f4fa3`, CI ✅ Deploy ✅).
 > ✅ **Andamiaje Hitos A/B desplegable** (14 Ago 2026, commit `b6a1d4b`): `deploy/bootstrap-vps.sh` + `deploy/README.md` + servicio `cloudflared` (profile) + `deploy/cloudflared/setup-cloudflared.sh` + `PRODUCTION_PLAN.md` estado actualizado. ⬜ Solo quedan pasos manuales del usuario (crear VPS + comprar dominio).
 > ✅ **Suite OSINT pasivo integrada** (15 Ago 2026, commit `4918397`): skill `osint` (11º playbook) + `subdomain_scanner` pasivo (crt.sh + Wayback) + módulo `osint_recon.py` (9 funciones) + 8 endpoints `/api/osint/*` + tab OSINT Recon. CI ✅ Deploy ✅.
-> ✅ **Fase 3 OSINT** (15 Ago 2026, commit `eb6542e`, re-verificado `945b726`): skill `password-audit` (12º playbook) + port `ghostig` → `backend/instagram_osint.py` + endpoint `/api/osint/instagram` + 9ª tarjeta Instagram Recon en tab OSINT. CI ✅ Deploy ✅ (primer run killed por OOM del runner a los 140s — flake transitorio del runner, código verificado localmente + re-run OK; ver § Nota runner flake eb6542e).
+> ✅ **Fase 3 OSINT** (15 Ago 2026, commits `eb6542e` + `945b726` + `90ca638`): skill `password-audit` (12º playbook) + port `ghostig` → `backend/instagram_osint.py` + endpoint `/api/osint/instagram` + 9ª tarjeta Instagram Recon. **CI flake httpbin resuelto** (9 tests marcados `@pytest.mark.slow`).
 
 ---
 
@@ -17,7 +17,7 @@
 | Backend modules | 32 (main.py + 31 especializados) |
 | REST endpoints | 237 (+1: `/api/osint/instagram`) |
 | Test files | 80 (+1: `test_instagram_osint.py`) |
-| Tests collected | 4071 (4019 pass / 52 slow-deselected) |
+| Tests collected | 4071 (4010 pass / 61 slow-deselected) |
 | Coverage | ~97% global — **main.py 100%**, **exif_osint 100%**, **dlp_scanner 100%**, **pdf_engine 99%**, **osint_recon 91%**, **subdomain_scanner 96%**, **instagram_osint 100%** |
 | Frontend tabs | 26 |
 | Frontend JS | ~10013 líneas (main.v2.js) |
@@ -590,18 +590,23 @@ Localmente (Windows, sin watchdog): `3909 passed` con `-k "not test_slow_hook"` 
 3. **Datos obfuscados ≠ datos reales**: el endpoint `users/lookup` devuelve `obfuscated_email`/`obfuscated_phone` ya enmascarados por la propia API de Instagram. El frontend lo señala con un aviso ámbar explícito para no inducir a error al analista.
 4. **Runner flake vs bug real**: cuando un job CI muere con `exit code 1` a mitad de camino (en este caso 140s) y el log NO contiene líneas FAILED/ERROR/passed → es casi siempre **OOM del runner o crash nativo del proceso** (SIGKILL), no fallo de tests. El comando `head -30 pytest.log` + `wc -l pytest.log` añadido al step "Show failure summary" (commit `945b726`) hará visibles estas señales en próximos jobs.
 
-### Postmortem breve — runner flake eb6542e
+### Postmortem breve — **CI flake httpbin (eb6542e → dec0290) corregido en `90ca638`**
+
+> Dos CI runs consecutivos fallaron (`eb6542e` y `dec0290`) sin líneas FAILED en el log. Diagnóstico inicial apuntaba a OOM del runner; el diagnóstico correcto, gracias al `head -30 pytest.log` añadido en `945b726`, fue **9 tests de `test_api_scanner.py` haciendo red real a `httpbin.org`**.
 
 | Campo | Valor |
 |---|---|
-| Run | `31874577197` (commit `eb6542e`) |
-| Job `test` | step 5 "Run tests with coverage" duró 140s, exit code 1 |
-| pytest.log | **1686 bytes** (corto para 4019 tests con `-q`) — sin líneas FAILED/ERROR/passed/fail-under → el grep del step resumen no encontró nada → **sin annotations `::error::`** en check-runs |
-| Comparación con el job anterior | commit `4918397` (mismo Dockerfile, mismas deps) pasó el mismo step en ~4.28 min sin issues |
-| Código | localmente pasa **4019/4019** con el comando CI EXACTO (`--cov=.` + `.coveragerc` + `--cov-fail-under=0`) en 464s, cobertura 99% — **mismo código, mismo test suite** |
-| Diagnóstico | pytest fue **SIGKILL-eado a mitad** (OOM killer del runner Ubuntu-latest o crash nativo transitorio). El step "Upload pytest log" corrió con `if: always()` y subió el log truncado (1686 bytes ≈ ~1600 dots = ~58% del recorrido esperado) |
-| Mitigación | re-run disparó un runner distinto / estado de memoria limpio → CI ✅ + Deploy ✅ en `945b726` |
-| Diagnóstico futuro | el step "Show failure summary" ahora emite también `head -30 pytest.log` y `wc -l pytest.log` como `::error::` annotations — si vuelve a pasar, la annotation incluirá las primeras/últimas líneas del log y el conteo, haciendo evidente un corte temprano |
+| Run 1 | `31874577197` (commit `eb6542e`) — job `test` step 5 duró 140s, exit 1; pytest.log 1686 bytes, sin FAILED/ERROR/passed → diagnóstico inicial: OOM / SIGKILL runner |
+| Run 2 | `31875509925` (commit `945b726` = mismo código + 6 líneas de diagnóstico) — **CI ✅** (re-run transitorio OK, parecía confirmar OOM) |
+| Run 3 | `31877453163` (commit `dec0290` = solo docs TOMORROW.md) — job `test` step 5 duró 106s, exit 1; el nuevo `head -30 pytest.log` reveló `https://httpbin.org/api/v1 "HTTP/1.1 404 NOT FOUND"` y un `Timeout +++++++` capturado por pytest-timeout |
+| Causa raíz | **NO era OOM** — eran los 9 tests de `test_api_scanner.py` que hacen peticiones reales a `httpbin.org` (`TestScanHttpbin`, 7 tests + `TestEdgeCases::test_scan_with_custom_paths`/`test_scan_concurrency_does_not_crash`). httpbin.org responde lento o parcialmente caído desde el runner, pytest-timeout mata los tests (60s por test) y el step termina con exit 1 |
+| Por qué el código es correcto | El comando CI EXACTO (`--cov=. --cov-config=.coveragerc --cov-fail-under=0`) localmente pasa **4019/4019** en 464s con cobertura 99%. La suite siempre funcionó; el problema era exclusivamente la conectividad saliente del runner a httpbin.org |
+| Por qué el `head -30` fue decisivo | Sin él, los annotations del check-run solo contenían `Process completed with exit code 1` y los warnings de Node 20. El `head -30` expuso las URLs y los timeouts, lo que llevó a `grep httpbin backend/` → descubrir `test_api_scanner.py` |
+| Fix (`90ca638`) | Los 9 tests marcados con `@pytest.mark.slow` — el ci.yml ya excluye esa categoría con `-m "not slow"` (L45), y el comentario del workflow documenta exactamente el patrón: *"the 53 @pytest.mark.slow tests need real network and fail/hang on the runner"*. Los tests siguen ejecutables localmente con `pytest tests/test_api_scanner.py` sin filtro de marker |
+| Verificación | Suite CI-emulada local: `4010 passed, 61 deselected, 0 failed` (5.2 min, sin los 9 tests de red). **CI GitHub `90ca638`**: ✅ CI `31878196466` + ✅ Deploy `31878196465` |
+| Lección 1 | Cuando un job CI muere con `exit code 1` y el log NO contiene líneas FAILED/ERROR/passed → no asumir OOM. Las peticiones de red a servicios externos (`httpbin.org`, DNS, etc.) son una causa mucho más frecuente en runners Ubuntu-latest. El paso de diagnóstico (`head -30 pytest.log`) añadido en `945b726` demostró ser crucial: convirtió un misterio ("exit 1 sin contexto") en un grep directo sobre `httpbin` |
+| Lección 2 | El filtro `-m "not slow"` del ci.yml ya estaba documentado para excluir tests que necesitan red real. Los 9 tests de httpbin encajan perfectamente en esa categoría — debieron marcarse como `@pytest.mark.slow` cuando se añadieron. La velocidad de la suite CI también mejora: 5.2 min vs ~7 min anteriores |
+| Lección 3 | Los markers `-m "not slow"` y `-k "not test_slow_hook"` son complementarios pero hacen cosas distintas: el primero filtra por marker semántico (documentado), el segundo por nombre de test (quirúrgico, solo para `test_slow_hook`). El workflow mantiene ambos precisamente para no perder tests que merecen una exclusión por marker pero no por nombre |
 
 ### Estado final del plan OSINT
 - ✅ **Fase 1** (skill `osint` + subdomain pasivo)
