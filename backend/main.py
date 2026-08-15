@@ -2262,6 +2262,195 @@ async def api_headers_scan(url: str, timeout: float = 10.0):
     except Exception as e:
         return JSONResponse({"ok": False, "error": str(e)}, status_code=502)
 
+
+# ════════════════════════════════════════════════════════════════
+#  PASSIVE OSINT RECON (BlackTrace port) — public data only
+# ════════════════════════════════════════════════════════════════
+
+class OsintEmailRequest(BaseModel):
+    """Body for POST /api/osint/email — passive email breach + verification."""
+    email: str
+
+
+class OsintDorkRequest(BaseModel):
+    """Body for POST /api/osint/dork — passive search dorking."""
+    query: str
+    pages: int = 1
+
+
+class OsintPhoneRequest(BaseModel):
+    """Body for POST /api/osint/phone — passive phone lookup."""
+    phone: str
+
+
+class OsintReverseImageRequest(BaseModel):
+    """Body for POST /api/osint/reverse-image — passive reverse image search."""
+    image_url: str
+
+
+class OsintUsernameRequest(BaseModel):
+    """Body for POST /api/osint/username — passive username recon."""
+    username: str
+
+
+@app.post("/api/osint/email")
+async def api_osint_email(body: OsintEmailRequest):
+    """
+    Passive email breach sweep + format/MX verification.
+
+    Body: {"email": "user@example.com"}
+    Sources: HackerTarget pastebin_lookup + optional HIBP (HIBP_API_KEY).
+    """
+    email = body.email.strip()
+    if not email:
+        return JSONResponse({"ok": False, "error": "email must not be empty"}, status_code=422)
+    try:
+        from backend.osint_recon import check_email_breach, verify_email
+        breach = await check_email_breach(email)
+        verification = await verify_email(email)
+        return JSONResponse({"ok": True, "email": email, "breach": breach, "verification": verification})
+    except Exception as e:
+        logger.error("[osint email] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/osint/dork")
+async def api_osint_dork(body: OsintDorkRequest):
+    """
+    Run a passive search dork (DuckDuckGo + Bing HTML parse).
+
+    Body: {"query": "site:example.com filetype:pdf", "pages": 1}
+    """
+    query = body.query.strip()
+    if not query:
+        return JSONResponse({"ok": False, "error": "query must not be empty"}, status_code=422)
+    try:
+        from backend.osint_recon import google_dorking
+        result = await google_dorking(query, pages=body.pages)
+        return JSONResponse(result)
+    except Exception as e:
+        logger.error("[osint dork] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/osint/phone")
+async def api_osint_phone(body: OsintPhoneRequest):
+    """
+    Passive phone number lookup (numverify optional via NUMVERIFY_API_KEY).
+
+    Body: {"phone": "+14155551234"}
+    """
+    phone = body.phone.strip()
+    if not phone:
+        return JSONResponse({"ok": False, "error": "phone must not be empty"}, status_code=422)
+    try:
+        from backend.osint_recon import phone_number_lookup
+        result = await phone_number_lookup(phone)
+        return JSONResponse(result)
+    except Exception as e:
+        logger.error("[osint phone] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/osint/reverse-image")
+async def api_osint_reverse_image(body: OsintReverseImageRequest):
+    """
+    Passive reverse image search (TinEye optional via TINEYE_API_KEY).
+
+    Body: {"image_url": "https://example.com/photo.jpg"}
+    """
+    image_url = body.image_url.strip()
+    if not image_url:
+        return JSONResponse({"ok": False, "error": "image_url must not be empty"}, status_code=422)
+    try:
+        from backend.osint_recon import reverse_image_search
+        result = await reverse_image_search(image_url)
+        return JSONResponse(result)
+    except Exception as e:
+        logger.error("[osint reverse-image] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/osint/wayback")
+async def api_osint_wayback(domain: str = "", limit: int = 20):
+    """
+    List Wayback Machine snapshots for a domain via the CDX API.
+
+    Query params:
+      - domain (required): Domain or URL to look up (e.g. "example.com")
+      - limit (optional): Max snapshots to return (default 20, max 200)
+    """
+    domain = domain.strip()
+    if not domain:
+        return JSONResponse({"ok": False, "error": "Provide 'domain' query parameter"}, status_code=422)
+    try:
+        from backend.osint_recon import wayback_machine_lookup
+        result = await wayback_machine_lookup(domain, limit=limit)
+        return JSONResponse(result)
+    except Exception as e:
+        logger.error("[osint wayback] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/osint/ip")
+async def api_osint_ip(ip: str = ""):
+    """
+    Passive IP geolocation via ipinfo.io (+ optional AbuseIPDB report).
+
+    Query params:
+      - ip (required): IPv4/IPv6 address
+    """
+    ip = ip.strip()
+    if not ip:
+        return JSONResponse({"ok": False, "error": "Provide 'ip' query parameter"}, status_code=422)
+    try:
+        from backend.osint_recon import ip_geolocation
+        result = await ip_geolocation(ip)
+        return JSONResponse(result)
+    except Exception as e:
+        logger.error("[osint ip] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/osint/username")
+async def api_osint_username(body: OsintUsernameRequest):
+    """
+    Probe ~18 public platforms for a username (HEAD, rate-limited).
+
+    Body: {"username": "target"}
+    """
+    username = body.username.strip()
+    if not username:
+        return JSONResponse({"ok": False, "error": "username must not be empty"}, status_code=422)
+    try:
+        from backend.osint_recon import username_recon
+        result = await username_recon(username)
+        return JSONResponse(result)
+    except Exception as e:
+        logger.error("[osint username] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/osint/github")
+async def api_osint_github(username: str = ""):
+    """
+    Gather public GitHub profile + top-10 repos for a username.
+
+    Query params:
+      - username (required): GitHub login
+    """
+    username = username.strip()
+    if not username:
+        return JSONResponse({"ok": False, "error": "Provide 'username' query parameter"}, status_code=422)
+    try:
+        from backend.osint_recon import github_recon
+        result = await github_recon(username)
+        return JSONResponse(result)
+    except Exception as e:
+        logger.error("[osint github] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
 # ════════════════════════════════════════════════════════════════
 #  SUPABASE API ENDPOINTS
 # ════════════════════════════════════════════════════════════════

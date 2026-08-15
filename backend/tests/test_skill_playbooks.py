@@ -53,10 +53,11 @@ def builtin_only(monkeypatch):
     yield
 
 
-# 10 built-in skill playbooks (5 original + 5 added in the PentesterFlow-inspired round)
+# 11 built-in skill playbooks (5 original + 5 PentesterFlow-inspired + 1 OSINT)
 BUILTIN_NAMES = {
     "recon", "webvuln", "ssrf", "jwt", "supabase",          # original 5
     "graphql", "race", "takeover", "deserialize", "ssti",    # added 5
+    "osint",                                                 # added 1 (OSINT recon)
 }
 
 
@@ -65,7 +66,7 @@ BUILTIN_NAMES = {
 # ════════════════════════════════════════════════════════════════
 
 class TestDiscovery:
-    def test_discover_finds_all_ten_builtins(self, builtin_only):
+    def test_discover_finds_all_eleven_builtins(self, builtin_only):
         names = sp.discover_skills()
         assert set(names) == BUILTIN_NAMES
 

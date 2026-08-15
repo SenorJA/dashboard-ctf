@@ -1,17 +1,29 @@
 """
 subdomain_scanner.py — MIRV Module
 
-Asynchronous subdomain enumerator via DNS resolution.
+Asynchronous subdomain enumerator via DNS resolution + passive OSINT.
 Adapted from: https://github.com/CarterPerez-dev/Cybersecurity-Projects
+Passive sources (crt.sh + Wayback Machine CDX) inspired by
+https://github.com/fawadqureshi007/ShadowEnum.
 
-Uses asyncio + concurrent DNS lookups against a built-in wordlist
-of common subdomain prefixes.
+* ``scan``          — active brute-force DNS resolution against a built-in
+                      wordlist of common subdomain prefixes.
+* ``scan_passive``  — passive discovery via certificate transparency
+                      (crt.sh) and archive crawling (Wayback CDX), with
+                      bounded best-effort DNS validation.
+* ``scan_combined`` — active + passive sweep, deduplicated.
 """
 
 import asyncio
+import json
 import socket
+import urllib.parse
+import urllib.request
 from dataclasses import dataclass, field
 from typing import Literal
+
+# User-Agent sent to passive sources (crt.sh / web.archive.org).
+_USER_AGENT = "MIRV-SubdomainScanner/1.0 (security auditing; contact: local operator)"
 
 
 # ── Common subdomain prefixes (security-relevant) ──
@@ -199,6 +211,113 @@ class SubdomainReport:
     found: int
     results: list[SubdomainResult]
     duration_seconds: float
+    # Passive metadata (defaults keep brute-force callers 100% compatible)
+    sources: list[str] = field(default_factory=list)  # e.g. ["crt.sh", "wayback"]
+    errors: list[str] = field(default_factory=list)   # per-source failure notes
+
+
+# ── Domain / subdomain normalization ─────────────────────────────────────────
+
+def _clean_domain(domain: str) -> str:
+    """Normalize a target domain: lowercase + strip scheme/path/port/query."""
+    domain = domain.strip().lower()
+    if domain.startswith(("http://", "https://")):
+        domain = domain.split("://", 1)[1]
+    domain = domain.split("/")[0]
+    domain = domain.split(":")[0]
+    domain = domain.split("?")[0]
+    return domain.strip().rstrip(".")
+
+
+def _normalize_subdomain(raw: str, domain: str) -> str | None:
+    """
+    Normalize a raw host string into a clean FQDN under ``domain``.
+
+    Strips leading wildcards (``*.``), scheme, path, query and fragment,
+    lowercases the result and returns ``None`` when the host does not
+    belong to ``domain`` (prevents look-alike pollution such as
+    ``fakeexample.com`` leaking into an ``example.com`` scan).
+    """
+    raw = (raw or "").strip()
+    if not raw:
+        return None
+    if "://" in raw:
+        raw = raw.split("://", 1)[1]
+    raw = raw.split("/")[0]
+    raw = raw.split("?")[0].split("#")[0]
+    raw = raw.lstrip("*.").strip().lower().rstrip(".")
+    if raw == domain or raw.endswith("." + domain):
+        return raw
+    return None
+
+
+# ── Passive source fetchers (blocking, stdlib-only; run via to_thread) ──────
+
+def _http_get_json(url: str, timeout: float = 10.0) -> list | dict | None:
+    """
+    Blocking HTTP GET returning parsed JSON.
+
+    Raises on any transport / HTTP / JSON error — callers wrap it.
+    """
+    req = urllib.request.Request(url, headers={"User-Agent": _USER_AGENT})
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        body = resp.read()
+    if not body:
+        return None
+    return json.loads(body.decode("utf-8", errors="replace"))
+
+
+def _fetch_crtsh(domain: str, timeout: float) -> tuple[set[str], str | None]:
+    """
+    Query crt.sh certificate-transparency logs.
+
+    Returns (unique subdomains, error-or-None).  A source failure never
+    raises — it degrades to an error note so the caller can keep going.
+    """
+    q = urllib.parse.quote(f"%25.{domain}")
+    url = f"https://crt.sh/?q={q}&output=json"
+    try:
+        data = _http_get_json(url, timeout)
+    except Exception as exc:  # network / HTTP / JSON errors
+        return set(), f"crt.sh: {exc}"
+    subs: set[str] = set()
+    if isinstance(data, list):
+        for item in data:
+            if not isinstance(item, dict):
+                continue
+            nv = item.get("name_value") or item.get("common_name") or ""
+            for line in str(nv).splitlines():
+                name = _normalize_subdomain(line, domain)
+                if name:
+                    subs.add(name)
+    return subs, None
+
+
+def _fetch_wayback(domain: str, timeout: float) -> tuple[set[str], str | None]:
+    """
+    Query the Wayback Machine CDX API (collapse=urlkey, capped at 500 rows).
+
+    Returns (unique subdomains, error-or-None).  A source failure never
+    raises — it degrades to an error note so the caller can keep going.
+    """
+    url = (
+        f"http://web.archive.org/cdx/search/cdx?url=*.{domain}/*"
+        f"&output=json&fl=original&collapse=urlkey&limit=500"
+    )
+    try:
+        data = _http_get_json(url, timeout)
+    except Exception as exc:  # network / HTTP / JSON errors
+        return set(), f"wayback: {exc}"
+    subs: set[str] = set()
+    if isinstance(data, list):
+        # Row 0 is the CDX column header (["original"]); rows are lists.
+        for row in data[1:]:
+            if not isinstance(row, list) or not row:
+                continue
+            name = _normalize_subdomain(str(row[0]), domain)
+            if name:
+                subs.add(name)
+    return subs, None
 
 
 async def _resolve_subdomain(
@@ -288,12 +407,8 @@ async def scan(
     if subdomains is None:
         subdomains = COMMON_SUBDOMAINS
 
-    # Clean domain
-    domain = domain.strip().lower()
-    if domain.startswith(("http://", "https://")):
-        domain = domain.split("://", 1)[1]
-    domain = domain.split("/")[0]
-    domain = domain.split(":")[0]
+    # Clean domain (shared with scan_passive / scan_combined)
+    domain = _clean_domain(domain)
 
     semaphore = asyncio.Semaphore(concurrency)
     start = asyncio.get_event_loop().time()
@@ -315,6 +430,163 @@ async def scan(
         found=len(found),
         results=found,
         duration_seconds=round(duration, 2),
+    )
+
+
+async def scan_passive(
+    domain: str,
+    timeout: float = 10.0,
+    *,
+    max_resolve: int = 200,
+    resolve_concurrency: int = 30,
+    resolve_timeout: float = 3.0,
+) -> SubdomainReport:
+    """
+    Passively enumerate subdomains from public sources.
+
+    Queries crt.sh (certificate transparency) and the Wayback Machine CDX
+    API in parallel, normalizes + deduplicates the discovered hostnames,
+    then validates up to ``max_resolve`` of them via DNS resolution
+    (``_resolve_subdomain``, bounded by ``resolve_concurrency``).
+
+    Source independence: if one source fails, the other still contributes
+    and the failure is recorded in ``report.errors`` — this function never
+    raises.  Hosts that fail DNS validation (or fall past ``max_resolve``)
+    are still reported as passive findings with ``resolved_ips=[]`` and
+    ``record_type=None``.
+
+    Args:
+        domain: Domain to scan (e.g. "example.com").
+        timeout: Per-source HTTP timeout.
+        max_resolve: Cap on how many discovered hosts get DNS validation.
+        resolve_concurrency: Max simultaneous DNS lookups.
+        resolve_timeout: Seconds per DNS query.
+
+    Returns a SubdomainReport with all passively discovered subdomains.
+    """
+    domain = _clean_domain(domain)
+    loop = asyncio.get_running_loop()
+    start = loop.time()
+
+    # Each source fails independently: a broken source degrades to an
+    # error note instead of aborting the whole scan.
+    crtsh_subs, crtsh_err = await asyncio.to_thread(_fetch_crtsh, domain, timeout)
+    wayback_subs, wayback_err = await asyncio.to_thread(_fetch_wayback, domain, timeout)
+
+    sources: list[str] = []
+    errors: list[str] = []
+    if crtsh_err is None:
+        sources.append("crt.sh")
+    else:
+        errors.append(crtsh_err)
+    if wayback_err is None:
+        sources.append("wayback")
+    else:
+        errors.append(wayback_err)
+
+    discovered = sorted(crtsh_subs | wayback_subs)
+
+    # Bounded, concurrent DNS validation of the discovered hostnames.
+    semaphore = asyncio.Semaphore(resolve_concurrency)
+
+    async def _limited(name: str) -> SubdomainResult | None:
+        async with semaphore:
+            return await _resolve_subdomain(name, timeout=resolve_timeout)
+
+    to_resolve = discovered[:max_resolve]
+    raw = await asyncio.gather(*(_limited(n) for n in to_resolve))
+    resolved = {r.full_domain: r for r in raw if r is not None}
+
+    # Everything discovered is a valid passive finding; resolution is
+    # best-effort metadata only.
+    results: list[SubdomainResult] = []
+    for name in discovered:
+        r = resolved.get(name)
+        if r is not None:
+            results.append(r)
+        else:
+            results.append(SubdomainResult(
+                subdomain=name.split(".", 1)[0],
+                domain=domain,
+                full_domain=name,
+                resolved_ips=[],
+                record_type=None,
+            ))
+
+    duration = loop.time() - start
+    return SubdomainReport(
+        domain=domain,
+        total_checked=len(discovered),
+        found=len(discovered),
+        results=results,
+        duration_seconds=round(duration, 2),
+        sources=sources,
+        errors=errors,
+    )
+
+
+async def scan_combined(
+    domain: str,
+    subdomains: list[str] | None = None,
+    *,
+    timeout: float = 3.0,
+    concurrency: int = 50,
+    passive_timeout: float = 10.0,
+) -> SubdomainReport:
+    """
+    Active brute-force + passive OSINT sweep, merged and deduplicated.
+
+    Runs ``scan`` (DNS brute-force) and ``scan_passive`` concurrently,
+    then merges the results by ``full_domain``.  When a host was found by
+    both, the result carrying resolved IPs wins (active results almost
+    always have them; passive fallbacks for unresolved hosts never
+    overwrite a resolved hit).
+
+    Args:
+        domain: Domain to scan (e.g. "example.com").
+        subdomains: Custom brute-force wordlist. If None, uses the built-in
+            COMMON_SUBDOMAINS.
+        timeout / concurrency: Brute-force DNS parameters (see ``scan``).
+        passive_timeout: Per-source HTTP timeout for the passive pass.
+
+    Returns a merged SubdomainReport. ``total_checked`` = brute checks +
+    passively discovered hosts the brute pass missed; ``found`` = unique
+    merged total. ``sources``/``errors`` propagate from the passive pass.
+    """
+    domain = _clean_domain(domain)
+    loop = asyncio.get_running_loop()
+    start = loop.time()
+
+    brute, passive = await asyncio.gather(
+        scan(domain, subdomains=subdomains, timeout=timeout, concurrency=concurrency),
+        scan_passive(domain, timeout=passive_timeout),
+    )
+
+    # Merge by full_domain, prioritizing the result with resolved IPs.
+    merged: dict[str, SubdomainResult] = {}
+    for r in brute.results:
+        merged[r.full_domain] = r
+
+    new_passive = 0
+    for r in passive.results:
+        existing = merged.get(r.full_domain)
+        if existing is None:
+            merged[r.full_domain] = r
+            new_passive += 1
+        elif not existing.resolved_ips and r.resolved_ips:
+            merged[r.full_domain] = r
+
+    results = sorted(merged.values(), key=lambda x: x.full_domain)
+    duration = loop.time() - start
+
+    return SubdomainReport(
+        domain=domain,
+        total_checked=brute.total_checked + new_passive,
+        found=len(results),
+        results=results,
+        duration_seconds=round(duration, 2),
+        sources=list(passive.sources),
+        errors=list(passive.errors),
     )
 
 

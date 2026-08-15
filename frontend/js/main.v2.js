@@ -3431,16 +3431,17 @@ ${bodyHtml}
             mobile: 13,
             forensics: 14,
             exif: 15,
-            canary: 16,
-            dlp: 17,
-            siem: 18,
-            plugins: 19,
-            coverage: 20,
-            burp: 21,
-            audit: 22,
-            skills: 23,
-            intelligence: 24,
-            browsercapture: 25
+            osint: 16,
+            canary: 17,
+            dlp: 18,
+            siem: 19,
+            plugins: 20,
+            coverage: 21,
+            burp: 22,
+            audit: 23,
+            skills: 24,
+            intelligence: 25,
+            browsercapture: 26
         };
         if (panes[tabName] !== undefined) {
             btns[panes[tabName]].classList.add('active');
@@ -6109,6 +6110,7 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         tabKnowledgebase:  { en: '📚 KnowledgeBase',   es: '📚 KnowledgeBase' },
         tabCTF:            { en: '🏴 CTF',              es: '🏴 CTF' },
         tabDlp:            { en: '🛡️ DLP',             es: '🛡️ DLP' },
+        tabOsint:          { en: '🕵️ OSINT Recon',    es: '🕵️ Recon OSINT' },
 
         // ── DLP Scanner ──
         "dlp-title":        { en: '🛡️ DLP Scanner',         es: '🛡️ Escáner DLP' },
@@ -6370,6 +6372,25 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         "exif-clear":      { en: 'Clear',               es: 'Limpiar' },
         "exif-location":   { en: 'Location',            es: 'Ubicación' },
         "exif-severity":   { en: 'Severity',            es: 'Severidad' },
+
+        // ── OSINT Recon ──
+        "osint-title":     { en: '🕵️ OSINT Recon',     es: '🕵️ Recon OSINT' },
+        "osint-ready":     { en: 'Ready',               es: 'Listo' },
+        "osint-email-title":  { en: '📧 Email Recon',   es: '📧 Recon de Email' },
+        "osint-dork-title":   { en: '🔍 Google Dork',   es: '🔍 Dork de Google' },
+        "osint-phone-title":  { en: '📱 Phone Lookup',  es: '📱 Búsqueda de Teléfono' },
+        "osint-image-title":  { en: '🖼️ Reverse Image', es: '🖼️ Imagen Inversa' },
+        "osint-wayback-title":{ en: '📜 Wayback Machine', es: '📜 Wayback Machine' },
+        "osint-ip-title":     { en: '📍 IP Geolocation', es: '📍 Geolocalización IP' },
+        "osint-username-title":{ en: '👤 Username Recon', es: '👤 Recon de Usuario' },
+        "osint-github-title": { en: '🐙 GitHub Recon',  es: '🐙 Recon GitHub' },
+        "osint-check":        { en: 'Check',            es: 'Comprobar' },
+        "osint-search":       { en: 'Search',           es: 'Buscar' },
+        "osint-lookup":       { en: 'Lookup',           es: 'Buscar' },
+        "osint-analyze":      { en: 'Analyze',          es: 'Analizar' },
+        "osint-fetch":        { en: 'Fetch',            es: 'Obtener' },
+        "osint-locate":       { en: 'Locate',           es: 'Localizar' },
+        "osint-scan":         { en: 'Scan',             es: 'Escanear' },
 
         // ── Hak5 ──
         hak5PayloadStudio: { en: '🔌 Hak5 Payload Studio', es: '🔌 Hak5 Payload Studio' },
@@ -9466,4 +9487,413 @@ Reglas:
         const detail = document.getElementById('bc-session-detail');
         if (detail) detail.classList.add('hidden');
     };
+
+    // ════════════════════════════════════════════════════════════════
+    //  OSINT RECON — 8 passive lookups (email, dork, phone, reverse
+    //  image, wayback, IP geo, username, github).  Public data only,
+    //  consumed from backend /api/osint/* (backend/osint_recon.py).
+    // ════════════════════════════════════════════════════════════════
+
+    async function _osintFetch(url, opts) {
+        const resp = await fetch(url, opts);
+        let data = null;
+        try { data = await resp.json(); } catch (e) { /* non-JSON body */ }
+        if (!data || typeof data !== 'object') {
+            throw new Error(`HTTP ${resp.status}: invalid JSON response`);
+        }
+        return data;
+    }
+
+    function _osintRender(containerId, html) {
+        const el = document.getElementById(containerId);
+        if (el) el.innerHTML = html;
+    }
+
+    function _osintRenderError(containerId, errText) {
+        _osintRender(containerId,
+            `<div class="bg-blood/10 border border-blood rounded p-3 text-blood text-xs font-mono">✗ ${_escH(errText)}</div>`);
+    }
+
+    function _osintLoading(containerId, msg) {
+        _osintRender(containerId, `<div class="text-gray-500 text-xs animate-pulse">${_escH(msg)}</div>`);
+    }
+
+    // ── 1. Email Recon ──────────────────────────────────────────────
+    window.osintEmail = async function () {
+        const email = (document.getElementById('osint-email-input')?.value || '').trim();
+        if (!email) { showToast('🕵️ Enter an email address'); return; }
+        _osintLoading('osint-email-result', '🕵️ Checking email...');
+        showToast('🕵️ Checking email...');
+        try {
+            const data = await _osintFetch('/api/osint/email', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email })
+            });
+            if (!data.ok) {
+                _osintRenderError('osint-email-result', data.error || 'Email check failed');
+                showToast('🕵️ Email check failed');
+                return;
+            }
+            const b = data.breach || {};
+            const v = data.verification || {};
+            const mx = Array.isArray(v.mx_records) ? v.mx_records : [];
+            const breachBadge = b.ok === false
+                ? `<span class="text-yellow-400">⚠ ${_escH(b.error || 'breach source unavailable')}</span>`
+                : (b.found
+                    ? '<span class="text-blood font-bold">⚠ FOUND in breach/paste sources</span>'
+                    : '<span class="text-green-400 font-bold">✓ Not found in breach/paste sources</span>');
+            const mxHtml = mx.length
+                ? mx.map(m => `<span class="inline-block bg-void border border-cyber rounded px-2 py-0.5 mr-1 mb-1 font-mono text-[11px] text-gray-300">${_escH(m)}</span>`).join('')
+                : '<span class="text-gray-600">No MX records (domain may not resolve)</span>';
+            const pasteHtml = (b.paste_urls || []).length
+                ? `<div class="mt-2 text-xs">${b.paste_urls.map(u => `<a class="block text-cyber hover:text-neon truncate" href="${_escH(u)}" target="_blank" rel="noopener">${_escH(u)}</a>`).join('')}</div>`
+                : '';
+            const breachHtml = (b.breaches || []).length
+                ? `<div class="mt-2 text-xs">${b.breaches.map(br => `<span class="block text-blood">${_escH(br.name || '')}${br.date ? ' — ' + _escH(br.date) : ''}</span>`).join('')}</div>`
+                : '';
+            _osintRender('osint-email-result', `
+                <div class="space-y-3">
+                    <div class="bg-void border border-cyber rounded p-3">
+                        <div class="text-xs text-gray-500 mb-1">BREACH STATUS</div>
+                        ${breachBadge}
+                        ${pasteHtml}${breachHtml}
+                        ${b.note ? `<div class="mt-2 text-[10px] text-yellow-400/80">⚠ ${_escH(b.note)}</div>` : ''}
+                    </div>
+                    <div class="bg-void border border-cyber rounded p-3">
+                        <div class="text-xs text-gray-500 mb-1">VERIFICATION</div>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                            <div><span class="text-gray-500">Format:</span> ${v.valid_format ? '<span class="text-green-400">✓ valid</span>' : '<span class="text-blood">✗ invalid</span>'}</div>
+                            <div><span class="text-gray-500">Domain:</span> <span class="text-gray-300 font-mono">${_escH(v.domain || '—')}</span></div>
+                            <div><span class="text-gray-500">Disposable:</span> ${v.disposable ? '<span class="text-blood">⚠ yes</span>' : '<span class="text-green-400">no</span>'}</div>
+                            <div><span class="text-gray-500">Resolves:</span> ${v.domain_resolves ? '<span class="text-green-400">✓</span>' : '<span class="text-blood">✗</span>'}</div>
+                        </div>
+                        <div class="mt-2 text-xs text-gray-500">MX Records</div>
+                        <div class="mt-1">${mxHtml}</div>
+                    </div>
+                </div>`);
+            showToast('🕵️ Email check complete');
+        } catch (err) {
+            _osintRenderError('osint-email-result', 'Network error: ' + (err.message || err));
+            showToast('🕵️ Email check failed');
+        }
+    };
+
+    // ── 2. Google Dork ─────────────────────────────────────────────
+    window.osintDork = async function () {
+        const query = (document.getElementById('osint-dork-input')?.value || '').trim();
+        if (!query) { showToast('🕵️ Enter a dork query'); return; }
+        const pages = parseInt(document.getElementById('osint-dork-pages')?.value || '1', 10) || 1;
+        _osintLoading('osint-dork-result', '🕵️ Searching...');
+        showToast('🕵️ Running dork...');
+        try {
+            const data = await _osintFetch('/api/osint/dork', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ query, pages })
+            });
+            if (!data.ok) {
+                _osintRenderError('osint-dork-result', data.error || 'Dork search failed');
+                showToast('🕵️ Dork failed');
+                return;
+            }
+            const results = data.results || [];
+            if (!results.length) {
+                _osintRender('osint-dork-result', '<div class="text-gray-600 text-xs">No results found.</div>');
+                showToast('🕵️ Dork complete — no results');
+                return;
+            }
+            const searchLinks = (data.search_urls || {});
+            _osintRender('osint-dork-result', `
+                <div class="text-[10px] text-gray-600 mb-2 font-mono">${_escH(data.query)} — ${results.length} results (${_escH(data.engine || '')}) · ${Object.entries(searchLinks).map(([k, u]) => `<a class="text-cyber hover:text-neon mr-2" href="${_escH(u)}" target="_blank" rel="noopener">${_escH(k)}</a>`).join('')}</div>
+                <div class="space-y-2">${results.map(r => `
+                    <div class="bg-void border border-cyber/50 rounded p-2">
+                        <a class="text-cyber hover:text-neon text-xs font-semibold break-all" href="${_escH(r.url)}" target="_blank" rel="noopener">${_escH(r.title || r.url)}</a>
+                        <div class="text-[10px] text-gray-500 break-all">${_escH(r.url)}</div>
+                        ${r.snippet ? `<div class="text-[11px] text-gray-400 mt-1">${_escH(r.snippet)}</div>` : ''}
+                    </div>`).join('')}</div>`);
+            showToast('🕵️ Dork complete');
+        } catch (err) {
+            _osintRenderError('osint-dork-result', 'Network error: ' + (err.message || err));
+            showToast('🕵️ Dork failed');
+        }
+    };
+
+    // ── 3. Phone Lookup ────────────────────────────────────────────
+    window.osintPhone = async function () {
+        const phone = (document.getElementById('osint-phone-input')?.value || '').trim();
+        if (!phone) { showToast('🕵️ Enter a phone number'); return; }
+        _osintLoading('osint-phone-result', '🕵️ Looking up phone...');
+        showToast('🕵️ Looking up phone...');
+        try {
+            const data = await _osintFetch('/api/osint/phone', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone })
+            });
+            if (!data.ok) {
+                _osintRenderError('osint-phone-result', data.error || 'Phone lookup failed');
+                showToast('🕵️ Phone lookup failed');
+                return;
+            }
+            const row = (label, value, valCls) => `<div class="bg-void border border-cyber rounded p-3"><div class="text-[10px] text-gray-500">${_escH(label)}</div><div class="text-sm font-mono ${valCls || 'text-white'}">${value}</div></div>`;
+            _osintRender('osint-phone-result', `
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    ${row('Phone', _escH(data.phone || phone))}
+                    ${row('Country', _escH(data.country || '—'))}
+                    ${row('Carrier', _escH(data.carrier || '—'), 'text-cyber')}
+                    ${row('Line Type', _escH(data.line_type || '—'), 'text-neon')}
+                </div>
+                ${data.note ? `<div class="mt-2 text-[10px] text-yellow-400/80">⚠ ${_escH(data.note)}</div>` : ''}
+                ${(data.web_results || []).length ? `<div class="mt-3"><div class="text-xs text-gray-500 mb-1">Web references</div><div class="space-y-1">${data.web_results.map(r => `<a class="block text-[11px] text-cyber hover:text-neon truncate" href="${_escH(r.url)}" target="_blank" rel="noopener">${_escH(r.title || r.url)}</a>`).join('')}</div></div>` : ''}`);
+            showToast('🕵️ Phone lookup complete');
+        } catch (err) {
+            _osintRenderError('osint-phone-result', 'Network error: ' + (err.message || err));
+            showToast('🕵️ Phone lookup failed');
+        }
+    };
+
+    // ── 4. Reverse Image ───────────────────────────────────────────
+    window.osintReverseImage = async function () {
+        const image_url = (document.getElementById('osint-image-input')?.value || '').trim();
+        if (!image_url) { showToast('🕵️ Enter an image URL'); return; }
+        _osintLoading('osint-image-result', '🕵️ Reverse-searching image...');
+        showToast('🕵️ Reverse image search...');
+        try {
+            const data = await _osintFetch('/api/osint/reverse-image', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image_url })
+            });
+            if (!data.ok) {
+                _osintRenderError('osint-image-result', data.error || 'Reverse image failed');
+                showToast('🕵️ Reverse image failed');
+                return;
+            }
+            const results = data.results || [];
+            const engines = data.engines || {};
+            const engineLinks = Object.entries(engines).map(([k, u]) => `<a class="inline-block bg-void border border-cyber rounded px-2 py-0.5 text-[10px] text-cyber hover:text-neon mr-1 mb-1" href="${_escH(u)}" target="_blank" rel="noopener">${_escH(k)}</a>`).join('');
+            _osintRender('osint-image-result', `
+                <div class="text-[10px] text-gray-500 mb-2">Engine: <span class="text-neon font-mono">${_escH(data.engine || '—')}</span></div>
+                ${engineLinks ? `<div class="mb-2">${engineLinks}</div>` : ''}
+                ${data.note ? `<div class="text-[10px] text-yellow-400/80 mb-2">⚠ ${_escH(data.note)}</div>` : ''}
+                ${results.length ? `<div class="space-y-2">${results.map(r => `
+                    <div class="bg-void border border-cyber/50 rounded p-2">
+                        <a class="text-cyber hover:text-neon text-xs font-semibold break-all" href="${_escH(r.url)}" target="_blank" rel="noopener">${_escH(r.title || r.url)}</a>
+                        <div class="text-[10px] text-gray-500 break-all">${_escH(r.url)}</div>
+                        ${r.source ? `<div class="text-[10px] text-gray-600">source: ${_escH(r.source)}</div>` : ''}
+                    </div>`).join('')}</div>` : '<div class="text-gray-600 text-xs">No matches found via passive search.</div>'}`);
+            showToast('🕵️ Reverse image complete');
+        } catch (err) {
+            _osintRenderError('osint-image-result', 'Network error: ' + (err.message || err));
+            showToast('🕵️ Reverse image failed');
+        }
+    };
+
+    // ── 5. Wayback Machine ─────────────────────────────────────────
+    window.osintWayback = async function () {
+        const domain = (document.getElementById('osint-wayback-domain')?.value || '').trim();
+        if (!domain) { showToast('🕵️ Enter a domain'); return; }
+        let limit = parseInt(document.getElementById('osint-wayback-limit')?.value || '20', 10);
+        if (isNaN(limit) || limit < 1) limit = 20;
+        if (limit > 200) limit = 200;
+        _osintLoading('osint-wayback-result', '🕵️ Querying Wayback CDX...');
+        showToast('🕵️ Fetching snapshots...');
+        try {
+            const data = await _osintFetch(`/api/osint/wayback?domain=${encodeURIComponent(domain)}&limit=${limit}`);
+            if (!data.ok) {
+                _osintRenderError('osint-wayback-result', data.error || 'Wayback failed');
+                showToast('🕵️ Wayback failed');
+                return;
+            }
+            const snaps = data.snapshots || [];
+            if (!snaps.length) {
+                _osintRender('osint-wayback-result', '<div class="text-gray-600 text-xs">No snapshots found for this domain.</div>');
+                showToast('🕵️ Wayback complete — no snapshots');
+                return;
+            }
+            _osintRender('osint-wayback-result', `
+                <div class="bg-void border border-cyber rounded overflow-x-auto">
+                    <table class="w-full text-[11px] font-mono">
+                        <thead class="bg-deep"><tr class="text-left text-gray-500 border-b border-cyber">
+                            <th class="px-3 py-2">Timestamp</th><th class="px-3 py-2">URL</th><th class="px-3 py-2">Status</th><th class="px-3 py-2">Archive</th>
+                        </tr></thead>
+                        <tbody>${snaps.map(s => {
+                            const st = String(s.status || '—');
+                            const stCls = st.startsWith('2') ? 'text-green-400' : st.startsWith('3') ? 'text-neon' : (st.startsWith('4') || st.startsWith('5')) ? 'text-blood' : 'text-gray-500';
+                            return `<tr class="border-b border-gray-800/50 hover:bg-neon/5">
+                                <td class="px-3 py-1.5 text-gray-400 whitespace-nowrap">${_escH(s.timestamp)}</td>
+                                <td class="px-3 py-1.5 text-gray-300 truncate max-w-[260px]">${_escH(s.url)}</td>
+                                <td class="px-3 py-1.5 ${stCls}">${_escH(st)}</td>
+                                <td class="px-3 py-1.5"><a class="text-cyber hover:text-neon" href="${_escH(s.archive_url || '#')}" target="_blank" rel="noopener">↗</a></td>
+                            </tr>`;
+                        }).join('')}</tbody>
+                    </table>
+                </div>
+                <div class="text-[10px] text-gray-600 mt-1">${snaps.length} snapshot(s) for ${_escH(data.domain || domain)}</div>`);
+            showToast('🕵️ Wayback complete');
+        } catch (err) {
+            _osintRenderError('osint-wayback-result', 'Network error: ' + (err.message || err));
+            showToast('🕵️ Wayback failed');
+        }
+    };
+
+    // ── 6. IP Geolocation ──────────────────────────────────────────
+    window.osintIp = async function () {
+        const ip = (document.getElementById('osint-ip-input')?.value || '').trim();
+        if (!ip) { showToast('🕵️ Enter an IP address'); return; }
+        _osintLoading('osint-ip-result', '🕵️ Geolocating IP...');
+        showToast('🕵️ Geolocating IP...');
+        try {
+            const data = await _osintFetch(`/api/osint/ip?ip=${encodeURIComponent(ip)}`);
+            if (!data.ok) {
+                _osintRenderError('osint-ip-result', data.error || 'IP lookup failed');
+                showToast('🕵️ IP lookup failed');
+                return;
+            }
+            const row = (label, value) => `<div class="bg-void border border-cyber rounded p-3"><div class="text-[10px] text-gray-500">${_escH(label)}</div><div class="text-sm font-mono text-white break-all">${_escH(value || '—')}</div></div>`;
+            let mapsLink = '';
+            if (data.loc) {
+                const [lat, lon] = String(data.loc).split(',');
+                if (lat && lon) {
+                    mapsLink = `<a class="inline-block mt-2 px-3 py-1.5 bg-blue-800 hover:bg-blue-700 rounded text-[11px] text-white transition-colors" href="https://www.google.com/maps?q=${encodeURIComponent(lat)},${encodeURIComponent(lon)}" target="_blank" rel="noopener">🗺 Open in Maps</a>`;
+                }
+            }
+            const abuse = data.abuse;
+            const abuseHtml = abuse
+                ? (abuse.error
+                    ? `<div class="mt-2 text-[10px] text-yellow-400/80">⚠ ${_escH(abuse.error)}</div>`
+                    : `<div class="mt-3 bg-void border border-blood/40 rounded p-3">
+                        <div class="text-xs text-blood mb-1">ABUSEIPDB REPORT</div>
+                        <div class="text-[11px] font-mono text-white">Confidence: <span class="text-neon">${_escH(abuse.abuse_confidence_score ?? '—')}</span>% · Reports (90d): <span class="text-blood">${_escH(abuse.total_reports ?? '—')}</span></div>
+                        ${(abuse.reports_90d || []).length ? `<div class="mt-1 text-[10px] text-gray-400">${abuse.reports_90d.map(r => `<div>${_escH(r.reported_at || '')} — ${_escH((r.comment || '').slice(0, 120))}</div>`).join('')}</div>` : ''}
+                      </div>`)
+                : '';
+            _osintRender('osint-ip-result', `
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    ${row('IP', data.ip)}
+                    ${row('City', data.city)}
+                    ${row('Region', data.region)}
+                    ${row('Country', data.country)}
+                    ${row('Org', data.org)}
+                    ${row('Location', data.loc)}
+                    ${row('Postal', data.postal)}
+                    ${row('Timezone', data.timezone)}
+                </div>
+                ${mapsLink}
+                ${abuseHtml}`);
+            showToast('🕵️ IP lookup complete');
+        } catch (err) {
+            _osintRenderError('osint-ip-result', 'Network error: ' + (err.message || err));
+            showToast('🕵️ IP lookup failed');
+        }
+    };
+
+    // ── 7. Username Recon ──────────────────────────────────────────
+    window.osintUsername = async function () {
+        const username = (document.getElementById('osint-username-input')?.value || '').trim();
+        if (!username) { showToast('🕵️ Enter a username'); return; }
+        _osintLoading('osint-username-result', '🕵️ Probing platforms...');
+        showToast('🕵️ Username recon...');
+        try {
+            const data = await _osintFetch('/api/osint/username', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username })
+            });
+            if (!data.ok) {
+                _osintRenderError('osint-username-result', data.error || 'Username recon failed');
+                showToast('🕵️ Username recon failed');
+                return;
+            }
+            const profiles = data.profiles || [];
+            const found = profiles.filter(p => p.exists);
+            _osintRender('osint-username-result', `
+                <div class="text-[11px] text-gray-500 mb-2 font-mono">${_escH(username)} — ${found.length}/${profiles.length} platforms found</div>
+                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                    ${profiles.map(p => p.exists ? `
+                        <a class="bg-void border border-green-900 hover:border-neon rounded p-2 block" href="${_escH(p.url)}" target="_blank" rel="noopener">
+                            <div class="text-[11px] font-semibold text-neon">${_escH(p.platform)}</div>
+                            <div class="text-[10px] text-green-400">✓ exists${p.status_code ? ` (${_escH(p.status_code)})` : ''}</div>
+                        </a>` : `
+                        <div class="bg-void border border-gray-800 rounded p-2 opacity-60">
+                            <div class="text-[11px] font-semibold text-gray-400">${_escH(p.platform)}</div>
+                            <div class="text-[10px] text-gray-600">✗ not found</div>
+                        </div>`).join('')}
+                </div>`);
+            showToast(`🕵️ Username recon complete — ${found.length} found`);
+        } catch (err) {
+            _osintRenderError('osint-username-result', 'Network error: ' + (err.message || err));
+            showToast('🕵️ Username recon failed');
+        }
+    };
+
+    // ── 8. GitHub Recon ────────────────────────────────────────────
+    window.osintGithub = async function () {
+        const username = (document.getElementById('osint-github-input')?.value || '').trim();
+        if (!username) { showToast('🕵️ Enter a GitHub username'); return; }
+        _osintLoading('osint-github-result', '🕵️ Fetching GitHub profile...');
+        showToast('🕵️ GitHub recon...');
+        try {
+            const data = await _osintFetch(`/api/osint/github?username=${encodeURIComponent(username)}`);
+            if (!data.ok) {
+                _osintRenderError('osint-github-result', data.error || 'GitHub recon failed');
+                showToast('🕵️ GitHub recon failed');
+                return;
+            }
+            const p = data.profile || {};
+            const repos = data.repos || [];
+            const avatarUrl = p.avatar_url || `https://github.com/${encodeURIComponent(p.login || username)}.png`;
+            const metaBits = [p.location, p.company, p.blog].filter(Boolean).map(x => _escH(x)).join(' · ');
+            _osintRender('osint-github-result', `
+                <div class="bg-void border border-cyber rounded p-4 mb-3">
+                    <div class="flex items-center gap-4 flex-wrap">
+                        <img class="w-16 h-16 rounded-full border border-cyber" src="${_escH(avatarUrl)}" alt="avatar" onerror="this.style.display='none'">
+                        <div class="flex-1 min-w-[200px]">
+                            <div class="text-base font-bold text-neon">${_escH(p.name || p.login || username)} <span class="text-gray-500 font-mono text-xs">@${_escH(p.login || username)}</span></div>
+                            ${p.bio ? `<div class="text-[11px] text-gray-400 mt-0.5">${_escH(p.bio)}</div>` : ''}
+                            ${metaBits ? `<div class="text-[10px] text-gray-500 mt-1">${metaBits}</div>` : ''}
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 text-center">
+                            <div class="bg-deep border border-cyber rounded px-3 py-1.5"><div class="text-sm font-bold text-white">${_escH(p.followers ?? '—')}</div><div class="text-[9px] text-gray-500">followers</div></div>
+                            <div class="bg-deep border border-cyber rounded px-3 py-1.5"><div class="text-sm font-bold text-white">${_escH(p.public_repos ?? '—')}</div><div class="text-[9px] text-gray-500">repos</div></div>
+                        </div>
+                    </div>
+                    ${p.html_url ? `<a class="inline-block mt-3 text-[11px] text-cyber hover:text-neon" href="${_escH(p.html_url)}" target="_blank" rel="noopener">${_escH(p.html_url)} ↗</a>` : ''}
+                </div>
+                <div class="text-xs text-gray-500 mb-2">Top repos (by last update)</div>
+                ${repos.length ? `<div class="space-y-2">${repos.map(r => `
+                    <div class="bg-void border border-cyber/50 rounded p-2.5">
+                        <div class="flex items-center justify-between gap-2 flex-wrap">
+                            <a class="text-cyber hover:text-neon text-xs font-semibold" href="${_escH(r.html_url || '')}" target="_blank" rel="noopener">${_escH(r.name || '')}</a>
+                            <div class="text-[10px] text-gray-500 font-mono">⭐ ${_escH(r.stargazers_count ?? 0)} · 🍴 ${_escH(r.forks_count ?? 0)}${r.language ? ` · ${_escH(r.language)}` : ''}</div>
+                        </div>
+                        ${r.description ? `<div class="text-[11px] text-gray-400 mt-0.5">${_escH(r.description)}</div>` : ''}
+                    </div>`).join('')}</div>` : '<div class="text-gray-600 text-xs">No public repos.</div>'}`);
+            showToast('🕵️ GitHub recon complete');
+        } catch (err) {
+            _osintRenderError('osint-github-result', 'Network error: ' + (err.message || err));
+            showToast('🕵️ GitHub recon failed');
+        }
+    };
+
+    // ── Enter-key bindings for OSINT inputs ────────────────────────
+    const _osintEnterMap = [
+        ['osint-email-input', 'osintEmail'],
+        ['osint-dork-input', 'osintDork'],
+        ['osint-phone-input', 'osintPhone'],
+        ['osint-image-input', 'osintReverseImage'],
+        ['osint-wayback-domain', 'osintWayback'],
+        ['osint-ip-input', 'osintIp'],
+        ['osint-username-input', 'osintUsername'],
+        ['osint-github-input', 'osintGithub']
+    ];
+    _osintEnterMap.forEach(([inputId, fnName]) => {
+        const el = document.getElementById(inputId);
+        if (el && typeof window[fnName] === 'function') {
+            el.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') window[fnName]();
+            });
+        }
+    });
 });
