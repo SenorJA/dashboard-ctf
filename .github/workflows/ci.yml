@@ -71,6 +71,12 @@ jobs:
           # check-runs annotations cheap while showing the full picture.
           grep -E "FAILED|ERROR|Coverage failure|fail-under" pytest.log | tail -50 | sed 's/^/::error::/'
           tail -3 pytest.log | grep -E "passed|failed" | sed 's/^/::error::/'
+          # ALSO emit the head of the log: a job killed mid-run (OOM/crash,
+          # CI #run eb6542e 2026-08-15: 140s of dots then SIGKILL with no
+          # verdict) leaves no FAILED lines — the first lines of the log show
+          # the startup crash or the last progress state.
+          head -30 pytest.log | sed 's/^/::error::/'
+          wc -l pytest.log | sed 's/^/::error::/'
       - name: Upload coverage to Codecov
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: codecov/codecov-action@v4
