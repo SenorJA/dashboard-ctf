@@ -9253,6 +9253,12 @@ Reglas:
         return d.innerHTML;
     }
 
+    // H-003: scheme-safe URL helper — rejects javascript:/data: etc. before HTML-escaping
+    function _safeUrl(u) {
+        if (!u) return '#';
+        return /^https?:\/\//i.test(String(u)) ? _escH(u) : '#';
+    }
+
     // Auto-refresh intelligence tab
     const _origSwitchTabIntel = window.switchTab;
     window.switchTab = function(name) {
@@ -9549,7 +9555,7 @@ Reglas:
                 ? mx.map(m => `<span class="inline-block bg-void border border-cyber rounded px-2 py-0.5 mr-1 mb-1 font-mono text-[11px] text-gray-300">${_escH(m)}</span>`).join('')
                 : '<span class="text-gray-600">No MX records (domain may not resolve)</span>';
             const pasteHtml = (b.paste_urls || []).length
-                ? `<div class="mt-2 text-xs">${b.paste_urls.map(u => `<a class="block text-cyber hover:text-neon truncate" href="${_escH(u)}" target="_blank" rel="noopener">${_escH(u)}</a>`).join('')}</div>`
+                ? `<div class="mt-2 text-xs">${b.paste_urls.map(u => `<a class="block text-cyber hover:text-neon truncate" href="${_safeUrl(u)}" target="_blank" rel="noopener">${_escH(u)}</a>`).join('')}</div>`
                 : '';
             const breachHtml = (b.breaches || []).length
                 ? `<div class="mt-2 text-xs">${b.breaches.map(br => `<span class="block text-blood">${_escH(br.name || '')}${br.date ? ' — ' + _escH(br.date) : ''}</span>`).join('')}</div>`
@@ -9607,10 +9613,10 @@ Reglas:
             }
             const searchLinks = (data.search_urls || {});
             _osintRender('osint-dork-result', `
-                <div class="text-[10px] text-gray-600 mb-2 font-mono">${_escH(data.query)} — ${results.length} results (${_escH(data.engine || '')}) · ${Object.entries(searchLinks).map(([k, u]) => `<a class="text-cyber hover:text-neon mr-2" href="${_escH(u)}" target="_blank" rel="noopener">${_escH(k)}</a>`).join('')}</div>
+                <div class="text-[10px] text-gray-600 mb-2 font-mono">${_escH(data.query)} — ${results.length} results (${_escH(data.engine || '')}) · ${Object.entries(searchLinks).map(([k, u]) => `<a class="text-cyber hover:text-neon mr-2" href="${_safeUrl(u)}" target="_blank" rel="noopener">${_escH(k)}</a>`).join('')}</div>
                 <div class="space-y-2">${results.map(r => `
                     <div class="bg-void border border-cyber/50 rounded p-2">
-                        <a class="text-cyber hover:text-neon text-xs font-semibold break-all" href="${_escH(r.url)}" target="_blank" rel="noopener">${_escH(r.title || r.url)}</a>
+                        <a class="text-cyber hover:text-neon text-xs font-semibold break-all" href="${_safeUrl(r.url)}" target="_blank" rel="noopener">${_escH(r.title || r.url)}</a>
                         <div class="text-[10px] text-gray-500 break-all">${_escH(r.url)}</div>
                         ${r.snippet ? `<div class="text-[11px] text-gray-400 mt-1">${_escH(r.snippet)}</div>` : ''}
                     </div>`).join('')}</div>`);
@@ -9647,7 +9653,7 @@ Reglas:
                     ${row('Line Type', _escH(data.line_type || '—'), 'text-neon')}
                 </div>
                 ${data.note ? `<div class="mt-2 text-[10px] text-yellow-400/80">⚠ ${_escH(data.note)}</div>` : ''}
-                ${(data.web_results || []).length ? `<div class="mt-3"><div class="text-xs text-gray-500 mb-1">Web references</div><div class="space-y-1">${data.web_results.map(r => `<a class="block text-[11px] text-cyber hover:text-neon truncate" href="${_escH(r.url)}" target="_blank" rel="noopener">${_escH(r.title || r.url)}</a>`).join('')}</div></div>` : ''}`);
+                ${(data.web_results || []).length ? `<div class="mt-3"><div class="text-xs text-gray-500 mb-1">Web references</div><div class="space-y-1">${data.web_results.map(r => `<a class="block text-[11px] text-cyber hover:text-neon truncate" href="${_safeUrl(r.url)}" target="_blank" rel="noopener">${_escH(r.title || r.url)}</a>`).join('')}</div></div>` : ''}`);
             showToast('🕵️ Phone lookup complete');
         } catch (err) {
             _osintRenderError('osint-phone-result', 'Network error: ' + (err.message || err));
@@ -9674,14 +9680,14 @@ Reglas:
             }
             const results = data.results || [];
             const engines = data.engines || {};
-            const engineLinks = Object.entries(engines).map(([k, u]) => `<a class="inline-block bg-void border border-cyber rounded px-2 py-0.5 text-[10px] text-cyber hover:text-neon mr-1 mb-1" href="${_escH(u)}" target="_blank" rel="noopener">${_escH(k)}</a>`).join('');
+            const engineLinks = Object.entries(engines).map(([k, u]) => `<a class="inline-block bg-void border border-cyber rounded px-2 py-0.5 text-[10px] text-cyber hover:text-neon mr-1 mb-1" href="${_safeUrl(u)}" target="_blank" rel="noopener">${_escH(k)}</a>`).join('');
             _osintRender('osint-image-result', `
                 <div class="text-[10px] text-gray-500 mb-2">Engine: <span class="text-neon font-mono">${_escH(data.engine || '—')}</span></div>
                 ${engineLinks ? `<div class="mb-2">${engineLinks}</div>` : ''}
                 ${data.note ? `<div class="text-[10px] text-yellow-400/80 mb-2">⚠ ${_escH(data.note)}</div>` : ''}
                 ${results.length ? `<div class="space-y-2">${results.map(r => `
                     <div class="bg-void border border-cyber/50 rounded p-2">
-                        <a class="text-cyber hover:text-neon text-xs font-semibold break-all" href="${_escH(r.url)}" target="_blank" rel="noopener">${_escH(r.title || r.url)}</a>
+                        <a class="text-cyber hover:text-neon text-xs font-semibold break-all" href="${_safeUrl(r.url)}" target="_blank" rel="noopener">${_escH(r.title || r.url)}</a>
                         <div class="text-[10px] text-gray-500 break-all">${_escH(r.url)}</div>
                         ${r.source ? `<div class="text-[10px] text-gray-600">source: ${_escH(r.source)}</div>` : ''}
                     </div>`).join('')}</div>` : '<div class="text-gray-600 text-xs">No matches found via passive search.</div>'}`);
@@ -9727,7 +9733,7 @@ Reglas:
                                 <td class="px-3 py-1.5 text-gray-400 whitespace-nowrap">${_escH(s.timestamp)}</td>
                                 <td class="px-3 py-1.5 text-gray-300 truncate max-w-[260px]">${_escH(s.url)}</td>
                                 <td class="px-3 py-1.5 ${stCls}">${_escH(st)}</td>
-                                <td class="px-3 py-1.5"><a class="text-cyber hover:text-neon" href="${_escH(s.archive_url || '#')}" target="_blank" rel="noopener">↗</a></td>
+                                <td class="px-3 py-1.5"><a class="text-cyber hover:text-neon" href="${_safeUrl(s.archive_url || '#')}" target="_blank" rel="noopener">↗</a></td>
                             </tr>`;
                         }).join('')}</tbody>
                     </table>
@@ -9814,7 +9820,7 @@ Reglas:
                 <div class="text-[11px] text-gray-500 mb-2 font-mono">${_escH(username)} — ${found.length}/${profiles.length} platforms found</div>
                 <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
                     ${profiles.map(p => p.exists ? `
-                        <a class="bg-void border border-green-900 hover:border-neon rounded p-2 block" href="${_escH(p.url)}" target="_blank" rel="noopener">
+                        <a class="bg-void border border-green-900 hover:border-neon rounded p-2 block" href="${_safeUrl(p.url)}" target="_blank" rel="noopener">
                             <div class="text-[11px] font-semibold text-neon">${_escH(p.platform)}</div>
                             <div class="text-[10px] text-green-400">✓ exists${p.status_code ? ` (${_escH(p.status_code)})` : ''}</div>
                         </a>` : `
@@ -9850,7 +9856,7 @@ Reglas:
             _osintRender('osint-github-result', `
                 <div class="bg-void border border-cyber rounded p-4 mb-3">
                     <div class="flex items-center gap-4 flex-wrap">
-                        <img class="w-16 h-16 rounded-full border border-cyber" src="${_escH(avatarUrl)}" alt="avatar" onerror="this.style.display='none'">
+                        <img class="w-16 h-16 rounded-full border border-cyber" src="${_safeUrl(avatarUrl)}" alt="avatar" onerror="this.style.display='none'">
                         <div class="flex-1 min-w-[200px]">
                             <div class="text-base font-bold text-neon">${_escH(p.name || p.login || username)} <span class="text-gray-500 font-mono text-xs">@${_escH(p.login || username)}</span></div>
                             ${p.bio ? `<div class="text-[11px] text-gray-400 mt-0.5">${_escH(p.bio)}</div>` : ''}
@@ -9861,13 +9867,13 @@ Reglas:
                             <div class="bg-deep border border-cyber rounded px-3 py-1.5"><div class="text-sm font-bold text-white">${_escH(p.public_repos ?? '—')}</div><div class="text-[9px] text-gray-500">repos</div></div>
                         </div>
                     </div>
-                    ${p.html_url ? `<a class="inline-block mt-3 text-[11px] text-cyber hover:text-neon" href="${_escH(p.html_url)}" target="_blank" rel="noopener">${_escH(p.html_url)} ↗</a>` : ''}
+                    ${p.html_url ? `<a class="inline-block mt-3 text-[11px] text-cyber hover:text-neon" href="${_safeUrl(p.html_url)}" target="_blank" rel="noopener">${_escH(p.html_url)} ↗</a>` : ''}
                 </div>
                 <div class="text-xs text-gray-500 mb-2">Top repos (by last update)</div>
                 ${repos.length ? `<div class="space-y-2">${repos.map(r => `
                     <div class="bg-void border border-cyber/50 rounded p-2.5">
                         <div class="flex items-center justify-between gap-2 flex-wrap">
-                            <a class="text-cyber hover:text-neon text-xs font-semibold" href="${_escH(r.html_url || '')}" target="_blank" rel="noopener">${_escH(r.name || '')}</a>
+                            <a class="text-cyber hover:text-neon text-xs font-semibold" href="${_safeUrl(r.html_url || '')}" target="_blank" rel="noopener">${_escH(r.name || '')}</a>
                             <div class="text-[10px] text-gray-500 font-mono">⭐ ${_escH(r.stargazers_count ?? 0)} · 🍴 ${_escH(r.forks_count ?? 0)}${r.language ? ` · ${_escH(r.language)}` : ''}</div>
                         </div>
                         ${r.description ? `<div class="text-[11px] text-gray-400 mt-0.5">${_escH(r.description)}</div>` : ''}
@@ -9923,7 +9929,7 @@ Reglas:
             const statBox = (label, val) => `<div class="bg-deep border border-cyber rounded px-3 py-1.5 text-center"><div class="text-sm font-bold text-white">${_escH(fmt(val))}</div><div class="text-[9px] text-gray-500">${_escH(label)}</div></div>`;
             const rows = [];
             if (p.full_name) rows.push(`<div class="flex justify-between gap-2 py-1 border-b border-gray-800/50"><span class="text-[10px] text-gray-500">full name</span><span class="text-[11px] text-white text-right break-all">${_escH(p.full_name)}</span></div>`);
-            if (p.external_url) rows.push(`<div class="flex justify-between gap-2 py-1 border-b border-gray-800/50"><span class="text-[10px] text-gray-500">website</span><a class="text-[11px] text-cyber hover:text-neon text-right break-all" href="${_escH(p.external_url)}" target="_blank" rel="noopener">${_escH(p.external_url)} ↗</a></div>`);
+            if (p.external_url) rows.push(`<div class="flex justify-between gap-2 py-1 border-b border-gray-800/50"><span class="text-[10px] text-gray-500">website</span><a class="text-[11px] text-cyber hover:text-neon text-right break-all" href="${_safeUrl(p.external_url)}" target="_blank" rel="noopener">${_escH(p.external_url)} ↗</a></div>`);
             if (p.public_email) rows.push(`<div class="flex justify-between gap-2 py-1 border-b border-gray-800/50"><span class="text-[10px] text-gray-500">email</span><span class="text-[11px] text-cyber text-right break-all">${_escH(p.public_email)}</span></div>`);
             const phone = p.public_phone_number ? `${p.public_phone_country_code || ''}${p.public_phone_number}` : '';
             if (phone) rows.push(`<div class="flex justify-between gap-2 py-1 border-b border-gray-800/50"><span class="text-[10px] text-gray-500">phone</span><span class="text-[11px] text-neon text-right break-all">${_escH(phone)}</span></div>`);
@@ -9938,7 +9944,7 @@ Reglas:
             _osintRender('osint-instagram-result', `
                 <div class="bg-void border border-cyber rounded p-4">
                     <div class="flex items-center gap-4 flex-wrap">
-                        ${p.hd_profile_pic_url ? `<img class="w-16 h-16 rounded-full border border-cyber object-cover" src="${_escH(p.hd_profile_pic_url)}" alt="avatar" onerror="this.style.display='none'">` : ''}
+                        ${p.hd_profile_pic_url ? `<img class="w-16 h-16 rounded-full border border-cyber object-cover" src="${_safeUrl(p.hd_profile_pic_url)}" alt="avatar" onerror="this.style.display='none'">` : ''}
                         <div class="flex-1 min-w-[160px]">
                             <div class="text-base font-bold text-neon">${_escH(p.username || '')} ${badges.join(' ')}</div>
                             <div class="text-[10px] text-gray-500 font-mono">user_id: ${_escH(p.user_id ?? '—')}</div>

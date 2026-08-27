@@ -42,12 +42,12 @@ _project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File, Form, Request, Body
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File, Form, Request, Body, Query
 from dataclasses import asdict
 from fastapi.responses import FileResponse, JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import paramiko
 
 # ── Supabase Database Layer ──
@@ -2267,30 +2267,71 @@ async def api_headers_scan(url: str, timeout: float = 10.0):
 #  PASSIVE OSINT RECON (BlackTrace port) — public data only
 # ════════════════════════════════════════════════════════════════
 
+
+def _check_osint_token(request: Request) -> "JSONResponse | None":
+    """Returns an error response if the shared OSINT token mismatches.
+
+    When ``MIRV_OSINT_TOKEN`` is unset the endpoints are open (localhost
+    mode, the historical behaviour). When set, callers must send a
+    matching ``X-MIRV-Token`` header.
+    """
+    expected = os.getenv("MIRV_OSINT_TOKEN")
+    if not expected:
+        return None  # no token configured → open (localhost mode)
+    provided = request.headers.get("X-MIRV-Token", "")
+    if provided != expected:
+        return JSONResponse(
+            {"ok": False, "error": "Invalid or missing token"},
+            status_code=401,
+        )
+    return None
+
+
+def _osint_guard(request: Request, path: str) -> "JSONResponse | None":
+    """Shared pre-check for every /api/osint/* handler.
+
+    1. Per-IP rate limit (H-002) → 429 with ``Retry-After``.
+    2. Optional shared token (H-001) → 401 when configured and missing.
+
+    Returns ``None`` when the request is allowed; otherwise a ready-made
+    ``JSONResponse`` the handler should return immediately.
+    """
+    from backend.rate_limiter import check_rate_limit
+    client_ip = request.client.host if request.client else "unknown"
+    allowed, retry_after = check_rate_limit(client_ip, path)
+    if not allowed:
+        return JSONResponse(
+            {"ok": False, "error": "Rate limit exceeded"},
+            status_code=429,
+            headers={"Retry-After": str(retry_after)},
+        )
+    return _check_osint_token(request)
+
+
 class OsintEmailRequest(BaseModel):
     """Body for POST /api/osint/email — passive email breach + verification."""
-    email: str
+    email: str = Field(..., max_length=254)
 
 
 class OsintDorkRequest(BaseModel):
     """Body for POST /api/osint/dork — passive search dorking."""
-    query: str
-    pages: int = 1
+    query: str = Field(..., max_length=512)
+    pages: int = Field(1, ge=1, le=5)
 
 
 class OsintPhoneRequest(BaseModel):
     """Body for POST /api/osint/phone — passive phone lookup."""
-    phone: str
+    phone: str = Field(..., max_length=32)
 
 
 class OsintReverseImageRequest(BaseModel):
     """Body for POST /api/osint/reverse-image — passive reverse image search."""
-    image_url: str
+    image_url: str = Field(..., max_length=2048)
 
 
 class OsintUsernameRequest(BaseModel):
     """Body for POST /api/osint/username — passive username recon."""
-    username: str
+    username: str = Field(..., max_length=30)
 
 
 class OsintInstagramRequest(BaseModel):
@@ -2298,19 +2339,22 @@ class OsintInstagramRequest(BaseModel):
 
     Uses the operator's own IG_SESSIONID env var; public profile data only.
     """
-    username: str = ""
-    user_id: str = ""
+    username: str = Field("", max_length=30)
+    user_id: str = Field("", max_length=20)
     skip_lookup: bool = True
 
 
 @app.post("/api/osint/email")
-async def api_osint_email(body: OsintEmailRequest):
+async def api_osint_email(body: OsintEmailRequest, request: Request):
     """
     Passive email breach sweep + format/MX verification.
 
     Body: {"email": "user@example.com"}
     Sources: HackerTarget pastebin_lookup + optional HIBP (HIBP_API_KEY).
     """
+    guard = _osint_guard(request, "/api/osint/email")
+    if guard is not None:
+        return guard
     email = body.email.strip()
     if not email:
         return JSONResponse({"ok": False, "error": "email must not be empty"}, status_code=422)
@@ -2319,18 +2363,21 @@ async def api_osint_email(body: OsintEmailRequest):
         breach = await check_email_breach(email)
         verification = await verify_email(email)
         return JSONResponse({"ok": True, "email": email, "breach": breach, "verification": verification})
-    except Exception as e:
-        logger.error("[osint email] %s", e)
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+    except Exception:
+        logger.exception("[osint email] unexpected failure", exc_info=False)
+        return JSONResponse({"ok": False, "error": "Internal error"}, status_code=500)
 
 
 @app.post("/api/osint/dork")
-async def api_osint_dork(body: OsintDorkRequest):
+async def api_osint_dork(body: OsintDorkRequest, request: Request):
     """
     Run a passive search dork (DuckDuckGo + Bing HTML parse).
 
     Body: {"query": "site:example.com filetype:pdf", "pages": 1}
     """
+    guard = _osint_guard(request, "/api/osint/dork")
+    if guard is not None:
+        return guard
     query = body.query.strip()
     if not query:
         return JSONResponse({"ok": False, "error": "query must not be empty"}, status_code=422)
@@ -2338,18 +2385,21 @@ async def api_osint_dork(body: OsintDorkRequest):
         from backend.osint_recon import google_dorking
         result = await google_dorking(query, pages=body.pages)
         return JSONResponse(result)
-    except Exception as e:
-        logger.error("[osint dork] %s", e)
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+    except Exception:
+        logger.exception("[osint dork] unexpected failure", exc_info=False)
+        return JSONResponse({"ok": False, "error": "Internal error"}, status_code=500)
 
 
 @app.post("/api/osint/phone")
-async def api_osint_phone(body: OsintPhoneRequest):
+async def api_osint_phone(body: OsintPhoneRequest, request: Request):
     """
     Passive phone number lookup (numverify optional via NUMVERIFY_API_KEY).
 
     Body: {"phone": "+14155551234"}
     """
+    guard = _osint_guard(request, "/api/osint/phone")
+    if guard is not None:
+        return guard
     phone = body.phone.strip()
     if not phone:
         return JSONResponse({"ok": False, "error": "phone must not be empty"}, status_code=422)
@@ -2357,18 +2407,21 @@ async def api_osint_phone(body: OsintPhoneRequest):
         from backend.osint_recon import phone_number_lookup
         result = await phone_number_lookup(phone)
         return JSONResponse(result)
-    except Exception as e:
-        logger.error("[osint phone] %s", e)
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+    except Exception:
+        logger.exception("[osint phone] unexpected failure", exc_info=False)
+        return JSONResponse({"ok": False, "error": "Internal error"}, status_code=500)
 
 
 @app.post("/api/osint/reverse-image")
-async def api_osint_reverse_image(body: OsintReverseImageRequest):
+async def api_osint_reverse_image(body: OsintReverseImageRequest, request: Request):
     """
     Passive reverse image search (TinEye optional via TINEYE_API_KEY).
 
     Body: {"image_url": "https://example.com/photo.jpg"}
     """
+    guard = _osint_guard(request, "/api/osint/reverse-image")
+    if guard is not None:
+        return guard
     image_url = body.image_url.strip()
     if not image_url:
         return JSONResponse({"ok": False, "error": "image_url must not be empty"}, status_code=422)
@@ -2376,13 +2429,17 @@ async def api_osint_reverse_image(body: OsintReverseImageRequest):
         from backend.osint_recon import reverse_image_search
         result = await reverse_image_search(image_url)
         return JSONResponse(result)
-    except Exception as e:
-        logger.error("[osint reverse-image] %s", e)
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+    except Exception:
+        logger.exception("[osint reverse-image] unexpected failure", exc_info=False)
+        return JSONResponse({"ok": False, "error": "Internal error"}, status_code=500)
 
 
 @app.get("/api/osint/wayback")
-async def api_osint_wayback(domain: str = "", limit: int = 20):
+async def api_osint_wayback(
+    request: Request,
+    domain: str = Query("", max_length=253),
+    limit: int = Query(20, ge=1, le=200),
+):
     """
     List Wayback Machine snapshots for a domain via the CDX API.
 
@@ -2390,6 +2447,9 @@ async def api_osint_wayback(domain: str = "", limit: int = 20):
       - domain (required): Domain or URL to look up (e.g. "example.com")
       - limit (optional): Max snapshots to return (default 20, max 200)
     """
+    guard = _osint_guard(request, "/api/osint/wayback")
+    if guard is not None:
+        return guard
     domain = domain.strip()
     if not domain:
         return JSONResponse({"ok": False, "error": "Provide 'domain' query parameter"}, status_code=422)
@@ -2397,19 +2457,25 @@ async def api_osint_wayback(domain: str = "", limit: int = 20):
         from backend.osint_recon import wayback_machine_lookup
         result = await wayback_machine_lookup(domain, limit=limit)
         return JSONResponse(result)
-    except Exception as e:
-        logger.error("[osint wayback] %s", e)
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+    except Exception:
+        logger.exception("[osint wayback] unexpected failure", exc_info=False)
+        return JSONResponse({"ok": False, "error": "Internal error"}, status_code=500)
 
 
 @app.get("/api/osint/ip")
-async def api_osint_ip(ip: str = ""):
+async def api_osint_ip(
+    request: Request,
+    ip: str = Query("", max_length=45),
+):
     """
     Passive IP geolocation via ipinfo.io (+ optional AbuseIPDB report).
 
     Query params:
       - ip (required): IPv4/IPv6 address
     """
+    guard = _osint_guard(request, "/api/osint/ip")
+    if guard is not None:
+        return guard
     ip = ip.strip()
     if not ip:
         return JSONResponse({"ok": False, "error": "Provide 'ip' query parameter"}, status_code=422)
@@ -2417,18 +2483,21 @@ async def api_osint_ip(ip: str = ""):
         from backend.osint_recon import ip_geolocation
         result = await ip_geolocation(ip)
         return JSONResponse(result)
-    except Exception as e:
-        logger.error("[osint ip] %s", e)
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+    except Exception:
+        logger.exception("[osint ip] unexpected failure", exc_info=False)
+        return JSONResponse({"ok": False, "error": "Internal error"}, status_code=500)
 
 
 @app.post("/api/osint/username")
-async def api_osint_username(body: OsintUsernameRequest):
+async def api_osint_username(body: OsintUsernameRequest, request: Request):
     """
     Probe ~18 public platforms for a username (HEAD, rate-limited).
 
     Body: {"username": "target"}
     """
+    guard = _osint_guard(request, "/api/osint/username")
+    if guard is not None:
+        return guard
     username = body.username.strip()
     if not username:
         return JSONResponse({"ok": False, "error": "username must not be empty"}, status_code=422)
@@ -2436,19 +2505,25 @@ async def api_osint_username(body: OsintUsernameRequest):
         from backend.osint_recon import username_recon
         result = await username_recon(username)
         return JSONResponse(result)
-    except Exception as e:
-        logger.error("[osint username] %s", e)
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+    except Exception:
+        logger.exception("[osint username] unexpected failure", exc_info=False)
+        return JSONResponse({"ok": False, "error": "Internal error"}, status_code=500)
 
 
 @app.get("/api/osint/github")
-async def api_osint_github(username: str = ""):
+async def api_osint_github(
+    request: Request,
+    username: str = Query("", max_length=30),
+):
     """
     Gather public GitHub profile + top-10 repos for a username.
 
     Query params:
       - username (required): GitHub login
     """
+    guard = _osint_guard(request, "/api/osint/github")
+    if guard is not None:
+        return guard
     username = username.strip()
     if not username:
         return JSONResponse({"ok": False, "error": "Provide 'username' query parameter"}, status_code=422)
@@ -2456,13 +2531,13 @@ async def api_osint_github(username: str = ""):
         from backend.osint_recon import github_recon
         result = await github_recon(username)
         return JSONResponse(result)
-    except Exception as e:
-        logger.error("[osint github] %s", e)
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+    except Exception:
+        logger.exception("[osint github] unexpected failure", exc_info=False)
+        return JSONResponse({"ok": False, "error": "Internal error"}, status_code=500)
 
 
 @app.post("/api/osint/instagram")
-async def api_osint_instagram(body: OsintInstagramRequest):
+async def api_osint_instagram(body: OsintInstagramRequest, request: Request):
     """
     Public Instagram profile intel (ghostig port) — operator session only.
 
@@ -2471,6 +2546,9 @@ async def api_osint_instagram(body: OsintInstagramRequest):
     optional users/lookup).  The session cookie is the operator's own
     ``IG_SESSIONID`` env var — never hardcoded, never stored.
     """
+    guard = _osint_guard(request, "/api/osint/instagram")
+    if guard is not None:
+        return guard
     username = body.username.strip()
     user_id = body.user_id.strip()
     if not username and not user_id:
@@ -2490,9 +2568,9 @@ async def api_osint_instagram(body: OsintInstagramRequest):
         result = await get_instagram_profile(username=username, user_id=user_id,
                                              skip_lookup=body.skip_lookup)
         return JSONResponse(result)
-    except Exception as e:
-        logger.error("[osint instagram] %s", e)
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+    except Exception:
+        logger.exception("[osint instagram] unexpected failure", exc_info=False)
+        return JSONResponse({"ok": False, "error": "Internal error"}, status_code=500)
 
 
 # ════════════════════════════════════════════════════════════════

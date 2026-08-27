@@ -41,6 +41,7 @@ _BACKEND_MODULES_TO_ALIAS = [
     "kali_mcp_client", "news_scraper", "api_scanner", "headers_scanner",
     "secrets_scanner", "port_scanner", "subdomain_scanner", "dns_lookup",
     "hash_cracker", "stego_tool", "plugin_manager", "skill_playbooks",
+    "rate_limiter", "osint_recon", "instagram_osint",
 ]
 for _name in _BACKEND_MODULES_TO_ALIAS:
     try:
@@ -108,6 +109,27 @@ def client():
     """FastAPI TestClient fixture."""
     with TestClient(app) as c:
         yield c
+
+
+@pytest.fixture(autouse=True)
+def _reset_osint_rate_limiter():
+    """Wipe the per-IP OSINT rate limiter before every test.
+
+    The limiter is a process-wide singleton; without a reset, tests that
+    hit ``/api/osint/*`` would accumulate hits across the whole session
+    and start seeing 429s unrelated to the case under test.
+    """
+    try:
+        from backend.rate_limiter import reset_rate_limiter
+        reset_rate_limiter()
+    except Exception:
+        pass
+    yield
+    try:
+        from backend.rate_limiter import reset_rate_limiter
+        reset_rate_limiter()
+    except Exception:
+        pass
 
 
 @pytest.fixture

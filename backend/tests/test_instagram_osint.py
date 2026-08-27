@@ -694,12 +694,14 @@ def test_endpoint_instagram_no_body_422(client):
 
 
 def test_endpoint_instagram_500(client, monkeypatch):
-    """Module exception → 500 JSON error."""
+    """Module exception → 500 JSON error (H-008: input not leaked)."""
     monkeypatch.setenv("IG_SESSIONID", SESSION)
     with patch("backend.instagram_osint.get_instagram_profile", new_callable=AsyncMock,
-               side_effect=RuntimeError("boom")):
+               side_effect=RuntimeError("boom with secret input")):
         resp = client.post("/api/osint/instagram", json={"username": "testuser"})
 
     assert resp.status_code == 500
     assert resp.json()["ok"] is False
-    assert resp.json()["error"] == "boom"
+    # H-008: never echo the raw exception (which may contain user input /
+    # secrets) — return a fixed generic message instead.
+    assert resp.json()["error"] == "Internal error"

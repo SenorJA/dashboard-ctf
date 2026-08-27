@@ -1931,7 +1931,7 @@
                     <div class="bg-deep rounded-lg border border-cyber p-4">
                         <h3 class="text-sm font-semibold text-neon mb-3" data-i18n="osint-email-title">📧 Email Recon</h3>
                         <div class="flex gap-2 flex-wrap">
-                            <input type="text" id="osint-email-input" placeholder="user@example.com" class="flex-1 min-w-[180px] bg-void border border-cyber rounded px-3 py-2 text-white placeholder-gray-600 focus:border-neon outline-none">
+                            <input type="text" id="osint-email-input" maxlength="254" placeholder="user@example.com" class="flex-1 min-w-[180px] bg-void border border-cyber rounded px-3 py-2 text-white placeholder-gray-600 focus:border-neon outline-none">
                             <button onclick="osintEmail()" class="px-4 py-2 bg-cyber hover:bg-neon text-white rounded font-mono text-sm transition-colors" data-i18n="osint-check">Check</button>
                         </div>
                         <div id="osint-email-result" class="mt-3 text-sm"></div>
@@ -1941,7 +1941,7 @@
                     <div class="bg-deep rounded-lg border border-cyber p-4">
                         <h3 class="text-sm font-semibold text-neon mb-3" data-i18n="osint-dork-title">🔍 Google Dork</h3>
                         <div class="flex gap-2 flex-wrap">
-                            <input type="text" id="osint-dork-input" placeholder="site:example.com filetype:pdf" class="flex-1 min-w-[150px] bg-void border border-cyber rounded px-3 py-2 text-white placeholder-gray-600 focus:border-neon outline-none">
+                            <input type="text" id="osint-dork-input" maxlength="512" placeholder="site:example.com filetype:pdf" class="flex-1 min-w-[150px] bg-void border border-cyber rounded px-3 py-2 text-white placeholder-gray-600 focus:border-neon outline-none">
                             <select id="osint-dork-pages" class="bg-void border border-cyber rounded px-2 py-2 text-white text-sm outline-none focus:border-neon" title="Pages">
                                 <option value="1">1</option>
                                 <option value="2">2</option>
@@ -1958,7 +1958,7 @@
                     <div class="bg-deep rounded-lg border border-cyber p-4">
                         <h3 class="text-sm font-semibold text-neon mb-3" data-i18n="osint-phone-title">📱 Phone Lookup</h3>
                         <div class="flex gap-2 flex-wrap">
-                            <input type="text" id="osint-phone-input" placeholder="+14155551234" class="flex-1 min-w-[180px] bg-void border border-cyber rounded px-3 py-2 text-white placeholder-gray-600 focus:border-neon outline-none">
+                            <input type="text" id="osint-phone-input" maxlength="32" placeholder="+14155551234" class="flex-1 min-w-[180px] bg-void border border-cyber rounded px-3 py-2 text-white placeholder-gray-600 focus:border-neon outline-none">
                             <button onclick="osintPhone()" class="px-4 py-2 bg-cyber hover:bg-neon text-white rounded font-mono text-sm transition-colors" data-i18n="osint-lookup">Lookup</button>
                         </div>
                         <div id="osint-phone-result" class="mt-3 text-sm"></div>
@@ -1968,7 +1968,7 @@
                     <div class="bg-deep rounded-lg border border-cyber p-4">
                         <h3 class="text-sm font-semibold text-neon mb-3" data-i18n="osint-image-title">🖼️ Reverse Image</h3>
                         <div class="flex gap-2 flex-wrap">
-                            <input type="text" id="osint-image-input" placeholder="https://example.com/photo.jpg" class="flex-1 min-w-[180px] bg-void border border-cyber rounded px-3 py-2 text-white placeholder-gray-600 focus:border-neon outline-none">
+                            <input type="text" id="osint-image-input" maxlength="2048" placeholder="https://example.com/photo.jpg" class="flex-1 min-w-[180px] bg-void border border-cyber rounded px-3 py-2 text-white placeholder-gray-600 focus:border-neon outline-none">
                             <button onclick="osintReverseImage()" class="px-4 py-2 bg-cyber hover:bg-neon text-white rounded font-mono text-sm transition-colors" data-i18n="osint-analyze">Analyze</button>
                         </div>
                         <div id="osint-image-result" class="mt-3 text-sm"></div>
@@ -1978,7 +1978,7 @@
                     <div class="bg-deep rounded-lg border border-cyber p-4">
                         <h3 class="text-sm font-semibold text-neon mb-3" data-i18n="osint-wayback-title">📜 Wayback Machine</h3>
                         <div class="flex gap-2 flex-wrap">
-                            <input type="text" id="osint-wayback-domain" placeholder="example.com" class="flex-1 min-w-[150px] bg-void border border-cyber rounded px-3 py-2 text-white placeholder-gray-600 focus:border-neon outline-none">
+                            <input type="text" id="osint-wayback-domain" maxlength="253" placeholder="example.com" class="flex-1 min-w-[150px] bg-void border border-cyber rounded px-3 py-2 text-white placeholder-gray-600 focus:border-neon outline-none">
                             <input type="number" id="osint-wayback-limit" value="20" min="1" max="200" title="Limit" class="w-20 bg-void border border-cyber rounded px-2 py-2 text-white text-sm outline-none focus:border-neon">
                             <button onclick="osintWayback()" class="px-4 py-2 bg-cyber hover:bg-neon text-white rounded font-mono text-sm transition-colors" data-i18n="osint-fetch">Fetch</button>
                         </div>
@@ -1989,7 +1989,7 @@
                     <div class="bg-deep rounded-lg border border-cyber p-4">
                         <h3 class="text-sm font-semibold text-neon mb-3" data-i18n="osint-ip-title">📍 IP Geolocation</h3>
                         <div class="flex gap-2 flex-wrap">
-                            <input type="text" id="osint-ip-input" placeholder="8.8.8.8" class="flex-1 min-w-[180px] bg-void border border-cyber rounded px-3 py-2 text-white placeholder-gray-600 focus:border-neon outline-none">
+                            <input type="text" id="osint-ip-input" maxlength="45" placeholder="8.8.8.8" class="flex-1 min-w-[180px] bg-void border border-cyber rounded px-3 py-2 text-white placeholder-gray-600 focus:border-neon outline-none">
                             <button onclick="osintIp()" class="px-4 py-2 bg-cyber hover:bg-neon text-white rounded font-mono text-sm transition-colors" data-i18n="osint-locate">Locate</button>
                         </div>
                         <div id="osint-ip-result" class="mt-3 text-sm"></div>
@@ -1999,7 +1999,7 @@
                     <div class="bg-deep rounded-lg border border-cyber p-4">
                         <h3 class="text-sm font-semibold text-neon mb-3" data-i18n="osint-username-title">👤 Username Recon</h3>
                         <div class="flex gap-2 flex-wrap">
-                            <input type="text" id="osint-username-input" placeholder="target" class="flex-1 min-w-[180px] bg-void border border-cyber rounded px-3 py-2 text-white placeholder-gray-600 focus:border-neon outline-none">
+                            <input type="text" id="osint-username-input" maxlength="30" placeholder="target" class="flex-1 min-w-[180px] bg-void border border-cyber rounded px-3 py-2 text-white placeholder-gray-600 focus:border-neon outline-none">
                             <button onclick="osintUsername()" class="px-4 py-2 bg-cyber hover:bg-neon text-white rounded font-mono text-sm transition-colors" data-i18n="osint-scan">Scan</button>
                         </div>
                         <div id="osint-username-result" class="mt-3 text-sm"></div>
@@ -2009,7 +2009,7 @@
                     <div class="bg-deep rounded-lg border border-cyber p-4">
                         <h3 class="text-sm font-semibold text-neon mb-3" data-i18n="osint-github-title">🐙 GitHub Recon</h3>
                         <div class="flex gap-2 flex-wrap">
-                            <input type="text" id="osint-github-input" placeholder="github-username" class="flex-1 min-w-[180px] bg-void border border-cyber rounded px-3 py-2 text-white placeholder-gray-600 focus:border-neon outline-none">
+                            <input type="text" id="osint-github-input" maxlength="30" placeholder="github-username" class="flex-1 min-w-[180px] bg-void border border-cyber rounded px-3 py-2 text-white placeholder-gray-600 focus:border-neon outline-none">
                             <button onclick="osintGithub()" class="px-4 py-2 bg-cyber hover:bg-neon text-white rounded font-mono text-sm transition-colors" data-i18n="osint-fetch">Fetch</button>
                         </div>
                         <div id="osint-github-result" class="mt-3 text-sm"></div>
@@ -2019,7 +2019,7 @@
                     <div class="bg-deep rounded-lg border border-cyber p-4">
                         <h3 class="text-sm font-semibold text-neon mb-3" data-i18n="osint-instagram-title">📸 Instagram Recon</h3>
                         <div class="flex gap-2 flex-wrap items-center">
-                            <input type="text" id="osint-instagram-input" placeholder="username o user_id" class="flex-1 min-w-[160px] bg-void border border-cyber rounded px-3 py-2 text-white placeholder-gray-600 focus:border-neon outline-none">
+                            <input type="text" id="osint-instagram-input" maxlength="30" placeholder="username o user_id" class="flex-1 min-w-[160px] bg-void border border-cyber rounded px-3 py-2 text-white placeholder-gray-600 focus:border-neon outline-none">
                             <label class="flex items-center gap-1.5 text-[11px] text-gray-400 cursor-pointer select-none whitespace-nowrap">
                                 <input type="checkbox" id="osint-instagram-lookup" class="w-4 h-4 accent-neon cursor-pointer">
                                 <span data-i18n="osint-instagram-lookup">include lookup</span>

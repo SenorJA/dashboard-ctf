@@ -301,7 +301,7 @@ def _fetch_wayback(domain: str, timeout: float) -> tuple[set[str], str | None]:
     raises — it degrades to an error note so the caller can keep going.
     """
     url = (
-        f"http://web.archive.org/cdx/search/cdx?url=*.{domain}/*"
+        f"https://web.archive.org/cdx/search/cdx?url=*.{domain}/*"
         f"&output=json&fl=original&collapse=urlkey&limit=500"
     )
     try:

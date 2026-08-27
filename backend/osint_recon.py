@@ -572,12 +572,27 @@ async def reverse_image_search(image_url: str, timeout: float = TIMEOUT_DEFAULT)
 #  6. Wayback Machine snapshots  (BlackTrace: wayback_machine_lookup)
 # ════════════════════════════════════════════════════════════════
 
+# Strict domain regex: RFC-1035-ish labels, at least one dot, no scheme/port.
+_DOMAIN_RE = re.compile(
+    r"^(?=.{1,253}$)(?!-)[A-Za-z0-9-]{1,63}(\.[A-Za-z0-9-]{1,63})+$"
+)
+# Private/reserved TLDs that are not part of the public DNS root and have no
+# meaningful Wayback history (e.g. metadata.google.internal, myapp.local).
+_PRIVATE_TLDS = {
+    "internal", "local", "localhost", "lan", "intranet", "corp",
+    "home", "box", "test", "example", "invalid",
+}
+
+
 async def wayback_machine_lookup(domain: str, limit: int = 20, timeout: float = TIMEOUT_DEFAULT) -> dict:
     """
     List archived snapshots of a domain via the Wayback CDX API.
 
     Returns at most ``limit`` snapshots (default 20, max 200) with
     timestamp, original URL, HTTP status and the archive URL.
+
+    Strict validation rejects IP addresses (even dressed up as hostnames)
+    and private/reserved TLDs that have no public archive history.
     """
     domain = (domain or "").strip().lower()
     if "://" in domain:
@@ -585,6 +600,18 @@ async def wayback_machine_lookup(domain: str, limit: int = 20, timeout: float = 
     domain = domain.split("/")[0].split(":")[0]
     if not domain or "." not in domain or any(c in domain for c in " \t\r\n"):
         return {"ok": False, "error": "Invalid domain. Use a valid domain like 'example.com'"}
+
+    # H-006: strict domain validation — reject IPs and private TLDs.
+    if not _DOMAIN_RE.match(domain):
+        return {"ok": False, "error": "Invalid domain. Use a valid domain like 'example.com'"}
+    try:
+        ipaddress.ip_address(domain)
+        return {"ok": False, "error": "Invalid domain. IP addresses are not supported"}
+    except ValueError:
+        pass
+    tld = domain.rsplit(".", 1)[-1]
+    if tld in _PRIVATE_TLDS:
+        return {"ok": False, "error": "Invalid domain. Private/reserved TLD has no public archive"}
 
     try:
         limit = max(1, min(int(limit), _MAX_WAYBACK_LIMIT))
@@ -636,9 +663,14 @@ async def ip_geolocation(ip: str, timeout: float = TIMEOUT_DEFAULT) -> dict:
     """
     ip = (ip or "").strip()
     try:
-        ipaddress.ip_address(ip)
+        ip_obj = ipaddress.ip_address(ip)
     except ValueError:
         return {"ok": False, "error": "Invalid IP address syntax"}
+
+    # H-005: reject private/reserved IPs — geolocation is not meaningful.
+    if (ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_link_local
+            or ip_obj.is_multicast or ip_obj.is_reserved or ip_obj.is_unspecified):
+        return {"ok": False, "error": "Private/reserved IP — geolocation not meaningful"}
 
     token = _get_env("IPINFO_TOKEN")
     headers = {"Authorization": f"Bearer {token}"} if token else None
