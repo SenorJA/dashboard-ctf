@@ -10,7 +10,8 @@
 > ✅ **Ronda 1 — Endurecimiento** (15 Ago 2026, commit `09680e8`): cobertura `osint_recon.py` 91%→**100%** + `subdomain_scanner.py` 96%→**99%** (26 tests gap) + auditoría seguridad (786L, 18 hallazgos: 0 P0, 2 P1, 6 P2, 10 P3 — veredicto SEGURO CON NOTAS) + responsive móvil tab OSINT (1→2→3 cols).
 > ✅ **Ronda 2 — Security hardening** (15 Ago 2026, commit `4bb319d`): fix P1+P2 audit — token opcional `MIRV_OSINT_TOKEN` (H-001) + rate limiter custom sliding-window 30/10 req/min (H-002) + `_safeUrl()` frontend (H-003) + `max_length` en inputs Pydantic+HTML (H-004) + rechazo IPs privadas (H-005) + validación dominio estricto (H-006) + HTTP→HTTPS wayback (H-007) + logger sin input del usuario (H-008). 36 tests nuevos, `rate_limiter.py` 100% cov.
 > ✅ **Ronda 3 — Correlación OSINT** (15 Ago 2026, commit `408c717`): módulo `osint_correlate.py` (100% cov) + `POST /api/osint/correlate` (email→breach+verify, username→platforms+github, domain→wayback+subdomain, phone→lookup) + 10ª tarjeta Correlate en tab OSINT. Tests de red adicional marcados `@pytest.mark.slow` (example.com, DNS — 17 tests más).
-> ✅ **Ronda 4 — Calidad** (15 Ago 2026, commit `2200926`): a11y (18 aria-labels, 13 aria-live, 2 landmarks) + i18n 100% (8 keys faltantes cubiertas) + README.md rewrite (14 secciones, FAQ, capturas placeholder) + auditoría UI (`docs/UI_AUDIT_2026-08-15.md`, 335L, 24 hallazgos: 8 P1, 10 P2, 6 P3). ⬜ P1 del UI audit pendientes (contraste grises, role=tab, labels for=, modales Escape).
+> ✅ **Ronda 4 — Calidad** (15 Ago 2026, commit `2200926`): a11y (18 aria-labels, 13 aria-live, 2 landmarks) + i18n 100% (8 keys faltantes cubiertas) + README.md rewrite (14 secciones, FAQ, capturas placeholder) + auditoría UI (`docs/UI_AUDIT_2026-08-15.md`, 335L, 24 hallazgos: 8 P1, 10 P2, 6 P3).
+> ✅ **Ronda 4b — P1 UI audit fixes** (15 Ago 2026, commit `ee1d844`): contraste WCAG AA (text-gray-600/700/800→400 en 303 sitios + placeholder-gray-700→500 + text-blood #b8473e→#d65a4f + monochrome --mono-text-dim/dark aclarados) + tab roles ARIA (27 role=tab + 27 role=tabpanel + 1 role=tablist + roving tabindex) + 20 labels con for= + 107 aria-labels en inputs + 8 modales con role=dialog + Escape listener + 13 cat-header→button con aria-expanded + color-scheme:dark + focus-visible global. 2 plugin_watcher timing tests marcados @pytest.mark.slow (CI flake).
 
 ---
 
@@ -21,7 +22,7 @@
 | Backend modules | 33 (main.py + 32 especializados) |
 | REST endpoints | 238 (+1: `/api/osint/correlate`) |
 | Test files | 83 (+3: `test_osint_recon_gaps.py`, `test_subdomain_scanner_gaps2.py`, `test_rate_limiter.py`, `test_osint_correlate.py`) |
-| Tests collected | 4164 (4086 pass / 78 slow-deselected) |
+| Tests collected | 4164 (4084 pass / 80 slow-deselected) |
 | Coverage | ~97% global — **main.py 100%**, **exif_osint 100%**, **dlp_scanner 100%**, **pdf_engine 99%**, **osint_recon 100%**, **subdomain_scanner 99%**, **instagram_osint 100%**, **osint_correlate 100%**, **rate_limiter 100%** |
 | Frontend tabs | 26 |
 | Frontend JS | ~10228 líneas (main.v2.js) |

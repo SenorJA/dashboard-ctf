@@ -292,6 +292,7 @@ def test_new_plugin_dir_triggers_discover_event(watcher_with_empty_tmp):
     assert info["status"] == "discovered"
 
 
+@pytest.mark.slow
 def test_modify_loaded_plugin_triggers_auto_reload(watcher_with_tmp):
     """Modifying a loaded plugin's main.py triggers an auto-reload."""
     pm.start_watcher(auto_load_new=False)
@@ -316,6 +317,7 @@ def test_modify_loaded_plugin_triggers_auto_reload(watcher_with_tmp):
     assert pm.get_plugin_info("seed-plugin")["status"] == "loaded"
 
 
+@pytest.mark.slow
 def test_debounce_collapses_bursty_changes(watcher_with_tmp):
     """Rapid successive changes within the 80ms debounce window (accelerated
     test timing; production uses 250ms) result in only ONE reload."""
