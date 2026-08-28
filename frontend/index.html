@@ -2630,6 +2630,11 @@
                 <!-- Skill Playbooks -->
                 <div class="bg-deep rounded-lg border border-gray-800 p-3 mb-4">
                     <h3 class="text-[11px] text-cyber font-semibold tracking-wider uppercase mb-2" data-i18n="skills-playbooks">Skill Playbooks</h3>
+                    <!-- Red Team Lab warning banner (shown above the grid; also re-rendered by refreshSkills) -->
+                    <div id="skills-redteam-banner" class="hidden bg-blood/10 border border-blood/30 rounded-lg p-3 mb-3">
+                        <p class="text-blood text-xs font-bold" data-i18n="skills-redteam-title">⚠️ Red Team Lab</p>
+                        <p class="text-gray-400 text-xs mt-1" data-i18n="skills-redteam-warning">These skills require explicit authorization. Configure scope before loading. Offensive techniques — use only on systems you own or have written permission to test.</p>
+                    </div>
                     <div id="skills-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
                         <div class="text-gray-400 text-center py-4 col-span-full" data-i18n="skills-no-skills">No skills discovered.</div>
                     </div>

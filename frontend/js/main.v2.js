@@ -6241,6 +6241,11 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         "skills-btn-render":       { en: '👁 Render',             es: '👁 Ver' },
         "skills-status-loaded":    { en: 'Loaded',               es: 'Cargado' },
         "skills-status-disabled":  { en: 'Disabled',              es: 'Desactivado' },
+        "skills-defensive-title":  { en: '🛡 Defensive & Education', es: '🛡 Defensiva & Educación' },
+        "skills-redteam-title":    { en: '⚠️ Red Team Lab',       es: '⚠️ Lab de Red Team' },
+        "skills-redteam-warning":  { en: 'These skills require explicit authorization. Configure scope before loading. Offensive techniques — use only on systems you own or have written permission to test.', es: 'Estas skills requieren autorización explícita. Configura el scope antes de cargar. Técnicas ofensivas — úsalas solo en sistemas que poseas o para los que tengas permiso por escrito.' },
+        "skills-redteam-badge":    { en: '⚠️ Red Team',           es: '⚠️ Red Team' },
+        "skills-redteam-scope":    { en: '⚠️ This skill requires an authorized scope. Configure scope in the Scope tab first.', es: '⚠️ Esta skill requiere un scope autorizado. Configura el scope en la pestaña Scope primero.' },
 
         // ── Canary Tokens ──
         "canary-title":          { en: '🪤 Canary Tokens',           es: '🪤 Canary Tokens' },
@@ -9089,6 +9094,55 @@ Reglas:
         return 'border-gray-700 text-gray-400';
     }
 
+    function _skillsRenderCard(s) {
+        const m = s.manifest || s.info || {};
+        const name = s.name || 'unknown';
+        const desc = m.description || '';
+        const cat = m.category || 'custom';
+        const vers = m.version || '';
+        const author = m.author || '';
+        const tools = Array.isArray(m.allowed_tools) ? m.allowed_tools : [];
+        const isLoaded = !!(s.enabled && s.loaded_at);
+        const requiresScope = !!(s.requires_scope || m.requires_scope);
+        const statusBadge = isLoaded
+            ? `<span class="text-[9px] px-1.5 py-0.5 rounded bg-green-900/30 text-green-400 border border-green-800">${_t('skills-status-loaded')}</span>`
+            : `<span class="text-[9px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-500 border border-gray-700">${_t('skills-status-disabled')}</span>`;
+        const redTeamBadge = requiresScope
+            ? `<span class="text-[10px] text-blood font-semibold">${_t('skills-redteam-badge')}</span>`
+            : '';
+        const toolsHtml = tools.length ? `<div class="flex flex-wrap gap-1 mt-1">${tools.map(t => `<span class="text-[8px] px-1 py-0.5 rounded bg-deep border border-gray-800 text-cyber">${_skillsEsc(t)}</span>`).join('')}</div>` : '';
+        const cardBorder = requiresScope ? 'border-blood/40 hover:border-blood/70' : 'border-gray-800 hover:border-cyber/40';
+        const loadOnclick = requiresScope
+            ? `window.skillAction('${_skillsEsc(name)}','load',true)`
+            : `window.skillAction('${_skillsEsc(name)}','load',false)`;
+        return `<div class="bg-void rounded-lg border ${cardBorder} p-3 flex flex-col gap-2 transition-colors">
+            <div class="flex items-start justify-between gap-2">
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 mb-1 flex-wrap">
+                        <span class="text-[11px] font-semibold text-neon truncate">${_skillsEsc(name)}</span>
+                        ${statusBadge}
+                        ${redTeamBadge}
+                    </div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <span class="text-[8px] px-1.5 py-0.5 rounded border ${_skillsCatClass(cat)} uppercase">${_skillsEsc(cat)}</span>
+                        ${vers ? `<span class="text-[8px] text-gray-400">v${_skillsEsc(vers)}</span>` : ''}
+                        ${author ? `<span class="text-[8px] text-gray-400">by ${_skillsEsc(author)}</span>` : ''}
+                    </div>
+                </div>
+            </div>
+            <p class="text-[10px] text-gray-400 leading-snug">${_skillsEsc(desc)}</p>
+            ${toolsHtml}
+            <div class="flex flex-wrap gap-1 mt-auto pt-1">
+                <button onclick="${loadOnclick}" class="text-[9px] px-1.5 py-0.5 rounded bg-cyber/20 hover:bg-cyber/40 text-cyber border border-cyber/30">${_t('skills-btn-load')}</button>
+                <button onclick="window.skillAction('${_skillsEsc(name)}','unload')" class="text-[9px] px-1.5 py-0.5 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700">${_t('skills-btn-unload')}</button>
+                <button onclick="window.skillAction('${_skillsEsc(name)}','enable')" class="text-[9px] px-1.5 py-0.5 rounded bg-green-900/20 hover:bg-green-900/40 text-green-400 border border-green-800/40">${_t('skills-btn-enable')}</button>
+                <button onclick="window.skillAction('${_skillsEsc(name)}','disable')" class="text-[9px] px-1.5 py-0.5 rounded bg-gray-800 hover:bg-gray-700 text-gray-400 border border-gray-700">${_t('skills-btn-disable')}</button>
+                <button onclick="window.skillAction('${_skillsEsc(name)}','reload')" class="text-[9px] px-1.5 py-0.5 rounded bg-yellow-900/20 hover:bg-yellow-900/40 text-yellow-400 border border-yellow-800/40">${_t('skills-btn-reload')}</button>
+                <button onclick="window.skillRender('${_skillsEsc(name)}')" class="text-[9px] px-1.5 py-0.5 rounded bg-neon/10 hover:bg-neon/20 text-neon border border-neon/30">${_t('skills-btn-render')}</button>
+            </div>
+        </div>`;
+    }
+
     async function refreshSkills() {
         try {
             const r = await fetch('/api/skills');
@@ -9103,59 +9157,90 @@ Reglas:
                 grid.innerHTML = `<div class="text-gray-400 text-center py-4 col-span-full">${_t('skills-no-skills')}</div>`;
                 return;
             }
-            grid.innerHTML = skills.map(s => {
-                const m = s.manifest || {};
-                const name = s.name || 'unknown';
-                const desc = m.description || '';
-                const cat = m.category || 'custom';
-                const vers = m.version || '';
-                const author = m.author || '';
-                const tools = Array.isArray(m.allowed_tools) ? m.allowed_tools : [];
-                const isLoaded = !!(s.enabled && s.loaded_at);
-                const statusBadge = isLoaded
-                    ? `<span class="text-[9px] px-1.5 py-0.5 rounded bg-green-900/30 text-green-400 border border-green-800">${_t('skills-status-loaded')}</span>`
-                    : `<span class="text-[9px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-500 border border-gray-700">${_t('skills-status-disabled')}</span>`;
-                const toolsHtml = tools.length ? `<div class="flex flex-wrap gap-1 mt-1">${tools.map(t => `<span class="text-[8px] px-1 py-0.5 rounded bg-deep border border-gray-800 text-cyber">${_skillsEsc(t)}</span>`).join('')}</div>` : '';
-                return `<div class="bg-void rounded-lg border border-gray-800 p-3 flex flex-col gap-2 hover:border-cyber/40 transition-colors">
-                    <div class="flex items-start justify-between gap-2">
-                        <div class="flex-1 min-w-0">
-                            <div class="flex items-center gap-2 mb-1">
-                                <span class="text-[11px] font-semibold text-neon truncate">${_skillsEsc(name)}</span>
-                                ${statusBadge}
-                            </div>
-                            <div class="flex items-center gap-2 flex-wrap">
-                                <span class="text-[8px] px-1.5 py-0.5 rounded border ${_skillsCatClass(cat)} uppercase">${_skillsEsc(cat)}</span>
-                                ${vers ? `<span class="text-[8px] text-gray-400">v${_skillsEsc(vers)}</span>` : ''}
-                                ${author ? `<span class="text-[8px] text-gray-400">by ${_skillsEsc(author)}</span>` : ''}
-                            </div>
-                        </div>
+            // Split by requires_scope (info.requires_scope)
+            const defensive = [];
+            const redteam = [];
+            skills.forEach(s => {
+                const info = s.info || s.manifest || {};
+                if (s.requires_scope || info.requires_scope) {
+                    redteam.push(s);
+                } else {
+                    defensive.push(s);
+                }
+            });
+
+            const parts = [];
+            // Toggle the static Red Team banner: show only if there are red-team skills
+            // (the dynamic banner is also rendered inside the grid below)
+            const staticBanner = document.getElementById('skills-redteam-banner');
+            if (staticBanner) staticBanner.classList.toggle('hidden', redteam.length === 0);
+
+            // Defensive & Education section
+            parts.push(`<div class="col-span-full flex items-center gap-2 mt-1 mb-1">
+                <h3 class="text-[11px] text-cyber font-semibold tracking-wider uppercase">${_t('skills-defensive-title')}</h3>
+                <span class="text-[9px] px-2 py-0.5 rounded bg-deep border border-gray-800 text-gray-400 font-mono">${defensive.length}</span>
+            </div>`);
+            if (defensive.length) {
+                parts.push(defensive.map(_skillsRenderCard).join(''));
+            } else {
+                parts.push(`<div class="text-gray-400 text-center py-3 col-span-full text-[11px]">${_t('skills-no-skills')}</div>`);
+            }
+
+            // Red Team Lab section
+            if (redteam.length) {
+                parts.push(`<div class="col-span-full mt-4 mb-1">
+                    <div class="flex items-center gap-2 mb-1">
+                        <h3 class="text-[11px] text-blood font-semibold tracking-wider uppercase">${_t('skills-redteam-title')}</h3>
+                        <span class="text-[9px] px-2 py-0.5 rounded bg-blood/10 border border-blood/30 text-blood font-mono">${redteam.length}</span>
                     </div>
-                    <p class="text-[10px] text-gray-400 leading-snug">${_skillsEsc(desc)}</p>
-                    ${toolsHtml}
-                    <div class="flex flex-wrap gap-1 mt-auto pt-1">
-                        <button onclick="window.skillAction('${_skillsEsc(name)}','load')" class="text-[9px] px-1.5 py-0.5 rounded bg-cyber/20 hover:bg-cyber/40 text-cyber border border-cyber/30">${_t('skills-btn-load')}</button>
-                        <button onclick="window.skillAction('${_skillsEsc(name)}','unload')" class="text-[9px] px-1.5 py-0.5 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700">${_t('skills-btn-unload')}</button>
-                        <button onclick="window.skillAction('${_skillsEsc(name)}','enable')" class="text-[9px] px-1.5 py-0.5 rounded bg-green-900/20 hover:bg-green-900/40 text-green-400 border border-green-800/40">${_t('skills-btn-enable')}</button>
-                        <button onclick="window.skillAction('${_skillsEsc(name)}','disable')" class="text-[9px] px-1.5 py-0.5 rounded bg-gray-800 hover:bg-gray-700 text-gray-400 border border-gray-700">${_t('skills-btn-disable')}</button>
-                        <button onclick="window.skillAction('${_skillsEsc(name)}','reload')" class="text-[9px] px-1.5 py-0.5 rounded bg-yellow-900/20 hover:bg-yellow-900/40 text-yellow-400 border border-yellow-800/40">${_t('skills-btn-reload')}</button>
-                        <button onclick="window.skillRender('${_skillsEsc(name)}')" class="text-[9px] px-1.5 py-0.5 rounded bg-neon/10 hover:bg-neon/20 text-neon border border-neon/30">${_t('skills-btn-render')}</button>
-                    </div>
-                </div>`;
-            }).join('');
+                </div>`);
+                parts.push(redteam.map(_skillsRenderCard).join(''));
+            }
+
+            grid.innerHTML = parts.join('');
         } catch (e) {
             console.error('[Skills] refresh error:', e);
             if (typeof showToast === 'function') showToast('⚠️ Skills refresh failed');
         }
     }
 
-    async function skillAction(name, action) {
+    async function skillAction(name, action, requiresScope) {
         if (!name || !action) return;
         try {
             const r = await fetch(`/api/skills/${encodeURIComponent(name)}/${encodeURIComponent(action)}`, { method: 'POST' });
+            if (r.status === 403) {
+                if (typeof showToast === 'function') showToast('⚠️ Configure scope first');
+                const grid = document.getElementById('skills-grid');
+                if (grid) {
+                    const notice = document.createElement('div');
+                    notice.className = 'col-span-full bg-blood/10 border border-blood/40 rounded-lg p-2 my-2 text-blood text-[11px] font-semibold';
+                    notice.textContent = _t('skills-redteam-scope');
+                    grid.prepend(notice);
+                    setTimeout(() => notice.remove(), 6000);
+                }
+                return;
+            }
             const j = await r.json();
             if (j.ok) {
                 if (typeof showToast === 'function') showToast(`✓ ${name}: ${action}`);
                 refreshSkills();
+                // Red Team probe: after a successful load, verify scope via /render
+                if (action === 'load' && requiresScope) {
+                    try {
+                        const rr = await fetch(`/api/skills/${encodeURIComponent(name)}/render`);
+                        if (rr.status === 403) {
+                            if (typeof showToast === 'function') showToast('⚠️ Configure scope first');
+                            const grid = document.getElementById('skills-grid');
+                            if (grid) {
+                                const notice = document.createElement('div');
+                                notice.className = 'col-span-full bg-blood/10 border border-blood/40 rounded-lg p-2 my-2 text-blood text-[11px] font-semibold';
+                                notice.textContent = _t('skills-redteam-scope');
+                                grid.prepend(notice);
+                                setTimeout(() => notice.remove(), 6000);
+                            }
+                        }
+                    } catch (_) { /* probe failure is non-fatal */ }
+                }
             } else {
                 if (typeof showToast === 'function') showToast(`⚠️ ${action} failed: ${j.error || ''}`);
             }
@@ -9175,6 +9260,11 @@ Reglas:
         modal.classList.remove('hidden');
         try {
             const r = await fetch(`/api/skills/${encodeURIComponent(name)}/render`);
+            if (r.status === 403) {
+                content.textContent = _t('skills-redteam-scope');
+                if (typeof showToast === 'function') showToast('⚠️ Configure scope first');
+                return;
+            }
             const j = await r.json();
             if (j.ok) {
                 content.textContent = j.body || '(empty)';
