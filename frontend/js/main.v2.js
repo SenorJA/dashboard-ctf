@@ -24,7 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             dbDot.className = 'inline-block w-1.5 h-1.5 rounded-full bg-gray-800';
             dbText.textContent = 'DB: localStorage';
-            dbText.className = 'tracking-wider text-gray-800';
+            dbText.className = 'tracking-wider text-gray-400';
         }
     }
     // Poll DataService until ready
@@ -141,10 +141,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 .filter(s => bySeverity[s])
                 .map(s => {
                     const colors = { critical: 'bg-red-900/30 text-red-400', high: 'bg-orange-900/30 text-orange-400', medium: 'bg-yellow-900/30 text-yellow-400', low: 'bg-blue-900/30 text-blue-400', info: 'bg-gray-800/50 text-gray-500' };
-                    return `<span class="text-[8px] px-1.5 py-0.5 rounded ${colors[s] || 'bg-gray-800 text-gray-600'}">${s} ${bySeverity[s]}</span>`;
+                    return `<span class="text-[8px] px-1.5 py-0.5 rounded ${colors[s] || 'bg-gray-800 text-gray-400'}">${s} ${bySeverity[s]}</span>`;
                 }).join(' ');
             const toolBadges = Object.entries(byTool).map(([t, c]) =>
-                `<span class="text-[8px] text-gray-600">${t} (${c})</span>`
+                `<span class="text-[8px] text-gray-400">${t} (${c})</span>`
             ).join(' ');
 
             return `<div class="report-card">
@@ -152,13 +152,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="flex-1 min-w-0">
                         <div class="flex items-center gap-2 mb-1">
                             <span class="text-[10px] font-semibold text-neon truncate">${r.title || 'Report'}</span>
-                            <span class="text-[8px] text-gray-700">${r.timestamp}</span>
+                            <span class="text-[8px] text-gray-400">${r.timestamp}</span>
                         </div>
                         <div class="flex items-center gap-1.5 flex-wrap">
                             ${sevBadges}
                         </div>
-                        <div class="text-[9px] text-gray-600 mt-1">${toolBadges}</div>
-                        <div class="text-[9px] text-gray-700 mt-0.5">📍 ${r.target || 'no target'} · 📊 ${total} findings</div>
+                        <div class="text-[9px] text-gray-400 mt-1">${toolBadges}</div>
+                        <div class="text-[9px] text-gray-400 mt-0.5">📍 ${r.target || 'no target'} · 📊 ${total} findings</div>
                     </div>
                     <div class="flex items-center gap-1 flex-shrink-0">
                         <button data-action="report-view" data-idx="${reports.indexOf(r)}" class="text-[9px] text-cyber/70 hover:text-cyber border border-cyber/20 rounded px-2 py-0.5 transition-colors">👁 View</button>
@@ -168,7 +168,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <option value="html">.html</option>
                             <option value="pdf">📄 PDF</option>
                         </select>
-                        <button data-action="report-delete" data-idx="${reports.indexOf(r)}" class="text-[9px] text-gray-700 hover:text-blood transition-colors">✕</button>
+                        <button data-action="report-delete" data-idx="${reports.indexOf(r)}" class="text-[9px] text-gray-400 hover:text-blood transition-colors">✕</button>
                     </div>
                 </div>
             </div>`;
@@ -276,6 +276,47 @@ document.addEventListener('DOMContentLoaded', () => {
             const modal = document.getElementById('report-modal');
             if (modal && !modal.classList.contains('hidden')) modal.classList.add('hidden');
         }
+    });
+
+    // ============================================================
+    //  P1.6 — Global Escape handler for role="dialog" modals
+    //  Closes the top-most visible modal. Each modal uses the
+    //  Tailwind `hidden` class as its hidden state, so the generic
+    //  close path simply re-adds `hidden`. Known per-modal close
+    //  functions are preferred when available to preserve any
+    //  side-effects (focus restore, state cleanup, etc.).
+    // ============================================================
+    const MODAL_CLOSE_FNS = {
+        'report-modal':        () => window.closeReportModal && window.closeReportModal(),
+        'plugins-modal':       () => window.closePluginModal && window.closePluginModal(),
+        'scope-modal':         () => window.scopeModalClose && window.scopeModalClose(),
+        'opsec-modal':         () => window.opsecModalClose && window.opsecModalClose(),
+        'docker-modal':        () => window.dockerModalClose && window.dockerModalClose(),
+        'burp-raw-modal':      () => document.getElementById('burp-raw-modal')?.classList.add('hidden'),
+        'audit-manual-modal':  () => document.getElementById('audit-manual-modal')?.classList.add('hidden'),
+        'skills-render-modal': () => document.getElementById('skills-render-modal')?.classList.add('hidden'),
+    };
+
+    function _closeTopModal() {
+        const dialogs = document.querySelectorAll('[role="dialog"]');
+        // Iterate in DOM order; close the LAST visible one (top-most rendered last).
+        let target = null;
+        dialogs.forEach(d => {
+            const isHidden = d.classList.contains('hidden') ||
+                              getComputedStyle(d).display === 'none';
+            if (!isHidden) target = d;
+        });
+        if (!target) return false;
+        const id = target.id;
+        const fn = MODAL_CLOSE_FNS[id];
+        if (fn) fn();
+        else target.classList.add('hidden');
+        return true;
+    }
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') return;
+        if (_closeTopModal()) e.preventDefault();
     });
 
     // ── Export current report (from modal) ──
@@ -1222,7 +1263,7 @@ ${bodyHtml}
         }
 
         if (list.length === 0) {
-            container.innerHTML = '<div class="text-center text-[11px] text-gray-700 py-8">No findings match this filter.</div>';
+            container.innerHTML = '<div class="text-center text-[11px] text-gray-400 py-8">No findings match this filter.</div>';
             updateStats();
             return;
         }
@@ -1279,8 +1320,8 @@ ${bodyHtml}
                             <span class="text-[7px] px-1 py-0.5 rounded font-bold tracking-wider flex-shrink-0"
                                   style="background:${color}22; color:${color}">${badge}</span>
                         </div>
-                        ${subtitle ? `<div class="${isInfo ? 'text-[9px]' : 'text-[10px]'} text-gray-600 mt-0.5 truncate">${subtitle}</div>` : ''}
-                        <div class="flex items-center gap-1.5 mt-0.5 ${isInfo ? 'text-[7px]' : 'text-[8px]'} text-gray-700">
+                        ${subtitle ? `<div class="${isInfo ? 'text-[9px]' : 'text-[10px]'} text-gray-400 mt-0.5 truncate">${subtitle}</div>` : ''}
+                        <div class="flex items-center gap-1.5 mt-0.5 ${isInfo ? 'text-[7px]' : 'text-[8px]'} text-gray-400">
                             <span>${f.tool}</span>
                             <span>·</span>
                             <span class="truncate max-w-[120px]">${f.target}</span>
@@ -1549,7 +1590,7 @@ ${bodyHtml}
         }
         if (unique.length > maxShow) {
             const more = document.createElement('div');
-            more.className = 'px-3 py-1 text-[9px] text-gray-700 text-center';
+            more.className = 'px-3 py-1 text-[9px] text-gray-400 text-center';
             more.textContent = `⋯ ${unique.length - maxShow} more`;
             dropdown.appendChild(more);
         }
@@ -2038,7 +2079,7 @@ ${bodyHtml}
         ws.onopen = () => {
             statusInd.classList.replace('offline', 'online');
             statusText.textContent = 'ONLINE';
-            statusText.classList.replace('text-gray-600', 'text-neon');
+            statusText.classList.replace('text-gray-400', 'text-neon');
             if (activeConnectionId !== null) connDot.className = 'conn-dot online';
             connBadge.textContent = `connected: ${sshUser}@${sshIp}:${sshPort}`;
             connTitle.textContent = `─╼ ${sshUser}@${sshIp}:${sshPort} ╾───────────────────────────`;
@@ -2087,7 +2128,7 @@ ${bodyHtml}
         ws.onclose = () => {
             statusInd.classList.replace('online', 'offline');
             statusText.textContent = 'OFFLINE';
-            statusText.classList.replace('text-neon', 'text-gray-600');
+            statusText.classList.replace('text-neon', 'text-gray-400');
             connBadge.textContent = 'disconnected';
             connDot.className = 'conn-dot offline';
             appendOutput('\n[!] Connection closed.');
@@ -2308,7 +2349,7 @@ ${bodyHtml}
             class="tool-btn w-full bg-deep/50 hover:bg-deep text-left px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-neon/40 group">
             <span class="text-neon/70 group-hover:text-neon">#</span>
             <span class="text-gray-400 group-hover:text-gray-200">${t.name}</span>
-            <span class="block text-[9px] text-gray-700 group-hover:text-gray-600 leading-tight">${t.desc}</span>
+            <span class="block text-[9px] text-gray-400 group-hover:text-gray-400 leading-tight">${t.desc}</span>
         </button>`;
     }
 
@@ -2317,7 +2358,7 @@ ${bodyHtml}
             class="tool-btn flex items-center gap-2 w-full bg-deep/50 hover:bg-deep px-2.5 py-1.5 rounded text-[11px] font-mono transition-all duration-150 border border-gray-800 hover:border-cyber/40 group">
             <span class="text-cyber/70 group-hover:text-cyber">${l.icon}</span>
             <span class="text-gray-400 group-hover:text-gray-200">${l.name}</span>
-            <span class="ml-auto text-[8px] text-gray-700">↗</span>
+            <span class="ml-auto text-[8px] text-gray-400">↗</span>
         </a>`;
     }
 
@@ -2330,9 +2371,9 @@ ${bodyHtml}
                     <span class="text-gray-400 group-hover:text-gray-200 truncate">${s.name}</span>
                     <span class="text-[7px] uppercase tracking-wider border px-1 rounded shrink-0 ${s.badgeColor}">${s.badge}</span>
                 </span>
-                <span class="block text-[8px] text-gray-700 leading-tight">${s.desc} <span class="text-gray-800">${s.region}</span></span>
+                <span class="block text-[8px] text-gray-400 leading-tight">${s.desc} <span class="text-gray-400">${s.region}</span></span>
             </div>
-            <span class="text-[8px] text-gray-700 shrink-0">↗</span>
+            <span class="text-[8px] text-gray-400 shrink-0">↗</span>
         </a>`;
     }
 
@@ -2350,9 +2391,9 @@ ${bodyHtml}
                     <span class="text-gray-400 group-hover:text-gray-200 truncate">${s.name}</span>
                     <span class="text-[7px] uppercase tracking-wider border px-1 rounded shrink-0 ${badgeColor}">${s.badge}</span>
                 </span>
-                <span class="block text-[8px] text-gray-700 leading-tight">${s.desc}</span>
+                <span class="block text-[8px] text-gray-400 leading-tight">${s.desc}</span>
             </div>
-            <span class="text-[8px] text-gray-700 shrink-0">↗</span>
+            <span class="text-[8px] text-gray-400 shrink-0">↗</span>
         </a>`;
     }
 
@@ -2423,10 +2464,12 @@ ${bodyHtml}
                 // No filter — show header, collapse body, show all buttons
                 header.style.display = '';
                 body.style.display = 'none';
+                header.setAttribute('aria-expanded', 'false');
             } else if (hasVisible) {
                 // Filter active + category has matches — expand
                 header.style.display = '';
                 body.style.display = '';
+                header.setAttribute('aria-expanded', 'true');
                 // Update arrow
                 const arrow = header.querySelector('span:first-child');
                 if (arrow) arrow.textContent = '▶';
@@ -3410,42 +3453,24 @@ ${bodyHtml}
     //  TAB SYSTEM
     // ============================================================
     window.switchTab = function (tabName) {
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
-
         const btns = document.querySelectorAll('.tab-btn');
-        const panes = {
-            terminal: 0,
-            reports: 1,
-            scripts: 2,
-            bounty: 3,
-            aiwriteup: 4,
-            hak5: 5,
-            automation: 6,
-            opadmiral: 7,
-            swarm: 8,
-            findings: 9,
-            credentials: 10,
-            knowledgebase: 11,
-            ctf: 12,
-            mobile: 13,
-            forensics: 14,
-            exif: 15,
-            osint: 16,
-            canary: 17,
-            dlp: 18,
-            siem: 19,
-            plugins: 20,
-            coverage: 21,
-            burp: 22,
-            audit: 23,
-            skills: 24,
-            intelligence: 25,
-            browsercapture: 26
-        };
-        if (panes[tabName] !== undefined) {
-            btns[panes[tabName]].classList.add('active');
-        }
+        const panes = document.querySelectorAll('.tab-pane');
+
+        // Roving tabindex + aria-selected (P1.3 ARIA tab pattern)
+        btns.forEach(b => {
+            b.classList.remove('active');
+            const isActive = b.dataset.tab === tabName;
+            b.setAttribute('aria-selected', isActive ? 'true' : 'false');
+            b.setAttribute('tabindex', isActive ? '0' : '-1');
+        });
+        panes.forEach(p => p.classList.remove('active'));
+
+        let btnToActivate = null;
+        btns.forEach(b => {
+            if (b.dataset.tab === tabName) btnToActivate = b;
+        });
+        if (btnToActivate) btnToActivate.classList.add('active');
+
         const el = document.getElementById(`tab-${tabName}`);
         if (el) el.classList.add('active');
 
@@ -3485,12 +3510,15 @@ ${bodyHtml}
     window.toggleCategory = function (header) {
         const body = header.nextElementSibling;
         const arrow = header.querySelector('span:first-child');
-        if (body.style.display === 'none') {
-            body.style.display = '';
-            arrow.textContent = '▶';
-        } else {
+        const willCollapse = body && body.style.display !== 'none';
+        if (willCollapse) {
             body.style.display = 'none';
-            arrow.textContent = '▼';
+            if (arrow) arrow.textContent = '▼';
+            header.setAttribute('aria-expanded', 'false');
+        } else {
+            if (body) body.style.display = '';
+            if (arrow) arrow.textContent = '▶';
+            header.setAttribute('aria-expanded', 'true');
         }
     };
 
@@ -3511,6 +3539,7 @@ ${bodyHtml}
             const arrow = h.querySelector('span:first-child');
             body.style.display = shouldExpand ? '' : 'none';
             if (arrow) arrow.textContent = shouldExpand ? '▶' : '▼';
+            h.setAttribute('aria-expanded', shouldExpand ? 'true' : 'false');
         });
         if (masterIcon) masterIcon.textContent = shouldExpand ? '▼' : '▶';
         if (masterText) masterText.textContent = shouldExpand ? 'Collapse All' : 'Expand All';
@@ -3524,6 +3553,7 @@ ${bodyHtml}
             body.style.display = 'none';
             const arrow = h.querySelector('span:first-child');
             if (arrow) arrow.textContent = '▼';
+            h.setAttribute('aria-expanded', 'false');
         });
         const masterIcon = document.getElementById('master-toggle-icon');
         const masterText = document.getElementById('master-toggle-text');
@@ -5037,15 +5067,15 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
             card.innerHTML = `
                 <div class="flex items-center gap-1.5 mb-1.5">
                     <span class="text-[9px] text-cyber/60 font-mono">${new Date().toLocaleTimeString()}</span>
-                    <span class="text-[9px] text-gray-700">·</span>
-                    <span class="text-[9px] text-gray-700 uppercase">${provider}</span>
+                    <span class="text-[9px] text-gray-400">·</span>
+                    <span class="text-[9px] text-gray-400 uppercase">${provider}</span>
                 </div>
                 <div class="text-gray-300 leading-relaxed text-[11px] suggestion-body">${mdToHTML(suggestion)}</div>
                 <div class="flex gap-2 mt-1.5">
                     <button data-cmd="${extractCommandFromSuggestion(suggestion).replace(/"/g, '&quot;')}"
                         class="suggest-run-cmd text-[9px] text-neon/60 hover:text-neon transition-all">▶ Run first command</button>
                     <button data-action="copy-clipboard"
-                        class="text-[9px] text-gray-600 hover:text-gray-400 transition-all">📋 Copy</button>
+                        class="text-[9px] text-gray-400 hover:text-gray-400 transition-all">📋 Copy</button>
                 </div>
             `;
             list.appendChild(card);
@@ -5314,7 +5344,7 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
             if (btnDisconnect) btnDisconnect.style.display = 'inline-block';
         } else {
             badge.innerHTML = '⚪ disconnected';
-            badge.className = 'text-[9px] text-gray-700 border border-gray-800 rounded px-2 py-0.5';
+            badge.className = 'text-[9px] text-gray-400 border border-gray-800 rounded px-2 py-0.5';
             if (btnDisconnect) btnDisconnect.style.display = 'none';
         }
     }
@@ -5555,7 +5585,7 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         if (logDiv) {
             logDiv.textContent = '';
             const placeholder = document.createElement('span');
-            placeholder.className = 'text-gray-700';
+            placeholder.className = 'text-gray-400';
             placeholder.textContent = '[—] Log cleared.';
             logDiv.appendChild(placeholder);
         }
@@ -5818,7 +5848,7 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         if (!status || !status.installed) {
             statusEl.textContent = '❌ Docker not installed';
             statusEl.className = 'text-blood';
-            listEl.innerHTML = '<div class="text-gray-600">Install Docker Desktop first.</div>';
+            listEl.innerHTML = '<div class="text-gray-400">Install Docker Desktop first.</div>';
             btns.forEach(b => { if (b) b.disabled = true; });
             return;
         }
@@ -5845,12 +5875,12 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
 
         const containers = (status.containers || []).filter(c => c.name && c.name !== '?');
         if (containers.length === 0) {
-            listEl.innerHTML = '<div class="text-gray-600">No MIRV containers found.</div>';
+            listEl.innerHTML = '<div class="text-gray-400">No MIRV containers found.</div>';
         } else {
             listEl.innerHTML = containers.map(c =>
                 `<div class="flex justify-between">
                     <span class="text-gray-400">${c.service || c.name}</span>
-                    <span class="${c.state === 'running' ? 'text-cyber' : 'text-gray-600'}">${c.state}</span>
+                    <span class="${c.state === 'running' ? 'text-cyber' : 'text-gray-400'}">${c.state}</span>
                 </div>`
             ).join('');
         }
@@ -6767,7 +6797,7 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
 
         const statusIcons = { pending: '○', running: '▶', done: '✅', failed: '❌' };
         const statusColors = {
-            pending: 'text-gray-700',
+            pending: 'text-gray-400',
             running: 'text-cyber animate-pulse',
             done: 'text-neon',
             failed: 'text-blood'
@@ -6788,12 +6818,12 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
                 <div class="flex items-center justify-between mb-1.5">
                     <div class="flex items-center gap-2">
                         <span class="text-[10px] ${statusColors[step.status]} font-mono">${statusIcons[step.status]}</span>
-                        <span class="text-[10px] text-gray-600 font-mono">Step ${i + 1}</span>
+                        <span class="text-[10px] text-gray-400 font-mono">Step ${i + 1}</span>
                         <span class="text-[11px] text-gray-300 font-semibold">${escapeHTML(step.title)}</span>
                     </div>
                     <div class="flex items-center gap-1">
                         <button data-action="plan-copy-cmd" data-idx="${i}"
-                            class="text-[9px] text-gray-600 hover:text-cyber transition-colors px-1.5 py-0.5 rounded hover:bg-cyber/10"
+                            class="text-[9px] text-gray-400 hover:text-cyber transition-colors px-1.5 py-0.5 rounded hover:bg-cyber/10"
                             ${copyDisabled ? 'disabled title="No command"' : ''}>
                             📋 Copy
                         </button>
@@ -6816,7 +6846,7 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
 
     function createEmptyEl() {
         const div = document.createElement('div');
-        div.className = 'text-center text-[11px] text-gray-700 py-8';
+        div.className = 'text-center text-[11px] text-gray-400 py-8';
         div.id = 'plan-empty';
         div.textContent = 'Describe the target and click "Generate Plan" to create a mission plan.';
         return div;
@@ -7116,7 +7146,7 @@ Reglas:
             const missions = Array.isArray(data) ? data : (data.data || data.missions || []);
             _missionHistoryCache = missions;
             if (!missions.length) {
-                list.innerHTML = `<div class="text-center text-[10px] text-gray-700 py-4" data-i18n="missionEmpty">${translations.missionEmpty[window.currentLang] || 'No missions saved yet. Complete a scan and click "Save Mission".'}</div>`;
+                list.innerHTML = `<div class="text-center text-[10px] text-gray-400 py-4" data-i18n="missionEmpty">${translations.missionEmpty[window.currentLang] || 'No missions saved yet. Complete a scan and click "Save Mission".'}</div>`;
                 return;
             }
             const scoreBadge = (score) => {
@@ -7139,7 +7169,7 @@ Reglas:
                         <span class="text-[10px] text-gray-300 font-mono truncate flex-1">📍 ${m.target || 'unknown'}</span>
                         ${scoreBadge(m.success_score)}
                     </div>
-                    <div class="flex items-center gap-2 text-[9px] text-gray-700">
+                    <div class="flex items-center gap-2 text-[9px] text-gray-400">
                         <span>🗂️ ${m.os_detected ? m.os_detected.slice(0, 28) : '—'}</span>
                         <span>·</span>
                         <span>📊 ${m.findings_count || 0}</span>
@@ -7150,7 +7180,7 @@ Reglas:
                 </div>
             `).join('');
         } catch (err) {
-            list.innerHTML = `<div class="text-center text-[10px] text-gray-700 py-4">⚠️ Backend unavailable — /api/missions</div>`;
+            list.innerHTML = `<div class="text-center text-[10px] text-gray-400 py-4">⚠️ Backend unavailable — /api/missions</div>`;
         }
     };
 
@@ -7816,7 +7846,7 @@ Reglas:
                     </div>
                     ${displayVal}
                     ${t.notes ? `<p class="text-xs text-gray-500 mt-1">📝 ${canaryEscapeHtml(t.notes)}</p>` : ''}
-                    <p class="text-xs text-gray-600 mt-1">ID: <code class="text-gray-400">${t.id}</code> | Expires: ${new Date(t.expires_at).toLocaleDateString()}</p>
+                    <p class="text-xs text-gray-400 mt-1">ID: <code class="text-gray-400">${t.id}</code> | Expires: ${new Date(t.expires_at).toLocaleDateString()}</p>
                 </div>
                 <div class="flex gap-2 shrink-0 ml-4">
                     <button onclick="copyCanaryValue('${t.id}')" class="px-3 py-1 text-xs bg-cyber hover:bg-neon text-white rounded transition-colors" data-i18n="canary-copy">Copy</button>
@@ -8094,7 +8124,7 @@ Reglas:
                             <span class="text-gray-400">[${e.source}]</span>
                             <span class="text-white font-medium truncate">${siemEscape(e.title)}</span>
                         </div>
-                        <div class="text-gray-600 mt-0.5">${e.timestamp?.slice(0,19) || ''} ${e.ip ? '| '+siemEscape(e.ip) : ''}</div>
+                        <div class="text-gray-400 mt-0.5">${e.timestamp?.slice(0,19) || ''} ${e.ip ? '| '+siemEscape(e.ip) : ''}</div>
                     </div>
                 </div>
             `).join('');
@@ -8115,7 +8145,7 @@ Reglas:
                         <span class="text-white text-xs font-semibold">${siemEscape(a.rule_name)}</span>
                     </div>
                     <p class="text-xs text-gray-300">${siemEscape(a.title)}</p>
-                    <p class="text-[10px] text-gray-600 mt-1">${a.timestamp?.slice(0,19) || ''}</p>
+                    <p class="text-[10px] text-gray-400 mt-1">${a.timestamp?.slice(0,19) || ''}</p>
                 </div>
             `).join('');
         }).catch(()=>{});
@@ -8124,7 +8154,7 @@ Reglas:
         fetch('/api/siem/rules').then(r=>r.json()).then(d => {
             if (!d.ok) return;
             const list = document.getElementById('siem-rules-list');
-            if (!d.rules?.length) { list.innerHTML = '<p class="text-gray-600 text-xs">No rules defined.</p>'; return; }
+            if (!d.rules?.length) { list.innerHTML = '<p class="text-gray-400 text-xs">No rules defined.</p>'; return; }
             list.innerHTML = d.rules.map(r => `
                 <div class="bg-deep rounded border border-cyber p-2">
                     <div class="flex items-center gap-1 mb-1">
@@ -8215,7 +8245,7 @@ Reglas:
 
             const grid = document.getElementById('plugins-grid');
             if (!plugins.length) {
-                grid.innerHTML = '<p class="text-gray-600 italic col-span-full text-center py-8" data-i18n="plugins-no-plugins">No plugins discovered.</p>';
+                grid.innerHTML = '<p class="text-gray-400 italic col-span-full text-center py-8" data-i18n="plugins-no-plugins">No plugins discovered.</p>';
                 return;
             }
             grid.innerHTML = plugins.map(p => `
@@ -8226,8 +8256,8 @@ Reglas:
                     </div>
                     <p class="text-xs text-gray-500 mb-2">${pluginEscHtml(p.manifest?.description || 'No description')}</p>
                     <div class="flex flex-wrap gap-1 mb-2">
-                        <span class="text-[10px] text-gray-600">v${pluginEscHtml(p.manifest?.version || '?')}</span>
-                        <span class="text-[10px] text-gray-600">by ${pluginEscHtml(p.manifest?.author || '?')}</span>
+                        <span class="text-[10px] text-gray-400">v${pluginEscHtml(p.manifest?.version || '?')}</span>
+                        <span class="text-[10px] text-gray-400">by ${pluginEscHtml(p.manifest?.author || '?')}</span>
                     </div>
                     ${p.manifest?.hooks?.length ? `<div class="flex flex-wrap gap-1 mb-3">${p.manifest.hooks.map(h => `<span class="px-1.5 py-0.5 rounded text-[9px] bg-void text-cyber border border-cyber/50">${pluginEscHtml(h)}</span>`).join('')}</div>` : ''}
                     <div class="flex flex-wrap gap-1 mt-auto pt-2 border-t border-cyber/20">
@@ -8297,7 +8327,7 @@ Reglas:
         'passed': 'text-green-400',
         'failed': 'text-blood',
         'waf-blocked': 'text-yellow-400',
-        'skipped': 'text-gray-600',
+        'skipped': 'text-gray-400',
         'untested': 'text-cyber'
     };
 
@@ -8343,7 +8373,7 @@ Reglas:
             const d = await r.json();
             const tbody = document.getElementById('cov-entries-tbody');
             if (!d.ok || !d.entries || !d.entries.length) {
-                tbody.innerHTML = '<tr><td colspan="7" class="text-center text-gray-700 italic py-3">No coverage rows match the filter.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center text-gray-400 italic py-3">No coverage rows match the filter.</td></tr>';
                 return;
             }
             tbody.innerHTML = d.entries.map(e => {
@@ -8352,11 +8382,11 @@ Reglas:
                 const ls = (e.last_seen || '').replace('T',' ').slice(0,19);
                 return `<tr class="border-b border-gray-900/40 hover:bg-void/40">
                     <td class="px-2 py-1 font-mono">${covEsc(e.method)} ${covEsc(e.endpoint.replace(/^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s/, ''))}</td>
-                    <td class="px-2 py-1">${e.param ? covEsc(e.param) : '<span class="text-gray-700">—</span>'}</td>
+                    <td class="px-2 py-1">${e.param ? covEsc(e.param) : '<span class="text-gray-400">—</span>'}</td>
                     <td class="px-2 py-1">${COV_VULN_LABELS[e.vuln_class] || covEsc(e.vuln_class)}</td>
                     <td class="px-2 py-1 ${stColor}">${covEsc(e.status)}</td>
                     <td class="px-2 py-1">${e.count}</td>
-                    <td class="px-2 py-1 text-gray-600">${ls}</td>
+                    <td class="px-2 py-1 text-gray-400">${ls}</td>
                     <td class="px-2 py-1 text-gray-500" title="${covEsc(e.notes||'')}">${notes}</td>
                 </tr>`;
             }).join('');
@@ -8369,13 +8399,13 @@ Reglas:
             const d = await r.json();
             const el = document.getElementById('cov-next-list');
             if (!d.ok || !d.suggestions || !d.suggestions.length) {
-                el.innerHTML = '<div class="text-gray-700 text-center py-2">No suggestions — mark a row first.</div>';
+                el.innerHTML = '<div class="text-gray-400 text-center py-2">No suggestions — mark a row first.</div>';
                 return;
             }
             el.innerHTML = d.suggestions.map(s => {
                 const st = s.status || 'untested';
                 const color = COV_STATUS_COLOR[st] || 'text-cyber';
-                const reason = s.reason ? `<span class="text-gray-700">[${covEsc(s.reason)}]</span> ` : '';
+                const reason = s.reason ? `<span class="text-gray-400">[${covEsc(s.reason)}]</span> ` : '';
                 const param = s.param ? ` <span class="text-yellow-400">?${covEsc(s.param)}</span>` : '';
                 return `<div class="${color}">${reason}${covEsc(s.method)} ${covEsc(s.endpoint.replace(/^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s/, ''))}${param} → ${COV_VULN_LABELS[s.vuln_class] || s.vuln_class}</div>`;
             }).join('');
@@ -8618,7 +8648,7 @@ Reglas:
             if (reqList) {
                 const reqs = (rj && rj.ok && rj.requests) ? rj.requests : [];
                 if (!reqs.length) {
-                    reqList.innerHTML = `<div class="text-gray-700 text-center py-4">${_t('burp-no-data')}</div>`;
+                    reqList.innerHTML = `<div class="text-gray-400 text-center py-4">${_t('burp-no-data')}</div>`;
                 } else {
                     reqList.innerHTML = reqs.map(r => {
                         const method = r.method || 'GET';
@@ -8629,8 +8659,8 @@ Reglas:
                                     onclick="window.burpShowRaw('${_burpEsc(r.id)}')">
                             <span class="px-1.5 py-0.5 rounded text-[9px] font-bold ${_burpMethodClass(method)}">${_burpEsc(method)}</span>
                             <span class="text-gray-300 truncate flex-1">${_burpEsc(path)}</span>
-                            <span class="text-[9px] text-gray-600">${_burpEsc(status)}</span>
-                            <span class="text-[9px] text-gray-700 flex-shrink-0">${_burpEsc(ts)}</span>
+                            <span class="text-[9px] text-gray-400">${_burpEsc(status)}</span>
+                            <span class="text-[9px] text-gray-400 flex-shrink-0">${_burpEsc(ts)}</span>
                         </div>`;
                     }).join('');
                 }
@@ -8643,7 +8673,7 @@ Reglas:
             if (epList) {
                 const eps = (ej && ej.ok && ej.endpoints) ? ej.endpoints : [];
                 if (!eps.length) {
-                    epList.innerHTML = `<div class="text-gray-700 text-center py-4">${_t('burp-no-data')}</div>`;
+                    epList.innerHTML = `<div class="text-gray-400 text-center py-4">${_t('burp-no-data')}</div>`;
                 } else {
                     epList.innerHTML = eps.map(e => {
                         const method = e.method || 'GET';
@@ -8667,7 +8697,7 @@ Reglas:
             if (isList) {
                 const iss = (ij && ij.ok && ij.issues) ? ij.issues : [];
                 if (!iss.length) {
-                    isList.innerHTML = `<div class="text-gray-700 text-center py-4">${_t('burp-no-data')}</div>`;
+                    isList.innerHTML = `<div class="text-gray-400 text-center py-4">${_t('burp-no-data')}</div>`;
                 } else {
                     isList.innerHTML = iss.map(i => {
                         const sev = i.severity || 'info';
@@ -8820,7 +8850,7 @@ Reglas:
             if (!list) return;
             const logs = (lj && lj.ok && lj.logs) ? lj.logs : [];
             if (!logs.length) {
-                list.innerHTML = `<div class="text-gray-700 text-center py-4">${_t('audit-no-logs')}</div>`;
+                list.innerHTML = `<div class="text-gray-400 text-center py-4">${_t('audit-no-logs')}</div>`;
                 return;
             }
             list.innerHTML = logs.map(L => {
@@ -8831,11 +8861,11 @@ Reglas:
                 const msg = L.message || '';
                 const details = L.details ? (typeof L.details === 'string' ? L.details : JSON.stringify(L.details, null, 2)) : '';
                 const redacted = L.redacted ? '<span class="text-[8px] text-yellow-700">🛡</span>' : '';
-                const detailsHtml = details ? `<div class="mt-1 text-[9px] text-gray-700 whitespace-pre-wrap">${_auditEsc(details)}</div>` : '';
+                const detailsHtml = details ? `<div class="mt-1 text-[9px] text-gray-400 whitespace-pre-wrap">${_auditEsc(details)}</div>` : '';
                 return `<div class="border border-transparent hover:border-cyber/30 bg-void rounded px-2 py-1">
                     <div class="flex items-center gap-2">
                         <span class="px-1.5 py-0.5 rounded text-[9px] font-bold ${_auditLevelClass(lvl)} uppercase">${_auditEsc(lvl)}</span>
-                        <span class="text-[9px] text-gray-700 flex-shrink-0">${_auditEsc(ts)}</span>
+                        <span class="text-[9px] text-gray-400 flex-shrink-0">${_auditEsc(ts)}</span>
                         <span class="text-[9px] px-1 py-0.5 rounded bg-deep border border-gray-800 text-cyber flex-shrink-0">${_auditEsc(cat)}</span>
                         <span class="text-[10px] text-gray-400 flex-shrink-0">${_auditEsc(ev)}</span>
                         <span class="text-[10px] text-gray-300 flex-1 truncate">${_auditEsc(msg)}</span>
@@ -8939,7 +8969,7 @@ Reglas:
             const loaded = skills.filter(s => s.enabled && s.loaded_at).length;
             if (badge) badge.textContent = ' ' + loaded + ' loaded ';
             if (!skills.length) {
-                grid.innerHTML = `<div class="text-gray-700 text-center py-4 col-span-full">${_t('skills-no-skills')}</div>`;
+                grid.innerHTML = `<div class="text-gray-400 text-center py-4 col-span-full">${_t('skills-no-skills')}</div>`;
                 return;
             }
             grid.innerHTML = skills.map(s => {
@@ -8964,8 +8994,8 @@ Reglas:
                             </div>
                             <div class="flex items-center gap-2 flex-wrap">
                                 <span class="text-[8px] px-1.5 py-0.5 rounded border ${_skillsCatClass(cat)} uppercase">${_skillsEsc(cat)}</span>
-                                ${vers ? `<span class="text-[8px] text-gray-600">v${_skillsEsc(vers)}</span>` : ''}
-                                ${author ? `<span class="text-[8px] text-gray-700">by ${_skillsEsc(author)}</span>` : ''}
+                                ${vers ? `<span class="text-[8px] text-gray-400">v${_skillsEsc(vers)}</span>` : ''}
+                                ${author ? `<span class="text-[8px] text-gray-400">by ${_skillsEsc(author)}</span>` : ''}
                             </div>
                         </div>
                     </div>
@@ -9210,7 +9240,7 @@ Reglas:
 
             if (watches.length > 0) {
                 watchesEl.innerHTML = watches.map(w => {
-                    const statusColor = w.enabled ? 'text-neon' : 'text-gray-600';
+                    const statusColor = w.enabled ? 'text-neon' : 'text-gray-400';
                     const statusDot = w.enabled ? '🟢' : '🔴';
                     const typeLabels = {
                         http_headers: '🌐 Headers', certificate: '🔒 Cert', dns: '📡 DNS',
@@ -9225,19 +9255,19 @@ Reglas:
                             </div>
                             <div class="text-[9px] text-gray-500 mb-1.5">${_escH(w.target)}</div>
                             <div class="flex items-center justify-between">
-                                <span class="text-[9px] text-gray-600">${typeLabel} · ${w.interval_seconds}s</span>
+                                <span class="text-[9px] text-gray-400">${typeLabel} · ${w.interval_seconds}s</span>
                                 <div class="flex gap-1">
                                     <button onclick="intelSnapshot('${w.id}')" class="px-1.5 py-0.5 bg-cyber/15 text-cyber rounded text-[9px] hover:bg-cyber/25" title="Take snapshot">📸</button>
                                     <button onclick="intelToggleWatch('${w.id}', ${w.enabled})" class="px-1.5 py-0.5 bg-gray-800 text-gray-500 rounded text-[9px] hover:bg-gray-700" title="${w.enabled ? 'Disable' : 'Enable'}">${w.enabled ? '⏸' : '▶'}</button>
                                     <button onclick="intelDeleteWatch('${w.id}')" class="px-1.5 py-0.5 bg-blood/15 text-blood rounded text-[9px] hover:bg-blood/25" title="Delete">🗑️</button>
                                 </div>
                             </div>
-                            <div class="text-[8px] text-gray-700 mt-1">${w.last_check ? 'Last: ' + _escH(w.last_check) : 'Never checked'}</div>
+                            <div class="text-[8px] text-gray-400 mt-1">${w.last_check ? 'Last: ' + _escH(w.last_check) : 'Never checked'}</div>
                         </div>
                     `;
                 }).join('');
             } else {
-                watchesEl.innerHTML = '<div class="text-gray-700 text-center py-4 col-span-full text-[11px]">No watches configured. Click "+ New Watch" to start monitoring.</div>';
+                watchesEl.innerHTML = '<div class="text-gray-400 text-center py-4 col-span-full text-[11px]">No watches configured. Click "+ New Watch" to start monitoring.</div>';
             }
 
             const alerts = (alertData.ok && alertData.alerts) ? alertData.alerts : [];
@@ -9253,7 +9283,7 @@ Reglas:
                             </div>`;
                     }).join('');
                 } else {
-                    alertsEl.innerHTML = '<div class="text-[10px] text-gray-700 py-1">No alerts.</div>';
+                    alertsEl.innerHTML = '<div class="text-[10px] text-gray-400 py-1">No alerts.</div>';
                 }
             }
         } catch (e) { console.error('refreshIntel error:', e); }
@@ -9299,7 +9329,7 @@ Reglas:
             const data = await resp.json();
             const sessions = data.sessions || [];
             if (sessions.length === 0) {
-                list.innerHTML = '<p class="text-gray-600 text-[10px]" data-i18n="bcNoSessions">No capture sessions yet. Import a .har file to begin.</p>';
+                list.innerHTML = '<p class="text-gray-400 text-[10px]" data-i18n="bcNoSessions">No capture sessions yet. Import a .har file to begin.</p>';
                 return;
             }
             list.innerHTML = sessions.map(s => `
@@ -9307,9 +9337,9 @@ Reglas:
                     <div>
                         <span class="font-semibold text-[11px] text-neon">${_escH(s.name)}</span>
                         <span class="text-gray-500 text-[10px] ml-2">${_escH(s.target)}</span>
-                        <span class="text-gray-700 text-[9px] ml-2">${s.request_count} requests</span>
+                        <span class="text-gray-400 text-[9px] ml-2">${s.request_count} requests</span>
                     </div>
-                    <div class="text-[9px] text-gray-700">${new Date(s.created_at).toLocaleString()}</div>
+                    <div class="text-[9px] text-gray-400">${new Date(s.created_at).toLocaleString()}</div>
                 </div>
             `).join('');
         } catch(e) {
@@ -9361,7 +9391,7 @@ Reglas:
                         <div class="text-[9px] text-gray-500">Target</div>
                     </div>
                     <div class="p-3 bg-deep/50 rounded border border-gray-800 text-center">
-                        <div class="text-lg font-bold ${analysis ? (analysis.risk_score > 50 ? 'text-blood' : analysis.risk_score > 20 ? 'text-yellow-400' : 'text-green-400') : 'text-gray-600'}">${analysis ? analysis.risk_score.toFixed(1) : '—'}</div>
+                        <div class="text-lg font-bold ${analysis ? (analysis.risk_score > 50 ? 'text-blood' : analysis.risk_score > 20 ? 'text-yellow-400' : 'text-green-400') : 'text-gray-400'}">${analysis ? analysis.risk_score.toFixed(1) : '—'}</div>
                         <div class="text-[9px] text-gray-500">Risk Score</div>
                     </div>
                     <div class="p-3 bg-deep/50 rounded border border-gray-800 text-center">
@@ -9438,7 +9468,7 @@ Reglas:
             const data = await resp.json();
             const reqs = data.requests || [];
             if (reqs.length === 0) {
-                table.innerHTML = '<p class="text-gray-600 text-[10px]">No requests match filters.</p>';
+                table.innerHTML = '<p class="text-gray-400 text-[10px]">No requests match filters.</p>';
                 return;
             }
             table.innerHTML = `<table class="w-full text-[10px]"><thead><tr class="text-gray-500 border-b border-gray-800">
@@ -9450,8 +9480,8 @@ Reglas:
                     <td class="py-1 px-2 font-mono ${methodColor}">${r.method}</td>
                     <td class="py-1 px-2 text-gray-400 truncate max-w-md">${_escH(r.url)}</td>
                     <td class="py-1 px-2 font-mono ${statusColor}">${r.response_status || '—'}</td>
-                    <td class="py-1 px-2 text-gray-600">${r.response_body ? (r.response_body.length / 1024).toFixed(1) + 'KB' : '—'}</td>
-                    <td class="py-1 px-2 text-gray-600">${r.timing?.receive || '—'}ms</td>
+                    <td class="py-1 px-2 text-gray-400">${r.response_body ? (r.response_body.length / 1024).toFixed(1) + 'KB' : '—'}</td>
+                    <td class="py-1 px-2 text-gray-400">${r.timing?.receive || '—'}ms</td>
                 </tr>`;
             }).join('')}</tbody></table>`;
         } catch(e) {
@@ -9567,7 +9597,7 @@ Reglas:
                     : '<span class="text-green-400 font-bold">✓ Not found in breach/paste sources</span>');
             const mxHtml = mx.length
                 ? mx.map(m => `<span class="inline-block bg-void border border-cyber rounded px-2 py-0.5 mr-1 mb-1 font-mono text-[11px] text-gray-300">${_escH(m)}</span>`).join('')
-                : '<span class="text-gray-600">No MX records (domain may not resolve)</span>';
+                : '<span class="text-gray-400">No MX records (domain may not resolve)</span>';
             const pasteHtml = (b.paste_urls || []).length
                 ? `<div class="mt-2 text-xs">${b.paste_urls.map(u => `<a class="block text-cyber hover:text-neon truncate" href="${_safeUrl(u)}" target="_blank" rel="noopener">${_escH(u)}</a>`).join('')}</div>`
                 : '';
@@ -9621,13 +9651,13 @@ Reglas:
             }
             const results = data.results || [];
             if (!results.length) {
-                _osintRender('osint-dork-result', '<div class="text-gray-600 text-xs">No results found.</div>');
+                _osintRender('osint-dork-result', '<div class="text-gray-400 text-xs">No results found.</div>');
                 showToast('🕵️ Dork complete — no results');
                 return;
             }
             const searchLinks = (data.search_urls || {});
             _osintRender('osint-dork-result', `
-                <div class="text-[10px] text-gray-600 mb-2 font-mono">${_escH(data.query)} — ${results.length} results (${_escH(data.engine || '')}) · ${Object.entries(searchLinks).map(([k, u]) => `<a class="text-cyber hover:text-neon mr-2" href="${_safeUrl(u)}" target="_blank" rel="noopener">${_escH(k)}</a>`).join('')}</div>
+                <div class="text-[10px] text-gray-400 mb-2 font-mono">${_escH(data.query)} — ${results.length} results (${_escH(data.engine || '')}) · ${Object.entries(searchLinks).map(([k, u]) => `<a class="text-cyber hover:text-neon mr-2" href="${_safeUrl(u)}" target="_blank" rel="noopener">${_escH(k)}</a>`).join('')}</div>
                 <div class="space-y-2">${results.map(r => `
                     <div class="bg-void border border-cyber/50 rounded p-2">
                         <a class="text-cyber hover:text-neon text-xs font-semibold break-all" href="${_safeUrl(r.url)}" target="_blank" rel="noopener">${_escH(r.title || r.url)}</a>
@@ -9703,8 +9733,8 @@ Reglas:
                     <div class="bg-void border border-cyber/50 rounded p-2">
                         <a class="text-cyber hover:text-neon text-xs font-semibold break-all" href="${_safeUrl(r.url)}" target="_blank" rel="noopener">${_escH(r.title || r.url)}</a>
                         <div class="text-[10px] text-gray-500 break-all">${_escH(r.url)}</div>
-                        ${r.source ? `<div class="text-[10px] text-gray-600">source: ${_escH(r.source)}</div>` : ''}
-                    </div>`).join('')}</div>` : '<div class="text-gray-600 text-xs">No matches found via passive search.</div>'}`);
+                        ${r.source ? `<div class="text-[10px] text-gray-400">source: ${_escH(r.source)}</div>` : ''}
+                    </div>`).join('')}</div>` : '<div class="text-gray-400 text-xs">No matches found via passive search.</div>'}`);
             showToast('🕵️ Reverse image complete');
         } catch (err) {
             _osintRenderError('osint-image-result', 'Network error: ' + (err.message || err));
@@ -9730,7 +9760,7 @@ Reglas:
             }
             const snaps = data.snapshots || [];
             if (!snaps.length) {
-                _osintRender('osint-wayback-result', '<div class="text-gray-600 text-xs">No snapshots found for this domain.</div>');
+                _osintRender('osint-wayback-result', '<div class="text-gray-400 text-xs">No snapshots found for this domain.</div>');
                 showToast('🕵️ Wayback complete — no snapshots');
                 return;
             }
@@ -9752,7 +9782,7 @@ Reglas:
                         }).join('')}</tbody>
                     </table>
                 </div>
-                <div class="text-[10px] text-gray-600 mt-1">${snaps.length} snapshot(s) for ${_escH(data.domain || domain)}</div>`);
+                <div class="text-[10px] text-gray-400 mt-1">${snaps.length} snapshot(s) for ${_escH(data.domain || domain)}</div>`);
             showToast('🕵️ Wayback complete');
         } catch (err) {
             _osintRenderError('osint-wayback-result', 'Network error: ' + (err.message || err));
@@ -9840,7 +9870,7 @@ Reglas:
                         </a>` : `
                         <div class="bg-void border border-gray-800 rounded p-2 opacity-60">
                             <div class="text-[11px] font-semibold text-gray-400">${_escH(p.platform)}</div>
-                            <div class="text-[10px] text-gray-600">✗ not found</div>
+                            <div class="text-[10px] text-gray-400">✗ not found</div>
                         </div>`).join('')}
                 </div>`);
             showToast(`🕵️ Username recon complete — ${found.length} found`);
@@ -9891,7 +9921,7 @@ Reglas:
                             <div class="text-[10px] text-gray-500 font-mono">⭐ ${_escH(r.stargazers_count ?? 0)} · 🍴 ${_escH(r.forks_count ?? 0)}${r.language ? ` · ${_escH(r.language)}` : ''}</div>
                         </div>
                         ${r.description ? `<div class="text-[11px] text-gray-400 mt-0.5">${_escH(r.description)}</div>` : ''}
-                    </div>`).join('')}</div>` : '<div class="text-gray-600 text-xs">No public repos.</div>'}`);
+                    </div>`).join('')}</div>` : '<div class="text-gray-400 text-xs">No public repos.</div>'}`);
             showToast('🕵️ GitHub recon complete');
         } catch (err) {
             _osintRenderError('osint-github-result', 'Network error: ' + (err.message || err));
@@ -9972,7 +10002,7 @@ Reglas:
                     </div>
                     ${p.biography ? `<div class="mt-3 bg-deep border border-cyber/50 rounded p-2 text-[11px] text-gray-300">${_escH(p.biography)}</div>` : ''}
                     ${rows.length ? `<div class="mt-3">${rows.join('')}</div>` : ''}
-                    ${typeof p.total_igtv_videos === 'number' ? `<div class="text-[10px] text-gray-600 mt-2">${_escH(p.total_igtv_videos)} IGTV videos</div>` : ''}
+                    ${typeof p.total_igtv_videos === 'number' ? `<div class="text-[10px] text-gray-400 mt-2">${_escH(p.total_igtv_videos)} IGTV videos</div>` : ''}
                 </div>
                 ${lookupHtml}`);
             showToast('🕵️ Instagram recon complete');
@@ -10051,7 +10081,7 @@ Reglas:
                 const mx = Array.isArray(v.mx_records) ? v.mx_records : [];
                 const mxRow = mx.length
                     ? mx.map(m => `<span class="inline-block bg-deep border border-cyber rounded px-1.5 py-0.5 mr-1 mb-1 font-mono text-[10px] text-gray-300">${_escH(m)}</span>`).join('')
-                    : '<span class="text-gray-600 text-[10px]">No MX records</span>';
+                    : '<span class="text-gray-400 text-[10px]">No MX records</span>';
                 return section('Email Verification', `
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-1.5 text-[11px]">
                         <div><span class="text-gray-500">Format:</span> ${v.valid_format ? '<span class="text-green-400">✓ valid</span>' : '<span class="text-blood">✗ invalid</span>'}</div>
@@ -10075,7 +10105,7 @@ Reglas:
                     </a>` : `
                     <div class="bg-deep border border-gray-800 rounded p-1.5 opacity-60">
                         <div class="text-[10px] font-semibold text-gray-400">${_escH(p.platform)}</div>
-                        <div class="text-[9px] text-gray-600">✗ not found</div>
+                        <div class="text-[9px] text-gray-400">✗ not found</div>
                     </div>`).join('');
                 return section(`Username Platforms (${found}/${profiles.length} found)`,
                     `<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-1.5">${grid}</div>`);
@@ -10095,7 +10125,7 @@ Reglas:
                                 <div class="text-[9px] text-gray-500 font-mono">⭐ ${_escH(r.stargazers_count ?? 0)} · 🍴 ${_escH(r.forks_count ?? 0)}${r.language ? ` · ${_escH(r.language)}` : ''}</div>
                             </div>
                         </div>`).join('')}</div>`
-                    : '<div class="text-gray-600 text-[10px]">No public repos.</div>';
+                    : '<div class="text-gray-400 text-[10px]">No public repos.</div>';
                 return section('GitHub', `
                     <div class="flex items-center gap-2 flex-wrap">
                         ${p.avatar_url ? `<img class="w-10 h-10 rounded-full border border-cyber" src="${_safeUrl(p.avatar_url)}" alt="avatar" onerror="this.style.display='none'">` : ''}
@@ -10117,7 +10147,7 @@ Reglas:
                 if (!w) return '';
                 const snaps = Array.isArray(w.snapshots) ? w.snapshots : [];
                 if (!snaps.length) {
-                    return section('Wayback', '<div class="text-gray-600 text-[10px]">No snapshots found.</div>');
+                    return section('Wayback', '<div class="text-gray-400 text-[10px]">No snapshots found.</div>');
                 }
                 const rows = snaps.map(s => {
                     const st = String(s.status || '—');
@@ -10146,7 +10176,7 @@ Reglas:
                 if (!sub) return '';
                 const list = Array.isArray(sub.found) ? sub.found : (Array.isArray(sub) ? sub : []);
                 if (!list.length) {
-                    return section('Subdomains', '<div class="text-gray-600 text-[10px]">No subdomains found.</div>');
+                    return section('Subdomains', '<div class="text-gray-400 text-[10px]">No subdomains found.</div>');
                 }
                 const items = list.map(d => `<span class="inline-block bg-deep border border-cyber rounded px-2 py-0.5 mr-1 mb-1 font-mono text-[10px] text-gray-300">${_escH(d)}</span>`).join('');
                 return section(`Subdomains (${list.length} found)`, `<div>${items}</div>`);
@@ -10169,13 +10199,13 @@ Reglas:
             const sectionsHtml = [breachHtml, verifHtml, platformsHtml, githubHtml, waybackHtml, subdomainsHtml, phoneHtml].filter(Boolean).join('');
             const bodyHtml = sectionsHtml
                 ? `<div class="space-y-2">${sectionsHtml}</div>`
-                : '<div class="text-gray-600 text-xs">No results returned for this target.</div>';
+                : '<div class="text-gray-400 text-xs">No results returned for this target.</div>';
 
             _osintRender('osint-correlate-result', `
                 <div class="bg-void border border-cyber rounded p-2 mb-2 flex items-center justify-between gap-2 flex-wrap">
                     <div class="text-[11px] font-mono text-gray-300">
                         <span class="text-gray-500">type:</span> <span class="text-neon">${_escH(data.target_type || targetType)}</span>
-                        <span class="text-gray-600 mx-1">·</span>
+                        <span class="text-gray-400 mx-1">·</span>
                         <span class="text-gray-500">target:</span> <span class="text-white">${_escH(data.target || target)}</span>
                     </div>
                     <div class="text-[10px] text-gray-500 font-mono">⏱ ${_escH(duration)}</div>

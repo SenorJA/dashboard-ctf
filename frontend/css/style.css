@@ -8,6 +8,15 @@
    ================================================================ */
 
 /* ── Base ── */
+:root {
+    color-scheme: dark;
+}
+
+*:focus-visible {
+    outline: 2px solid #d4a843;
+    outline-offset: 1px;
+}
+
 body {
     font-family: 'IBM Plex Mono', 'Courier New', monospace;
     background: #0b0e14;
@@ -340,7 +349,7 @@ body::before {
 }
 
 .script-editor::placeholder {
-    color: #2a354f;
+    color: #4a5268;
 }
 
 .script-template-btn {
@@ -387,7 +396,7 @@ body::before {
 }
 
 .bounty-input::placeholder {
-    color: #2a354f;
+    color: #4a5268;
 }
 
 .bounty-label {
@@ -481,12 +490,12 @@ select.bounty-input option {
 .hak5-device-btn[data-device="bunny"].active { color: #d4a843; border-color: #d4a843; }
 .hak5-device-btn[data-device="omg"].active { color: #3b8f8a; border-color: #3b8f8a; }
 .hak5-device-btn[data-device="m5"].active { color: #8b7ec8; border-color: #8b7ec8; }
-.hak5-device-btn[data-device="shack"].active { color: #b8473e; border-color: #b8473e; }
+.hak5-device-btn[data-device="shack"].active { color: #d65a4f; border-color: #d65a4f; }
 
 .hak5-device-btn[data-device="bunny"]:hover { color: #d4a843; border-color: #d4a843; }
 .hak5-device-btn[data-device="omg"]:hover { color: #3b8f8a; border-color: #3b8f8a; }
 .hak5-device-btn[data-device="m5"]:hover { color: #8b7ec8; border-color: #8b7ec8; }
-.hak5-device-btn[data-device="shack"]:hover { color: #b8473e; border-color: #b8473e; }
+.hak5-device-btn[data-device="shack"]:hover { color: #d65a4f; border-color: #d65a4f; }
 
 /* ── AI status dot ── */
 .ai-status-dot {
@@ -516,8 +525,8 @@ body.monochrome {
     --mono-surface: #111111;
     --mono-border: #2a2a2a;
     --mono-text: #e0e0e0;
-    --mono-text-dim: #666666;
-    --mono-text-dark: #444444;
+    --mono-text-dim: #9a9a9a;
+    --mono-text-dark: #777777;
     --mono-accent: #ffffff;
     --mono-accent-dim: #888888;
 }
