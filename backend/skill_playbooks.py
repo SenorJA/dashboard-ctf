@@ -82,6 +82,7 @@ class SkillManifest:
     disable_model_invocation: bool = False  # if True, only reachable via manual /skill <name>
     version: str = _DEFAULT_VERSION
     author: str = ""
+    requires_scope: bool = False  # if True, render endpoint gates on authorized scope
 
 
 @dataclass
@@ -254,6 +255,7 @@ def _validate_manifest(fm: dict, dir_name: str) -> tuple[SkillManifest | None, s
     version = str(fm.get("version", _DEFAULT_VERSION)).strip() or _DEFAULT_VERSION
     author = str(fm.get("author", "")).strip()
     disable_model = _to_bool(fm.get("disable_model_invocation", False))
+    requires_scope = _to_bool(fm.get("requires_scope", False))
 
     manifest = SkillManifest(
         name=name,
@@ -263,6 +265,7 @@ def _validate_manifest(fm: dict, dir_name: str) -> tuple[SkillManifest | None, s
         disable_model_invocation=disable_model,
         version=version,
         author=author,
+        requires_scope=requires_scope,
     )
     return manifest, None
 
@@ -295,6 +298,7 @@ def _info_dict(info: SkillInfo) -> dict:
         "disable_model_invocation": info.manifest.disable_model_invocation,
         "version": info.manifest.version,
         "author": info.manifest.author,
+        "requires_scope": info.manifest.requires_scope,
         "dir_path": info.dir_path,
         "enabled": info.enabled,
         "loaded_at": info.loaded_at,
@@ -612,6 +616,7 @@ def create_skill_template(
         'version: "1.0.0"',
         'author: ""',
         'disable_model_invocation: false',
+        'requires_scope: false',
         "---",
     ]
 

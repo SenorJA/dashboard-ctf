@@ -53,12 +53,19 @@ def builtin_only(monkeypatch):
     yield
 
 
-# 12 built-in skill playbooks (5 original + 5 PentesterFlow + 1 OSINT + 1 password-audit)
+# 28 built-in skill playbooks (5 original + 5 PentesterFlow + 1 OSINT + 1 password-audit + 10 defensive + 1 education + 5 red-team)
 BUILTIN_NAMES = {
     "recon", "webvuln", "ssrf", "jwt", "supabase",          # original 5
     "graphql", "race", "takeover", "deserialize", "ssti",    # added 5
-    "osint",                                                 # added 1 (OSINT recon)
-    "password-audit",                                        # added 1 (password auditing)
+    "osint",                                                 # OSINT recon
+    "password-audit",                                        # password auditing
+    "memory-forensics", "threat-hunting-lsass", "bec-detection",
+    "network-traffic-malware", "persistence-hunting", "ransomware-splunk",
+    "aws-audit", "azure-hardening", "k8s-rbac-audit",
+    "lateral-movement-splunk",                                # defensive 10
+    "training-path",                                          # education
+    "kerberoasting", "ntlm-relay", "adcs-exploitation",
+    "bloodhound-collection", "c2-sliver",                     # red-team 5
 }
 
 
@@ -67,7 +74,7 @@ BUILTIN_NAMES = {
 # ════════════════════════════════════════════════════════════════
 
 class TestDiscovery:
-    def test_discover_finds_all_twelve_builtins(self, builtin_only):
+    def test_discover_finds_all_twenty_eight_builtins(self, builtin_only):
         names = sp.discover_skills()
         assert set(names) == BUILTIN_NAMES
 

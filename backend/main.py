@@ -2092,14 +2092,42 @@ async def api_skill_reload(name: str):
 
 @app.get("/api/skills/{name}/render")
 async def api_skill_render(name: str):
-    """Return the rendered markdown body for AI injection (empty if disabled)."""
+    """Return the rendered markdown body for AI injection (empty if disabled).
+
+    Skills flagged ``requires_scope: true`` in their frontmatter are gated:
+    the render endpoint refuses to hand over the methodology body until an
+    authorized scope (``scope_guard.get_config()['targets']``) is configured.
+    This prevents an operator from injecting active-attack playbooks into an
+    AI prompt before any target has been formally authorized.
+    """
     try:
+        info = sp_info(name)
+        if not info:
+            return JSONResponse({"ok": False, "error": "Skill not found"}, status_code=404)
+
+        # ── Scope gate ──────────────────────────────────────────────
+        if info.get("requires_scope"):
+            try:
+                from backend.scope_guard import get_config as _get_scope_config
+                scope_cfg = _get_scope_config() or {}
+            except Exception as e:
+                logger.error("[skills render] scope check error: %s", e)
+                return JSONResponse(
+                    {"ok": False, "error": "Scope check failed"},
+                    status_code=500,
+                )
+            if not scope_cfg.get("targets"):
+                return JSONResponse(
+                    {
+                        "ok": False,
+                        "error": "This skill requires an authorized scope. Configure scope first.",
+                    },
+                    status_code=403,
+                )
+
         body = sp_render(name)
         if not body:
             # skill missing or disabled — still return 200 with empty string
-            info = sp_info(name)
-            if not info:
-                return JSONResponse({"ok": False, "error": "Skill not found"}, status_code=404)
             return JSONResponse({"ok": True, "name": name, "body": "", "enabled": False})
         return JSONResponse({"ok": True, "name": name, "body": body, "enabled": True})
     except Exception as e:
