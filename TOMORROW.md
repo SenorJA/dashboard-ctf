@@ -1,6 +1,6 @@
 # 🔮 TOMORROW.md — Roadmap de trabajo pendiente
 
-> Última actualización: 15 Ago 2026 — MIRV v5.4 | 33 módulos | 238 endpoints | 4164 tests | 26 tabs | main.py 100%
+> Última actualización: 15 Ago 2026 — MIRV v5.5 | 33 módulos | 238 endpoints | 4184 tests | 26 tabs | main.py 100%
 > ✅ **CI 100% VERDE** — recursión `AuditLogHandler` (CI #47/#48) + 11 fallos pre-existentes desenmascarados, todos resueltos en la serie `d8569d8`→`3cb20fb`. Ver § Postmortems al final.
 > ✅ **exif_osint.py y dlp_scanner.py al 100% de cobertura** (bugs #4/#5 cerrados, 12 Ago 2026).
 > ✅ **Export findings a PDF profesional** (14 Ago 2026): endpoint unificado `POST /api/report/export-pdf` + detalle por finding + resumen ejecutivo automático + frontend conectado (commit `92f4fa3`, CI ✅ Deploy ✅).
@@ -12,6 +12,7 @@
 > ✅ **Ronda 3 — Correlación OSINT** (15 Ago 2026, commit `408c717`): módulo `osint_correlate.py` (100% cov) + `POST /api/osint/correlate` (email→breach+verify, username→platforms+github, domain→wayback+subdomain, phone→lookup) + 10ª tarjeta Correlate en tab OSINT. Tests de red adicional marcados `@pytest.mark.slow` (example.com, DNS — 17 tests más).
 > ✅ **Ronda 4 — Calidad** (15 Ago 2026, commit `2200926`): a11y (18 aria-labels, 13 aria-live, 2 landmarks) + i18n 100% (8 keys faltantes cubiertas) + README.md rewrite (14 secciones, FAQ, capturas placeholder) + auditoría UI (`docs/UI_AUDIT_2026-08-15.md`, 335L, 24 hallazgos: 8 P1, 10 P2, 6 P3).
 > ✅ **Ronda 4b — P1 UI audit fixes** (15 Ago 2026, commit `ee1d844`): contraste WCAG AA (text-gray-600/700/800→400 en 303 sitios + placeholder-gray-700→500 + text-blood #b8473e→#d65a4f + monochrome --mono-text-dim/dark aclarados) + tab roles ARIA (27 role=tab + 27 role=tabpanel + 1 role=tablist + roving tabindex) + 20 labels con for= + 107 aria-labels en inputs + 8 modales con role=dialog + Escape listener + 13 cat-header→button con aria-expanded + color-scheme:dark + focus-visible global. 2 plugin_watcher timing tests marcados @pytest.mark.slow (CI flake).
+> ✅ **Ronda 5 — Pre-producción** (15 Ago 2026, commit `cfc7ef9`): smoke test E2E (20 tests, 8 flujos críticos: health/OSINT/reports/findings/skills/settings/scope/static) + backup/restore localStorage (`exportLocalStorage`/`importLocalStorage` con `_meta` metadata, confirmación, reload) + `CHANGELOG.md` (Keep a Changelog, 40 commits, 5 categorías).
 
 ---
 
@@ -21,8 +22,8 @@
 |---------|-------|
 | Backend modules | 33 (main.py + 32 especializados) |
 | REST endpoints | 238 (+1: `/api/osint/correlate`) |
-| Test files | 83 (+3: `test_osint_recon_gaps.py`, `test_subdomain_scanner_gaps2.py`, `test_rate_limiter.py`, `test_osint_correlate.py`) |
-| Tests collected | 4164 (4084 pass / 80 slow-deselected) |
+| Test files | 84 (+1: `test_smoke_e2e.py`) |
+| Tests collected | 4184 (4104 pass / 80 slow-deselected) |
 | Coverage | ~97% global — **main.py 100%**, **exif_osint 100%**, **dlp_scanner 100%**, **pdf_engine 99%**, **osint_recon 100%**, **subdomain_scanner 99%**, **instagram_osint 100%**, **osint_correlate 100%**, **rate_limiter 100%** |
 | Frontend tabs | 26 |
 | Frontend JS | ~10228 líneas (main.v2.js) |
