@@ -6526,6 +6526,10 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         intelNoWatches:    { en: 'No watches configured. Click "+ New Watch" to start monitoring.', es: 'Sin watches configurados. Clic en "+ Nuevo Watch" para empezar a monitorear.' },
         intelAlerts:       { en: '⚠️ Alerts',                es: '⚠️ Alertas' },
         intelClearAlerts:  { en: 'Clear all',                es: 'Limpiar todo' },
+
+        // ── Backup / Restore (localStorage) ──
+        exportData:        { en: '📦 Export Data',           es: '📦 Exportar Datos' },
+        importData:        { en: '📥 Import Data',           es: '📥 Importar Datos' },
     };
 
     window.currentLang = localStorage.getItem('vulnforge_lang') || 'en';
@@ -6688,6 +6692,133 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         document.getElementById('lang-text').textContent = 'EN';
         applyLanguage('en');
     }
+
+    // ============================================================
+    //  BACKUP / RESTORE — localStorage (mirv_ + vulnforge_ keys)
+    // ============================================================
+    /**
+     * Collect every localStorage key that belongs to MIRV (mirv_* or vulnforge_*)
+     * and bundle it into a portable JSON backup with _meta metadata.
+     */
+    function collectLocalStorageBackup() {
+        const data = {};
+        let count = 0;
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (!key || (key.indexOf('mirv_') !== 0 && key.indexOf('vulnforge_') !== 0)) continue;
+            const raw = localStorage.getItem(key);
+            if (raw === null) continue;
+            // Try to parse JSON; keep strings as-is if it isn't valid JSON.
+            let value = raw;
+            try {
+                value = JSON.parse(raw);
+            } catch (e) {
+                value = raw; // plain string (e.g. theme, lang)
+            }
+            data[key] = value;
+            count++;
+        }
+        data._meta = {
+            exported_at: new Date().toISOString(),
+            version: '1.0',
+            key_count: count,
+        };
+        return data;
+    }
+
+    /**
+     * Export all MIRV localStorage entries as a pretty-printed JSON file.
+     */
+    window.exportLocalStorage = function () {
+        try {
+            const data = collectLocalStorageBackup();
+            const count = data._meta.key_count;
+            if (count === 0) {
+                showToast('⚠️ No MIRV data found to export');
+                return;
+            }
+            const json = JSON.stringify(data, null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const ts = new Date();
+            const pad = (n) => String(n).padStart(2, '0');
+            const stamp =
+                ts.getFullYear() +
+                pad(ts.getMonth() + 1) +
+                pad(ts.getDate()) +
+                '-' +
+                pad(ts.getHours()) +
+                pad(ts.getMinutes()) +
+                pad(ts.getSeconds());
+            const filename = `mirv-backup-${stamp}.json`;
+            downloadBlob(blob, filename);
+            showToast(`📦 Exported ${count} keys`);
+        } catch (err) {
+            console.error('[backup] exportLocalStorage failed:', err);
+            showToast('❌ Export failed: ' + (err && err.message ? err.message : 'unknown error'));
+        }
+    };
+
+    /**
+     * Trigger the hidden file input so the user can pick a backup JSON.
+     */
+    window.importLocalStorage = function () {
+        const input = document.getElementById('import-file-input');
+        if (!input) {
+            showToast('❌ Import input not found');
+            return;
+        }
+        input.value = ''; // reset so the same file can be re-selected
+        input.click();
+    };
+
+    /**
+     * Handle the file chosen by the hidden input: validate, confirm, restore.
+     */
+    window.handleImportFile = function (event) {
+        const file = event && event.target && event.target.files && event.target.files[0];
+        if (!file) {
+            showToast('❌ No file selected');
+            return;
+        }
+        const reader = new FileReader();
+        reader.onerror = function () {
+            showToast('❌ Failed to read file');
+        };
+        reader.onload = function (ev) {
+            let parsed;
+            try {
+                parsed = JSON.parse(ev.target.result);
+            } catch (err) {
+                showToast('❌ Invalid backup file');
+                return;
+            }
+            if (!parsed || typeof parsed !== 'object' || !parsed._meta) {
+                showToast('❌ Invalid backup file');
+                return;
+            }
+            const confirmed = confirm('This will OVERWRITE your current data. Continue?');
+            if (!confirmed) {
+                showToast('❌ Import cancelled');
+                return;
+            }
+            let imported = 0;
+            try {
+                Object.keys(parsed).forEach((key) => {
+                    if (key === '_meta') return;
+                    const value = parsed[key];
+                    const stored = typeof value === 'string' ? value : JSON.stringify(value);
+                    localStorage.setItem(key, stored);
+                    imported++;
+                });
+                showToast(`📥 Imported ${imported} keys`);
+                setTimeout(() => location.reload(), 1000);
+            } catch (err) {
+                console.error('[backup] importLocalStorage failed:', err);
+                showToast('❌ Import failed: ' + (err && err.message ? err.message : 'unknown error'));
+            }
+        };
+        reader.readAsText(file);
+    };
 
     // ============================================================
     //  EVENT LISTENERS

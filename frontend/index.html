@@ -406,6 +406,27 @@
                     </div>
                 </div>  <!-- /p-3 arsenal -->
 
+            <!-- ── BACKUP / RESTORE ── -->
+            <div class="px-3 py-2 border-t border-[#1a1f2e]">
+                <p class="text-[9px] font-semibold text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+                    <span class="text-neon/60">◆</span> Backup / Restore
+                </p>
+                <div class="flex gap-1">
+                    <button type="button" onclick="exportLocalStorage()"
+                        class="flex-1 bg-cyber/20 hover:bg-cyber/40 border border-cyber/40 text-cyber text-[10px] font-mono font-bold px-2 py-1 rounded transition-all duration-150"
+                        aria-label="Export all data" data-i18n="exportData">
+                        📦 Export Data
+                    </button>
+                    <button type="button" onclick="importLocalStorage()"
+                        class="flex-1 bg-neon/10 hover:bg-neon/25 border border-neon/40 text-neon text-[10px] font-mono font-bold px-2 py-1 rounded transition-all duration-150"
+                        aria-label="Import data" data-i18n="importData">
+                        📥 Import Data
+                    </button>
+                </div>
+                <input type="file" id="import-file-input" accept=".json,application/json"
+                    style="display:none" onchange="handleImportFile(event)" />
+            </div>
+
             <!-- ── SIDEBAR FOOTER ── -->
             <div class="mt-auto p-3 border-t border-[#1a1f2e]">
                 <p class="text-[9px] text-gray-400 flex items-center gap-1">
