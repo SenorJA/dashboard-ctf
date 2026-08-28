@@ -27,6 +27,9 @@ from threading import Lock
 _LIMITS = {
     "/api/osint/username": 10,
     "/api/osint/instagram": 10,
+    # Correlation fans out 2-3 OSINT sources per call, so it is
+    # markedly more expensive than a single-source endpoint — 10/min.
+    "/api/osint/correlate": 10,
 }
 _DEFAULT_LIMIT = 30  # requests per minute
 _WINDOW = 60.0  # seconds

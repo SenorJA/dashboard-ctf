@@ -216,9 +216,14 @@ class TestScanInvalidUrl:
 # 3. report_to_mirv_findings() — schema validation
 # ===================================================================
 
+@pytest.mark.slow
 class TestMIRVFindingsSchema:
     """Ensure every finding from report_to_mirv_findings has correct schema."""
 
+    # NOTE: @pytest.mark.slow — these tests call scan("https://example.com")
+    # which makes REAL network calls. Excluded from CI via -m "not slow".
+
+    @pytest.mark.slow
     @pytest.mark.asyncio
     async def test_all_findings_have_required_keys(self):
         """Every finding must contain tool, severity, title, detail, target, type."""
@@ -287,6 +292,7 @@ class TestMIRVFindingsSchema:
 # 4. scan() against example.com — missing security headers
 # ===================================================================
 
+@pytest.mark.slow
 class TestScanExampleCom:
     """example.com is a minimal server that should lack security headers."""
 

@@ -1,12 +1,15 @@
 # 🔮 TOMORROW.md — Roadmap de trabajo pendiente
 
-> Última actualización: 15 Ago 2026 — MIRV v5.2 | 32 módulos | 237 endpoints | 4071 tests | 26 tabs | main.py 100%
+> Última actualización: 15 Ago 2026 — MIRV v5.3 | 33 módulos | 238 endpoints | 4164 tests | 26 tabs | main.py 100%
 > ✅ **CI 100% VERDE** — recursión `AuditLogHandler` (CI #47/#48) + 11 fallos pre-existentes desenmascarados, todos resueltos en la serie `d8569d8`→`3cb20fb`. Ver § Postmortems al final.
 > ✅ **exif_osint.py y dlp_scanner.py al 100% de cobertura** (bugs #4/#5 cerrados, 12 Ago 2026).
 > ✅ **Export findings a PDF profesional** (14 Ago 2026): endpoint unificado `POST /api/report/export-pdf` + detalle por finding + resumen ejecutivo automático + frontend conectado (commit `92f4fa3`, CI ✅ Deploy ✅).
 > ✅ **Andamiaje Hitos A/B desplegable** (14 Ago 2026, commit `b6a1d4b`): `deploy/bootstrap-vps.sh` + `deploy/README.md` + servicio `cloudflared` (profile) + `deploy/cloudflared/setup-cloudflared.sh` + `PRODUCTION_PLAN.md` estado actualizado. ⬜ Solo quedan pasos manuales del usuario (crear VPS + comprar dominio).
 > ✅ **Suite OSINT pasivo integrada** (15 Ago 2026, commit `4918397`): skill `osint` (11º playbook) + `subdomain_scanner` pasivo (crt.sh + Wayback) + módulo `osint_recon.py` (9 funciones) + 8 endpoints `/api/osint/*` + tab OSINT Recon. CI ✅ Deploy ✅.
 > ✅ **Fase 3 OSINT** (15 Ago 2026, commits `eb6542e` + `945b726` + `90ca638`): skill `password-audit` (12º playbook) + port `ghostig` → `backend/instagram_osint.py` + endpoint `/api/osint/instagram` + 9ª tarjeta Instagram Recon. **CI flake httpbin resuelto** (9 tests marcados `@pytest.mark.slow`).
+> ✅ **Ronda 1 — Endurecimiento** (15 Ago 2026, commit `09680e8`): cobertura `osint_recon.py` 91%→**100%** + `subdomain_scanner.py` 96%→**99%** (26 tests gap) + auditoría seguridad (786L, 18 hallazgos: 0 P0, 2 P1, 6 P2, 10 P3 — veredicto SEGURO CON NOTAS) + responsive móvil tab OSINT (1→2→3 cols).
+> ✅ **Ronda 2 — Security hardening** (15 Ago 2026, commit `4bb319d`): fix P1+P2 audit — token opcional `MIRV_OSINT_TOKEN` (H-001) + rate limiter custom sliding-window 30/10 req/min (H-002) + `_safeUrl()` frontend (H-003) + `max_length` en inputs Pydantic+HTML (H-004) + rechazo IPs privadas (H-005) + validación dominio estricto (H-006) + HTTP→HTTPS wayback (H-007) + logger sin input del usuario (H-008). 36 tests nuevos, `rate_limiter.py` 100% cov.
+> ✅ **Ronda 3 — Correlación OSINT** (15 Ago 2026, commit `4a2c1ef`): módulo `osint_correlate.py` (100% cov) + `POST /api/osint/correlate` (email→breach+verify, username→platforms+github, domain→wayback+subdomain, phone→lookup) + 10ª tarjeta Correlate en tab OSINT. Tests de red adicional marcados `@pytest.mark.slow` (example.com, DNS — 17 tests más).
 
 ---
 
@@ -14,17 +17,17 @@
 
 | Métrica | Valor |
 |---------|-------|
-| Backend modules | 32 (main.py + 31 especializados) |
-| REST endpoints | 237 (+1: `/api/osint/instagram`) |
-| Test files | 80 (+1: `test_instagram_osint.py`) |
-| Tests collected | 4071 (4010 pass / 61 slow-deselected) |
-| Coverage | ~97% global — **main.py 100%**, **exif_osint 100%**, **dlp_scanner 100%**, **pdf_engine 99%**, **osint_recon 91%**, **subdomain_scanner 96%**, **instagram_osint 100%** |
+| Backend modules | 33 (main.py + 32 especializados) |
+| REST endpoints | 238 (+1: `/api/osint/correlate`) |
+| Test files | 83 (+3: `test_osint_recon_gaps.py`, `test_subdomain_scanner_gaps2.py`, `test_rate_limiter.py`, `test_osint_correlate.py`) |
+| Tests collected | 4164 (4086 pass / 78 slow-deselected) |
+| Coverage | ~97% global — **main.py 100%**, **exif_osint 100%**, **dlp_scanner 100%**, **pdf_engine 99%**, **osint_recon 100%**, **subdomain_scanner 99%**, **instagram_osint 100%**, **osint_correlate 100%**, **rate_limiter 100%** |
 | Frontend tabs | 26 |
-| Frontend JS | ~10013 líneas (main.v2.js) |
-| Frontend HTML | ~2813 líneas (index.html) |
+| Frontend JS | ~10228 líneas (main.v2.js) |
+| Frontend HTML | ~2829 líneas (index.html) |
 | GitHub Actions | 2 workflows (CI + Deploy) |
 | Docker images | 2 (mirv-backend + kali-tools) |
-| GitHub commits | 14+ esta serie |
+| GitHub commits | 18+ esta serie |
 
 ---
 
@@ -614,3 +617,50 @@ Localmente (Windows, sin watchdog): `3909 passed` con `-k "not test_slow_hook"` 
 - ✅ **Fase 3** (skill `password-audit` + `instagram_osint.py` + tarjeta Instagram Recon)
 
 Plan OSINT cerrado. Próximos hitos abiertos siguen siendo los manuales del usuario (VPS + Cloudflare Tunnel, andamiaje ya listo).
+
+---
+
+## 📝 Nota — Rondas 1-3: endurecimiento + security + correlación (15 Ago 2026)
+
+> Tras cerrar el plan OSINT (3 fases), se ejecutaron 3 rondas de calidad/seguridad/features para preparar la app para producción sin pagar hosting.
+
+### Ronda 1 — Endurecimiento (commit `09680e8`)
+| Frente | Antes | Después |
+|---|---|---|
+| Cobertura `osint_recon.py` | 91% (28 líneas) | **100%** (18 tests gap) |
+| Cobertura `subdomain_scanner.py` | 96% (8 líneas) | **99%** (8 tests gap, 2 líneas dead code defensivo) |
+| Auditoría seguridad | — | Informe 786L: 0 P0, 2 P1, 6 P2, 10 P3 — veredicto SEGURO CON NOTAS |
+| Responsive tab OSINT | `grid-cols-1 lg:grid-cols-2` (huérfana) | `grid-cols-1 md:grid-cols-2 xl:grid-cols-3` (sin huérfana) |
+
+### Ronda 2 — Security hardening (commit `4bb319d`)
+| Hallazgo | Fix |
+|---|---|
+| **H-001** (P1) | Token opcional `MIRV_OSINT_TOKEN` (header `X-MIRV-Token`) — unset=open(localhost), set=401 sin header |
+| **H-002** (P1) | `rate_limiter.py` sliding-window per-IP: 30/min default, 10/min username/instagram/correlate, 429+Retry-After |
+| **H-003** (P2) | `_safeUrl()` frontend: valida `https?://` antes de `href`/`src` (13 sustituciones, bloquea `javascript:`) |
+| **H-004** (P2) | `Field(max_length=N)` en 7 modelos + `Query(max_length)` en 3 GET + `maxlength` en 9 inputs HTML |
+| **H-005** (P2) | `ip_geolocation` rechaza IPs privadas/loopback/link-local/reserved/multicast |
+| **H-006** (P2) | `wayback` valida dominio con regex estricto + denylist TLDs privados (`.internal`, `.local`, etc.) |
+| **H-007** (P2) | `_fetch_wayback` `http://` → `https://` |
+| **H-008** (P2) | `logger.exception(exc_info=False)` + `"Internal error"` fijo en 9 handlers (input no se loguea ni devuelve) |
+
+### Ronda 3 — Correlación OSINT (commit `4a2c1ef`)
+| Pieza | Detalle |
+|---|---|
+| `backend/osint_correlate.py` (nuevo, 100% cov) | `correlate_target(target_type, target)` — dispatch por tipo: email→breach+verify, username→platforms+github, domain→wayback+subdomain_passive, phone→lookup. `asyncio.gather` paralelo, nunca lanza |
+| `POST /api/osint/correlate` | Body `{target_type, target}`, `_osint_guard` (rate limit 10/min + token), 422/429/401/500 |
+| Frontend | 10ª tarjeta Correlate en tab OSINT: select tipo + input + botón Analyze → render combinado (7 secciones opcionales) |
+| Tests adicionales slow | 17 tests más marcados `@pytest.mark.slow` (TestMIRVFindingsSchema + TestScanExampleCon en test_api_scanner, 4 DNS tests — todos hacen red real a example.com/DNS) |
+
+### Verificación final
+| Suite | Resultado |
+|---|---|
+| Suite completa CI-emulada | ✅ **4086 passed, 78 deselected, 0 failed** (3.85 min) |
+| Cobertura global | ~97% — 7 módulos al 100% (main.py, exif_osint, dlp_scanner, osint_recon, instagram_osint, osint_correlate, rate_limiter) |
+| CI GitHub | ✅ todas las rondas CI+Deploy success |
+
+### Decisiones de diseño
+1. **Rate limiter custom vs slowapi**: cero deps nuevas, `deque` O(1) + `Lock`, apropiado para single-process. Si se escala horizontal, sustituir store por Redis sin tocar la API.
+2. **`_osint_guard(request, path)`**: helper único que centraliza rate-limit (429) + token (401) en los 10 endpoints OSINT. Orden: rate-limit primero (barato) → token después.
+3. **`_safeUrl()` frontend**: defensa en profundidad — los parsers server-side ya filtran `javascript:` pero el helper asegura que cualquier URL renderizada en `href`/`src` tenga scheme válido.
+4. **Tests de red marcados slow**: 26 tests total (9 httpbin + 17 example.com/DNS) ahora excluidos del CI. La suite CI pasa de ~7 min a ~4 min sin flakiness.

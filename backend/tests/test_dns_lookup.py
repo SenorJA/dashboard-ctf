@@ -27,6 +27,7 @@ from backend.dns_lookup import (
 # ──────────────────────────────────────────────
 # 1. lookup — A records for example.com
 # ──────────────────────────────────────────────
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_lookup_domain_a_records():
     """lookup('example.com', ['A']) should return at least one A record."""
@@ -54,6 +55,7 @@ async def test_lookup_domain_a_records():
 # ──────────────────────────────────────────────
 # 2. lookup — MX records for example.com
 # ──────────────────────────────────────────────
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_lookup_domain_mx_records():
     """lookup('example.com', ['MX']) should return MX records."""
@@ -79,6 +81,7 @@ async def test_lookup_domain_mx_records():
 # ──────────────────────────────────────────────
 # 3. lookup — NXDOMAIN handled gracefully
 # ──────────────────────────────────────────────
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_lookup_invalid_domain_nxdomain():
     """lookup for a non-existent domain should return an empty records dict."""
@@ -97,6 +100,7 @@ async def test_lookup_invalid_domain_nxdomain():
 # ──────────────────────────────────────────────
 # 4. reverse_lookup — 8.8.8.8
 # ──────────────────────────────────────────────
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_reverse_lookup_valid_ip():
     """reverse_lookup('8.8.8.8') — may or may not resolve from container."""

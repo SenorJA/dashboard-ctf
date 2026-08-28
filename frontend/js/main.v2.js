@@ -6385,6 +6385,8 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         "osint-username-title":{ en: '👤 Username Recon', es: '👤 Recon de Usuario' },
         "osint-github-title": { en: '🐙 GitHub Recon',  es: '🐙 Recon GitHub' },
         "osint-instagram-title": { en: '📸 Instagram Recon', es: '📸 Recon de Instagram' },
+        "osint-correlate-title": { en: '🔗 Correlate', es: '🔗 Correlar' },
+        "osint-corcanalyze":     { en: 'Analyze',         es: 'Analizar' },
         "osint-instagram-lookup": { en: 'include lookup', es: 'incluir lookup' },
         "osint-check":        { en: 'Check',            es: 'Comprobar' },
         "osint-search":       { en: 'Search',           es: 'Buscar' },
@@ -9497,8 +9499,8 @@ Reglas:
     };
 
     // ════════════════════════════════════════════════════════════════
-    //  OSINT RECON — 9 passive lookups (email, dork, phone, reverse
-    //  image, wayback, IP geo, username, github, instagram).  Public
+    //  OSINT RECON — 10 passive lookups (email, dork, phone, reverse
+    //  image, wayback, IP geo, username, github, instagram, correlate).
     //  data only, consumed from backend /api/osint/* (backend/osint_recon.py).
     // ════════════════════════════════════════════════════════════════
 
@@ -9968,6 +9970,212 @@ Reglas:
         }
     };
 
+    // ── 10. Correlate (multi-OSINT parallel) ───────────────────────
+    // Reuses the render format of the individual OSINT cards but compacted
+    // into bordered sections. Dispatches to /api/osint/correlate which fans
+    // out to multiple passive lookups server-side and returns a merged dict.
+    window.osintCorrelate = async function () {
+        const targetType = (document.getElementById('osint-correlate-type')?.value || 'email').trim();
+        const target = (document.getElementById('osint-correlate-input')?.value || '').trim();
+        if (!target) { showToast('🕵️ Enter a target value'); return; }
+        _osintLoading('osint-correlate-result', '🕵️ Correlating multiple OSINT sources in parallel...');
+        showToast('🕵️ Running correlate...');
+        try {
+            const data = await _osintFetch('/api/osint/correlate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ target_type: targetType, target })
+            });
+            if (!data.ok) {
+                // Specific error cases per contract
+                const code = data.code || '';
+                const status = data.status || 0;
+                if (status === 429 || code === 'rate_limited') {
+                    _osintRenderError('osint-correlate-result', 'Rate limited — espera antes de reintentar');
+                    showToast('🕵️ Correlate rate-limited');
+                } else if (status === 401 || code === 'unauthorized' || code === 'token_missing') {
+                    _osintRenderError('osint-correlate-result', 'Token de autenticación requerido o inválido');
+                    showToast('🕵️ Correlate token error');
+                } else {
+                    _osintRenderError('osint-correlate-result', data.error || 'Correlate failed');
+                    showToast('🕵️ Correlate failed');
+                }
+                return;
+            }
+            const results = data.results || {};
+            const duration = (typeof data.duration_seconds === 'number')
+                ? data.duration_seconds.toFixed(2) + 's'
+                : '—';
+
+            // ── Section builders (compact, bordered border-cyber/30) ──
+            const section = (title, inner) => `
+                <div class="border border-cyber/30 rounded p-3 bg-void">
+                    <div class="text-cyber text-xs font-bold mb-2">${_escH(title)}</div>
+                    ${inner}
+                </div>`;
+
+            // breach section (email)
+            const breachHtml = (() => {
+                const b = results.breach;
+                if (!b) return '';
+                const badge = b.ok === false
+                    ? `<span class="text-yellow-400">⚠ ${_escH(b.error || 'breach source unavailable')}</span>`
+                    : (b.found
+                        ? '<span class="text-blood font-bold">⚠ FOUND in breach/paste sources</span>'
+                        : '<span class="text-green-400 font-bold">✓ Not found in breach/paste sources</span>');
+                const paste = (b.paste_urls || []).length
+                    ? `<div class="mt-1 text-[11px]">${b.paste_urls.map(u => `<a class="block text-cyber hover:text-neon truncate" href="${_safeUrl(u)}" target="_blank" rel="noopener">${_escH(u)}</a>`).join('')}</div>`
+                    : '';
+                const brs = (b.breaches || []).length
+                    ? `<div class="mt-1 text-[11px]">${b.breaches.map(br => `<span class="block text-blood">${_escH(br.name || '')}${br.date ? ' — ' + _escH(br.date) : ''}</span>`).join('')}</div>`
+                    : '';
+                return section('Email Breach', `${badge}${paste}${brs}`);
+            })();
+
+            // verification section (email)
+            const verifHtml = (() => {
+                const v = results.verification;
+                if (!v) return '';
+                const mx = Array.isArray(v.mx_records) ? v.mx_records : [];
+                const mxRow = mx.length
+                    ? mx.map(m => `<span class="inline-block bg-deep border border-cyber rounded px-1.5 py-0.5 mr-1 mb-1 font-mono text-[10px] text-gray-300">${_escH(m)}</span>`).join('')
+                    : '<span class="text-gray-600 text-[10px]">No MX records</span>';
+                return section('Email Verification', `
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-1.5 text-[11px]">
+                        <div><span class="text-gray-500">Format:</span> ${v.valid_format ? '<span class="text-green-400">✓ valid</span>' : '<span class="text-blood">✗ invalid</span>'}</div>
+                        <div><span class="text-gray-500">Domain:</span> <span class="text-gray-300 font-mono">${_escH(v.domain || '—')}</span></div>
+                        <div><span class="text-gray-500">Disposable:</span> ${v.disposable ? '<span class="text-blood">⚠ yes</span>' : '<span class="text-green-400">no</span>'}</div>
+                        <div><span class="text-gray-500">Resolves:</span> ${v.domain_resolves ? '<span class="text-green-400">✓</span>' : '<span class="text-blood">✗</span>'}</div>
+                    </div>
+                    <div class="mt-2 text-[10px] text-gray-500">MX Records</div>
+                    <div class="mt-0.5">${mxRow}</div>`);
+            })();
+
+            // platforms section (username)
+            const platformsHtml = (() => {
+                const profiles = results.platforms;
+                if (!Array.isArray(profiles) || !profiles.length) return '';
+                const found = profiles.filter(p => p.exists).length;
+                const grid = profiles.map(p => p.exists ? `
+                    <a class="bg-deep border border-green-900 hover:border-neon rounded p-1.5 block" href="${_safeUrl(p.url)}" target="_blank" rel="noopener">
+                        <div class="text-[10px] font-semibold text-neon">${_escH(p.platform)}</div>
+                        <div class="text-[9px] text-green-400">✓ exists${p.status_code ? ` (${_escH(p.status_code)})` : ''}</div>
+                    </a>` : `
+                    <div class="bg-deep border border-gray-800 rounded p-1.5 opacity-60">
+                        <div class="text-[10px] font-semibold text-gray-400">${_escH(p.platform)}</div>
+                        <div class="text-[9px] text-gray-600">✗ not found</div>
+                    </div>`).join('');
+                return section(`Username Platforms (${found}/${profiles.length} found)`,
+                    `<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-1.5">${grid}</div>`);
+            })();
+
+            // github section (username)
+            const githubHtml = (() => {
+                const g = results.github;
+                if (!g) return '';
+                const p = g.profile || {};
+                const repos = g.repos || [];
+                const reposHtml = repos.length
+                    ? `<div class="mt-2 space-y-1">${repos.map(r => `
+                        <div class="bg-deep border border-cyber/40 rounded p-1.5">
+                            <div class="flex items-center justify-between gap-2 flex-wrap">
+                                <a class="text-cyber hover:text-neon text-[11px] font-semibold" href="${_safeUrl(r.html_url || '')}" target="_blank" rel="noopener">${_escH(r.name || '')}</a>
+                                <div class="text-[9px] text-gray-500 font-mono">⭐ ${_escH(r.stargazers_count ?? 0)} · 🍴 ${_escH(r.forks_count ?? 0)}${r.language ? ` · ${_escH(r.language)}` : ''}</div>
+                            </div>
+                        </div>`).join('')}</div>`
+                    : '<div class="text-gray-600 text-[10px]">No public repos.</div>';
+                return section('GitHub', `
+                    <div class="flex items-center gap-2 flex-wrap">
+                        ${p.avatar_url ? `<img class="w-10 h-10 rounded-full border border-cyber" src="${_safeUrl(p.avatar_url)}" alt="avatar" onerror="this.style.display='none'">` : ''}
+                        <div class="flex-1 min-w-[120px]">
+                            <div class="text-sm font-bold text-neon">${_escH(p.name || p.login || '—')} <span class="text-gray-500 font-mono text-[10px]">@${_escH(p.login || '—')}</span></div>
+                            ${p.bio ? `<div class="text-[10px] text-gray-400 mt-0.5">${_escH(p.bio)}</div>` : ''}
+                        </div>
+                        <div class="grid grid-cols-2 gap-1 text-center">
+                            <div class="bg-deep border border-cyber rounded px-2 py-1"><div class="text-[11px] font-bold text-white">${_escH(p.followers ?? '—')}</div><div class="text-[8px] text-gray-500">followers</div></div>
+                            <div class="bg-deep border border-cyber rounded px-2 py-1"><div class="text-[11px] font-bold text-white">${_escH(p.public_repos ?? '—')}</div><div class="text-[8px] text-gray-500">repos</div></div>
+                        </div>
+                    </div>
+                    ${reposHtml}`);
+            })();
+
+            // wayback section (domain)
+            const waybackHtml = (() => {
+                const w = results.wayback;
+                if (!w) return '';
+                const snaps = Array.isArray(w.snapshots) ? w.snapshots : [];
+                if (!snaps.length) {
+                    return section('Wayback', '<div class="text-gray-600 text-[10px]">No snapshots found.</div>');
+                }
+                const rows = snaps.map(s => {
+                    const st = String(s.status || '—');
+                    const stCls = st.startsWith('2') ? 'text-green-400' : st.startsWith('3') ? 'text-neon' : (st.startsWith('4') || st.startsWith('5')) ? 'text-blood' : 'text-gray-500';
+                    return `<tr class="border-b border-gray-800/50 hover:bg-neon/5">
+                        <td class="px-2 py-1 text-gray-400 whitespace-nowrap">${_escH(s.timestamp)}</td>
+                        <td class="px-2 py-1 text-gray-300 truncate max-w-[200px]">${_escH(s.url)}</td>
+                        <td class="px-2 py-1 ${stCls}">${_escH(st)}</td>
+                        <td class="px-2 py-1"><a class="text-cyber hover:text-neon" href="${_safeUrl(s.archive_url || '#')}" target="_blank" rel="noopener">↗</a></td>
+                    </tr>`;
+                }).join('');
+                return section(`Wayback (${snaps.length} snapshots)`, `
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-[10px] font-mono">
+                            <thead class="bg-deep"><tr class="text-left text-gray-500 border-b border-cyber">
+                                <th class="px-2 py-1">Timestamp</th><th class="px-2 py-1">URL</th><th class="px-2 py-1">Status</th><th class="px-2 py-1">Archive</th>
+                            </tr></thead>
+                            <tbody>${rows}</tbody>
+                        </table>
+                    </div>`);
+            })();
+
+            // subdomains section (domain)
+            const subdomainsHtml = (() => {
+                const sub = results.subdomains;
+                if (!sub) return '';
+                const list = Array.isArray(sub.found) ? sub.found : (Array.isArray(sub) ? sub : []);
+                if (!list.length) {
+                    return section('Subdomains', '<div class="text-gray-600 text-[10px]">No subdomains found.</div>');
+                }
+                const items = list.map(d => `<span class="inline-block bg-deep border border-cyber rounded px-2 py-0.5 mr-1 mb-1 font-mono text-[10px] text-gray-300">${_escH(d)}</span>`).join('');
+                return section(`Subdomains (${list.length} found)`, `<div>${items}</div>`);
+            })();
+
+            // phone section (phone)
+            const phoneHtml = (() => {
+                const ph = results.phone;
+                if (!ph) return '';
+                const row = (label, value, valCls) => `<div class="bg-deep border border-cyber/50 rounded p-2"><div class="text-[9px] text-gray-500">${_escH(label)}</div><div class="text-[11px] font-mono ${valCls || 'text-white'}">${_escH(value || '—')}</div></div>`;
+                return section('Phone', `
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-1.5">
+                        ${row('Phone', ph.phone)}
+                        ${row('Country', ph.country)}
+                        ${row('Carrier', ph.carrier, 'text-cyber')}
+                        ${row('Line Type', ph.line_type, 'text-neon')}
+                    </div>`);
+            })();
+
+            const sectionsHtml = [breachHtml, verifHtml, platformsHtml, githubHtml, waybackHtml, subdomainsHtml, phoneHtml].filter(Boolean).join('');
+            const bodyHtml = sectionsHtml
+                ? `<div class="space-y-2">${sectionsHtml}</div>`
+                : '<div class="text-gray-600 text-xs">No results returned for this target.</div>';
+
+            _osintRender('osint-correlate-result', `
+                <div class="bg-void border border-cyber rounded p-2 mb-2 flex items-center justify-between gap-2 flex-wrap">
+                    <div class="text-[11px] font-mono text-gray-300">
+                        <span class="text-gray-500">type:</span> <span class="text-neon">${_escH(data.target_type || targetType)}</span>
+                        <span class="text-gray-600 mx-1">·</span>
+                        <span class="text-gray-500">target:</span> <span class="text-white">${_escH(data.target || target)}</span>
+                    </div>
+                    <div class="text-[10px] text-gray-500 font-mono">⏱ ${_escH(duration)}</div>
+                </div>
+                ${bodyHtml}`);
+            showToast('🕵️ Correlate complete');
+        } catch (err) {
+            _osintRenderError('osint-correlate-result', 'Network error: ' + (err.message || err));
+            showToast('🕵️ Correlate failed');
+        }
+    };
+
     // ── Enter-key bindings for OSINT inputs ────────────────────────
     const _osintEnterMap = [
         ['osint-email-input', 'osintEmail'],
@@ -9978,7 +10186,8 @@ Reglas:
         ['osint-ip-input', 'osintIp'],
         ['osint-username-input', 'osintUsername'],
         ['osint-github-input', 'osintGithub'],
-        ['osint-instagram-input', 'osintInstagram']
+        ['osint-instagram-input', 'osintInstagram'],
+        ['osint-correlate-input', 'osintCorrelate']
     ];
     _osintEnterMap.forEach(([inputId, fnName]) => {
         const el = document.getElementById(inputId);

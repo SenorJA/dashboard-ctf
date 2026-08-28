@@ -2344,6 +2344,19 @@ class OsintInstagramRequest(BaseModel):
     skip_lookup: bool = True
 
 
+class OsintCorrelateRequest(BaseModel):
+    """Body for POST /api/osint/correlate — parallel multi-source OSINT.
+
+    Fans out 2-3 passive OSINT primitives concurrently per target type
+    (email → breach+verify, username → platforms+github, domain →
+    wayback+subdomains, phone → lookup). 10 req/min rate limit because
+    each call is markedly more expensive than a single-source endpoint.
+    """
+    target_type: str = Field(..., max_length=20)
+    target: str = Field(..., max_length=254)
+
+
+
 @app.post("/api/osint/email")
 async def api_osint_email(body: OsintEmailRequest, request: Request):
     """
@@ -2570,6 +2583,43 @@ async def api_osint_instagram(body: OsintInstagramRequest, request: Request):
         return JSONResponse(result)
     except Exception:
         logger.exception("[osint instagram] unexpected failure", exc_info=False)
+        return JSONResponse({"ok": False, "error": "Internal error"}, status_code=500)
+
+
+@app.post("/api/osint/correlate")
+async def api_osint_correlate(body: OsintCorrelateRequest, request: Request):
+    """
+    Correlate multiple passive OSINT sources for a single target.
+
+    Body: {"target_type": "email|username|domain|phone", "target": "..."}
+
+    Per target_type the following sources run **in parallel**:
+      - email    → check_email_breach + verify_email
+      - username  → username_recon (≈18 platforms) + github_recon
+      - domain    → wayback_machine_lookup + scan_passive (crt.sh + wayback)
+      - phone     → phone_number_lookup (single, structured for more)
+
+    10 req/min per client IP (fans out 2-3 OSINT calls per request).
+    """
+    guard = _osint_guard(request, "/api/osint/correlate")
+    if guard is not None:
+        return guard
+    target_type = body.target_type.strip().lower()
+    target = body.target.strip()
+    if not target_type or not target:
+        return JSONResponse(
+            {"ok": False, "error": "target_type and target must not be empty"},
+            status_code=422,
+        )
+    try:
+        from backend.osint_correlate import correlate_target
+        result = await correlate_target(target_type, target)
+        # Unknown target type → a logical 422 (client supplied a bad type).
+        if not result.get("ok") and result.get("error", "").startswith("Unknown target_type"):
+            return JSONResponse(result, status_code=422)
+        return JSONResponse(result)
+    except Exception:
+        logger.exception("[osint correlate] unexpected failure", exc_info=False)
         return JSONResponse({"ok": False, "error": "Internal error"}, status_code=500)
 
 
