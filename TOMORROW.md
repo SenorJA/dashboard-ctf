@@ -1,6 +1,6 @@
 # 🔮 TOMORROW.md — Roadmap de trabajo pendiente
 
-> Última actualización: 15 Ago 2026 — MIRV v5.5 | 33 módulos | 238 endpoints | 4184 tests | 26 tabs | main.py 100%
+> Última actualización: 15 Ago 2026 — MIRV v6.0 | 33 módulos | 238 endpoints | 4198 tests | 26 tabs | 28 skills | main.py 100%
 > ✅ **CI 100% VERDE** — recursión `AuditLogHandler` (CI #47/#48) + 11 fallos pre-existentes desenmascarados, todos resueltos en la serie `d8569d8`→`3cb20fb`. Ver § Postmortems al final.
 > ✅ **exif_osint.py y dlp_scanner.py al 100% de cobertura** (bugs #4/#5 cerrados, 12 Ago 2026).
 > ✅ **Export findings a PDF profesional** (14 Ago 2026): endpoint unificado `POST /api/report/export-pdf` + detalle por finding + resumen ejecutivo automático + frontend conectado (commit `92f4fa3`, CI ✅ Deploy ✅).
@@ -14,6 +14,7 @@
 > ✅ **Ronda 4b — P1 UI audit fixes** (15 Ago 2026, commit `ee1d844`): contraste WCAG AA (text-gray-600/700/800→400 en 303 sitios + placeholder-gray-700→500 + text-blood #b8473e→#d65a4f + monochrome --mono-text-dim/dark aclarados) + tab roles ARIA (27 role=tab + 27 role=tabpanel + 1 role=tablist + roving tabindex) + 20 labels con for= + 107 aria-labels en inputs + 8 modales con role=dialog + Escape listener + 13 cat-header→button con aria-expanded + color-scheme:dark + focus-visible global. 2 plugin_watcher timing tests marcados @pytest.mark.slow (CI flake).
 > ✅ **Ronda 5 — Pre-producción** (15 Ago 2026, commit `cfc7ef9`): smoke test E2E (20 tests, 8 flujos críticos: health/OSINT/reports/findings/skills/settings/scope/static) + backup/restore localStorage (`exportLocalStorage`/`importLocalStorage` con `_meta` metadata, confirmación, reload) + `CHANGELOG.md` (Keep a Changelog, 40 commits, 5 categorías).
 > 📋 **Análisis de repos externos** (15 Ago 2026, `docs/REPO_ANALYSIS_2026-08-15.md`): analizados 3 repos (Anthropic-Cybersecurity-Skills 31.5k⭐, awesome-cyber-security-university 3.4k⭐, OpenExecutive 2.3k⭐). Propuesta: portar 10 skills defensivas + 1 skill educativa + 5 skills red-team en apartado separado con `requires_scope` obligatorio + advertencias éticas. Inspiración arquitectónica de OpenExecutive para futuro Op Admiral. Pendiente de aprobación.
+> ✅ **Integración repos externos** (15 Ago 2026, commits `220a1ba` + `c14eed4`): portadas 16 skills (10 defensivas + 1 educativa + 5 red-team) del repo Anthropic-Cybersecurity-Skills → 28 skills built-in total. Infraestructura `requires_scope` en `skill_playbooks.py` + gate 403 en `/api/skills/{name}/render` (sin scope → 403 "Configure scope first"). Frontend: sección "⚠️ Red Team Lab" en tab Skills con banner ético + badge ⚠️ + validación visual de scope. Fase D (inspiración OpenExecutive para Op Admiral) documentada como roadmap futuro.
 
 ---
 
@@ -24,7 +25,7 @@
 | Backend modules | 33 (main.py + 32 especializados) |
 | REST endpoints | 238 (+1: `/api/osint/correlate`) |
 | Test files | 84 (+1: `test_smoke_e2e.py`) |
-| Tests collected | 4184 (4104 pass / 80 slow-deselected) |
+| Tests collected | 4198 (4118 pass / 80 slow-deselected) |
 | Coverage | ~97% global — **main.py 100%**, **exif_osint 100%**, **dlp_scanner 100%**, **pdf_engine 99%**, **osint_recon 100%**, **subdomain_scanner 99%**, **instagram_osint 100%**, **osint_correlate 100%**, **rate_limiter 100%** |
 | Frontend tabs | 26 |
 | Frontend JS | ~10228 líneas (main.v2.js) |
@@ -703,3 +704,57 @@ Plan OSINT cerrado. Próximos hitos abiertos siguen siendo los manuales del usua
 1. **El grep inicial de keys i18n faltantes sobreestimó (128 vs 8 reales)**: el objeto de traducciones usa un formato donde las keys pueden estar en diferentes secciones del objeto. Un análisis más preciso (`comm -23 used.txt defined.txt` tras normalizar) reveló que solo 8 keys estaban realmente faltantes. Siempre verificar con el método exacto antes de asumir un número grande.
 2. **A11y incremental**: los aria-labels, aria-live y landmarks son la base — pero el contraste WCAG AA y los role="tab" son cambios sistémicos que requieren una pasada dedicada (futura ronda).
 3. **Auditoría UI vs auditoría security**: ambas son informes sin tocar código — el patrón funciona bien para documentar el estado actual y priorizar fixes sin bloquear el desarrollo.
+
+---
+
+## 📝 Nota — Integración repos externos (15 Ago 2026, commits `220a1ba` + `c14eed4`)
+
+> Port de 16 skills del repo `mukul975/Anthropic-Cybersecurity-Skills` (31.5k⭐, Apache 2.0) + skill educativa del repo `brootware/awesome-cyber-security-university` (3.4k⭐). Las 5 skills ofensivas se integraron en un apartado "Red Team Lab" separado con `requires_scope` obligatorio + advertencias éticas, consistente con el modelo de amenaza educativo de MIRV.
+
+### Qué se hizo
+
+| Pieza | Archivo | Detalle |
+|---|---|---|
+| **10 skills defensivas** | `backend/skills/{memory-forensics,threat-hunting-lsass,bec-detection,network-traffic-malware,persistence-hunting,ransomware-splunk,aws-audit,azure-hardening,k8s-rbac-audit,lateral-movement-splunk}/SKILL.md` | Port de Anthropic-Cybersecurity-Skills adaptado al formato MIRV (frontmatter con `allowed_tools` del arsenal, sin `atlas_techniques`/`d3fend_techniques`). Categorías: `forensics`, `defense`, `cloud`. Cada skill con 4 secciones (When to Use, Prerequisites, Workflow, Verification) + `## IMPORTANT` |
+| **1 skill educativa** | `backend/skills/training-path/SKILL.md` | Links a recursos gratuitos (TryHackMe, HTB, picoCTF, OverTheWire) organizados en Red Team path (6 niveles) + Blue Team path (5 niveles). Categoría `education` |
+| **5 skills red-team** | `backend/skills/{kerberoasting,ntlm-relay,adcs-exploitation,bloodhound-collection,c2-sliver}/SKILL.md` | Skills ofensivas con `requires_scope: true` + `ethical_warning: true` en frontmatter. Categoría `red-team`. `## IMPORTANT` con advertencias éticas explícitas (⚠️ REQUIRES WRITTEN AUTHORIZATION, OPSEC Loud, never share credentials, MIRV redaction) |
+| **Infraestructura `requires_scope`** | `backend/skill_playbooks.py` + `backend/main.py` | Campo `requires_scope: bool` en `SkillManifest` (default False, retrocompatible). Parser lee del YAML. `list_skills()`/`get_skill_info()` exponen el campo al frontend. Endpoint `GET /api/skills/{name}/render`: si `requires_scope == True` y no hay scope configurado → **403** "Configure scope first" |
+| **Frontend Red Team Lab** | `frontend/index.html` + `frontend/js/main.v2.js` | `refreshSkills()` separa skills por `requires_scope`: defensivas en sección "🛡 Defensive & Education", red-team en sección "⚠️ Red Team Lab" con banner ético (`bg-blood/10`). Badge ⚠️ en cada card red-team. Al cargar sin scope → 403 → toast "⚠️ Configure scope first" + notice rojo auto-removido. 5 i18n keys nuevas |
+| **Tests** | `backend/tests/test_skill_playbooks_gaps.py` (13 tests) | Parser (default false, true explícito, string truthy), exposure (list/info), discover (no filter), render gate (403 sin scope, 200 con scope, 500 error, disabled scoped → 403). Cobertura skill_playbooks 91% |
+| **BUILTIN_NAMES** | `backend/tests/test_skill_playbooks.py` | Actualizado 12 → 28 builtins |
+
+### Verificación
+- Suite completa: **4118 passed, 80 deselected, 0 failed** (3.6 min)
+- `node --check frontend/js/main.v2.js` → ✅ SYNTAX OK
+- CI GitHub `220a1ba` → ✅ CI + ✅ Deploy
+- 28 skills discovered by `discover_skills()` (verificado por `test_discover_finds_all_twenty_eight_builtins`)
+
+### Fase D — Inspiración arquitectónica OpenExecutive (roadmap futuro)
+El repo `SenteLabsAI/OpenExecutive` (2.3k⭐) aporta 3 ideas para mejorar MIRV en una futura ronda (NO implementado ahora):
+1. **Orchestrator multi-agente** — convertir Op Admiral (planificador simple) en un orchestrator que enruta a agentes especialistas de pentest (recon agent, webvuln agent, privesc agent) con memoria episódica
+2. **Memoria episódica SQLite** — mejorar `mission_store.py` extrayendo decisiones clave tras cada respuesta (patrón OpenExecutive: background pass con modelo rápido)
+3. **Prompt caching** — separar cached system prompt del dynamic context en `/api/ai/chat` (ahorro de tokens, ~85% cache hit rate)
+4. **Local models abstraction** — per-agent model selection maduro (híbrido local/hosted, OpenRouter)
+
+### Estado del catálogo de skills
+```
+backend/skills/ (28 total)
+├── recon, webvuln, ssrf, jwt, supabase          # original 5
+├── graphql, race, takeover, deserialize, ssti    # PentesterFlow 5
+├── osint, password-audit                         # OSINT + password
+├── memory-forensics, threat-hunting-lsass,       # defensivas 10
+│   bec-detection, network-traffic-malware,
+│   persistence-hunting, ransomware-splunk,
+│   aws-audit, azure-hardening, k8s-rbac-audit,
+│   lateral-movement-splunk
+├── training-path                                  # educativa 1
+└── kerberoasting, ntlm-relay, adcs-exploitation,    # red-team 5 (⚠️ requires_scope)
+    bloodhound-collection, c2-sliver
+```
+
+### Por qué el apartado Red Team Lab es correcto para MIRV
+1. **La app ya es ética por diseño**: Scope Guard, OPSEC levels, Permission Prompts, Audit Log, redacción automática. El apartado red-team extiende este modelo con `requires_scope`, no lo rompe.
+2. **Educación real requiere práctica ofensiva**: un skill con metodología paso a paso + herramientas + advertencias éticas + scope obligatorio es más responsable que dejar que el operador busque tutoriales sin salvaguardas.
+3. **Separación visual**: el badge ⚠️ y el banner evitan que un operador cargue accidentalmente un skill ofensivo pensando que es defensivo.
+4. **Precedente**: el skill `password-audit` ya cubre Hydra/Medusa/Ncrack (brute force) con el patrón ético `## IMPORTANT` + scope + autorización.
+5. **Trazabilidad**: el Audit Log registra `skill_load` con `category=red-team` — auditoría completa.
