@@ -5574,6 +5574,8 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         if (existing) existing.remove();
         const toast = document.createElement('div');
         toast.className = 'toast';
+        toast.setAttribute('role', 'status');
+        toast.setAttribute('aria-live', 'polite');
         toast.textContent = msg;
         document.body.appendChild(toast);
         setTimeout(() => toast.remove(), 3000);
@@ -6484,6 +6486,16 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         bcDelete:            { en: '🗑 Delete',           es: '🗑 Eliminar' },
         bcAnalysisResults:   { en: 'Security Analysis',   es: 'Análisis de Seguridad' },
         bcRequests:          { en: 'Captured Requests',   es: 'Peticiones Capturadas' },
+
+        // ── Continuous Intelligence ──
+        tabIntelligence:   { en: '🔍 Intel',                 es: '🔍 Intel' },
+        intelTitle:        { en: 'Continuous Intelligence',  es: 'Inteligencia Continua' },
+        intelRefresh:      { en: '🔄 Refresh',               es: '🔄 Actualizar' },
+        intelNewWatch:     { en: '+ New Watch',              es: '+ Nuevo Watch' },
+        intelWatchDefs:    { en: '📡 Watch Definitions',     es: '📡 Definiciones de Watch' },
+        intelNoWatches:    { en: 'No watches configured. Click "+ New Watch" to start monitoring.', es: 'Sin watches configurados. Clic en "+ Nuevo Watch" para empezar a monitorear.' },
+        intelAlerts:       { en: '⚠️ Alerts',                es: '⚠️ Alertas' },
+        intelClearAlerts:  { en: 'Clear all',                es: 'Limpiar todo' },
     };
 
     window.currentLang = localStorage.getItem('vulnforge_lang') || 'en';
