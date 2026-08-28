@@ -1,6 +1,6 @@
 # 🔮 TOMORROW.md — Roadmap de trabajo pendiente
 
-> Última actualización: 15 Ago 2026 — MIRV v5.3 | 33 módulos | 238 endpoints | 4164 tests | 26 tabs | main.py 100%
+> Última actualización: 15 Ago 2026 — MIRV v5.4 | 33 módulos | 238 endpoints | 4164 tests | 26 tabs | main.py 100%
 > ✅ **CI 100% VERDE** — recursión `AuditLogHandler` (CI #47/#48) + 11 fallos pre-existentes desenmascarados, todos resueltos en la serie `d8569d8`→`3cb20fb`. Ver § Postmortems al final.
 > ✅ **exif_osint.py y dlp_scanner.py al 100% de cobertura** (bugs #4/#5 cerrados, 12 Ago 2026).
 > ✅ **Export findings a PDF profesional** (14 Ago 2026): endpoint unificado `POST /api/report/export-pdf` + detalle por finding + resumen ejecutivo automático + frontend conectado (commit `92f4fa3`, CI ✅ Deploy ✅).
@@ -9,7 +9,8 @@
 > ✅ **Fase 3 OSINT** (15 Ago 2026, commits `eb6542e` + `945b726` + `90ca638`): skill `password-audit` (12º playbook) + port `ghostig` → `backend/instagram_osint.py` + endpoint `/api/osint/instagram` + 9ª tarjeta Instagram Recon. **CI flake httpbin resuelto** (9 tests marcados `@pytest.mark.slow`).
 > ✅ **Ronda 1 — Endurecimiento** (15 Ago 2026, commit `09680e8`): cobertura `osint_recon.py` 91%→**100%** + `subdomain_scanner.py` 96%→**99%** (26 tests gap) + auditoría seguridad (786L, 18 hallazgos: 0 P0, 2 P1, 6 P2, 10 P3 — veredicto SEGURO CON NOTAS) + responsive móvil tab OSINT (1→2→3 cols).
 > ✅ **Ronda 2 — Security hardening** (15 Ago 2026, commit `4bb319d`): fix P1+P2 audit — token opcional `MIRV_OSINT_TOKEN` (H-001) + rate limiter custom sliding-window 30/10 req/min (H-002) + `_safeUrl()` frontend (H-003) + `max_length` en inputs Pydantic+HTML (H-004) + rechazo IPs privadas (H-005) + validación dominio estricto (H-006) + HTTP→HTTPS wayback (H-007) + logger sin input del usuario (H-008). 36 tests nuevos, `rate_limiter.py` 100% cov.
-> ✅ **Ronda 3 — Correlación OSINT** (15 Ago 2026, commit `4a2c1ef`): módulo `osint_correlate.py` (100% cov) + `POST /api/osint/correlate` (email→breach+verify, username→platforms+github, domain→wayback+subdomain, phone→lookup) + 10ª tarjeta Correlate en tab OSINT. Tests de red adicional marcados `@pytest.mark.slow` (example.com, DNS — 17 tests más).
+> ✅ **Ronda 3 — Correlación OSINT** (15 Ago 2026, commit `408c717`): módulo `osint_correlate.py` (100% cov) + `POST /api/osint/correlate` (email→breach+verify, username→platforms+github, domain→wayback+subdomain, phone→lookup) + 10ª tarjeta Correlate en tab OSINT. Tests de red adicional marcados `@pytest.mark.slow` (example.com, DNS — 17 tests más).
+> ✅ **Ronda 4 — Calidad** (15 Ago 2026, commit `2200926`): a11y (18 aria-labels, 13 aria-live, 2 landmarks) + i18n 100% (8 keys faltantes cubiertas) + README.md rewrite (14 secciones, FAQ, capturas placeholder) + auditoría UI (`docs/UI_AUDIT_2026-08-15.md`, 335L, 24 hallazgos: 8 P1, 10 P2, 6 P3). ⬜ P1 del UI audit pendientes (contraste grises, role=tab, labels for=, modales Escape).
 
 ---
 
@@ -664,3 +665,38 @@ Plan OSINT cerrado. Próximos hitos abiertos siguen siendo los manuales del usua
 2. **`_osint_guard(request, path)`**: helper único que centraliza rate-limit (429) + token (401) en los 10 endpoints OSINT. Orden: rate-limit primero (barato) → token después.
 3. **`_safeUrl()` frontend**: defensa en profundidad — los parsers server-side ya filtran `javascript:` pero el helper asegura que cualquier URL renderizada en `href`/`src` tenga scheme válido.
 4. **Tests de red marcados slow**: 26 tests total (9 httpbin + 17 example.com/DNS) ahora excluidos del CI. La suite CI pasa de ~7 min a ~4 min sin flakiness.
+
+---
+
+## 📝 Nota — Ronda 4: Calidad (a11y + i18n + README + auditoría UI) (15 Ago 2026, commit `2200926`)
+
+> Ronda de calidad enfocada en accesibilidad, internacionalización completa, documentación de usuario y auditoría visual. Los P1 del UI audit quedan pendientes para una futura ronda de fixes.
+
+### Qué se hizo
+
+| Frente | Detalle |
+|---|---|
+| **A11y — aria-labels** | 18 aria-labels en botones icon-only (sidebar toggle, theme, lang, scope, opsec, docker, send, delete, close modals) — antes: 0 |
+| **A11y — aria-live** | 13 contenedores con `aria-live="polite"` + `aria-label` (terminal, reports, findings, intel, canary, audit, browser-capture, mission, kb, dlp, swarm) + `showToast()` ahora setea `role="status"` |
+| **A11y — landmarks** | `role="banner"` en header + `<nav aria-label="Main navigation">` en tabs-bar (main/aside ya existían) |
+| **i18n — 100% cobertura** | 8 keys faltantes añadidas (tabIntelligence, intelTitle, intelRefresh, intelNewWatch, intelWatchDefs, intelNoWatches, intelAlerts, intelClearAlerts) — 0 keys `data-i18n` sin traducción |
+| **README.md** | Rewrite completo (253 insertions / 975 deletions): hero + badges + diagrama ASCII + Quick Start (3 pasos) + 26 tabs en 5 categorías + configuración (Supabase/AI/Kali/token) + API resumen + Testing + Docker + Production + FAQ (6 preguntas) + estructura proyecto + capturas placeholder + docs relacionadas |
+| **Auditoría UI** | `docs/UI_AUDIT_2026-08-15.md` (335L): 24 hallazgos (8 P1, 10 P2, 6 P3). Contraste sistémico de grises (`text-gray-600/700/800` = 1.2-2.6:1, fail AA), 0 ARIA en tabs, modales sin Escape, 49/51 labels sin `for=`. Veredicto: estéticamente coherente pero NO cumple WCAG 2.1 AA |
+
+### P1 del UI audit — pendientes (futura ronda de fixes)
+1. **P1.1** — Contraste de grises: reemplazar `text-gray-600/700/800` por `text-gray-400` o superior en cientos de sitios (HTML + JS render)
+2. **P1.2** — Monochrome hereda los grises fallidos → re-mapear `--mono-text-dark` a un valor con ratio >= 4.5:1
+3. **P1.3** — Tabs sin `role="tab"/"tablist"/"tabpanel"` + `aria-selected` + `aria-controls`
+4. **P1.4** — 49 labels sin `for=` asociado a inputs
+5. **P1.6** — 4 modales sin Escape + `role="dialog"`/`aria-modal`
+
+### Verificación
+- `node --check frontend/js/main.v2.js` → ✅ SYNTAX OK
+- `grep -c "aria-label" frontend/index.html` → 32 (antes: 0)
+- i18n: 0 keys `data-i18n` sin traducción (cobertura 100%)
+- **CI GitHub `2200926`**: ✅ CI + ✅ Deploy
+
+### Lecciones
+1. **El grep inicial de keys i18n faltantes sobreestimó (128 vs 8 reales)**: el objeto de traducciones usa un formato donde las keys pueden estar en diferentes secciones del objeto. Un análisis más preciso (`comm -23 used.txt defined.txt` tras normalizar) reveló que solo 8 keys estaban realmente faltantes. Siempre verificar con el método exacto antes de asumir un número grande.
+2. **A11y incremental**: los aria-labels, aria-live y landmarks son la base — pero el contraste WCAG AA y los role="tab" son cambios sistémicos que requieren una pasada dedicada (futura ronda).
+3. **Auditoría UI vs auditoría security**: ambas son informes sin tocar código — el patrón funciona bien para documentar el estado actual y priorizar fixes sin bloquear el desarrollo.
