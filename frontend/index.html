@@ -1293,6 +1293,53 @@
                     </div>
                 </div>
 
+                <!-- Model per specialist (local models abstraction) -->
+                <div class="opd-model-config mb-3">
+                    <button type="button" data-action="opd-toggle-models"
+                        class="flex items-center gap-2 text-[9px] text-gray-400 uppercase tracking-wider hover:text-neon transition-colors mb-1.5 w-full justify-between"
+                        aria-expanded="false">
+                        <span data-i18n="opd-model-title">🧠 Model per specialist</span>
+                        <span id="opd-model-chevron" class="text-[10px]">▸</span>
+                    </button>
+                    <div id="opd-model-panel" class="hidden bg-void/80 border border-cyber/30 rounded-lg p-3 space-y-2">
+                        <div class="flex items-center gap-2">
+                            <span class="text-[9px] text-gray-400 uppercase tracking-wider shrink-0" data-i18n="opd-model-for">Configured for</span>
+                            <span id="opd-model-spec-label" class="text-[10px] font-semibold text-neon"></span>
+                            <span id="opd-model-readout" class="text-[9px] text-gray-500 ml-auto"></span>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                            <div>
+                                <label class="text-[9px] text-gray-400 block mb-1" data-i18n="opd-model-provider" for="opd-model-provider">Provider</label>
+                                <select id="opd-model-provider" class="w-full bg-void border border-gray-800 rounded px-2 py-1 text-[10px] text-gray-300 focus:outline-none focus:border-neon/50 font-mono" aria-label="Provider per specialist">
+                                    <option value="gemini">Gemini 🆓</option>
+                                    <option value="openrouter">OpenRouter 🆓</option>
+                                    <option value="groq">Groq 🆓</option>
+                                    <option value="deepseek">DeepSeek 🆓</option>
+                                    <option value="openai">OpenAI</option>
+                                    <option value="anthropic">Claude</option>
+                                    <option value="local">Local (Ollama) 🆓</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-[9px] text-gray-400 block mb-1" data-i18n="opd-model-model" for="opd-model-input">Model</label>
+                                <input id="opd-model-input" type="text" placeholder="gpt-4o-mini / llama3:8b…" class="w-full bg-void border border-gray-800 rounded px-2 py-1 text-[10px] text-gray-300 placeholder-gray-500 focus:outline-none focus:border-neon/50 font-mono" autocomplete="off">
+                            </div>
+                            <div>
+                                <label class="text-[9px] text-gray-400 block mb-1" data-i18n="opd-model-key" for="opd-model-key">API key</label>
+                                <input id="opd-model-key" type="password" placeholder="sk-…" class="w-full bg-void border border-gray-800 rounded px-2 py-1 text-[10px] text-gray-300 placeholder-gray-500 focus:outline-none focus:border-neon/50 font-mono" autocomplete="off">
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <label class="flex items-center gap-1.5 text-[9px] text-gray-400 cursor-pointer">
+                                <input type="checkbox" id="opd-model-inherit" class="accent-neon">
+                                <span data-i18n="opd-model-inherit">Inherit global AI settings</span>
+                            </label>
+                            <button type="button" data-action="opd-save-model" id="opd-model-save"
+                                class="ml-auto bg-neon/20 hover:bg-neon/30 text-neon border border-neon/40 px-3 py-1 rounded text-[10px] transition-all font-semibold" data-i18n="opd-model-save">💾 Save model</button>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Routed specialist indicator -->
                 <div id="opd-route-badge" class="hidden mb-3">
                     <div class="flex items-center gap-2 bg-void/80 border border-cyber/30 rounded-lg px-3 py-2">

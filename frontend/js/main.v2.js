@@ -3648,6 +3648,8 @@ ${bodyHtml}
         'view-mission':   (el) => { const id = el.dataset.missionId; if (id && window.viewMissionDetails) viewMissionDetails(id); },
         'opd-select-specialist': (el) => { if (el.dataset.specialist && window.selectOpdSpecialist) selectOpdSpecialist(el.dataset.specialist); },
         'opd-clear-memory':      ()   => { if (window.clearEpisodicMemory) clearEpisodicMemory(); },
+        'opd-toggle-models':     ()   => { if (window.toggleOpdModelPanel) toggleOpdModelPanel(); },
+        'opd-save-model':        ()   => { if (window.saveOpdModel) saveOpdModel(); },
 
         // ── Swarm ──
         'swarm-refresh':  ()   => { if (window.swarmRefresh) swarmRefresh(); },
@@ -3782,6 +3784,20 @@ ${bodyHtml}
                     sel.value = ''; // reset after export
                     e.preventDefault();
                 }
+                return;
+            }
+
+            // Op Admiral — per-specialist model: unchecking "inherit" enables the inputs
+            const inheritEl = e.target.closest('#opd-model-inherit');
+            if (inheritEl) {
+                const providerEl = document.getElementById('opd-model-provider');
+                const modelEl = document.getElementById('opd-model-input');
+                const keyEl = document.getElementById('opd-model-key');
+                const enabled = !inheritEl.checked;
+                if (providerEl) providerEl.disabled = !enabled;
+                if (modelEl) modelEl.disabled = !enabled;
+                if (keyEl) keyEl.disabled = !enabled;
+                e.preventDefault();
             }
         });
     }
@@ -6319,6 +6335,15 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         'opd-clear-memory':    { en: '✕ Clear memory',   es: '✕ Limpiar memoria' },
         'opd-session':         { en: 'Session',           es: 'Sesión' },
         'opd-no-memory':       { en: 'No episodic memory yet for this session', es: 'Sin memoria episódica aún para esta sesión' },
+        'opd-model-title':       { en: '🧠 Model per specialist', es: '🧠 Modelo por especialista' },
+        'opd-model-for':         { en: 'Configured for',         es: 'Configurado para' },
+        'opd-model-provider':    { en: 'Provider',               es: 'Proveedor' },
+        'opd-model-model':       { en: 'Model',                  es: 'Modelo' },
+        'opd-model-key':         { en: 'API key',                es: 'Clave API' },
+        'opd-model-inherit':     { en: 'Inherit global AI settings', es: 'Heredar ajustes globales de IA' },
+        'opd-model-save':        { en: '💾 Save model',          es: '💾 Guardar modelo' },
+        'opd-model-saved':       { en: '💾 Model saved for <SPEC>', es: '💾 Modelo guardado para <SPEC>' },
+        'opd-model-inherited-msg':{ en: 'Inherited (global)',    es: 'Heredado (global)' },
         // ── Mission History (Self-Improvement) ──
         missionHistoryTitle: { en: '📚 Mission History', es: '📚 Historial de Misiones' },
         saveMissionBtn:    { en: '💾 Save Mission',      es: '💾 Guardar Misión' },
@@ -6877,6 +6902,29 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
     let sessionId = '';                    // episodic session id (persisted backend-side)
     let currentSpecialist = 'auto';        // selected specialist chip ('auto' = route by intent)
     let episodicDecisions = [];            // {specialist, task, decisions} — frontend mirror of <past_decisions>
+    let opdModelOverrides = loadOpdModelsFromStorage();   // {recon: {provider,apiKey,model}, ...}
+    let opdModelPanelOpen = false;
+
+    function loadOpdModelsFromStorage() {
+        try {
+            const raw = localStorage.getItem('mirv_opd_models');
+            if (!raw) return {};
+            const parsed = JSON.parse(raw);
+            return (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) ? parsed : {};
+        } catch (err) {
+            return {};
+        }
+    }
+
+    // Effective AI config for a specialist: override if present, else global AI settings
+    window.opdModelFor = function (spec) {
+        const key = spec || currentSpecialist || 'auto';
+        const override = opdModelOverrides[key];
+        if (override) {
+            return { provider: override.provider, apiKey: override.apiKey, model: override.model };
+        }
+        return _getAIConfig ? _getAIConfig() : {};
+    };
 
     const SPECIALIST_META = {
         auto:            { label: 'Auto',       dot: 'bg-neon',       color: 'text-neon' },
@@ -6890,6 +6938,96 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
     function specialistLabel(spec) {
         return (SPECIALIST_META[spec] || {}).label || spec || 'Auto';
     }
+
+    // ── Model per specialist (local models abstraction) ──
+    // Renders the config panel for the active specialist: override values when
+    // saved, or a read-only "inherited (global)" state when no override exists.
+    window.loadOpdModelPanel = function (spec) {
+        const labelEl = document.getElementById('opd-model-spec-label');
+        const readoutEl = document.getElementById('opd-model-readout');
+        const providerEl = document.getElementById('opd-model-provider');
+        const modelEl = document.getElementById('opd-model-input');
+        const keyEl = document.getElementById('opd-model-key');
+        const inheritEl = document.getElementById('opd-model-inherit');
+        if (!providerEl || !modelEl || !keyEl || !inheritEl) return;
+
+        const specKey = spec || currentSpecialist || 'auto';
+        const override = opdModelOverrides[specKey];
+        if (labelEl) labelEl.textContent = specialistLabel(specKey);
+
+        if (override) {
+            inheritEl.checked = false;
+            providerEl.value = override.provider || '';
+            modelEl.value = override.model || '';
+            keyEl.value = override.apiKey || '';
+            providerEl.disabled = false;
+            modelEl.disabled = false;
+            keyEl.disabled = false;
+            if (readoutEl) readoutEl.textContent = `${override.provider || '-'}:${override.model || '-'}`;
+        } else {
+            inheritEl.checked = true;
+            providerEl.disabled = true;
+            modelEl.disabled = true;
+            keyEl.disabled = true;
+            const global = _getAIConfig ? _getAIConfig() : {};
+            const globalProvider = global.provider || 'groq';
+            const globalModel = global.model || '(default)';
+            const msg = (translations['opd-model-inherited-msg'] && translations['opd-model-inherited-msg'][window.currentLang]) || 'Inherited (global)';
+            if (readoutEl) readoutEl.textContent = `${msg}: ${globalProvider}:${globalModel}`;
+        }
+    };
+
+    // Persist the override for the active specialist (or remove it when "inherit" is checked)
+    window.saveOpdModel = function () {
+        const providerEl = document.getElementById('opd-model-provider');
+        const modelEl = document.getElementById('opd-model-input');
+        const keyEl = document.getElementById('opd-model-key');
+        const inheritEl = document.getElementById('opd-model-inherit');
+        if (!providerEl || !modelEl || !keyEl || !inheritEl) return;
+
+        const specKey = currentSpecialist || 'auto';
+
+        if (inheritEl.checked) {
+            delete opdModelOverrides[specKey];
+        } else {
+            opdModelOverrides[specKey] = {
+                provider: (providerEl.value || '').trim(),
+                apiKey: (keyEl.value || '').trim(),
+                model: (modelEl.value || '').trim()
+            };
+        }
+
+        if (Object.keys(opdModelOverrides).length === 0) {
+            localStorage.removeItem('mirv_opd_models');
+        } else {
+            localStorage.setItem('mirv_opd_models', JSON.stringify(opdModelOverrides));
+        }
+
+        // Update the active chip tooltip: "<label> — <provider>:<model>" or "<label> — inherited"
+        const chip = document.querySelector(`.opd-spec-chip[data-specialist="${specKey}"]`);
+        if (chip) {
+            const label = specialistLabel(specKey);
+            const ov = opdModelOverrides[specKey];
+            chip.title = ov ? `${label} — ${ov.provider}:${ov.model}` : `${label} — inherited`;
+        }
+
+        const savedMsg = (translations['opd-model-saved'] && translations['opd-model-saved'][window.currentLang]) || '💾 Model saved for <SPEC>';
+        showToast(savedMsg.replace('<SPEC>', specialistLabel(specKey)));
+
+        loadOpdModelPanel(specKey);
+    };
+
+    window.toggleOpdModelPanel = function () {
+        const panel = document.getElementById('opd-model-panel');
+        const chevron = document.getElementById('opd-model-chevron');
+        const btn = document.querySelector('[data-action="opd-toggle-models"]');
+        if (!panel) return;
+        opdModelPanelOpen = !opdModelPanelOpen;
+        panel.classList.toggle('hidden', !opdModelPanelOpen);
+        if (chevron) chevron.textContent = opdModelPanelOpen ? '▾' : '▸';
+        if (btn) btn.setAttribute('aria-expanded', String(opdModelPanelOpen));
+        if (opdModelPanelOpen) loadOpdModelPanel(currentSpecialist);
+    };
 
     // Extract the "key decisions" summary from the orchestrator response
     function summarizeDecisions(response) {
@@ -6922,6 +7060,7 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
             chip.classList.toggle('opacity-50', !isActive);
         });
         showToast(`🧠 Specialist: ${specialistLabel(spec)}`);
+        loadOpdModelPanel(spec);
     };
 
     // Route badge — shows which specialist processed the last request
@@ -7128,6 +7267,7 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
             let routed = false;
             try {
                 const aiCfg = _getAIConfig ? _getAIConfig() : {};
+                const m = opdModelFor ? opdModelFor(currentSpecialist) : aiCfg;
                 const orcResp = await fetch('/api/orchestrator/route', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -7136,9 +7276,9 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
                         context: findings,
                         specialist: currentSpecialist,
                         target,
-                        provider: aiCfg.provider || undefined,
-                        api_key: aiCfg.apiKey || undefined,
-                        model: aiCfg.model || undefined,
+                        provider: m.provider || undefined,
+                        api_key: m.apiKey || undefined,
+                        model: m.model || undefined,
                         session_id: sessionId
                     })
                 });
