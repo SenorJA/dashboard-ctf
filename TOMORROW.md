@@ -1,6 +1,6 @@
 # 🔮 TOMORROW.md — Roadmap de trabajo pendiente
 
-> Última actualización: 15 Ago 2026 — MIRV v6.0 | 33 módulos | 238 endpoints | 4198 tests | 26 tabs | 28 skills | main.py 100%
+> Última actualización: 15 Ago 2026 — MIRV v6.0 | 35 módulos | 241 endpoints | 4313 tests | 26 tabs | 28 skills | main.py 100%
 > ✅ **CI 100% VERDE** — recursión `AuditLogHandler` (CI #47/#48) + 11 fallos pre-existentes desenmascarados, todos resueltos en la serie `d8569d8`→`3cb20fb`. Ver § Postmortems al final.
 > ✅ **exif_osint.py y dlp_scanner.py al 100% de cobertura** (bugs #4/#5 cerrados, 12 Ago 2026).
 > ✅ **Export findings a PDF profesional** (14 Ago 2026): endpoint unificado `POST /api/report/export-pdf` + detalle por finding + resumen ejecutivo automático + frontend conectado (commit `92f4fa3`, CI ✅ Deploy ✅).
@@ -15,6 +15,7 @@
 > ✅ **Ronda 5 — Pre-producción** (15 Ago 2026, commit `cfc7ef9`): smoke test E2E (20 tests, 8 flujos críticos: health/OSINT/reports/findings/skills/settings/scope/static) + backup/restore localStorage (`exportLocalStorage`/`importLocalStorage` con `_meta` metadata, confirmación, reload) + `CHANGELOG.md` (Keep a Changelog, 40 commits, 5 categorías).
 > 📋 **Análisis de repos externos** (15 Ago 2026, `docs/REPO_ANALYSIS_2026-08-15.md`): analizados 3 repos (Anthropic-Cybersecurity-Skills 31.5k⭐, awesome-cyber-security-university 3.4k⭐, OpenExecutive 2.3k⭐). Propuesta: portar 10 skills defensivas + 1 skill educativa + 5 skills red-team en apartado separado con `requires_scope` obligatorio + advertencias éticas. Inspiración arquitectónica de OpenExecutive para futuro Op Admiral. Pendiente de aprobación.
 > ✅ **Integración repos externos** (15 Ago 2026, commits `220a1ba` + `c14eed4`): portadas 16 skills (10 defensivas + 1 educativa + 5 red-team) del repo Anthropic-Cybersecurity-Skills → 28 skills built-in total. Infraestructura `requires_scope` en `skill_playbooks.py` + gate 403 en `/api/skills/{name}/render` (sin scope → 403 "Configure scope first"). Frontend: sección "⚠️ Red Team Lab" en tab Skills con banner ético + badge ⚠️ + validación visual de scope. Fase D (inspiración OpenExecutive para Op Admiral) documentada como roadmap futuro.
+> ✅ **Fase D — Op Admiral orchestrator multi-agente** (15 Ago 2026, rondas 6a `2cbb2b6` + 6b `9b331df` + 6c `0693715`, CI ✅ Deploy ✅): conversión del Op Admiral de planificador lineal a **orchestrator multi-agente** (patrón OpenExecutive). Backend: `backend/orchestrator.py` (100% cov, 68 tests) — 5 especialistas grounded en su skill playbook (recon/webvuln/osint/forensics/password-audit → skill playbooks = equivalente al RAG ChromaDB de OpenExecutive) + `route()` por keywords + 3 endpoints REST. `backend/episodic_memory.py` (100% cov, 30 tests) — memoria episódica **SQLite local** (ns frontend-espejo `<past_decisions>` + recall y write por sesión). Prompt caching en `/api/ai/chat` (`_prepare_chat_messages`: system unificado al inicio, Anthropic `cache_control: ephemeral` si >~4000 chars). Frontend: selector de especialista (6 chips con colores), badge de especialista enrutado + session id, panel de memoria episódica. Suite: **4233 passed, 80 deselected, 0 failed** (+47 tests). Pendiente Fase D: local models abstraction per-agent (item 4).
 
 ---
 
@@ -22,14 +23,14 @@
 
 | Métrica | Valor |
 |---------|-------|
-| Backend modules | 33 (main.py + 32 especializados) |
-| REST endpoints | 238 (+1: `/api/osint/correlate`) |
-| Test files | 84 (+1: `test_smoke_e2e.py`) |
-| Tests collected | 4198 (4118 pass / 80 slow-deselected) |
-| Coverage | ~97% global — **main.py 100%**, **exif_osint 100%**, **dlp_scanner 100%**, **pdf_engine 99%**, **osint_recon 100%**, **subdomain_scanner 99%**, **instagram_osint 100%**, **osint_correlate 100%**, **rate_limiter 100%** |
+| Backend modules | 35 (main.py + 34 especializados, +orchestrator.py +episodic_memory.py) |
+| REST endpoints | 241 (+3: `/api/orchestrator/route`, `/api/orchestrator/specialists`, `/api/orchestrator/specialists/{name}`) |
+| Test files | 86 (+2: `test_orchestrator.py`, `test_episodic_memory.py`) |
+| Tests collected | 4313 (4233 pass / 80 slow-deselected) |
+| Coverage | ~97% global — **main.py 100%**, **orchestrator 100%**, **episodic_memory 100%**, **exif_osint 100%**, **dlp_scanner 100%**, **pdf_engine 99%**, **osint_recon 100%**, **subdomain_scanner 99%**, **instagram_osint 100%**, **osint_correlate 100%**, **rate_limiter 100%** |
 | Frontend tabs | 26 |
-| Frontend JS | ~10228 líneas (main.v2.js) |
-| Frontend HTML | ~2829 líneas (index.html) |
+| Frontend JS | ~10644 líneas (main.v2.js) |
+| Frontend HTML | ~3015 líneas (index.html) |
 | GitHub Actions | 2 workflows (CI + Deploy) |
 | Docker images | 2 (mirv-backend + kali-tools) |
 | GitHub commits | 18+ esta serie |
@@ -729,12 +730,12 @@ Plan OSINT cerrado. Próximos hitos abiertos siguen siendo los manuales del usua
 - CI GitHub `220a1ba` → ✅ CI + ✅ Deploy
 - 28 skills discovered by `discover_skills()` (verificado por `test_discover_finds_all_twenty_eight_builtins`)
 
-### Fase D — Inspiración arquitectónica OpenExecutive (roadmap futuro)
-El repo `SenteLabsAI/OpenExecutive` (2.3k⭐) aporta 3 ideas para mejorar MIRV en una futura ronda (NO implementado ahora):
-1. **Orchestrator multi-agente** — convertir Op Admiral (planificador simple) en un orchestrator que enruta a agentes especialistas de pentest (recon agent, webvuln agent, privesc agent) con memoria episódica
-2. **Memoria episódica SQLite** — mejorar `mission_store.py` extrayendo decisiones clave tras cada respuesta (patrón OpenExecutive: background pass con modelo rápido)
-3. **Prompt caching** — separar cached system prompt del dynamic context en `/api/ai/chat` (ahorro de tokens, ~85% cache hit rate)
-4. **Local models abstraction** — per-agent model selection maduro (híbrido local/hosted, OpenRouter)
+### Fase D — Inspiración arquitectónica OpenExecutive (implementado ✅ 1-3, pendiente 4)
+El repo `SenteLabsAI/OpenExecutive` (2.3k⭐) aporta 4 ideas para mejorar MIRV:
+1. ✅ **Orchestrator multi-agente** (15 Ago 2026, commits `2cbb2b6`+`9b331df`+`0693715`) — Op Admiral convertido en orchestrator que enruta a 5 especialistas de pentest (recon, webvuln, osint, forensics, password-audit) con memoria episódica. `backend/orchestrator.py` (100% cov): `route()` por keywords (mín. hits → default recon), `execute()` auto-ruta + system prompt grounded en skill playbook (equivalente al RAG ChromaDB de OpenExecutive) + redacción de task/context antes del LLM + scope gate defensivo para red-team. 3 endpoints (`/api/orchestrator/route`, `/api/orchestrator/specialists[/{name}]`).
+2. ✅ **Memoria episódica SQLite** (15 Ago 2026, commit `9b331df`) — `backend/episodic_memory.py` (100% cov, 30 tests): SQLite local stdlib (sin deps), `save_episodic_memory` con extracción heurística de key_decisions (markers recommend/suggest), redacción antes de persistir, LRU cap 500 rows, `get_episodic_context()` inyecta `<past_decisions>` (recall) en el prompt de la siguiente llamada, `clear`. `backend/data/episodic_memory.db` en `.gitignore`. Patrón OpenExecutive: background pass haiku → MIRV: heurística sin LLM (sin coste, sin dep).
+3. ✅ **Prompt caching** (15 Ago 2026, commit `9b331df`) — `_prepare_chat_messages()` en `/api/ai/chat`: fusiona todos los system messages en uno al inicio (caching natural en OpenAI/Anthropic/Gemini); si provider=anthropic y system > `_ANTHROPIC_CACHE_MIN_CHARS` (4000 ≈ >1024 tokens) → content-blocks con `cache_control: {"type": "ephemeral"}` (tasa de lectura reducida). `_call_llm_sync` intacto.
+4. ⬜ **Local models abstraction** — per-agent model selection maduro (híbrido local/hosted, OpenRouter). El orchestrator ya acepta `provider`/`api_key`/`model` por request (args > env `MIRV_AI_*` > default local Ollama); falta el UI para configurar modelo por especialista.
 
 ### Estado del catálogo de skills
 ```

@@ -6,6 +6,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/), auto-generated 
 ## [Unreleased] — 28 Ago 2026
 
 ### Added
+- `0693715` — feat(frontend): Op Admiral tab — multi-agent orchestrator UI (ronda 6c)
+- `9b331df` — feat(orchestrator): memoria episódica SQLite + prompt caching (ronda 6b)
+- `2cbb2b6` — feat(orchestrator): multi-agent orchestrator — Op Admiral v2 (ronda 6a)
 - `9db256` — feat(ronda4): a11y + i18n completa + README + auditoria UI
 - `408c717` — feat(ronda3): correlacion OSINT + docs rondas 1-3 + slow test fixes
 - `4bb319d` — feat(ronda2): security hardening — fix P1+P2 de la auditoria OSINT
