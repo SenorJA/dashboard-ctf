@@ -2156,6 +2156,91 @@ async def api_skills_create(request: Request):
 
 
 # ════════════════════════════════════════════════════════════════
+#  MULTI-AGENT ORCHESTRATOR
+#  Routes security tasks to specialist agents, each grounded in a
+#  skill playbook (the MIRV equivalent of OpenExecutive's RAG context).
+# ════════════════════════════════════════════════════════════════
+
+from backend.orchestrator import (
+    execute as orchestrator_execute,
+    route as orchestrator_route,
+    list_specialists as orchestrator_list_specialists,
+    get_specialist as orchestrator_get_specialist,
+)
+
+
+class OrchestratorRequest(BaseModel):
+    """Request body for ``POST /api/orchestrator/route``."""
+    task: str = Field(..., max_length=2000)
+    context: str = Field("", max_length=4000)
+    specialist: str = Field("", max_length=30)
+    target: str = Field("", max_length=200)
+    provider: str = Field("openai", max_length=30)
+    api_key: str = Field("", max_length=200)
+    model: str = Field("", max_length=80)
+
+
+@app.post("/api/orchestrator/route")
+async def api_orchestrator_route(req: OrchestratorRequest):
+    """Route a security task to a specialist agent and execute it.
+
+    The specialist is auto-detected from the task text via keyword
+    matching unless ``specialist`` is provided explicitly. Each
+    specialist is grounded in its corresponding skill playbook, and the
+    task + context are **redacted** before being sent to the LLM.
+    """
+    try:
+        if not req.task or not req.task.strip():
+            return JSONResponse(
+                {"ok": False, "error": "Missing 'task'"},
+                status_code=400,
+            )
+        result = orchestrator_execute(
+            task=req.task,
+            context=req.context,
+            specialist=req.specialist,
+            target=req.target,
+            provider=req.provider,
+            api_key=req.api_key,
+            model=req.model,
+        )
+        status = 200 if result.get("ok") else 400
+        return JSONResponse(result, status_code=status)
+    except Exception as e:
+        logger.exception("[orchestrator route] %s", e, exc_info=False)
+        return JSONResponse({"ok": False, "error": "Internal error"}, status_code=500)
+
+
+@app.get("/api/orchestrator/specialists")
+async def api_orchestrator_specialists():
+    """List all available specialist agents."""
+    try:
+        return JSONResponse(
+            {"ok": True, "specialists": orchestrator_list_specialists()},
+            status_code=200,
+        )
+    except Exception as e:
+        logger.exception("[orchestrator specialists] %s", e, exc_info=False)
+        return JSONResponse({"ok": False, "error": "Internal error"}, status_code=500)
+
+
+@app.get("/api/orchestrator/specialists/{name}")
+async def api_orchestrator_specialist(name: str):
+    """Get info for a single specialist agent."""
+    try:
+        info = orchestrator_get_specialist(name)
+        if not info:
+            return JSONResponse(
+                {"ok": False, "error": f"Specialist '{name}' not found"},
+                status_code=404,
+            )
+        return JSONResponse({"ok": True, "specialist": info}, status_code=200)
+    except Exception as e:
+        logger.exception("[orchestrator specialist] %s", e, exc_info=False)
+        return JSONResponse({"ok": False, "error": "Internal error"}, status_code=500)
+
+
+# ════════════════════════════════════════════════════════════════
 #  SECURITY NEWS SCRAPER
 # ════════════════════════════════════════════════════════════════
 
