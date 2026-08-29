@@ -3646,6 +3646,8 @@ ${bodyHtml}
         'plan-copy-cmd':  (el) => { const i = parseInt(el.dataset.idx); if (!isNaN(i) && window.copyPlanCommand) copyPlanCommand(i); },
         'plan-exec-step': (el) => { const i = parseInt(el.dataset.idx); if (!isNaN(i) && window.executeStep) executeStep(i); },
         'view-mission':   (el) => { const id = el.dataset.missionId; if (id && window.viewMissionDetails) viewMissionDetails(id); },
+        'opd-select-specialist': (el) => { if (el.dataset.specialist && window.selectOpdSpecialist) selectOpdSpecialist(el.dataset.specialist); },
+        'opd-clear-memory':      ()   => { if (window.clearEpisodicMemory) clearEpisodicMemory(); },
 
         // ── Swarm ──
         'swarm-refresh':  ()   => { if (window.swarmRefresh) swarmRefresh(); },
@@ -6309,6 +6311,14 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         planEmptyDesc:     { en: 'Describe the target and click "Generate Plan" to create a mission plan.', es: 'Describe el objetivo y pulsa "Generate Plan" para crear un plan de misión.' },
         planDescLabel:     { en: 'Describe the target…', es: 'Describe el objetivo…' },
         planDescPlaceholder:{ en: 'Ej: Escanear el target, encontrar vulnerabilidades en el puerto 80, intentar subir una webshell…', es: 'Ej: Escanear el target, encontrar vulnerabilidades en el puerto 80, intentar subir una webshell…' },
+        // ── Op Admiral — Multi-Agent Orchestrator ──
+        'opd-specialist':      { en: '🧠 Specialist',     es: '🧠 Especialista' },
+        'opd-specialist-auto': { en: '⚡ Auto (route)',   es: '⚡ Auto (rutear)' },
+        'opd-routed-to':       { en: 'Routed to',         es: 'Enrutado a' },
+        'opd-episodic-memory': { en: '🧠 Episodic Memory', es: '🧠 Memoria episódica' },
+        'opd-clear-memory':    { en: '✕ Clear memory',   es: '✕ Limpiar memoria' },
+        'opd-session':         { en: 'Session',           es: 'Sesión' },
+        'opd-no-memory':       { en: 'No episodic memory yet for this session', es: 'Sin memoria episódica aún para esta sesión' },
         // ── Mission History (Self-Improvement) ──
         missionHistoryTitle: { en: '📚 Mission History', es: '📚 Historial de Misiones' },
         saveMissionBtn:    { en: '💾 Save Mission',      es: '💾 Guardar Misión' },
@@ -6863,6 +6873,108 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
     let missionPlan = [];
     let currentStepIndex = -1;
 
+    // ── Multi-agent orchestrator state (OpenExecutive-inspired) ──
+    let sessionId = '';                    // episodic session id (persisted backend-side)
+    let currentSpecialist = 'auto';        // selected specialist chip ('auto' = route by intent)
+    let episodicDecisions = [];            // {specialist, task, decisions} — frontend mirror of <past_decisions>
+
+    const SPECIALIST_META = {
+        auto:            { label: 'Auto',       dot: 'bg-neon',       color: 'text-neon' },
+        recon:           { label: 'Recon',      dot: 'bg-cyber',      color: 'text-cyber' },
+        webvuln:         { label: 'Web Vuln',   dot: 'bg-blood',      color: 'text-blood' },
+        osint:           { label: 'OSINT',      dot: 'bg-amber-400',  color: 'text-amber-400' },
+        forensics:       { label: 'Forensics',  dot: 'bg-violet-400', color: 'text-violet-400' },
+        'password-audit':{ label: 'Pwd Audit',  dot: 'bg-green-400',  color: 'text-green-400' }
+    };
+
+    function specialistLabel(spec) {
+        return (SPECIALIST_META[spec] || {}).label || spec || 'Auto';
+    }
+
+    // Extract the "key decisions" summary from the orchestrator response
+    function summarizeDecisions(response) {
+        if (!response) return '—';
+        let text = '';
+        if (Array.isArray(response)) {
+            text = response.slice(0, 3)
+                .map(s => (s && (s.title || s.description)) || '')
+                .filter(Boolean)
+                .join(' → ');
+        } else {
+            text = String(response);
+        }
+        text = text.replace(/\s+/g, ' ').trim();
+        return text.length > 120 ? text.slice(0, 120) + '…' : text;
+    }
+
+    // Specialist picker chip handler
+    window.selectOpdSpecialist = function (spec) {
+        if (!spec) return;
+        currentSpecialist = spec;
+        const valueEl = document.getElementById('opd-specialist-value');
+        if (valueEl) valueEl.value = spec;
+        document.querySelectorAll('.opd-spec-chip').forEach(chip => {
+            const isActive = chip.dataset.specialist === spec;
+            chip.classList.toggle('ring-1', isActive);
+            chip.classList.toggle('ring-neon/70', isActive);
+            chip.classList.toggle('border-neon/70', isActive);
+            chip.classList.toggle('bg-neon/10', isActive);
+            chip.classList.toggle('opacity-50', !isActive);
+        });
+        showToast(`🧠 Specialist: ${specialistLabel(spec)}`);
+    };
+
+    // Route badge — shows which specialist processed the last request
+    window.showRouteBadge = function (spec) {
+        const badge = document.getElementById('opd-route-badge');
+        const specEl = document.getElementById('opd-route-badge-spec');
+        const sidEl = document.getElementById('opd-session-id');
+        if (!badge || !specEl) return;
+        const meta = SPECIALIST_META[spec] || SPECIALIST_META.auto;
+        specEl.innerHTML = `<span class="w-1.5 h-1.5 rounded-full ${meta.dot} inline-block"></span><span class="${meta.color}">${escapeHTML(meta.label)}</span>`;
+        if (sidEl) sidEl.textContent = sessionId ? sessionId.slice(0, 24) : '—';
+        badge.classList.remove('hidden');
+    };
+
+    // Episodic memory panel — mirrors <past_decisions> of the current session (frontend-local)
+    window.renderEpisodicMemory = function () {
+        const panel = document.getElementById('opd-episodic-panel');
+        const list = document.getElementById('opd-episodic');
+        const sidEl = document.getElementById('opd-session-id');
+        if (!panel || !list) return;
+        if (sidEl) sidEl.textContent = sessionId ? sessionId.slice(0, 24) : '—';
+        panel.classList.remove('hidden');
+
+        if (episodicDecisions.length === 0) {
+            const emptyText = (translations['opd-no-memory'] && translations['opd-no-memory'][window.currentLang]) || 'No episodic memory yet for this session';
+            list.innerHTML = `<div class="text-[9px] text-gray-500" data-i18n="opd-no-memory">${escapeHTML(emptyText)}</div>`;
+            return;
+        }
+
+        list.innerHTML = episodicDecisions.map(d => {
+            const meta = SPECIALIST_META[d.specialist] || SPECIALIST_META.auto;
+            const task = (d.task || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+            return `
+            <div class="flex items-start gap-2 bg-void/60 border border-cyber/20 rounded px-2 py-1.5">
+                <span class="w-1.5 h-1.5 rounded-full ${meta.dot} shrink-0 mt-0.5"></span>
+                <span class="text-[9px] font-mono ${meta.color} shrink-0">[${meta.label}]</span>
+                <span class="text-[9px] text-gray-400">${escapeHTML(task)}:</span>
+                <span class="text-[9px] text-gray-500 flex-1 leading-snug">${escapeHTML(d.decisions)}</span>
+            </div>`;
+        }).join('');
+    };
+
+    // Clear the episodic memory (frontend mirror + backend session id)
+    window.clearEpisodicMemory = function () {
+        episodicDecisions = [];
+        sessionId = '';
+        const panel = document.getElementById('opd-episodic-panel');
+        if (panel) panel.classList.add('hidden');
+        const badge = document.getElementById('opd-route-badge');
+        if (badge) badge.classList.add('hidden');
+        showToast('🗑 Episodic memory cleared');
+    };
+
     function extractJSON(text) {
         // Try to extract JSON array from markdown code blocks or raw text
         // 1. Check for ```json ... ``` blocks
@@ -7004,14 +7116,90 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         const statusEl = document.getElementById('plan-status');
         btn.disabled = true;
         btn.textContent = '⏳ Generating...';
-        statusEl.textContent = 'AI is planning the mission...';
+        statusEl.textContent = window.currentLang === 'es' ? 'El orquestador enruta la misión...' : 'Orchestrator is routing the mission...';
         missionPlan = [];
         window.renderPlan();
 
         const target = document.getElementById('target-ip')?.value?.trim() || 'unknown';
         const findings = window.collectFindingsText ? window.collectFindingsText() : 'No findings yet';
 
-        const systemPrompt = `Eres Op Admiral, un planificador de misiones ofensivas de ciberseguridad. Genera un plan paso a paso basado en la descripción del objetivo.
+        try {
+            // ── 1) Multi-agent orchestrator route (OpenExecutive-style) ──
+            let routed = false;
+            try {
+                const aiCfg = _getAIConfig ? _getAIConfig() : {};
+                const orcResp = await fetch('/api/orchestrator/route', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        task: desc,
+                        context: findings,
+                        specialist: currentSpecialist,
+                        target,
+                        provider: aiCfg.provider || undefined,
+                        api_key: aiCfg.apiKey || undefined,
+                        model: aiCfg.model || undefined,
+                        session_id: sessionId
+                    })
+                });
+
+                if (orcResp.ok) {
+                    const orcData = await orcResp.json();
+                    if (orcData && orcData.ok) {
+                        routed = true;
+
+                        // Remember the session id → backend persists <past_decisions> for next calls
+                        if (orcData.session_id) sessionId = orcData.session_id;
+
+                        // Mirror the decision locally for the episodic memory panel
+                        if (orcData.specialist) {
+                            episodicDecisions.push({
+                                specialist: orcData.specialist,
+                                task: desc,
+                                decisions: summarizeDecisions(orcData.response)
+                            });
+                            window.showRouteBadge(orcData.specialist);
+                        }
+
+                        // Response is usually a JSON array of steps, but may be free text
+                        const result = orcData.response || '';
+                        const parsed = extractJSON(result);
+                        if (parsed && Array.isArray(parsed)) {
+                            missionPlan = parsed.slice(0, 8).map((step, i) => ({
+                                id: i,
+                                title: step.title || `Step ${i + 1}`,
+                                description: step.description || '',
+                                command: step.command || '',
+                                status: 'pending'
+                            }));
+                        } else {
+                            // Degradation: show free-text response as an informational step
+                            const text = (result || 'No response content').replace(/\s+/g, ' ').trim().slice(0, 500);
+                            missionPlan = [{
+                                id: 0,
+                                title: window.currentLang === 'es' ? '📄 Plan enrutado' : '📄 Routed plan',
+                                description: text,
+                                command: '',
+                                status: 'pending'
+                            }];
+                        }
+
+                        window.renderEpisodicMemory();
+                        window.renderPlan();
+                        showToast(`🎯 Mission plan generated: ${missionPlan.length} steps`);
+                        statusEl.textContent = `${missionPlan.length} steps ready`;
+                        return;
+                    }
+                }
+            } catch (err) {
+                // Orchestrator route unavailable (404/500/network) → degrade gracefully
+                try { window.appendOutput(`\n[Op Admiral] Orchestrator route unavailable (${err.message}) — falling back to aiChat plan`); } catch {}
+            }
+
+            if (routed) return; // just in case
+
+            // ── 2) Legacy flow fallback: /api/ai/chat (backwards-compatible) ──
+            const systemPrompt = `Eres Op Admiral, un planificador de misiones ofensivas de ciberseguridad. Genera un plan paso a paso basado en la descripción del objetivo.
 
 Contexto:
 - Target: ${target}
@@ -7027,13 +7215,9 @@ Reglas:
 - Si no hay un comando específico, deja command como cadena vacía ""
 - NO incluyas explicación fuera del JSON`;
 
-        try {
             const result = await window.aiChat(systemPrompt, desc);
             if (!result) {
                 showToast('⚠️ AI returned no response');
-                btn.disabled = false;
-                btn.textContent = '🎯 Generate Plan';
-                statusEl.textContent = '';
                 return;
             }
 
@@ -7042,9 +7226,6 @@ Reglas:
                 showToast('⚠️ AI response was not a valid JSON array');
                 // Show raw response in terminal for debugging
                 window.appendOutput(`\n[Op Admiral] AI response:\n${result}`);
-                btn.disabled = false;
-                btn.textContent = '🎯 Generate Plan';
-                statusEl.textContent = '';
                 return;
             }
 

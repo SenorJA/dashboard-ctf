@@ -1266,6 +1266,54 @@
                         class="w-full bg-deep border border-gray-800 rounded px-3 py-2 text-[11px] text-gray-300 placeholder-gray-500 focus:outline-none focus:border-neon/50 font-mono"></textarea>
                 </div>
 
+                <!-- Specialist picker (multi-agent orchestrator) -->
+                <div class="opd-specialist-picker mb-3">
+                    <label class="text-[9px] text-gray-400 uppercase tracking-wider mb-1.5 block" data-i18n="opd-specialist" for="opd-specialist-value">🧠 Specialist</label>
+                    <input type="hidden" id="opd-specialist-value" value="auto">
+                    <div class="flex flex-wrap items-center gap-1.5" id="opd-specialist-chips" role="group" aria-label="Specialist">
+                        <button type="button" data-action="opd-select-specialist" data-specialist="auto"
+                            title="Auto-route by intent"
+                            class="opd-spec-chip text-[9px] px-2 py-1 rounded-full border border-neon/70 bg-neon/15 text-neon font-semibold ring-1 ring-neon/70 transition-all duration-150"
+                            data-i18n="opd-specialist-auto">⚡ Auto (route)</button>
+                        <button type="button" data-action="opd-select-specialist" data-specialist="recon"
+                            class="opd-spec-chip text-[9px] px-2 py-1 rounded-full border border-cyber/30 bg-cyber/10 text-cyber hover:border-cyber/60 opacity-50 transition-all duration-150"
+                            title="Recon">🛰 Recon</button>
+                        <button type="button" data-action="opd-select-specialist" data-specialist="webvuln"
+                            class="opd-spec-chip text-[9px] px-2 py-1 rounded-full border border-blood/30 bg-blood/10 text-blood hover:border-blood/60 opacity-50 transition-all duration-150"
+                            title="Web Vuln">🌐 Web Vuln</button>
+                        <button type="button" data-action="opd-select-specialist" data-specialist="osint"
+                            class="opd-spec-chip text-[9px] px-2 py-1 rounded-full border border-amber-400/30 bg-amber-400/10 text-amber-400 hover:border-amber-400/60 opacity-50 transition-all duration-150"
+                            title="OSINT">🔎 OSINT</button>
+                        <button type="button" data-action="opd-select-specialist" data-specialist="forensics"
+                            class="opd-spec-chip text-[9px] px-2 py-1 rounded-full border border-violet-400/30 bg-violet-400/10 text-violet-400 hover:border-violet-400/60 opacity-50 transition-all duration-150"
+                            title="Forensics">🧬 Forensics</button>
+                        <button type="button" data-action="opd-select-specialist" data-specialist="password-audit"
+                            class="opd-spec-chip text-[9px] px-2 py-1 rounded-full border border-green-400/30 bg-green-400/10 text-green-400 hover:border-green-400/60 opacity-50 transition-all duration-150"
+                            title="Password Audit">🔑 Pwd Audit</button>
+                    </div>
+                </div>
+
+                <!-- Routed specialist indicator -->
+                <div id="opd-route-badge" class="hidden mb-3">
+                    <div class="flex items-center gap-2 bg-void/80 border border-cyber/30 rounded-lg px-3 py-2">
+                        <span class="text-[9px] text-gray-400 uppercase tracking-wider" data-i18n="opd-routed-to">Routed to</span>
+                        <span id="opd-route-badge-spec" class="inline-flex items-center gap-1.5 text-[10px] font-semibold"></span>
+                        <span class="ml-auto text-[9px] text-gray-500" data-i18n="opd-session">Session</span>
+                        <span id="opd-session-id" class="text-[9px] font-mono text-cyber max-w-[120px] truncate">—</span>
+                    </div>
+                </div>
+
+                <!-- Episodic memory panel (past decisions of the current session) -->
+                <div id="opd-episodic-panel" class="hidden mb-3">
+                    <div class="flex items-center gap-2 mb-1.5">
+                        <h4 class="text-[9px] text-gray-400 uppercase tracking-wider" data-i18n="opd-episodic-memory">🧠 Episodic Memory</h4>
+                        <button data-action="opd-clear-memory" id="opd-clear-memory"
+                            class="ml-auto text-[9px] text-gray-500 hover:text-blood transition-colors"
+                            data-i18n="opd-clear-memory">✕ Clear memory</button>
+                    </div>
+                    <div id="opd-episodic" class="space-y-1 max-h-32 overflow-y-auto" aria-live="polite" aria-label="Episodic memory"></div>
+                </div>
+
                 <!-- Buttons row -->
                 <div class="flex items-center gap-2 mb-4">
                     <button data-action="gen-plan" id="btn-generate-plan" data-i18n="generatePlan"
