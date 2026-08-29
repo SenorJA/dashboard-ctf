@@ -1308,3 +1308,172 @@ def test_llm_unknown_provider():
         raise AssertionError("expected ValueError")
     except ValueError as e:
         assert "Unknown provider" in str(e)
+
+
+# ════════════════════════════════════════════════════════════════════
+#  POST /api/ai/chat — prompt-caching message restructuring
+# ════════════════════════════════════════════════════════════════════
+
+class TestAIChatPromptCaching:
+    """``/api/ai/chat`` restructures messages for prompt-cache friendliness:
+    merge all system messages into one at index 0, and attach an
+    ``cache_control`` block for the anthropic provider when the system
+    content is long enough.
+    """
+
+    def test_single_system_message_stays_first(self, client: TestClient):
+        with patch("main._call_llm_sync", return_value="ok") as mock_llm:
+            resp = client.post("/api/ai/chat", json={
+                "provider": "openai",
+                "api_key": "sk-test",
+                "messages": [
+                    {"role": "system", "content": "You are helpful"},
+                    {"role": "user", "content": "Hello"},
+                ],
+            })
+            assert resp.status_code == 200
+            msgs = mock_llm.call_args[0][3]
+            assert msgs[0]["role"] == "system"
+            assert msgs[0]["content"] == "You are helpful"
+            assert msgs[1]["role"] == "user"
+
+    def test_multiple_system_messages_are_merged(self, client: TestClient):
+        with patch("main._call_llm_sync", return_value="ok") as mock_llm:
+            resp = client.post("/api/ai/chat", json={
+                "provider": "openai",
+                "api_key": "sk-test",
+                "messages": [
+                    {"role": "system", "content": "Rule one"},
+                    {"role": "system", "content": "Rule two"},
+                    {"role": "user", "content": "Hi"},
+                ],
+            })
+            assert resp.status_code == 200
+            msgs = mock_llm.call_args[0][3]
+            # Exactly one system message at the top.
+            assert msgs[0]["role"] == "system"
+            assert "Rule one" in msgs[0]["content"]
+            assert "Rule two" in msgs[0]["content"]
+            assert sum(1 for m in msgs if m["role"] == "system") == 1
+            assert msgs[1]["role"] == "user"
+
+    def test_no_system_message_keeps_behaviour(self, client: TestClient):
+        with patch("main._call_llm_sync", return_value="ok") as mock_llm:
+            resp = client.post("/api/ai/chat", json={
+                "provider": "openai",
+                "api_key": "sk-test",
+                "messages": [
+                    {"role": "user", "content": "Hi"},
+                    {"role": "assistant", "content": "Hello"},
+                    {"role": "user", "content": "How are you?"},
+                ],
+            })
+            assert resp.status_code == 200
+            msgs = mock_llm.call_args[0][3]
+            # No synthetic system message is injected.
+            assert all(m["role"] != "system" for m in msgs)
+            assert msgs[0]["role"] == "user"
+            assert len(msgs) == 3
+
+    def test_anthropic_long_system_gets_cache_control(self, client: TestClient):
+        long_system = "You are a security analyst. " * 250  # > 4000 chars
+        with patch("main._call_llm_sync", return_value="ok") as mock_llm:
+            resp = client.post("/api/ai/chat", json={
+                "provider": "anthropic",
+                "api_key": "sk-test",
+                "messages": [
+                    {"role": "system", "content": long_system},
+                    {"role": "user", "content": "Hi"},
+                ],
+            })
+            assert resp.status_code == 200
+            msgs = mock_llm.call_args[0][3]
+            system = msgs[0]
+            assert system["role"] == "system"
+            # content must be a list of blocks with cache_control.
+            assert isinstance(system["content"], list)
+            block = system["content"][0]
+            assert block["type"] == "text"
+            assert block["cache_control"] == {"type": "ephemeral"}
+            assert block["text"] == long_system.strip()
+
+    def test_anthropic_short_system_stays_string(self, client: TestClient):
+        with patch("main._call_llm_sync", return_value="ok") as mock_llm:
+            resp = client.post("/api/ai/chat", json={
+                "provider": "anthropic",
+                "api_key": "sk-test",
+                "messages": [
+                    {"role": "system", "content": "short system"},
+                    {"role": "user", "content": "Hi"},
+                ],
+            })
+            assert resp.status_code == 200
+            msgs = mock_llm.call_args[0][3]
+            # Below the cache threshold → plain string content.
+            assert isinstance(msgs[0]["content"], str)
+            assert msgs[0]["content"] == "short system"
+
+    def test_non_anthropic_long_system_stays_string(self, client: TestClient):
+        long_system = "You are a security analyst. " * 250
+        with patch("main._call_llm_sync", return_value="ok") as mock_llm:
+            resp = client.post("/api/ai/chat", json={
+                "provider": "openai",
+                "api_key": "sk-test",
+                "messages": [
+                    {"role": "system", "content": long_system},
+                    {"role": "user", "content": "Hi"},
+                ],
+            })
+            assert resp.status_code == 200
+            msgs = mock_llm.call_args[0][3]
+            assert isinstance(msgs[0]["content"], str)
+            assert msgs[0]["content"] == long_system.strip()
+
+    def test_system_message_content_blocks_are_flattened(self, client: TestClient):
+        """Anthropic-style content-block system messages are flattened to text."""
+        with patch("main._call_llm_sync", return_value="ok") as mock_llm:
+            resp = client.post("/api/ai/chat", json={
+                "provider": "openai",
+                "api_key": "sk-test",
+                "messages": [
+                    {"role": "system", "content": [
+                        {"type": "text", "text": "Block one"},
+                        {"type": "text", "text": "Block two"},
+                    ]},
+                    {"role": "user", "content": "Hi"},
+                ],
+            })
+            assert resp.status_code == 200
+            msgs = mock_llm.call_args[0][3]
+            assert msgs[0]["role"] == "system"
+            assert "Block one" in msgs[0]["content"]
+            assert "Block two" in msgs[0]["content"]
+
+    def test_restructured_messages_are_redacted(self, client: TestClient):
+        """The rebuilt list still goes through redact_ai_payload."""
+        secret = "ghp_1234567890abcdefghijklmnopqrstuvwxyz"
+        with patch("main._call_llm_sync", return_value="ok") as mock_llm:
+            resp = client.post("/api/ai/chat", json={
+                "provider": "openai",
+                "api_key": "sk-test",
+                "messages": [
+                    {"role": "system", "content": f"system {secret}"},
+                    {"role": "user", "content": f"user {secret}"},
+                ],
+            })
+            assert resp.status_code == 200
+            msgs = mock_llm.call_args[0][3]
+            flat = json.dumps(msgs)
+            assert secret not in flat
+            assert "[GITHUB_TOKEN]" in flat
+
+    def test_prepare_chat_messages_handles_empty(self):
+        from main import _prepare_chat_messages
+        assert _prepare_chat_messages([], "openai") == []
+        assert _prepare_chat_messages(None, "openai") == []  # type: ignore[arg-type]
+
+    def test_prepare_chat_messages_non_dict_preserved(self):
+        from main import _prepare_chat_messages
+        out = _prepare_chat_messages([42, "str"], "openai")
+        # Non-dict entries are kept in their slots (redaction is a no-op for them).
+        assert 42 in out

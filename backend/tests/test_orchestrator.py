@@ -65,6 +65,17 @@ def _reset_scope():
         yield
 
 
+@pytest.fixture(autouse=True)
+def _isolate_episodic_memory():
+    """Keep the existing execute() tests hermetic — never touch the real
+    SQLite store. Tests that need to assert on episodic-memory behaviour
+    apply their own ``patch`` on top of this default no-op layer.
+    """
+    with patch("backend.episodic_memory.save_episodic_memory", return_value={"ok": True}), \
+         patch("backend.episodic_memory.get_episodic_context", return_value=""):
+        yield
+
+
 # ═══════════════════════════════════════════════════════════════
 #  1. route() — keyword matching
 # ═══════════════════════════════════════════════════════════════
@@ -294,6 +305,102 @@ class TestExecute:
              patch("backend.orchestrator._render_skill", return_value=""):
             result = execute(task="exploit", specialist="webvuln")
             assert result["ok"] is True
+
+
+# ═══════════════════════════════════════════════════════════════
+#  3b. execute() — episodic memory integration
+# ═══════════════════════════════════════════════════════════════
+
+class TestExecuteEpisodicMemory:
+    """Episodic-memory wiring: save after each call, recall on session reuse."""
+
+    def test_execute_calls_save_episodic_memory(self):
+        """A successful execute() must persist an episodic-memory entry."""
+        with patch("backend.orchestrator._call_llm", return_value="LLM OK"), \
+             patch("backend.orchestrator._render_skill", return_value=""), \
+             patch("backend.episodic_memory.save_episodic_memory", return_value={"ok": True}) as mock_save:
+            result = execute(task="recon target", specialist="recon")
+            assert result["ok"] is True
+            mock_save.assert_called_once()
+            call = mock_save.call_args
+            assert call.kwargs.get("specialist") == "recon"
+            assert call.kwargs.get("task") == "recon target"
+            assert call.kwargs.get("response") == "LLM OK"
+            # session_id should be minted (a uuid) and echoed back.
+            assert "session_id" in result
+            assert call.kwargs.get("session_id") == result["session_id"]
+
+    def test_execute_response_includes_session_id(self):
+        with patch("backend.orchestrator._call_llm", return_value="ok"), \
+             patch("backend.orchestrator._render_skill", return_value=""), \
+             patch("backend.episodic_memory.save_episodic_memory", return_value={"ok": True}):
+            result = execute(task="recon", specialist="recon")
+            assert result["ok"] is True
+            assert "session_id" in result
+            assert isinstance(result["session_id"], str) and result["session_id"]
+
+    def test_execute_reuses_provided_session_id(self):
+        """When the caller passes a session_id, it is reused verbatim."""
+        with patch("backend.orchestrator._call_llm", return_value="ok"), \
+             patch("backend.orchestrator._render_skill", return_value=""), \
+             patch("backend.episodic_memory.save_episodic_memory", return_value={"ok": True}) as mock_save:
+            result = execute(task="recon", specialist="recon", session_id="sess-123")
+            assert result["session_id"] == "sess-123"
+            assert mock_save.call_args.kwargs.get("session_id") == "sess-123"
+
+    def test_execute_injects_episodic_context_into_system_prompt(self):
+        """When a session_id is provided, past decisions ground the prompt."""
+        captured = {}
+
+        def _capture(messages, **kwargs):
+            captured["msgs"] = messages
+            return "ok"
+
+        with patch("backend.orchestrator._call_llm", side_effect=_capture), \
+             patch("backend.orchestrator._render_skill", return_value=""), \
+             patch("backend.episodic_memory.get_episodic_context",
+                   return_value="<past_decisions>\n- [recon] prior: do X\n</past_decisions>") as mock_ctx, \
+             patch("backend.episodic_memory.save_episodic_memory", return_value={"ok": True}):
+            result = execute(task="recon again", specialist="recon", session_id="sess-xyz")
+            assert result["ok"] is True
+            mock_ctx.assert_called_once_with("sess-xyz")
+            system_prompt = captured["msgs"][0]["content"]
+            assert "<past_decisions>" in system_prompt
+            assert "do X" in system_prompt
+
+    def test_execute_no_context_injected_when_session_has_no_memory(self):
+        captured = {}
+
+        def _capture(messages, **kwargs):
+            captured["msgs"] = messages
+            return "ok"
+
+        with patch("backend.orchestrator._call_llm", side_effect=_capture), \
+             patch("backend.orchestrator._render_skill", return_value=""), \
+             patch("backend.episodic_memory.get_episodic_context", return_value=""), \
+             patch("backend.episodic_memory.save_episodic_memory", return_value={"ok": True}):
+            execute(task="recon", specialist="recon", session_id="empty-sess")
+            assert "<past_decisions>" not in captured["msgs"][0]["content"]
+
+    def test_execute_survives_episodic_save_failure(self):
+        """If save_episodic_memory raises, execute() still returns the LLM result."""
+        with patch("backend.orchestrator._call_llm", return_value="LLM OK"), \
+             patch("backend.orchestrator._render_skill", return_value=""), \
+             patch("backend.episodic_memory.save_episodic_memory",
+                   side_effect=RuntimeError("db locked")):
+            result = execute(task="recon", specialist="recon")
+            assert result["ok"] is True
+            assert result["response"] == "LLM OK"
+
+    def test_execute_survives_episodic_recall_failure(self):
+        with patch("backend.orchestrator._call_llm", return_value="ok") as mock_llm, \
+             patch("backend.orchestrator._render_skill", return_value=""), \
+             patch("backend.episodic_memory.get_episodic_context",
+                   side_effect=RuntimeError("recall boom")), \
+             patch("backend.episodic_memory.save_episodic_memory", return_value={"ok": True}):
+            result = execute(task="recon", specialist="recon", session_id="s1")
+            assert result["ok"] is True
+            mock_llm.assert_called_once()
 
 
 # ═══════════════════════════════════════════════════════════════

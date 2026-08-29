@@ -32,6 +32,7 @@ import logging
 import os
 import urllib.request
 import urllib.error
+import uuid
 from typing import Any
 
 # ════════════════════════════════════════════════════════════════
@@ -315,6 +316,7 @@ def execute(
     provider: str = "",
     api_key: str = "",
     model: str = "",
+    session_id: str = "",
 ) -> dict:
     """Route ``task`` to a specialist and call the LLM grounded in its playbook.
 
@@ -332,15 +334,22 @@ def execute(
         LLM request timeout in seconds.
     provider / api_key / model : str
         Optional LLM provider override; fall back to env / ``local``.
+    session_id : str
+        Optional episodic-memory session id. When set, past decisions
+        for this session are injected into the system prompt; after the
+        call, the new interaction is appended to the episodic store.
 
     Returns
     -------
     dict
-        ``{"ok": True, "specialist": str, "response": str, "task": str}``
-        on success, or ``{"ok": False, "error": str}`` on any failure.
-        Never raises.
+        ``{"ok": True, "specialist": str, "response": str, "task": str,
+        "session_id": str}`` on success, or ``{"ok": False, "error": str}``
+        on any failure. Never raises.
     """
     try:
+        # ── Resolve / mint session id (for episodic memory) ──────────
+        session_id = session_id or str(uuid.uuid4())
+
         # ── Resolve specialist ─────────────────────────────────────
         if not specialist:
             specialist = route(task)
@@ -370,6 +379,18 @@ def execute(
         # ── Build grounded system prompt ───────────────────────────
         system_prompt = _build_system_prompt(specialist, target, safe_context)
 
+        # ── Inject episodic memory for this session (if any) ───────
+        # Past decisions ground the LLM on what was already recommended,
+        # the MIRV equivalent of OpenExecutive's episodic recall. Wrapped
+        # defensively — a memory failure must never break execution.
+        try:
+            from backend import episodic_memory
+            past = episodic_memory.get_episodic_context(session_id)
+            if past:
+                system_prompt = f"{system_prompt}\n\n{past}"
+        except Exception as exc:  # pragma: no cover — defensive
+            _logger.debug("[orchestrator] episodic recall failed: %s", exc)
+
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": safe_task},
@@ -384,11 +405,24 @@ def execute(
             timeout=timeout,
         )
 
+        # ── Persist episodic memory (best-effort, never crashes) ───
+        try:
+            from backend import episodic_memory
+            episodic_memory.save_episodic_memory(
+                session_id=session_id,
+                specialist=specialist,
+                task=task,
+                response=response,
+            )
+        except Exception as exc:  # pragma: no cover — defensive
+            _logger.debug("[orchestrator] episodic save failed: %s", exc)
+
         return {
             "ok": True,
             "specialist": specialist,
             "response": response,
             "task": task,
+            "session_id": session_id,
         }
     except Exception as exc:
         _logger.warning("[orchestrator] execute failed: %s", exc, exc_info=False)

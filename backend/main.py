@@ -695,6 +695,85 @@ async def suggest_next_step(req: SuggestRequest):
 #  GENERIC AI CHAT (for all sections: scripts, bounty, hak5, etc.)
 # ════════════════════════════════════════════════════════════════
 
+# Threshold (in characters) above which the anthropic system content is
+# large enough to warrant an explicit ``cache_control`` block. Anthropic
+# requires a minimum of 1024 tokens for caching — ~4000 chars is a safe
+# lower bound that stays above the limit for typical English text.
+_ANTHROPIC_CACHE_MIN_CHARS = 4000
+
+
+def _prepare_chat_messages(messages: list, provider: str) -> list:
+    """Restructure ``messages`` for prompt-cache friendliness and redact them.
+
+    Rules:
+      * All ``system`` messages are merged into a single block placed at
+        index 0 (some providers only cache the *first* system message).
+      * If there are no system messages, the list is returned redacted but
+        otherwise unchanged (no synthetic system message is injected).
+      * For the ``anthropic`` provider, when the merged system content is
+        longer than ``_ANTHROPIC_CACHE_MIN_CHARS``, the system ``content``
+        is converted to Anthropic's content-blocks form with an
+        ``cache_control: {"type": "ephemeral"}`` marker. For every other
+        provider the system content stays a plain string.
+      * All textual content is redacted via :func:`redact_ai_payload`
+        before being returned, so no secret crosses the trust boundary.
+
+    Never raises — on any unexpected input the original list is returned
+    redacted (best-effort) so the endpoint still functions.
+    """
+    try:
+        if not isinstance(messages, list) or not messages:
+            return redact_ai_payload(messages) if isinstance(messages, list) else []
+
+        system_parts: list[str] = []
+        non_system: list[dict] = []
+        for m in messages:
+            if not isinstance(m, dict):
+                # Preserve non-dict entries verbatim in their original slot.
+                non_system.append(m)  # type: ignore[arg-type]
+                continue
+            if m.get("role") == "system":
+                content = m.get("content")
+                if isinstance(content, str):
+                    system_parts.append(content)
+                elif isinstance(content, list):
+                    # Flatten OpenAI/Anthropic content-block lists to text.
+                    for part in content:
+                        if isinstance(part, dict) and isinstance(part.get("text"), str):
+                            system_parts.append(part["text"])
+            else:
+                non_system.append(dict(m))
+
+        rebuilt: list[dict] = []
+        if system_parts:
+            merged = "\n\n".join(p for p in system_parts if p).strip()
+            if merged:
+                if provider == "anthropic" and len(merged) >= _ANTHROPIC_CACHE_MIN_CHARS:
+                    system_msg: dict = {
+                        "role": "system",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": merged,
+                                "cache_control": {"type": "ephemeral"},
+                            }
+                        ],
+                    }
+                else:
+                    system_msg = {"role": "system", "content": merged}
+                rebuilt.append(system_msg)
+        rebuilt.extend(non_system)
+
+        return redact_ai_payload(rebuilt)
+    except Exception as e:
+        logger.debug("[ai_chat] message restructure failed: %s", e)
+        # Last-resort: redact the raw input so we never send unredacted text.
+        try:
+            return redact_ai_payload(messages)
+        except Exception:
+            return []
+
+
 class AIChatRequest(BaseModel):
     provider: str = "openai"
     api_key: str = ""
@@ -709,12 +788,28 @@ async def ai_chat(req: AIChatRequest):
     BEFORE being forwarded to the external LLM provider, so secrets in
     tool output / clipboard never leak to OpenAI / Anthropic / ...
     AI responses are returned verbatim (not redacted).
+
+    **Prompt caching**: the messages list is restructured so the (large,
+    stable) ``system`` message is always first — providers that cache
+    prefixes (OpenAI, Anthropic, Gemini) benefit immediately. For the
+    ``anthropic`` provider, when the concatenated system content is long
+    enough (>~4000 chars ≈ >1024 tokens), an explicit
+    ``cache_control: {"type": "ephemeral"}`` block is attached to the
+    system content so Anthropic bills the cached prefix at the reduced
+    read rate. ``_call_llm_sync`` is left untouched — it already
+    forwards the system content verbatim to each provider's API.
     """
     try:
         if not req.api_key and req.provider != "local":
             return JSONResponse({"ok": False, "error": "API key is required"}, status_code=400)
-        # Redact secrets in the prompt before it crosses the trust boundary
-        safe_messages = redact_ai_payload(req.messages) if req.messages else []
+
+        # ── Prompt-cache friendly restructuring ────────────────────
+        # 1. Pull every system message out, concatenate into one block,
+        #    and place it at index 0. Non-system messages keep order.
+        # 2. For anthropic + a long system, format the system content as
+        #    an Anthropic content-blocks list with cache_control.
+        safe_messages = _prepare_chat_messages(req.messages, req.provider)
+
         result = await asyncio.to_thread(
             _call_llm_sync, req.provider, req.api_key, req.model, safe_messages, 60
         )
@@ -2178,6 +2273,7 @@ class OrchestratorRequest(BaseModel):
     provider: str = Field("openai", max_length=30)
     api_key: str = Field("", max_length=200)
     model: str = Field("", max_length=80)
+    session_id: str = Field("", max_length=120)
 
 
 @app.post("/api/orchestrator/route")
@@ -2188,6 +2284,11 @@ async def api_orchestrator_route(req: OrchestratorRequest):
     matching unless ``specialist`` is provided explicitly. Each
     specialist is grounded in its corresponding skill playbook, and the
     task + context are **redacted** before being sent to the LLM.
+
+    When ``session_id`` is provided, the orchestrator recalls past
+    episodic-memory decisions for that session and grounds the new
+    call on them; the interaction is then appended to the same
+    episodic store so subsequent calls stay coherent.
     """
     try:
         if not req.task or not req.task.strip():
@@ -2203,6 +2304,7 @@ async def api_orchestrator_route(req: OrchestratorRequest):
             provider=req.provider,
             api_key=req.api_key,
             model=req.model,
+            session_id=req.session_id,
         )
         status = 200 if result.get("ok") else 400
         return JSONResponse(result, status_code=status)
