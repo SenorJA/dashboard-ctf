@@ -370,7 +370,11 @@ def _ensure_tables():
         missing = []
         for table in tables:
             try:
-                _supabase.table(table).select("id").limit(1).execute()
+                # Probe with select("*"): a `select("id")` probe 400s on tables
+                # whose PK is not "id" (app_settings.key, credentials.uuid,
+                # mobile_apks.apk_id, app_credentials.key) and would wrongly
+                # report them as missing even though they exist.
+                _supabase.table(table).select("*").limit(1).execute()
             except Exception:
                 missing.append(table)
 
