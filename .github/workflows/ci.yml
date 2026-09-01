@@ -30,6 +30,10 @@ jobs:
           SUPABASE_KEY: ""
           KALI_IP: ""
           KALI_MCP_URL: ""
+          MIRV_AI_PROVIDER: ""
+          MIRV_AI_KEY: ""
+          MIRV_AI_MODEL: ""
+          OLLAMA_URL: ""
         run: |
           # --timeout=60: prevents slow/hanging tests (network/timers) from
           # blocking the whole pipeline for hours. See TOMORROW.md bugs #1/#7.

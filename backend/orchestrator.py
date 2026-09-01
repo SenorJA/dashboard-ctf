@@ -202,7 +202,7 @@ def _call_llm(
     api_key: str,
     model: str,
     messages: list[dict],
-    timeout: float = 60.0,
+    timeout: float = 240.0,
 ) -> str:
     """Call an OpenAI-compatible LLM endpoint synchronously.
 
@@ -312,7 +312,7 @@ def execute(
     context: str = "",
     specialist: str = "",
     target: str = "",
-    timeout: float = 60.0,
+    timeout: float = 240.0,
     provider: str = "",
     api_key: str = "",
     model: str = "",

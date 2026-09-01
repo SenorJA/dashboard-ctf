@@ -122,7 +122,31 @@ def _extract_key_decisions(response: str) -> str:
             picked.append(stripped)
             if len(picked) >= 5:
                 break
-    return "\n".join(picked)
+    if picked:
+        return "\n".join(picked)
+
+    # Fallback: the LLM often returns a JSON array of steps (e.g.
+    # {"description": "..."}). Extract up to 3 step descriptions so the
+    # episodic memory still has useful content when no marker keywords
+    # appear in the raw text.
+    try:
+        import json as _json
+        from backend.redact import redact_string as _redact
+        data = _json.loads(response)
+        if isinstance(data, list):
+            steps: list[str] = []
+            for item in data:
+                if isinstance(item, dict):
+                    desc = item.get("description") or item.get("title") or ""
+                    if isinstance(desc, str) and desc.strip():
+                        steps.append(desc.strip())
+                if len(steps) >= 3:
+                    break
+            if steps:
+                return _redact("\n".join(steps))
+    except Exception:
+        pass
+    return ""
 
 
 # ════════════════════════════════════════════════════════════════
