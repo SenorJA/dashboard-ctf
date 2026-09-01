@@ -191,9 +191,9 @@ def _resolve_provider_config(provider: str, api_key: str, model: str) -> tuple[s
 
     Explicit non-empty arguments always win over env.
     """
-    p = provider or os.getenv("MIRV_AI_PROVIDER", "local") or "local"
-    k = api_key if api_key else os.getenv("MIRV_AI_KEY", "")
-    m = model if model else os.getenv("MIRV_AI_MODEL", "")
+    p = provider or (os.getenv("MIRV_AI_PROVIDER") or "") or "local"
+    k = api_key if api_key else (os.getenv("MIRV_AI_KEY") or "")
+    m = model if model else (os.getenv("MIRV_AI_MODEL") or "")
     return p, k, m
 
 
@@ -216,7 +216,7 @@ def _call_llm(
     p, k, m = _resolve_provider_config(provider, api_key, model)
 
     if p == "local":
-        base = os.getenv("OLLAMA_URL", "http://localhost:11434")
+        base = (os.getenv("OLLAMA_URL") or "http://localhost:11434").strip() or "http://localhost:11434"
         if not m:
             m = "llama3"
         url = f"{base.rstrip('/')}/v1/chat/completions"

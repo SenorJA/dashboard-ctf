@@ -578,7 +578,7 @@ def _call_llm_sync(provider: str, api_key: str, model: str, messages: list, time
 
     elif provider == "local":
         # Ollama / LM Studio (OpenAI-compatible API, no API key required)
-        base = os.getenv("OLLAMA_URL", "http://localhost:11434")
+        base = (os.getenv("OLLAMA_URL") or "http://localhost:11434").strip() or "http://localhost:11434"
         if not model: model = "llama3"
         url = f"{base.rstrip('/')}/v1/chat/completions"
         body = json.dumps({
