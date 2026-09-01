@@ -3,9 +3,10 @@
 All notable changes to this project are documented in this file.
 Format based on [Keep a Changelog](https://keepachangelog.com/), auto-generated from Conventional Commits.
 
-## [Unreleased] — 28 Ago 2026
+## [Unreleased] — 1 Sep 2026
 
 ### Added
+- `feat(skills)` — port 60 skills de Claude-BugHunter → 88 built-ins (58 `hunt-*` + `triage-validation` + `evidence-hygiene`), atribución CC-BY-4.0/MIT (Sachin Sharma), 22 skills `requires_scope`
 - `28fad54` — feat(frontend): local models abstraction — modelo por especialista (ronda 6d, item 4 Fase D)
 - `0693715` — feat(frontend): Op Admiral tab — multi-agent orchestrator UI (ronda 6c)
 - `9b331df` — feat(orchestrator): memoria episódica SQLite + prompt caching (ronda 6b)

@@ -1,6 +1,6 @@
 # 🔮 TOMORROW.md — Roadmap de trabajo pendiente
 
-> Última actualización: 15 Ago 2026 — MIRV v6.0 | 35 módulos | 241 endpoints | 4313 tests | 26 tabs | 28 skills | main.py 100%
+> Última actualización: 1 Sep 2026 — MIRV v6.1 | 35 módulos | 241 endpoints | 4313 tests | 26 tabs | **88 skills** | main.py 100%
 > ✅ **CI 100% VERDE** — recursión `AuditLogHandler` (CI #47/#48) + 11 fallos pre-existentes desenmascarados, todos resueltos en la serie `d8569d8`→`3cb20fb`. Ver § Postmortems al final.
 > ✅ **exif_osint.py y dlp_scanner.py al 100% de cobertura** (bugs #4/#5 cerrados, 12 Ago 2026).
 > ✅ **Export findings a PDF profesional** (14 Ago 2026): endpoint unificado `POST /api/report/export-pdf` + detalle por finding + resumen ejecutivo automático + frontend conectado (commit `92f4fa3`, CI ✅ Deploy ✅).
@@ -16,6 +16,7 @@
 > 📋 **Análisis de repos externos** (15 Ago 2026, `docs/REPO_ANALYSIS_2026-08-15.md`): analizados 3 repos (Anthropic-Cybersecurity-Skills 31.5k⭐, awesome-cyber-security-university 3.4k⭐, OpenExecutive 2.3k⭐). Propuesta: portar 10 skills defensivas + 1 skill educativa + 5 skills red-team en apartado separado con `requires_scope` obligatorio + advertencias éticas. Inspiración arquitectónica de OpenExecutive para futuro Op Admiral. Pendiente de aprobación.
 > ✅ **Integración repos externos** (15 Ago 2026, commits `220a1ba` + `c14eed4`): portadas 16 skills (10 defensivas + 1 educativa + 5 red-team) del repo Anthropic-Cybersecurity-Skills → 28 skills built-in total. Infraestructura `requires_scope` en `skill_playbooks.py` + gate 403 en `/api/skills/{name}/render` (sin scope → 403 "Configure scope first"). Frontend: sección "⚠️ Red Team Lab" en tab Skills con banner ético + badge ⚠️ + validación visual de scope. Fase D (inspiración OpenExecutive para Op Admiral) documentada como roadmap futuro.
 > ✅ **Fase D — Op Admiral orchestrator multi-agente** (15 Ago 2026, rondas 6a `2cbb2b6` + 6b `9b331df` + 6c `0693715` + 6d `28fad54`, CI ✅ Deploy ✅): conversión del Op Admiral de planificador lineal a **orchestrator multi-agente** (patrón OpenExecutive). Backend: `backend/orchestrator.py` (100% cov, 68 tests) — 5 especialistas grounded en su skill playbook (recon/webvuln/osint/forensics/password-audit → skill playbooks = equivalente al RAG ChromaDB de OpenExecutive) + `route()` por keywords + 3 endpoints REST. `backend/episodic_memory.py` (100% cov, 30 tests) — memoria episódica **SQLite local** (recall + write por sesión, espejo `<past_decisions>`). Prompt caching en `/api/ai/chat` (`_prepare_chat_messages`: system unificado al inicio, Anthropic `cache_control: ephemeral` si >~4000 chars). Frontend: selector de especialista (6 chips), badge de ruta + session id, panel de memoria episódica, **local models abstraction (item 4)** — panel "Model per specialist" (provider/model/key por especialista, `mirv_opd_models` localStorage, override > global). **Fase D 1-4 COMPLETA.** Suite: 4233 passed, 80 deselected, 0 failed (+47 tests).
+> ✅ **Port Claude-BugHunter → 88 skills** (1 Sep 2026): integrados **60 skills** del repo `elementalsouls/Claude-BugHunter` (58 `hunt-*` + `triage-validation` + `evidence-hygiene`) → **28 → 88 skills built-in**. Categorías MIRV asignadas (sqli/xss/ssrf/ssti/lfi/xxe→webvuln, deserialization→deserialize, graphql, race, jwt). 22 skills marcadas `requires_scope` (hunt-rce, hunt-ato, hunt-mfa-bypass, hunt-brute-force, hunt-http-smuggling, hunt-k8s, hunt-ldap, hunt-saml, hunt-oauth, hunt-src-leak, hunt-cache-poison, hunt-shadow-api, hunt-subdomain, hunt-cicd, hunt-cloud-misconfig, hunt-nosqli, hunt-ntlm-info...). Atribución CC-BY-4.0/MIT completa: `NOTICE-CLAUDE-BUGHUNTER.md` + `LICENSE_MIT.txt` + `LICENSE_CC_BY_4_0.txt` en `backend/skills/` + `author: Sachin Sharma` en cada skill. `BUILTIN_NAMES` en test actualizado a 88. Suite completa: **4233 passed, 0 failed**.
 
 ---
 
@@ -27,6 +28,7 @@
 | REST endpoints | 241 (+3: `/api/orchestrator/route`, `/api/orchestrator/specialists`, `/api/orchestrator/specialists/{name}`) |
 | Test files | 86 (+2: `test_orchestrator.py`, `test_episodic_memory.py`) |
 | Tests collected | 4313 (4233 pass / 80 slow-deselected) |
+| Skill playbooks built-in | **88** (28 originales + 60 port de Claude-BugHunter) |
 | Coverage | ~97% global — **main.py 100%**, **orchestrator 100%**, **episodic_memory 100%**, **exif_osint 100%**, **dlp_scanner 100%**, **pdf_engine 99%**, **osint_recon 100%**, **subdomain_scanner 99%**, **instagram_osint 100%**, **osint_correlate 100%**, **rate_limiter 100%** |
 | Frontend tabs | 26 |
 | Frontend JS | ~10644 líneas (main.v2.js) |
