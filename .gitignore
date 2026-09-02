@@ -29,6 +29,8 @@ nul
 backend/data/*.db
 backend/data/*.db-journal
 backend/data/*.db-wal
+# Secret-store encryption key (Fernet) — NEVER commit
+backend/data/enc_secret.key
 
 # Logs
 *.log

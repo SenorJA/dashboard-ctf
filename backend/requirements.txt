@@ -6,6 +6,7 @@ paramiko
 Pillow>=10.0.0
 supabase
 reportlab
+cryptography
 python-dotenv
 python-multipart
 psycopg2-binary  # optional — for automatic DB bootstrap (set SUPABASE_DB_PASSWORD)

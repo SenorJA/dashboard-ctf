@@ -6,6 +6,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/), auto-generated 
 ## [Unreleased] — 1 Sep 2026
 
 ### Added
+- `feat(security)` — `secret_store.py`: encriptación at-rest Fernet (AES-128-CBC+HMAC) para `app_credentials`; fail-closed si crypto no disponible; key env `MIRV_ENC_KEY`/derivada scrypt o archivo `backend/data/enc_secret.key` (0600); passthrough de rows legacy + re-cifrado
 - `feat(orchestrator)` — hunt-* routing: webvuln detecta clase de vuln (`route_hunt`) y groundea prompt en playbook `hunt-<class>` + `GET /api/orchestrator/hunt` + badge 🎯 en Op Admiral
 - `feat(skills)` — port 60 skills de Claude-BugHunter → 88 built-ins (58 `hunt-*` + `triage-validation` + `evidence-hygiene`), atribución CC-BY-4.0/MIT (Sachin Sharma), 22 skills `requires_scope`
 - `28fad54` — feat(frontend): local models abstraction — modelo por especialista (ronda 6d, item 4 Fase D)

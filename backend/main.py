@@ -5216,7 +5216,7 @@ async def scope_events_clear():
 
 @app.get("/api/credentials/secrets/{key}")
 async def secret_get(key: str):
-    """Retrieve a stored credential (use only for server-side reads)."""
+    """Retrieve a stored credential (server-side reads only)."""
     value = get_app_credential(key)
     if value is None:
         return JSONResponse({"ok": False, "error": "Not found"}, status_code=404)
@@ -5232,7 +5232,7 @@ class SecretSaveRequest(BaseModel):
 
 @app.post("/api/credentials/secrets")
 async def secret_save(req: SecretSaveRequest):
-    """Store a credential. WARNING: value is stored as-is (not encrypted)."""
+    """Store a credential. Encrypted at rest (Fernet) before persisting."""
     ok = save_app_credential(req.key, req.value, req.description)
     if not ok:
         return JSONResponse({"ok": False, "error": "DB unavailable"}, status_code=503)

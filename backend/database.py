@@ -18,6 +18,8 @@ import logging
 from datetime import datetime
 from typing import Optional
 
+from backend import secret_store
+
 logger = logging.getLogger("vulnforge.db")
 
 # ── Supabase client (lazy init) ──
@@ -1298,25 +1300,31 @@ def delete_swarm_session(session_id: str) -> bool:
 def save_app_credential(key: str, value: str, description: str = "") -> bool:
     """Store a credential/secret in ``app_credentials``.
 
-    This is a simple key-value store for secrets like AI API keys.
-    In production, ``value`` should be encrypted before storage.
+    Simple key-value store for secrets like AI API keys.  Values are
+    **encrypted at rest** (Fernet) BEFORE persisting — if encryption is
+    unavailable the write is refused (fail closed, never plaintext).
     """
     tbl = _table("app_credentials")
     if tbl is None:
+        return False
+    try:
+        encrypted = secret_store.encrypt_value(value)
+    except Exception as e:
+        logger.error("save_app_credential: encryption unavailable (%s); refusing to store plaintext", e)
         return False
     try:
         # Upsert: insert or update
         existing = tbl.select("key").eq("key", key).limit(1).execute()
         if existing.data:
             tbl.update({
-                "value": value,
+                "value": encrypted,
                 "description": description,
                 "updated_at": datetime.utcnow().isoformat()
             }).eq("key", key).execute()
         else:
             tbl.insert({
                 "key": key,
-                "value": value,
+                "value": encrypted,
                 "description": description
             }).execute()
         return True
@@ -1326,13 +1334,21 @@ def save_app_credential(key: str, value: str, description: str = "") -> bool:
 
 
 def get_app_credential(key: str) -> str | None:
-    """Retrieve a stored credential value by key."""
+    """Retrieve a stored credential value by key (decrypted server-side).
+
+    Legacy rows written as plaintext are passed through unchanged (they are
+    re-encrypted on the next ``save_app_credential``).  Rows that no longer
+    decrypt (wrong/rotated key) are treated as unavailable.
+    """
     tbl = _table("app_credentials")
     if tbl is None:
         return None
     try:
         resp = tbl.select("value").eq("key", key).limit(1).execute()
-        return resp.data[0]["value"] if resp.data else None
+        raw = resp.data[0]["value"] if resp.data else None
+        if raw is None:
+            return None
+        return secret_store.decrypt_value(raw)
     except Exception as e:
         logger.error("get_app_credential: %s", e)
         return None

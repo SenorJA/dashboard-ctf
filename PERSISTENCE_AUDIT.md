@@ -1,7 +1,7 @@
 # M.I.R.V. — Data Persistence Audit & Architecture
 
-> **Última actualización:** Julio 2026
-> **Estado:** ✅ Todos los gaps de persistencia corregidos
+> **Última actualización:** 2 Sep 2026
+> **Estado:** ✅ Todos los gaps de persistencia corregidos · secretos cifrados at-rest (Fernet)
 
 ---
 
@@ -77,7 +77,7 @@ localStorage (cache)  ─────►    GET/POST/DELETE               Tablas
 - `clearPSCreds()` también elimina del backend
 - **Las claves ya no persisten en localStorage** cuando el backend está disponible
 
-**⚠️ Aún pendiente:** Encriptación server-side de los valores. Actualmente se almacenan en texto plano en la DB.
+**✅ Resuelto (2 Sep 2026):** Encriptación server-side con Fernet en `backend/secret_store.py`. Los valores se cifran (AES-128-CBC + HMAC) antes de persistir y se descifran solo en server-side para lecturas. **Fail-closed**: si la encriptación no está disponible, se rechaza el guardado (nunca texto plano). Key: `MIRV_ENC_KEY` (Fernet key o passphrase scrypt) o archivo `backend/data/enc_secret.key` auto-generado (0600). Rows legacy en texto plano pasan transparentes y se re-cifran en el próximo `save`. Nunca se devuelve el valor al frontend (solo `{stored: true}`). `cryptography` añadido a `requirements.txt`.
 
 ### 🔴 GAP 3: Bounty reports + AI writeups no persistidos
 **Problema:** `lastBountyReport` y `lastAIWriteup` eran variables en memoria — se perdían al recargar.

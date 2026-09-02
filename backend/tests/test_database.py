@@ -1540,25 +1540,32 @@ class TestAppCredentials:
     """Tests for App Credentials / Secrets KV store."""
 
     def test_save_app_credential_inserts_new(self, patch_get_client):
-        """save_app_credential inserts when key doesn't exist."""
+        """save_app_credential inserts when key doesn't exist (encrypted)."""
         tbl = MagicMock()
         patch_get_client.table.return_value = tbl
         # No existing key
         tbl.select.return_value.eq.return_value.limit.return_value.execute.return_value.data = []
-        result = db.save_app_credential("ai_key", "sk-abc123", "OpenAI key")
+        with patch("backend.database.secret_store.encrypt_value",
+                   return_value="ENC:sk-abc123") as enc:
+            result = db.save_app_credential("ai_key", "sk-abc123", "OpenAI key")
         assert result is True
         tbl.insert.assert_called_once()
+        enc.assert_called_once_with("sk-abc123")
+        assert tbl.insert.call_args[0][0]["value"] == "ENC:sk-abc123"
 
     def test_save_app_credential_updates_existing(self, patch_get_client):
-        """save_app_credential updates when key already exists."""
+        """save_app_credential updates when key already exists (encrypted)."""
         tbl = MagicMock()
         patch_get_client.table.return_value = tbl
         tbl.select.return_value.eq.return_value.limit.return_value.execute.return_value.data = [
             {"key": "ai_key"}
         ]
-        result = db.save_app_credential("ai_key", "sk-new-key", "Updated")
+        with patch("backend.database.secret_store.encrypt_value",
+                   return_value="ENC:sk-new-key") as enc:
+            result = db.save_app_credential("ai_key", "sk-new-key", "Updated")
         assert result is True
         tbl.update.assert_called_once()
+        assert tbl.update.call_args[0][0]["value"] == "ENC:sk-new-key"
 
     def test_save_app_credential_returns_false_when_no_client(self):
         with patch("database.get_client", return_value=None):
@@ -1570,14 +1577,29 @@ class TestAppCredentials:
         tbl.select.return_value.eq.return_value.limit.return_value.execute.side_effect = Exception("err")
         assert db.save_app_credential("k", "v") is False
 
+    def test_save_app_credential_returns_false_when_encryption_fails(
+            self, patch_get_client):
+        """Fail closed: never persist plaintext when encryption is down."""
+        tbl = MagicMock()
+        patch_get_client.table.return_value = tbl
+        tbl.select.return_value.eq.return_value.limit.return_value.execute.return_value.data = []
+        with patch("backend.database.secret_store.encrypt_value",
+                   side_effect=Exception("crypto down")):
+            result = db.save_app_credential("k", "s3cr3t")
+        assert result is False
+        tbl.insert.assert_not_called()
+
     def test_get_app_credential_returns_value(self, patch_get_client):
         tbl = MagicMock()
         patch_get_client.table.return_value = tbl
         tbl.select.return_value.eq.return_value.limit.return_value.execute.return_value.data = [
-            {"value": "sk-abc123"}
+            {"value": "ENC:sk-abc123"}
         ]
-        result = db.get_app_credential("ai_key")
+        with patch("backend.database.secret_store.decrypt_value",
+                   return_value="sk-abc123") as dec:
+            result = db.get_app_credential("ai_key")
         assert result == "sk-abc123"
+        dec.assert_called_once_with("ENC:sk-abc123")
 
     def test_get_app_credential_returns_none_when_missing(self, patch_get_client):
         tbl = MagicMock()
@@ -1594,6 +1616,18 @@ class TestAppCredentials:
         patch_get_client.table.return_value = tbl
         tbl.select.return_value.eq.return_value.limit.return_value.execute.side_effect = Exception("err")
         assert db.get_app_credential("k") is None
+
+    def test_get_app_credential_returns_none_when_decryption_fails(
+            self, patch_get_client):
+        """Tampered/wrong-key rows surface as unavailable, not plaintext."""
+        tbl = MagicMock()
+        patch_get_client.table.return_value = tbl
+        tbl.select.return_value.eq.return_value.limit.return_value.execute.return_value.data = [
+            {"value": "gAAAAAcorrupted"}
+        ]
+        with patch("backend.database.secret_store.decrypt_value",
+                   side_effect=Exception("bad key")):
+            assert db.get_app_credential("ai_key") is None
 
     def test_delete_app_credential_returns_true(self, patch_get_client):
         tbl = MagicMock()

@@ -1,6 +1,6 @@
 # 🔮 TOMORROW.md — Roadmap de trabajo pendiente
 
-> Última actualización: 1 Sep 2026 — MIRV v6.1 | 35 módulos | 242 endpoints | 4348 tests | 26 tabs | **88 skills** | main.py 100%
+> Última actualización: 2 Sep 2026 — MIRV v6.2 | 36 módulos | 242 endpoints | 4371 tests | 26 tabs | **88 skills** | main.py 100%
 > ✅ **CI 100% VERDE** — recursión `AuditLogHandler` (CI #47/#48) + 11 fallos pre-existentes desenmascarados, todos resueltos en la serie `d8569d8`→`3cb20fb`. Ver § Postmortems al final.
 > ✅ **exif_osint.py y dlp_scanner.py al 100% de cobertura** (bugs #4/#5 cerrados, 12 Ago 2026).
 > ✅ **Export findings a PDF profesional** (14 Ago 2026): endpoint unificado `POST /api/report/export-pdf` + detalle por finding + resumen ejecutivo automático + frontend conectado (commit `92f4fa3`, CI ✅ Deploy ✅).
@@ -18,6 +18,7 @@
 > ✅ **Fase D — Op Admiral orchestrator multi-agente** (15 Ago 2026, rondas 6a `2cbb2b6` + 6b `9b331df` + 6c `0693715` + 6d `28fad54`, CI ✅ Deploy ✅): conversión del Op Admiral de planificador lineal a **orchestrator multi-agente** (patrón OpenExecutive). Backend: `backend/orchestrator.py` (100% cov, 68 tests) — 5 especialistas grounded en su skill playbook (recon/webvuln/osint/forensics/password-audit → skill playbooks = equivalente al RAG ChromaDB de OpenExecutive) + `route()` por keywords + 3 endpoints REST. `backend/episodic_memory.py` (100% cov, 30 tests) — memoria episódica **SQLite local** (recall + write por sesión, espejo `<past_decisions>`). Prompt caching en `/api/ai/chat` (`_prepare_chat_messages`: system unificado al inicio, Anthropic `cache_control: ephemeral` si >~4000 chars). Frontend: selector de especialista (6 chips), badge de ruta + session id, panel de memoria episódica, **local models abstraction (item 4)** — panel "Model per specialist" (provider/model/key por especialista, `mirv_opd_models` localStorage, override > global). **Fase D 1-4 COMPLETA.** Suite: 4233 passed, 80 deselected, 0 failed (+47 tests).
 > ✅ **Port Claude-BugHunter → 88 skills** (1 Sep 2026): integrados **60 skills** del repo `elementalsouls/Claude-BugHunter` (58 `hunt-*` + `triage-validation` + `evidence-hygiene`) → **28 → 88 skills built-in**. Categorías MIRV asignadas (sqli/xss/ssrf/ssti/lfi/xxe→webvuln, deserialization→deserialize, graphql, race, jwt). 22 skills marcadas `requires_scope` (hunt-rce, hunt-ato, hunt-mfa-bypass, hunt-brute-force, hunt-http-smuggling, hunt-k8s, hunt-ldap, hunt-saml, hunt-oauth, hunt-src-leak, hunt-cache-poison, hunt-shadow-api, hunt-subdomain, hunt-cicd, hunt-cloud-misconfig, hunt-nosqli, hunt-ntlm-info...). Atribución CC-BY-4.0/MIT completa: `NOTICE-CLAUDE-BUGHUNTER.md` + `LICENSE_MIT.txt` + `LICENSE_CC_BY_4_0.txt` en `backend/skills/` + `author: Sachin Sharma` en cada skill. `BUILTIN_NAMES` en test actualizado a 88. Suite completa: **4233 passed, 0 failed**.
 > ✅ **Hunt-* routing en orchestrator (webvuln → hunt-<class>)** (1 Sep 2026): el especialista `webvuln` del orchestrator ahora detecta la **clase de vulnerabilidad** en la tarea (`route_hunt()`, mapa `_HUNT_BY_CLASS` con 45 keywords → 39 skills) y **groundea el prompt del LLM en el playbook `hunt-*` específico** (hunt-sqli/xss/ssrf/rce/...), reemplazando el playbook genérico webvuln. Las hunt skills ofensivas marcadas `requires_scope` (hunt-rce, hunt-ato...) **degradan a webvuln base** si no hay scope autorizado. Nuevo endpoint `GET /api/orchestrator/hunt` (lista el mapa). Frontend Op Admiral: badge 🎯 en el route badge + tag 🎯 en cada entrada de memoria episódica. `execute()` devuelve `hunt_skill`. Suite completa: **4268 passed, 0 failed** (+35 tests).
+> ✅ **Encriptación at-rest de secretos** (2 Sep 2026): `backend/secret_store.py` — valores de `app_credentials` (API keys, creds Payload Studio) cifrados con **Fernet (AES-128-CBC+HMAC)** antes de persistir; **fail-closed** (sin crypto → se rechaza el guardado, nunca texto plano). Key: `MIRV_ENC_KEY` (Fernet key o passphrase scrypt) o archivo auto-generado `backend/data/enc_secret.key` (0600, gitignored). Rows legacy en texto plano pasan transparentes y se re-cifran en el próximo `save`. `database.py` integra encrypt/decrypt; 22 tests `test_secret_store.py` + 4 nuevos en `test_database.py`. Suite completa: **4371 passed, 0 failed** (+109).
 
 ---
 
@@ -25,10 +26,10 @@
 
 | Métrica | Valor |
 |---------|-------|
-| Backend modules | 35 (main.py + 34 especializados, +orchestrator.py +episodic_memory.py) |
+| Backend modules | 36 (main.py + 35 especializados, +orchestrator.py +episodic_memory.py +secret_store.py) |
 | REST endpoints | 242 (+4: `/api/orchestrator/route`, `/api/orchestrator/specialists`, `/api/orchestrator/specialists/{name}`, `/api/orchestrator/hunt`) |
-| Test files | 86 (+2: `test_orchestrator.py`, `test_episodic_memory.py`) |
-| Tests collected | 4348 (4268 pass / 80 slow-deselected) |
+| Test files | 87 (+3: `test_orchestrator.py`, `test_episodic_memory.py`, `test_secret_store.py`) |
+| Tests collected | 4371 (4370 pass / 1 slow-deselected) |
 | Skill playbooks built-in | **88** (28 originales + 60 port de Claude-BugHunter) |
 | Orchestrator hunt routing | `route_hunt()` + `_HUNT_BY_CLASS` (45 keywords → 39 hunt-* skills) + `GET /api/orchestrator/hunt` |
 | Coverage | ~97% global — **main.py 100%**, **orchestrator 100%**, **episodic_memory 100%**, **exif_osint 100%**, **dlp_scanner 100%**, **pdf_engine 99%**, **osint_recon 100%**, **subdomain_scanner 99%**, **instagram_osint 100%**, **osint_correlate 100%**, **rate_limiter 100%** |
@@ -50,6 +51,7 @@
 | 2 | **OPSEC Levels** | `opsec.py` (400L) | 25 | 30 tools con modificadores Silent/Covert/Loud |
 | 3 | **Redaction** | `redact.py` (430L) | 63 | 20 patrones de redacción (AWS, GitHub, JWT, PEM, etc.), shape-preserving |
 | 4 | **Audit Log** | `audit_log.py` (470L) | 45 | JSONL structure + 4MB rotation + SIEM forwarding |
+| 4+ | **Secret Store** | `secret_store.py` (~300L) | 22 | Encriptación at-rest Fernet (AES-128-CBC+HMAC) para secrets, key mgmt (env/file, scrypt), legacy passthrough, fail-closed |
 
 ### Inteligencia y monitoreo
 | # | Módulo | Archivo | Tests | Qué hace |

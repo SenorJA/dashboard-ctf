@@ -70,6 +70,10 @@ cd /opt/mirv
 git clone https://github.com/SenorJA/dashboard-ctf.git .
 cp .env.example .env
 # Edit .env with SUPABASE_URL, SUPABASE_KEY, etc.
+# Optionally set MIRV_ENC_KEY (a Fernet key, or any passphrase derived via scrypt)
+# for deterministic at-rest encryption; otherwise a key is generated once at
+# backend/data/enc_secret.key. Keep either safe — losing it makes stored
+# secrets unrecoverable by design.
 docker compose -p proyectociber up -d --build
 ```
 

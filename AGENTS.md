@@ -103,6 +103,7 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~3834 tests, ~95% coverage
 | `coverage_matrix.py` | ~480 | Coverage matrix (endpoint×param×vuln_class), next_steps estimator | 33+17 | 99% |
 | `skill_playbooks.py` | ~450 | Markdown skill playbooks, frontmatter parser, hot-reload | 67+16 | 100% |
 | `redact.py` | ~430 | 20 redaction patterns, shape-preserving, AI/mission integration | 63 | 100% |
+| `secret_store.py` | ~300 | At-rest Fernet encryption (AES-128-CBC+HMAC), key mgmt (env/file, scrypt derived), legacy passthrough, fail-closed | 22 | — |
 | `audit_log.py` | ~470 | JSONL audit log, 4MB rotation, SIEM forwarding, AuditLogHandler | 45 | 100% |
 | `burp_bridge.py` | ~599 | Burp ingest server, LRU store, finding↔issue conversion | 72+14 | 100% |
 | `browser_capture.py` | ~1334 | HAR import, 10 security checks, risk scoring | 95+15 | 100% |
