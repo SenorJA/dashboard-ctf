@@ -97,6 +97,7 @@ from backend.database import (
     save_scope_event, list_scope_events, clear_scope_events,
     save_swarm_session, list_swarm_sessions, get_swarm_session, delete_swarm_session,
     save_app_credential, get_app_credential, delete_app_credential,
+    reencrypt_app_credentials,
 )
 
 # ── Mobile Lab Modules ──
@@ -5246,6 +5247,27 @@ async def secret_delete(key: str):
     if ok is None:
         return JSONResponse({"ok": False, "error": "DB unavailable"}, status_code=503)
     return JSONResponse({"ok": ok})
+
+
+class ReencryptRequest(BaseModel):
+    old_key: str
+
+
+@app.post("/api/credentials/reencrypt")
+async def secret_reencrypt(req: ReencryptRequest):
+    """Re-encrypt all stored credentials after a key rotation.
+
+    Send the OLD Fernet key (or passphrase) in ``old_key`` while the store
+    is configured (via ``MIRV_ENC_KEY``) with the NEW key.  Every row is
+    migrated from the old key to the new one without exposing plaintext.
+    """
+    try:
+        report = await asyncio.to_thread(reencrypt_app_credentials, req.old_key)
+    except Exception as e:
+        logger.error("[secrets reencrypt] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+    code = 200 if report.get("ok") else 503
+    return JSONResponse(report, status_code=code)
 
 
 # ════════════════════════════════════════════════════════════════

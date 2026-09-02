@@ -17,7 +17,7 @@ window.forensicsRenderList = function () {
     const list = document.getElementById('forensics-list');
     if (!list) return;
     if (forensicsItems.length === 0) {
-        list.innerHTML = '<div class="text-[10px] text-gray-700 text-center py-8">No evidence analyzed yet. Upload a file to begin.</div>';
+        list.innerHTML = '<div class="text-[10px] text-gray-400 text-center py-8">No evidence analyzed yet. Upload a file to begin.</div>';
         return;
     }
     const catIcons = { file: '📄', disk: '💿', image: '🖼️', memory: '🧠', network: '🌐', pcap: '🌐', stego: '🖼️' };
@@ -32,17 +32,17 @@ window.forensicsRenderList = function () {
                 <div class="flex items-center gap-2">
                     <span>${icon}</span>
                     <span class="text-gray-200 font-bold">${e.filename}</span>
-                    <span class="text-gray-700">${e.file_type ? e.file_type.slice(0,40) : ''}</span>
+                    <span class="text-gray-400">${e.file_type ? e.file_type.slice(0,40) : ''}</span>
                 </div>
                 <div class="flex items-center gap-3">
-                    <span class="text-gray-700">${sizeStr}</span>
-                    <span class="text-gray-600">${s.critical||0}🔴 ${s.high||0}🟠</span>
-                    <span class="text-gray-600">${total} total</span>
+                    <span class="text-gray-400">${sizeStr}</span>
+                    <span class="text-gray-400">${s.critical||0}🔴 ${s.high||0}🟠</span>
+                    <span class="text-gray-400">${total} total</span>
                     <button onclick="event.stopPropagation(); forensicsDelete('${e.id}')"
-                        class="text-gray-700 hover:text-blood transition-colors">✕</button>
+                        class="text-gray-400 hover:text-blood transition-colors">✕</button>
                 </div>
             </div>
-            <div class="text-[9px] text-gray-700 mt-1">${e.category || ''} | ${e.file_type ? e.file_type.slice(0,60) : ''}</div>
+            <div class="text-[9px] text-gray-400 mt-1">${e.category || ''} | ${e.file_type ? e.file_type.slice(0,60) : ''}</div>
         </div>`;
     }).join('');
 };
@@ -80,7 +80,7 @@ window.forensicsUpload = async function () {
 
 window.forensicsOpen = async function (evId) {
     const container = document.getElementById('forensics-analysis');
-    container.innerHTML = '<div class="text-[10px] text-gray-700 text-center py-8">Loading analysis...</div>';
+    container.innerHTML = '<div class="text-[10px] text-gray-400 text-center py-8">Loading analysis...</div>';
 
     try {
         const resp = await fetch('/api/forensics/analyze/' + evId);
@@ -112,8 +112,8 @@ function forensicsRenderAnalysis(data, container) {
         <div class="flex items-center justify-between mb-2">
             <div>
                 <span class="text-gray-200 font-bold text-xs">${data.filename}</span>
-                <span class="text-gray-700 ml-2">${data.file_type || ''}</span>
-                <span class="text-gray-700 ml-2">${data.category || ''}</span>
+                <span class="text-gray-400 ml-2">${data.file_type || ''}</span>
+                <span class="text-gray-400 ml-2">${data.category || ''}</span>
             </div>
             <div class="flex items-center gap-2">
                 <button onclick="forensicsRunTool('${data.id}','strings')" class="text-[9px] text-cyber hover:text-cyber/80 border border-cyber/30 rounded px-2 py-0.5">🔎 Strings</button>
@@ -121,21 +121,21 @@ function forensicsRenderAnalysis(data, container) {
                 <button onclick="forensicsRunTool('${data.id}','hexdump')" class="text-[9px] text-cyber hover:text-cyber/80 border border-cyber/30 rounded px-2 py-0.5">📝 Hex</button>
                 ${data.category === 'disk' || data.category === 'image' ? `<button onclick="forensicsRunTool('${data.id}','binwalk')" class="text-[9px] text-cyber hover:text-cyber/80 border border-cyber/30 rounded px-2 py-0.5">📦 Binwalk</button>` : ''}
                 ${data.category === 'stego' || data.category === 'image' ? `<button onclick="forensicsRunTool('${data.id}','zsteg')" class="text-[9px] text-cyber hover:text-cyber/80 border border-cyber/30 rounded px-2 py-0.5">🖼️ Zsteg</button>` : ''}
-                <button onclick="document.getElementById('forensics-analysis').innerHTML = '<div class=\\'text-[10px] text-gray-700 text-center py-8\\'>Select evidence to view analysis</div>'"
-                    class="text-gray-700 hover:text-gray-400">✕</button>
+                <button onclick="document.getElementById('forensics-analysis').innerHTML = '<div class=\\'text-[10px] text-gray-400 text-center py-8\\'>Select evidence to view analysis</div>'"
+                    class="text-gray-400 hover:text-gray-400">✕</button>
             </div>
         </div>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-2">
-            <div><span class="text-gray-700">Size:</span> <span class="text-gray-300">${data.size ? (data.size/1024/1024).toFixed(1)+' MB' : '?'}</span></div>
-            <div><span class="text-gray-700">MD5:</span> <span class="text-gray-500 font-mono text-[9px]">${(data.md5||'').slice(0,16)}...</span></div>
-            <div><span class="text-gray-700">SHA256:</span> <span class="text-gray-500 font-mono text-[9px]">${(data.sha256||'').slice(0,16)}...</span></div>
-            ${analysis.strings ? `<div><span class="text-gray-700">Strings:</span> <span class="text-gray-300">${analysis.strings.total || 0}</span></div>` : ''}
+            <div><span class="text-gray-400">Size:</span> <span class="text-gray-300">${data.size ? (data.size/1024/1024).toFixed(1)+' MB' : '?'}</span></div>
+            <div><span class="text-gray-400">MD5:</span> <span class="text-gray-500 font-mono text-[9px]">${(data.md5||'').slice(0,16)}...</span></div>
+            <div><span class="text-gray-400">SHA256:</span> <span class="text-gray-500 font-mono text-[9px]">${(data.sha256||'').slice(0,16)}...</span></div>
+            ${analysis.strings ? `<div><span class="text-gray-400">Strings:</span> <span class="text-gray-300">${analysis.strings.total || 0}</span></div>` : ''}
         </div>
     </div>`;
 
     // Findings by severity
     if (findings.length === 0) {
-        html += '<div class="text-[10px] text-gray-700 text-center py-4">No significant findings.</div>';
+        html += '<div class="text-[10px] text-gray-400 text-center py-4">No significant findings.</div>';
     } else {
         for (const sev of sevOrder) {
             const items = grouped[sev] || [];
@@ -151,7 +151,7 @@ function forensicsRenderAnalysis(data, container) {
                     <div class="flex items-center justify-between">
                         <span class="text-gray-200 font-semibold">${f.title}</span>
                         <div class="flex items-center gap-2">
-                            <span class="text-gray-700 text-[9px]">${f.category || ''}</span>
+                            <span class="text-gray-400 text-[9px]">${f.category || ''}</span>
                             <button onclick="forensicsExplainFinding('${fEnc}')" class="text-[9px] text-amber-500/70 hover:text-amber-400 transition-colors" title="Explain with AI">🤖</button>
                         </div>
                     </div>
@@ -164,23 +164,23 @@ function forensicsRenderAnalysis(data, container) {
 
     // Analysis details
     if (analysis.metadata) {
-        html += `<details class="mt-2"><summary class="text-gray-600 cursor-pointer hover:text-gray-400 text-[10px]">📋 Metadata</summary>
+        html += `<details class="mt-2"><summary class="text-gray-400 cursor-pointer hover:text-gray-400 text-[10px]">📋 Metadata</summary>
             <pre class="text-[9px] text-gray-500 font-mono mt-1 max-h-40 overflow-y-auto bg-void/50 rounded p-2">${analysis.metadata.slice(0,3000)}</pre></details>`;
     }
     if (analysis.binwalk) {
-        html += `<details class="mt-1"><summary class="text-gray-600 cursor-pointer hover:text-gray-400 text-[10px]">📦 Binwalk</summary>
+        html += `<details class="mt-1"><summary class="text-gray-400 cursor-pointer hover:text-gray-400 text-[10px]">📦 Binwalk</summary>
             <pre class="text-[9px] text-gray-500 font-mono mt-1 max-h-40 overflow-y-auto bg-void/50 rounded p-2">${analysis.binwalk.slice(0,3000)}</pre></details>`;
     }
     if (analysis.network) {
         const n = analysis.network;
         html += `<div class="bg-deep/30 border border-gray-800 rounded p-2 mt-2 text-[10px]">
-            <span class="text-gray-600">🌐 HTTP requests: ${n.http_requests || 0} | DNS queries: ${n.dns_queries || 0} | Potential creds: ${n.potential_creds || 0}</span>
+            <span class="text-gray-400">🌐 HTTP requests: ${n.http_requests || 0} | DNS queries: ${n.dns_queries || 0} | Potential creds: ${n.potential_creds || 0}</span>
         </div>`;
     }
 
     // Tool output area
     html += `<div id="forensics-tool-output" class="mt-2">
-        <div class="text-[10px] text-gray-700 text-center py-2">Click a tool button above to run analysis</div>
+        <div class="text-[10px] text-gray-400 text-center py-2">Click a tool button above to run analysis</div>
     </div>`;
 
     container.innerHTML = html;
@@ -189,7 +189,7 @@ function forensicsRenderAnalysis(data, container) {
 window.forensicsRunTool = async function (evId, tool) {
     const output = document.getElementById('forensics-tool-output');
     if (!output) return;
-    output.innerHTML = '<div class="text-[10px] text-gray-700 text-center py-2">⏳ Running ' + tool + '...</div>';
+    output.innerHTML = '<div class="text-[10px] text-gray-400 text-center py-2">⏳ Running ' + tool + '...</div>';
 
     try {
         const resp = await fetch('/api/forensics/analyze/' + evId + '/run', {
@@ -222,7 +222,7 @@ window.forensicsDelete = async function (evId) {
     try {
         await fetch('/api/forensics/' + evId, { method: 'DELETE' });
         const container = document.getElementById('forensics-analysis');
-        if (container) container.innerHTML = '<div class="text-[10px] text-gray-700 text-center py-8">Select evidence to view analysis</div>';
+        if (container) container.innerHTML = '<div class="text-[10px] text-gray-400 text-center py-8">Select evidence to view analysis</div>';
         await forensicsLoad();
     } catch (e) {
         showToast('⚠ Error: ' + e.message);
@@ -259,11 +259,11 @@ Keep it concise, max 3 paragraphs.`;
             overlay.innerHTML = `<div class="bg-deep border border-amber-500/30 rounded-lg max-w-xl w-full mx-4 max-h-[70vh] overflow-y-auto p-4 shadow-2xl">
                 <div class="flex items-center justify-between mb-3">
                     <span class="text-amber-400 font-bold text-[11px] tracking-wider">🤖 AI Forensics Analysis</span>
-                    <button onclick="this.closest('#forensics-ai-overlay').remove()" class="text-gray-600 hover:text-gray-400 text-[18px] leading-none">&times;</button>
+                    <button onclick="this.closest('#forensics-ai-overlay').remove()" class="text-gray-400 hover:text-gray-400 text-[18px] leading-none">&times;</button>
                 </div>
                 <div class="text-[10px] text-gray-300 leading-relaxed whitespace-pre-wrap">${result}</div>
                 <div class="mt-3 pt-2 border-t border-gray-800 flex justify-end">
-                    <button onclick="this.closest('#forensics-ai-overlay').remove()" class="text-[9px] text-gray-600 hover:text-gray-400">Close</button>
+                    <button onclick="this.closest('#forensics-ai-overlay').remove()" class="text-[9px] text-gray-400 hover:text-gray-400">Close</button>
                 </div>
             </div>`;
             document.body.appendChild(overlay);

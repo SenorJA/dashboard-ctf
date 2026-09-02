@@ -1162,7 +1162,14 @@ def list_mission_plans(limit: int = 20, target: str = None):
         if target:
             q = q.eq("target", target)
         resp = q.limit(int(limit or 20)).execute()
-        return [dict(r) for r in resp.data] if resp.data else []
+        rows = [dict(r) for r in resp.data] if resp.data else []
+        for r in rows:
+            if isinstance(r.get("steps"), str):
+                try:
+                    r["steps"] = json.loads(r["steps"])
+                except (ValueError, TypeError):
+                    r["steps"] = []
+        return rows
     except Exception as e:
         logger.error("list_mission_plans: %s", e)
         return []
@@ -1365,3 +1372,52 @@ def delete_app_credential(key: str) -> bool:
     except Exception as e:
         logger.error("delete_app_credential: %s", e)
         return False
+
+
+def reencrypt_app_credentials(old_key: str) -> dict:
+    """Re-encrypt every ``app_credentials`` row when the encryption key
+    changes (key rotation).
+
+    Workflow: set ``MIRV_ENC_KEY`` to the NEW key, then call this with the
+    OLD key.  Each row is decrypted with ``old_key`` and re-encrypted with
+    the store's current (new) key — no plaintext touches the disk or logs.
+
+    Returns a report dict: ``{"ok", "migrated", "legacy", "skipped",
+    "total", "errors": [...]}``.  Rows the old key can't decrypt (or that
+    are already plaintext/legacy) are re-encrypted with the new key too, so
+    a single pass converges all rows onto the active key.
+    """
+    tbl = _table("app_credentials")
+    if tbl is None:
+        return {"ok": False, "error": "DB unavailable", "total": 0,
+                "migrated": 0, "legacy": 0, "skipped": 0, "errors": []}
+    report = {"ok": True, "total": 0, "migrated": 0, "legacy": 0,
+              "skipped": 0, "errors": []}
+    try:
+        resp = tbl.select("*").execute()
+        rows = resp.data or []
+        report["total"] = len(rows)
+        for row in rows:
+            rid, raw = row.get("id"), row.get("value")
+            try:
+                # Decrypt with the OLD key (plaintext/legacy passes through).
+                plain = secret_store.decrypt_with(old_key, raw)
+                # Re-encrypt with the CURRENT (new) active store key.
+                new_token = secret_store.encrypt_value(plain)
+                tbl.update({"value": new_token}).eq("id", rid).execute()
+                if not raw or not str(raw).startswith(
+                        secret_store.FERNET_PREFIX):
+                    report["legacy"] += 1
+                else:
+                    report["migrated"] += 1
+            except Exception as e:
+                report["skipped"] += 1
+                report["errors"].append({"key": row.get("key", rid),
+                                         "error": str(e)})
+        if report["errors"]:
+            report["ok"] = False
+        return report
+    except Exception as e:
+        logger.error("reencrypt_app_credentials: %s", e)
+        return {"ok": False, "error": str(e), "total": 0, "migrated": 0,
+                "legacy": 0, "skipped": 0, "errors": []}

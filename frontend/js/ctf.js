@@ -40,7 +40,7 @@ window.ctfRender = function () {
     const list = document.getElementById('ctf-list');
     if (!list) return;
     if (ctfChallenges.length === 0) {
-        list.innerHTML = '<div class="text-[10px] text-gray-700 text-center py-4">No challenges yet. Add your first CTF challenge!</div>';
+        list.innerHTML = '<div class="text-[10px] text-gray-400 text-center py-4">No challenges yet. Add your first CTF challenge!</div>';
         return;
     }
     const diffColors = { easy: 'text-green-500', medium: 'text-yellow-500', hard: 'text-blood', insane: 'text-purple-500' };
@@ -52,20 +52,20 @@ window.ctfRender = function () {
                 <div class="flex items-center gap-2">
                     <span class="text-gray-200 font-bold">${c.title}</span>
                     <span class="${diffColor}">${c.difficulty}</span>
-                    <span class="text-gray-700">${c.category}</span>
+                    <span class="text-gray-400">${c.category}</span>
                 </div>
                 <div class="flex items-center gap-3">
                     <span class="text-cyber font-mono">+${c.points}pts</span>
                     ${c.solved ? '<span class="text-green-500">Solved</span>' : ''}
-                    <button onclick="ctfDelete(${c.id})" class="text-gray-700 hover:text-blood transition-colors">X</button>
+                    <button onclick="ctfDelete(${c.id})" class="text-gray-400 hover:text-blood transition-colors">X</button>
                 </div>
             </div>
             <div class="text-gray-400 mb-1">${c.description}</div>
-            ${c.target ? `<div class="text-gray-700 mb-1">Target: ${c.target}</div>` : ''}
+            ${c.target ? `<div class="text-gray-400 mb-1">Target: ${c.target}</div>` : ''}
             <div class="flex items-center gap-2 mt-1.5">
                 ${c.solved ? '' : `<input id="ctf-flag-${c.id}" placeholder="Enter flag..." class="flex-1 bg-deep border border-gray-800 rounded px-2 py-1 text-[10px] text-gray-300 placeholder-gray-700 font-mono" onkeyup="if(event.key==='Enter')ctfSubmitFlag(${c.id})">
                 <button onclick="ctfSubmitFlag(${c.id})" class="bg-cyber/10 hover:bg-cyber/20 text-cyber border border-cyber/30 px-3 py-1 rounded text-[10px] transition-all">Submit</button>`}
-                ${c.hints ? `<button onclick="ctfShowHint('${c.hints.replace(/'/g, "\\'")}')" class="text-gray-700 hover:text-yellow-500 text-[9px]">Hint</button>` : ''}
+                ${c.hints ? `<button onclick="ctfShowHint('${c.hints.replace(/'/g, "\\'")}')" class="text-gray-400 hover:text-yellow-500 text-[9px]">Hint</button>` : ''}
                     <button onclick="ctfAIHint(${c.id})" class="text-amber-500/70 hover:text-amber-400 text-[9px] transition-colors" title="AI Hint">🤖</button>
             </div>
         </div>`;
@@ -169,11 +169,11 @@ DO NOT give the flag or direct answer.`;
         overlay.innerHTML = `<div class="bg-deep border border-purple-500/30 rounded-lg max-w-xl w-full mx-4 max-h-[70vh] overflow-y-auto p-4 shadow-2xl">
             <div class="flex items-center justify-between mb-3">
                 <span class="text-purple-400 font-bold text-[11px] tracking-wider">🤖 Hint: ${c.title}</span>
-                <button onclick="this.closest('#ctf-ai-overlay').remove()" class="text-gray-600 hover:text-gray-400 text-[18px] leading-none">&times;</button>
+                <button onclick="this.closest('#ctf-ai-overlay').remove()" class="text-gray-400 hover:text-gray-400 text-[18px] leading-none">&times;</button>
             </div>
             <div class="text-[10px] text-gray-300 leading-relaxed whitespace-pre-wrap">${result}</div>
             <div class="mt-3 pt-2 border-t border-gray-800 flex justify-end">
-                <button onclick="this.closest('#ctf-ai-overlay').remove()" class="text-[9px] text-gray-600 hover:text-gray-400">Close</button>
+                <button onclick="this.closest('#ctf-ai-overlay').remove()" class="text-[9px] text-gray-400 hover:text-gray-400">Close</button>
             </div>
         </div>`;
         document.body.appendChild(overlay);

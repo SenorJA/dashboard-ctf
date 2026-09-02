@@ -3643,6 +3643,10 @@ ${bodyHtml}
         'exec-plan':      ()   => { if (window.executeAllSteps) executeAllSteps(); },
         'save-mission':   ()   => { if (window.saveMission) saveMission(); },
         'load-missions':  ()   => { if (window.loadMissionHistory) loadMissionHistory(); },
+        'save-plan':      ()   => { if (window.saveOpdPlan) saveOpdPlan(); },
+        'load-plans':     ()   => { if (window.loadOpdPlans) loadOpdPlans(); },
+        'opd-load-plan':  (el) => { const id = el.dataset.planId; if (id && window.opdLoadPlan) opdLoadPlan(id); },
+        'opd-delete-plan':(el) => { const id = el.dataset.planId; if (id && window.opdDeletePlan) opdDeletePlan(id); },
         'plan-copy-cmd':  (el) => { const i = parseInt(el.dataset.idx); if (!isNaN(i) && window.copyPlanCommand) copyPlanCommand(i); },
         'plan-exec-step': (el) => { const i = parseInt(el.dataset.idx); if (!isNaN(i) && window.executeStep) executeStep(i); },
         'view-mission':   (el) => { const id = el.dataset.missionId; if (id && window.viewMissionDetails) viewMissionDetails(id); },
@@ -6344,6 +6348,12 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         'opd-model-save':        { en: '💾 Save model',          es: '💾 Guardar modelo' },
         'opd-model-saved':       { en: '💾 Model saved for <SPEC>', es: '💾 Modelo guardado para <SPEC>' },
         'opd-model-inherited-msg':{ en: 'Inherited (global)',    es: 'Heredado (global)' },
+        // ── Saved Plans (/api/plans) ──
+        savePlanBtn:      { en: '💾 Save Plan',        es: '💾 Guardar Plan' },
+        loadPlansBtn:     { en: '📚 Load plans',       es: '📚 Cargar planes' },
+        savedPlansTitle:  { en: '📌 Saved Plans',      es: '📌 Planes Guardados' },
+        refreshPlansBtn:  { en: '🔄',                  es: '🔄' },
+        opdNoPlans:       { en: 'No saved plans yet. Generated plans auto-save here.', es: 'Aún no hay planes guardados. Los planes generados se guardan automáticamente aquí.' },
         // ── Mission History (Self-Improvement) ──
         missionHistoryTitle: { en: '📚 Mission History', es: '📚 Historial de Misiones' },
         saveMissionBtn:    { en: '💾 Save Mission',      es: '💾 Guardar Misión' },
@@ -6897,6 +6907,7 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
     // ============================================================
     let missionPlan = [];
     let currentStepIndex = -1;
+    let currentPlanId = '';   // id of the persisted /api/plans row ("" = not saved)
 
     // ── Multi-agent orchestrator state (OpenExecutive-inspired) ──
     let sessionId = '';                    // episodic session id (persisted backend-side)
@@ -7339,6 +7350,7 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
 
                         window.renderEpisodicMemory();
                         window.renderPlan();
+                        _autoSavePlan();
                         showToast(`🎯 Mission plan generated: ${missionPlan.length} steps`);
                         statusEl.textContent = `${missionPlan.length} steps ready`;
                         return;
@@ -7391,6 +7403,7 @@ Reglas:
             }));
 
             window.renderPlan();
+            _autoSavePlan();
             showToast(`🎯 Mission plan generated: ${missionPlan.length} steps`);
             statusEl.textContent = `${missionPlan.length} steps ready`;
         } catch (err) {
@@ -7457,6 +7470,7 @@ Reglas:
     window.clearPlan = function () {
         missionPlan = [];
         currentStepIndex = -1;
+        currentPlanId = '';
         document.getElementById('plan-desc').value = '';
         document.getElementById('plan-steps').innerHTML = '';
         const emptyEl = createEmptyEl();
@@ -7464,6 +7478,7 @@ Reglas:
         document.getElementById('btn-execute-all').disabled = true;
         document.getElementById('plan-status').textContent = '';
         updatePlanProgress();
+        try { window.loadOpdPlans(); } catch {}
         showToast('🗑 Plan cleared');
     };
 
@@ -7479,6 +7494,140 @@ Reglas:
             showToast('⚠️ Failed to copy command');
         });
     };
+
+    // ============================================================
+    //  MISSION PLANS — persist plan to /api/plans (Op Admiral)
+    //  Auto-saves on generation, manual save/load/delete + card list.
+    // ============================================================
+
+    function _planName() {
+        const target = document.getElementById('target-ip')?.value?.trim() || 'unknown';
+        const idx = missionPlan.length ? `${missionPlan.length}` : '';
+        const ts = new Date().toLocaleString();
+        return `${target} — ${ts}`;
+    }
+
+    // Persist the current missionPlan (upsert by currentPlanId, else insert).
+    window.saveOpdPlan = async function () {
+        if (!missionPlan.length) {
+            showToast('⚠️ No plan to save — generate one first');
+            return null;
+        }
+        const target = document.getElementById('target-ip')?.value?.trim() || 'unknown';
+        const done = missionPlan.filter(s => s.status === 'done').length;
+        const failed = missionPlan.filter(s => s.status === 'failed').length;
+        const payload = {
+            id: currentPlanId || '',
+            target,
+            name: _planName(),
+            steps: missionPlan.map(s => ({ title: s.title, description: s.description, command: s.command, status: s.status })),
+            total_steps: missionPlan.length,
+            completed_steps: done,
+            status: failed ? 'failed' : (done === missionPlan.length && missionPlan.length ? 'complete' : 'active')
+        };
+        try {
+            const resp = await fetch('/api/plans', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const data = await resp.json();
+            const row = data && data.data;
+            if (row && row.id) currentPlanId = row.id;
+            showToast('💾 Plan saved');
+            try { await window.loadOpdPlans(); } catch {}
+            return row;
+        } catch (err) {
+            showToast(`⚠️ Save plan failed: ${err.message}`);
+            return null;
+        }
+    };
+
+    window.loadOpdPlans = async function () {
+        const list = document.getElementById('opd-plan-list');
+        if (!list) return;
+        try {
+            const resp = await fetch('/api/plans?limit=20');
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const data = await resp.json();
+            const plans = (data && data.data) || [];
+            if (!plans.length) {
+                list.innerHTML = `<div class="text-center text-[10px] text-gray-400 py-3" data-i18n="opd-no-plans">No saved plans yet. Generated plans auto-save here.</div>`;
+                return;
+            }
+            list.innerHTML = plans.map(p => {
+                const steps = Array.isArray(p.steps) ? p.steps : [];
+                const done = steps.filter(s => s && s.status === 'done').length;
+                const pct = steps.length ? Math.round((done / steps.length) * 100) : 0;
+                const st = (p.status || 'active');
+                const stCol = st === 'complete' ? 'text-neon' : (st === 'failed' ? 'text-blood' : 'text-cyber');
+                return `
+                <div class="bg-void border border-gray-800 hover:border-cyber/40 rounded p-2">
+                    <div class="flex items-center justify-between gap-2 mb-1">
+                        <span class="text-[10px] text-gray-300 font-mono truncate flex-1">📍 ${escapeHTML(p.target || 'unknown')}</span>
+                        <span class="text-[9px] ${stCol} uppercase">${st}</span>
+                    </div>
+                    <div class="text-[9px] text-gray-500 leading-snug mb-1.5">${escapeHTML(p.name || '')}</div>
+                    <div class="flex items-center gap-2 text-[9px] text-gray-400">
+                        <span>📋 ${steps.length} steps · ${pct}% done</span>
+                        <button data-action="opd-load-plan" data-plan-id="${escapeHTML(p.id)}"
+                            class="ml-auto text-neon/70 hover:text-neon px-1.5 py-0.5 rounded hover:bg-neon/10">▶ Load</button>
+                        <button data-action="opd-delete-plan" data-plan-id="${escapeHTML(p.id)}"
+                            class="text-blood/70 hover:text-blood px-1.5 py-0.5 rounded hover:bg-blood/10">✕</button>
+                    </div>
+                </div>`;
+            }).join('');
+        } catch (err) {
+            list.innerHTML = `<div class="text-center text-[10px] text-gray-400 py-3">⚠️ Backend unavailable — /api/plans</div>`;
+        }
+    };
+
+    window.opdLoadPlan = async function (planId) {
+        if (!planId) return;
+        try {
+            const resp = await fetch('/api/plans?limit=50');
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const data = await resp.json();
+            const plans = (data && data.data) || [];
+            const plan = plans.find(p => String(p.id) === String(planId));
+            if (!plan) { showToast('⚠️ Plan not found'); return; }
+            const steps = Array.isArray(plan.steps) ? plan.steps : [];
+            if (!steps.length) { showToast('⚠️ Plan has no steps'); return; }
+            missionPlan = steps.map((s, i) => ({
+                id: i,
+                title: (s.title || s.name || s.task || `Step ${i + 1}`),
+                description: s.description || '',
+                command: s.command || '',
+                status: s.status === 'done' ? 'done' : (s.status === 'failed' ? 'failed' : 'pending')
+            }));
+            currentPlanId = String(plan.id);
+            if (document.getElementById('target-ip')) document.getElementById('target-ip').value = plan.target || '';
+            window.renderPlan();
+            showToast(`📂 Plan loaded: ${missionPlan.length} steps`);
+        } catch (err) {
+            showToast(`⚠️ Load plan failed: ${err.message}`);
+        }
+    };
+
+    window.opdDeletePlan = async function (planId) {
+        if (!planId) return;
+        try {
+            const resp = await fetch(`/api/plans/${encodeURIComponent(planId)}`, { method: 'DELETE' });
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            if (String(currentPlanId) === String(planId)) currentPlanId = '';
+            showToast('🗑 Plan deleted');
+            try { await window.loadOpdPlans(); } catch {}
+        } catch (err) {
+            showToast(`⚠️ Delete plan failed: ${err.message}`);
+        }
+    };
+
+    // Auto-save the freshly generated plan (fire & forget, non-blocking).
+    function _autoSavePlan() {
+        if (!missionPlan.length) return;
+        try { window.saveOpdPlan(); } catch {}
+    }
 
     // ============================================================
     //  MISSION HISTORY — Self-Improvement Loop
@@ -8670,6 +8819,7 @@ Reglas:
     const _origSwitchTab = window.switchTab;
     window.switchTab = function(name) {
         if (name === 'siem') refreshSIEM();
+        if (name === 'opadmiral') try { window.loadOpdPlans(); } catch {}
         if (_origSwitchTab) _origSwitchTab(name);
     };
 

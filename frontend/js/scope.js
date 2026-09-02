@@ -75,7 +75,7 @@ window.scopeLoadHistory = async function () {
         const list = document.getElementById('scope-history-list');
         const entries = data.data || [];
         if (entries.length === 0) {
-            list.innerHTML = '<div class="text-[10px] text-gray-700 text-center py-4">No blocked commands</div>';
+            list.innerHTML = '<div class="text-[10px] text-gray-400 text-center py-4">No blocked commands</div>';
             return;
         }
 
@@ -85,7 +85,7 @@ window.scopeLoadHistory = async function () {
             const color = e.mode === 'block' ? 'text-blood' : 'text-yellow-500';
             return `<div class="text-[10px] font-mono flex items-start gap-1.5 border-b border-gray-900 pb-1">
                 <span class="${color} shrink-0">${icon}</span>
-                <span class="text-gray-700 shrink-0">[${ts}]</span>
+                <span class="text-gray-400 shrink-0">[${ts}]</span>
                 <span class="text-gray-500">${e.message || e.command || ''}</span>
             </div>`;
         }).join('');
@@ -98,7 +98,7 @@ window.scopeClearHistory = async function () {
     try {
         await fetch('/api/scope/history/clear', { method: 'POST' });
         document.getElementById('scope-history-list').innerHTML =
-            '<div class="text-[10px] text-gray-700 text-center py-4">Cleared</div>';
+            '<div class="text-[10px] text-gray-400 text-center py-4">Cleared</div>';
         showToast('🧹 History cleared');
     } catch (e) {
         showToast('⚠ Error: ' + e.message);
@@ -116,7 +116,7 @@ function scopeUpdateIndicator(cfg) {
                 : 'text-yellow-500 border-yellow-500/30 bg-yellow-500/10');
     } else {
         badge.textContent = '🔓 Scope off';
-        badge.className = 'text-[10px] text-gray-700 px-1.5 py-0.5 rounded border border-gray-800';
+        badge.className = 'text-[10px] text-gray-400 px-1.5 py-0.5 rounded border border-gray-800';
     }
 }
 

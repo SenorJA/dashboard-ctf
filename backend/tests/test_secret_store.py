@@ -203,3 +203,51 @@ class TestReset:
         ss.reset()
         assert ss._fernet is None
         assert ss.is_enabled() is True
+
+
+# ── Key-rotation helpers (explicit key) ───────────────────────────
+
+
+class TestRotationHelpers:
+    def test_encrypt_with_decrypt_with_roundtrip(self, tmp_key_file):
+        keyA = _valid_env_key()
+        token = ss.encrypt_with(keyA, "rotation-value")
+        assert token.startswith(FERNET_PREFIX)
+        assert ss.decrypt_with(keyA, token) == "rotation-value"
+
+    def test_cross_key_isolated(self, tmp_key_file):
+        keyA = _valid_env_key()
+        keyB = _valid_env_key()
+        token = ss.encrypt_with(keyA, "value")
+        assert ss.decrypt_with(keyA, token) == "value"
+        with pytest.raises(SecretStoreError):
+            ss.decrypt_with(keyB, token)
+
+    def test_decrypt_with_legacy_plaintext_passthrough(self, tmp_key_file):
+        assert ss.decrypt_with(_valid_env_key(), "plain-old") == "plain-old"
+
+    def test_encrypt_with_invalid_key_raises(self, tmp_key_file):
+        with pytest.raises(SecretStoreError):
+            ss.encrypt_with("not-a-valid-key", "x")
+
+    def test_rotation_flow_between_two_files(self, tmp_path, monkeypatch):
+        """Simulate real key rotation across two persisted key files."""
+        keyA_path = tmp_path / "keyA.key"
+        keyB_path = tmp_path / "keyB.key"
+        # Session 1 writes with key A.
+        monkeypatch.setattr(ss, "_key_file_path", lambda: keyA_path)
+        ss.reset()
+        token_a = ss.encrypt_value("secret-under-A")
+        # Operator rotates to key B.
+        monkeypatch.setattr(ss, "_key_file_path", lambda: keyB_path)
+        ss.reset()
+        # Old token is no longer readable under B...
+        with pytest.raises(SecretStoreError):
+            ss.decrypt_value(token_a)
+        # ...but decrypt_with(A) still recovers it and encrypt_with(B) migrates it.
+        keyA = keyA_path.read_text(encoding="utf-8").strip()
+        keyB = keyB_path.read_text(encoding="utf-8").strip()
+        plain = ss.decrypt_with(keyA, token_a)
+        assert plain == "secret-under-A"
+        token_b = ss.encrypt_with(keyB, plain)
+        assert ss.decrypt_value(token_b) == "secret-under-A"

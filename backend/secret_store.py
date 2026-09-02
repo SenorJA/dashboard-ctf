@@ -244,3 +244,43 @@ def decrypt_value(token) -> str | None:
     except Exception as e:
         raise SecretStoreError(f"decryption failed (bad key or tampered data): {e}")
     return raw.decode("utf-8")
+
+
+# ───────────────────────────────────────────────────────────────────
+#  Key-rotation helpers (re-encrypt rows when the key changes)
+# ───────────────────────────────────────────────────────────────────
+
+
+def encrypt_with(key: str, value: str) -> str:
+    """Encrypt ``value`` using an explicit Fernet ``key`` (rotation helper).
+
+    Mirrors :func:`encrypt_value` but does not touch the store's active
+    key — lets a migration re-encrypt with a NEW key while the store still
+    uses the OLD one.
+    """
+    try:
+        from cryptography.fernet import Fernet
+        token = Fernet(key.encode("ascii")).encrypt(str(value).encode("utf-8"))
+    except Exception as e:
+        raise SecretStoreError(f"encrypt_with failed: {e}")
+    return token.decode("ascii")
+
+
+def decrypt_with(key: str, token) -> str:
+    """Decrypt ``token`` with an explicit Fernet ``key`` (rotation helper).
+
+    Same semantics as :func:`decrypt_value` but pinned to ``key``: legacy
+    plaintext passes through unchanged, and bad-key/tampered ciphertext
+    raises :class:`SecretStoreError`.
+    """
+    if not token:
+        return token
+    text = token if isinstance(token, str) else str(token, "utf-8")
+    if not text.startswith(FERNET_PREFIX):
+        return text  # legacy plaintext row
+    try:
+        from cryptography.fernet import Fernet
+        raw = Fernet(key.encode("ascii")).decrypt(text.encode("utf-8"))
+    except Exception as e:
+        raise SecretStoreError(f"decrypt_with failed (bad key or tampered data): {e}")
+    return raw.decode("utf-8")

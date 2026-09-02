@@ -18,7 +18,7 @@ window.mobileRenderList = function () {
     const list = document.getElementById('mobile-apk-list');
     if (!list) return;
     if (mobileApks.length === 0) {
-        list.innerHTML = '<div class="text-[10px] text-gray-700 text-center py-8">No APKs analyzed yet. Upload one to begin.</div>';
+        list.innerHTML = '<div class="text-[10px] text-gray-400 text-center py-8">No APKs analyzed yet. Upload one to begin.</div>';
         return;
     }
     list.innerHTML = mobileApks.map(a => {
@@ -32,15 +32,15 @@ window.mobileRenderList = function () {
             <div class="flex items-center justify-between mb-1">
                 <div class="flex items-center gap-2">
                     <span class="text-gray-200 font-bold">${a.package || a.filename}</span>
-                    ${a.version_name ? `<span class="text-gray-700">v${a.version_name}</span>` : ''}
+                    ${a.version_name ? `<span class="text-gray-400">v${a.version_name}</span>` : ''}
                 </div>
                 <div class="flex items-center gap-3">
-                    <span class="text-gray-700">${sizeStr}</span>
+                    <span class="text-gray-400">${sizeStr}</span>
                     ${critical > 0 ? `<span class="text-blood font-bold">${critical} critical</span>` : ''}
                     ${high > 0 ? `<span class="text-orange-400 font-bold">${high} high</span>` : ''}
-                    <span class="text-gray-600">${total} total</span>
+                    <span class="text-gray-400">${total} total</span>
                     <button onclick="event.stopPropagation(); mobileDelete('${a.apk_id}')"
-                        class="text-gray-700 hover:text-blood transition-colors">✕</button>
+                        class="text-gray-400 hover:text-blood transition-colors">✕</button>
                 </div>
             </div>
         </div>`;
@@ -90,7 +90,7 @@ window.mobileUpload = async function () {
 window.mobileOpenAnalysis = async function (apkId) {
     _currentMobileApkId = apkId;
     const container = document.getElementById('mobile-analysis');
-    container.innerHTML = '<div class="text-[10px] text-gray-700 text-center py-8">Loading analysis...</div>';
+    container.innerHTML = '<div class="text-[10px] text-gray-400 text-center py-8">Loading analysis...</div>';
 
     try {
         const resp = await fetch('/api/mobile/analyze/' + apkId);
@@ -125,38 +125,38 @@ function mobileRenderAnalysis(data, container) {
         <div class="flex items-center justify-between mb-2">
             <div>
                 <span class="text-gray-200 font-bold text-xs">${data.package || data.apk_id}</span>
-                ${data.version_name ? `<span class="text-gray-700 ml-2">v${data.version_name} (code ${data.version_code})</span>` : ''}
+                ${data.version_name ? `<span class="text-gray-400 ml-2">v${data.version_name} (code ${data.version_code})</span>` : ''}
             </div>
-            <button onclick="document.getElementById('mobile-analysis').innerHTML = '<div class=\\'text-[10px] text-gray-700 text-center py-8\\'>Select an APK to view analysis</div>'"
-                class="text-gray-700 hover:text-gray-400">✕</button>
+            <button onclick="document.getElementById('mobile-analysis').innerHTML = '<div class=\\'text-[10px] text-gray-400 text-center py-8\\'>Select an APK to view analysis</div>'"
+                class="text-gray-400 hover:text-gray-400">✕</button>
         </div>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-2">
-            ${data.min_sdk ? `<div><span class="text-gray-700">Min SDK:</span> <span class="text-gray-300">${data.min_sdk}</span></div>` : ''}
-            ${data.target_sdk ? `<div><span class="text-gray-700">Target SDK:</span> <span class="text-gray-300">${data.target_sdk}</span></div>` : ''}
-            ${data.size ? `<div><span class="text-gray-700">Size:</span> <span class="text-gray-300">${(data.size/1024/1024).toFixed(1)} MB</span></div>` : ''}
-            ${data.md5 ? `<div><span class="text-gray-700">MD5:</span> <span class="text-gray-500 font-mono text-[9px]">${data.md5.slice(0,16)}...</span></div>` : ''}
+            ${data.min_sdk ? `<div><span class="text-gray-400">Min SDK:</span> <span class="text-gray-300">${data.min_sdk}</span></div>` : ''}
+            ${data.target_sdk ? `<div><span class="text-gray-400">Target SDK:</span> <span class="text-gray-300">${data.target_sdk}</span></div>` : ''}
+            ${data.size ? `<div><span class="text-gray-400">Size:</span> <span class="text-gray-300">${(data.size/1024/1024).toFixed(1)} MB</span></div>` : ''}
+            ${data.md5 ? `<div><span class="text-gray-400">MD5:</span> <span class="text-gray-500 font-mono text-[9px]">${data.md5.slice(0,16)}...</span></div>` : ''}
         </div>
         ${err ? `<div class="text-blood mb-2">⚠ Could not fully decompile: ${err}</div>` : ''}
 
         ${perms.length > 0 ? `<details class="mb-2">
-            <summary class="text-gray-600 cursor-pointer hover:text-gray-400">🔑 Permissions (${perms.length})</summary>
+            <summary class="text-gray-400 cursor-pointer hover:text-gray-400">🔑 Permissions (${perms.length})</summary>
             <div class="mt-1 max-h-32 overflow-y-auto text-gray-500 font-mono">${perms.map(p => `<div>• ${p}</div>`).join('')}</div>
         </details>` : ''}
 
         ${comps.activities || comps.services ? `<details class="mb-2">
-            <summary class="text-gray-600 cursor-pointer hover:text-gray-400">📦 Components</summary>
+            <summary class="text-gray-400 cursor-pointer hover:text-gray-400">📦 Components</summary>
             <div class="mt-1 grid grid-cols-2 gap-2 text-gray-500">
-                ${comps.activities ? `<div><span class="text-gray-600">Activities:</span> ${comps.activities.filter(a => a.exported).length} exported / ${comps.activities.length} total</div>` : ''}
-                ${comps.services ? `<div><span class="text-gray-600">Services:</span> ${comps.services.filter(s => s.exported).length} exported / ${comps.services.length} total</div>` : ''}
-                ${comps.providers ? `<div><span class="text-gray-600">Providers:</span> ${comps.providers.filter(p => p.exported).length} exported / ${comps.providers.length} total</div>` : ''}
-                ${comps.receivers ? `<div><span class="text-gray-600">Receivers:</span> ${comps.receivers.filter(r => r.exported).length} exported / ${comps.receivers.length} total</div>` : ''}
+                ${comps.activities ? `<div><span class="text-gray-400">Activities:</span> ${comps.activities.filter(a => a.exported).length} exported / ${comps.activities.length} total</div>` : ''}
+                ${comps.services ? `<div><span class="text-gray-400">Services:</span> ${comps.services.filter(s => s.exported).length} exported / ${comps.services.length} total</div>` : ''}
+                ${comps.providers ? `<div><span class="text-gray-400">Providers:</span> ${comps.providers.filter(p => p.exported).length} exported / ${comps.providers.length} total</div>` : ''}
+                ${comps.receivers ? `<div><span class="text-gray-400">Receivers:</span> ${comps.receivers.filter(r => r.exported).length} exported / ${comps.receivers.length} total</div>` : ''}
             </div>
         </details>` : ''}
     </div>`;
 
     // Findings by severity
     if (findings.length === 0) {
-        html += '<div class="text-[10px] text-gray-700 text-center py-4">No findings. Clean APK!</div>';
+        html += '<div class="text-[10px] text-gray-400 text-center py-4">No findings. Clean APK!</div>';
     } else {
         for (const sev of sevOrder) {
             const items = grouped[sev] || [];
@@ -172,12 +172,12 @@ function mobileRenderAnalysis(data, container) {
                     <div class="flex items-center justify-between">
                         <span class="text-gray-200 font-semibold">${f.title}</span>
                         <div class="flex items-center gap-2">
-                            <span class="text-gray-700 text-[9px]">${f.category || ''}</span>
+                            <span class="text-gray-400 text-[9px]">${f.category || ''}</span>
                             <button onclick="mobileExplainFinding('${fEnc}')" class="text-[9px] text-amber-500/70 hover:text-amber-400 transition-colors" title="Explain with AI">🤖</button>
                         </div>
                     </div>
                     <div class="text-gray-400 mt-0.5">${f.description}</div>
-                    ${f.file ? `<div class="text-gray-700 text-[9px] mt-0.5 font-mono">${f.file}</div>` : ''}
+                    ${f.file ? `<div class="text-gray-400 text-[9px] mt-0.5 font-mono">${f.file}</div>` : ''}
                 </div>`;
             }
             html += '</div>';
@@ -192,7 +192,7 @@ window.mobileDelete = async function (apkId) {
     try {
         await fetch('/api/mobile/apks/' + apkId, { method: 'DELETE' });
         const container = document.getElementById('mobile-analysis');
-        if (container) container.innerHTML = '<div class="text-[10px] text-gray-700 text-center py-8">Select an APK to view analysis</div>';
+        if (container) container.innerHTML = '<div class="text-[10px] text-gray-400 text-center py-8">Select an APK to view analysis</div>';
         await mobileLoad();
     } catch (e) {
         showToast('⚠ Error: ' + e.message);
@@ -204,7 +204,7 @@ window.mobileDelete = async function (apkId) {
 window.mobileListDevices = async function () {
     const container = document.getElementById('mobile-devices');
     if (!container) return;
-    container.innerHTML = '<div class="text-[10px] text-gray-700 text-center py-2">Scanning...</div>';
+    container.innerHTML = '<div class="text-[10px] text-gray-400 text-center py-2">Scanning...</div>';
 
     try {
         const resp = await fetch('/api/mobile/devices');
@@ -215,7 +215,7 @@ window.mobileListDevices = async function () {
         }
         const devices = json.data;
         if (devices.length === 0) {
-            container.innerHTML = '<div class="text-[10px] text-gray-700 text-center py-2">No devices connected. Plug in a device or start an emulator on Kali.</div>';
+            container.innerHTML = '<div class="text-[10px] text-gray-400 text-center py-2">No devices connected. Plug in a device or start an emulator on Kali.</div>';
             return;
         }
         container.innerHTML = devices.map(d => `
@@ -223,10 +223,10 @@ window.mobileListDevices = async function () {
                 <div class="flex items-center gap-2">
                     <span class="text-green-500">●</span>
                     <span class="text-gray-300 font-mono">${d.serial}</span>
-                    ${d.model ? `<span class="text-gray-700">${d.model}</span>` : ''}
-                    ${d.device ? `<span class="text-gray-700">${d.device}</span>` : ''}
+                    ${d.model ? `<span class="text-gray-400">${d.model}</span>` : ''}
+                    ${d.device ? `<span class="text-gray-400">${d.device}</span>` : ''}
                 </div>
-                <span class="text-gray-600">${d.state}</span>
+                <span class="text-gray-400">${d.state}</span>
             </div>
         `).join('');
     } catch (e) {
@@ -338,11 +338,11 @@ Keep it concise, max 3 paragraphs.`;
             overlay.innerHTML = `<div class="bg-deep border border-amber-500/30 rounded-lg max-w-xl w-full mx-4 max-h-[70vh] overflow-y-auto p-4 shadow-2xl">
                 <div class="flex items-center justify-between mb-3">
                     <span class="text-amber-400 font-bold text-[11px] tracking-wider">🤖 AI Analysis</span>
-                    <button onclick="this.closest('#mobile-ai-overlay').remove()" class="text-gray-600 hover:text-gray-400 text-[18px] leading-none">&times;</button>
+                    <button onclick="this.closest('#mobile-ai-overlay').remove()" class="text-gray-400 hover:text-gray-400 text-[18px] leading-none">&times;</button>
                 </div>
                 <div class="text-[10px] text-gray-300 leading-relaxed whitespace-pre-wrap">${result}</div>
                 <div class="mt-3 pt-2 border-t border-gray-800 flex justify-end">
-                    <button onclick="this.closest('#mobile-ai-overlay').remove()" class="text-[9px] text-gray-600 hover:text-gray-400">Close</button>
+                    <button onclick="this.closest('#mobile-ai-overlay').remove()" class="text-[9px] text-gray-400 hover:text-gray-400">Close</button>
                 </div>
             </div>`;
             document.body.appendChild(overlay);

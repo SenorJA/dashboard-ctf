@@ -127,7 +127,7 @@ window.swarmRender = function (s) {
                            op.status === 'error' ? '❌' : '⏳';
         const statusClass = op.status === 'completed' ? 'text-green-400' :
                             op.status === 'running' ? 'text-cyber' :
-                            op.status === 'error' ? 'text-blood' : 'text-gray-700';
+                            op.status === 'error' ? 'text-blood' : 'text-gray-400';
         const findings = op.findings_count || 0;
         const commands = (op.commands_run || []).length;
 
@@ -138,12 +138,12 @@ window.swarmRender = function (s) {
                     <span class="text-[11px] text-gray-300 font-semibold">${label}</span>
                 </div>
                 <div class="flex items-center gap-2">
-                    <span class="text-[9px] text-gray-700">${commands} cmds</span>
-                    <span class="text-[9px] text-gray-700">${findings} findings</span>
+                    <span class="text-[9px] text-gray-400">${commands} cmds</span>
+                    <span class="text-[9px] text-gray-400">${findings} findings</span>
                     <span class="text-[11px] ${statusClass}">${statusIcon}</span>
                 </div>
             </div>
-            <p class="text-[9px] text-gray-700">${desc}</p>
+            <p class="text-[9px] text-gray-400">${desc}</p>
             ${op.error ? `<p class="text-[9px] text-blood mt-1">⚠ ${op.error}</p>` : ''}
         </div>`;
     }).join('');
@@ -247,12 +247,12 @@ window.swarmListSessions = async function () {
             const statusIcon = s.status === 'completed' ? '✅' :
                                s.status === 'running' ? '🔄' :
                                s.status === 'error' ? '❌' : '⏹';
-            return `<div class="text-[10px] text-gray-600 flex items-center gap-2 cursor-pointer hover:text-gray-400 transition-colors"
+            return `<div class="text-[10px] text-gray-400 flex items-center gap-2 cursor-pointer hover:text-gray-400 transition-colors"
                         onclick="swarmResume('${s.session_id}')">
                 <span>${statusIcon}</span>
                 <span class="font-mono">${s.target}</span>
                 <span>— ${s.progress || 0}%</span>
-                <span class="text-gray-700">(${s.status})</span>
+                <span class="text-gray-400">(${s.status})</span>
             </div>`;
         }).join('');
     } catch (e) {

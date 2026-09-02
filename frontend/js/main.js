@@ -61,7 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="report-empty">
                     <div class="icon">📂</div>
                     <div>No reports yet</div>
-                    <div class="text-[10px] mt-1 text-gray-700">Run a scan from the Arsenal to see results here</div>
+                    <div class="text-[10px] mt-1 text-gray-400">Run a scan from the Arsenal to see results here</div>
                 </div>`;
             if (count) count.textContent = '(0)';
             if (btnExport) btnExport.disabled = true;
@@ -90,12 +90,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         <span class="text-[10px] font-semibold uppercase tracking-wider ${toolColor}">${r.type} › ${r.target}</span>
                         <span class="flex items-center gap-2">
                             <button onclick="exportScanReport(${reports.indexOf(r)}, 'md')"
-                                class="text-[9px] text-gray-600 hover:text-neon transition-colors">⬇ .md</button>
+                                class="text-[9px] text-gray-400 hover:text-neon transition-colors">⬇ .md</button>
                             <button onclick="exportScanReport(${reports.indexOf(r)}, 'html')"
-                                class="text-[9px] text-gray-600 hover:text-cyber transition-colors">⬇ .html</button>
+                                class="text-[9px] text-gray-400 hover:text-cyber transition-colors">⬇ .html</button>
                             <button onclick="exportScanReport(${reports.indexOf(r)}, 'pdf')"
-                                class="text-[9px] text-gray-600 hover:text-blood transition-colors">⬇ PDF</button>
-                            <span class="text-[9px] text-gray-700">${r.timestamp}</span>
+                                class="text-[9px] text-gray-400 hover:text-blood transition-colors">⬇ PDF</button>
+                            <span class="text-[9px] text-gray-400">${r.timestamp}</span>
                         </span>
                     </div>
                     ${bodyHtml}
@@ -105,33 +105,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderNmapReport(r) {
         if (!r.ports || r.ports.length === 0) {
-            return `<div class="text-[11px] text-gray-600">${r.raw?.substring(0, 400) || 'No open ports found'}</div>`;
+            return `<div class="text-[11px] text-gray-400">${r.raw?.substring(0, 400) || 'No open ports found'}</div>`;
         }
-        let html = `<div class="text-[10px] text-gray-600 mb-1.5">Open ports: <span class="text-neon">${r.ports.length}</span></div>`;
+        let html = `<div class="text-[10px] text-gray-400 mb-1.5">Open ports: <span class="text-neon">${r.ports.length}</span></div>`;
         html += `<div class="flex flex-wrap gap-1.5">`;
         r.ports.forEach(p => {
             html += `<span class="port-badge">${p.port}/${p.protocol || 'tcp'}
                 <span class="service-tag">${p.service || p.state || '?'}</span>
-                ${p.version ? `<span class="text-[8px] text-gray-700 ml-1">${p.version}</span>` : ''}
+                ${p.version ? `<span class="text-[8px] text-gray-400 ml-1">${p.version}</span>` : ''}
             </span>`;
         });
         html += `</div>`;
-        if (r.os) html += `<div class="text-[10px] text-gray-700 mt-1.5">OS: ${r.os}</div>`;
+        if (r.os) html += `<div class="text-[10px] text-gray-400 mt-1.5">OS: ${r.os}</div>`;
         return html;
     }
 
     function renderGobusterReport(r) {
         if (!r.dirs || r.dirs.length === 0) {
-            return `<div class="text-[11px] text-gray-600">${r.raw?.substring(0, 400) || 'No directories found'}</div>`;
+            return `<div class="text-[11px] text-gray-400">${r.raw?.substring(0, 400) || 'No directories found'}</div>`;
         }
-        let html = `<div class="text-[10px] text-gray-600 mb-1.5">Found: <span class="text-neon">${r.dirs.length}</span> directories</div>`;
+        let html = `<div class="text-[10px] text-gray-400 mb-1.5">Found: <span class="text-neon">${r.dirs.length}</span> directories</div>`;
         html += `<div class="space-y-0.5">`;
         r.dirs.forEach(d => {
-            const color = d.status < 300 ? 'text-neon' : d.status < 400 ? 'text-yellow-400' : 'text-gray-600';
+            const color = d.status < 300 ? 'text-neon' : d.status < 400 ? 'text-yellow-400' : 'text-gray-400';
             html += `<div class="text-[11px] font-mono">
                 <span class="${color}">[${d.status}]</span>
                 <span class="text-gray-400">${d.path}</span>
-                ${d.size ? `<span class="text-gray-700 text-[9px]">(${d.size})</span>` : ''}
+                ${d.size ? `<span class="text-gray-400 text-[9px]">(${d.size})</span>` : ''}
             </div>`;
         });
         html += `</div>`;
@@ -418,7 +418,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ws.onopen = () => {
             statusInd.classList.replace('offline', 'online');
             statusText.textContent = 'ONLINE';
-            statusText.classList.replace('text-gray-600', 'text-neon');
+            statusText.classList.replace('text-gray-400', 'text-neon');
             if (activeConnectionId !== null) connDot.className = 'conn-dot online';
             connBadge.textContent = `connected: ${sshUser}@${sshIp}:${sshPort}`;
             connTitle.textContent = `─╼ ${sshUser}@${sshIp} ╾─────────────────────────────────────`;
@@ -453,7 +453,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ws.onclose = () => {
             statusInd.classList.replace('online', 'offline');
             statusText.textContent = 'OFFLINE';
-            statusText.classList.replace('text-neon', 'text-gray-600');
+            statusText.classList.replace('text-neon', 'text-gray-400');
             connBadge.textContent = 'disconnected';
             connDot.className = 'conn-dot offline';
             appendOutput('\\n[!] Connection closed.');
@@ -1733,7 +1733,7 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
             if (btnDisconnect) btnDisconnect.style.display = 'inline-block';
         } else {
             badge.innerHTML = '⚪ disconnected';
-            badge.className = 'text-[9px] text-gray-700 border border-gray-800 rounded px-2 py-0.5';
+            badge.className = 'text-[9px] text-gray-400 border border-gray-800 rounded px-2 py-0.5';
             if (btnDisconnect) btnDisconnect.style.display = 'none';
         }
     }
@@ -1937,7 +1937,7 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         if (logDiv) {
             logDiv.textContent = '';
             const placeholder = document.createElement('span');
-            placeholder.className = 'text-gray-700';
+            placeholder.className = 'text-gray-400';
             placeholder.textContent = '[—] Log cleared.';
             logDiv.appendChild(placeholder);
         }

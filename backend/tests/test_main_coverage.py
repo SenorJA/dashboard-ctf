@@ -1611,6 +1611,40 @@ class TestSecretsAPIEndpoints:
         resp = client.delete("/api/credentials/secrets/mykey")
         assert resp.status_code == 503
 
+    def test_secret_reencrypt_no_body(self, client: TestClient):
+        """POST /api/credentials/reencrypt without body returns 422."""
+        resp = client.post("/api/credentials/reencrypt")
+        assert resp.status_code == 422
+
+    @patch("main.reencrypt_app_credentials")
+    def test_secret_reencrypt_ok(self, mock_reenc, client: TestClient):
+        """POST /api/credentials/reencrypt returns migration report."""
+        mock_reenc.return_value = {"ok": True, "total": 2, "migrated": 2,
+                                   "legacy": 0, "skipped": 0, "errors": []}
+        resp = client.post("/api/credentials/reencrypt", json={"old_key": "OLDKEY"})
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["ok"] is True
+        assert body["migrated"] == 2
+        mock_reenc.assert_called_once_with("OLDKEY")
+
+    @patch("main.reencrypt_app_credentials")
+    def test_secret_reencrypt_partial_failure(self, mock_reenc, client: TestClient):
+        """POST /api/credentials/reencrypt with errors returns 503 + errors."""
+        mock_reenc.return_value = {"ok": False, "total": 3, "migrated": 2,
+                                   "legacy": 0, "skipped": 1,
+                                   "errors": [{"key": "a", "error": "bad key"}]}
+        resp = client.post("/api/credentials/reencrypt", json={"old_key": "OLD"})
+        assert resp.status_code == 503
+        assert resp.json()["skipped"] == 1
+
+    @patch("main.reencrypt_app_credentials")
+    def test_secret_reencrypt_exception(self, mock_reenc, client: TestClient):
+        """POST /api/credentials/reencrypt when DB throws returns 500."""
+        mock_reenc.side_effect = Exception("boom")
+        resp = client.post("/api/credentials/reencrypt", json={"old_key": "OLD"})
+        assert resp.status_code == 500
+
 
 class TestSettingsEndpoints:
     """Settings API (get/set)."""

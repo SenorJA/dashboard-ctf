@@ -1350,6 +1350,26 @@ class TestMissionPlans:
         assert result is not None
         assert len(result) == 1
 
+    def test_list_mission_plans_parses_steps_json(self, patch_get_client):
+        """JSON-string steps (insert path) are parsed back into lists."""
+        tbl = MagicMock()
+        patch_get_client.table.return_value = tbl
+        tbl.select.return_value.order.return_value.limit.return_value.execute.return_value.data = [
+            {"id": "p1", "steps": '[{"tool": "nmap"}, {"tool": "gobuster"}]'}
+        ]
+        result = db.list_mission_plans()
+        assert result[0]["steps"] == [{"tool": "nmap"}, {"tool": "gobuster"}]
+
+    def test_list_mission_plans_steps_invalid_json(self, patch_get_client):
+        """Malformed JSON steps degrade to an empty list without raising."""
+        tbl = MagicMock()
+        patch_get_client.table.return_value = tbl
+        tbl.select.return_value.order.return_value.limit.return_value.execute.return_value.data = [
+            {"id": "p1", "steps": "not-json{"}
+        ]
+        result = db.list_mission_plans()
+        assert result[0]["steps"] == []
+
     def test_list_mission_plans_filters_by_target(self, patch_get_client):
         tbl = MagicMock()
         patch_get_client.table.return_value = tbl
@@ -1644,6 +1664,71 @@ class TestAppCredentials:
         patch_get_client.table.return_value = tbl
         tbl.delete.return_value.eq.return_value.execute.side_effect = Exception("err")
         assert db.delete_app_credential("k") is False
+
+    def test_reencrypt_app_credentials_migrates_all_rows(self, patch_get_client):
+        """Rows re-encrypted from old key -> current key, report reflects migrated."""
+        tbl = MagicMock()
+        patch_get_client.table.return_value = tbl
+        tbl.select.return_value.execute.return_value.data = [
+            {"id": "1", "key": "a", "value": "gAAAAAold1"},
+            {"id": "2", "key": "b", "value": "gAAAAAold2"},
+        ]
+        with patch.object(db.secret_store, "decrypt_with",
+                          side_effect=["plain1", "plain2"]) as dec, \
+             patch.object(db.secret_store, "encrypt_value",
+                          side_effect=["ENC1", "ENC2"]) as enc:
+            report = db.reencrypt_app_credentials("OLD_KEY")
+        assert report["ok"] is True
+        assert report["total"] == 2
+        assert report["migrated"] == 2
+        assert report["legacy"] == 0
+        assert report["errors"] == []
+        dec.assert_called_with("OLD_KEY", "gAAAAAold2")
+        enc.assert_any_call("plain1")
+        enc.assert_any_call("plain2")
+        calls = tbl.update.call_args_list
+        assert [c[0][0]["value"] for c in calls] == ["ENC1", "ENC2"]
+
+    def test_reencrypt_app_credentials_counts_legacy_rows(self, patch_get_client):
+        tbl = MagicMock()
+        patch_get_client.table.return_value = tbl
+        tbl.select.return_value.execute.return_value.data = [
+            {"id": "1", "key": "a", "value": "sk-plain-legacy"},
+            {"id": "2", "key": "b", "value": "gAAAAAold"},
+        ]
+        with patch.object(db.secret_store, "decrypt_with", side_effect=["plain1", "plain2"]), \
+             patch.object(db.secret_store, "encrypt_value", side_effect=["ENC1", "ENC2"]):
+            report = db.reencrypt_app_credentials("OLD")
+        assert report["ok"] is True
+        assert report["migrated"] == 1
+        assert report["legacy"] == 1
+
+    def test_reencrypt_app_credentials_reports_errors(self, patch_get_client):
+        tbl = MagicMock()
+        patch_get_client.table.return_value = tbl
+        tbl.select.return_value.execute.return_value.data = [
+            {"id": "1", "key": "a", "value": "gAAAAAtampered"},
+        ]
+        with patch.object(db.secret_store, "decrypt_with",
+                          side_effect=Exception("bad key")):
+            report = db.reencrypt_app_credentials("WRONG")
+        assert report["ok"] is False
+        assert report["skipped"] == 1
+        assert len(report["errors"]) == 1
+
+    def test_reencrypt_app_credentials_returns_false_when_no_client(self):
+        with patch("database.get_client", return_value=None):
+            report = db.reencrypt_app_credentials("OLD")
+        assert report["ok"] is False
+        assert report.get("error") == "DB unavailable"
+
+    def test_reencrypt_app_credentials_returns_error_dict_on_exception(self, patch_get_client):
+        tbl = MagicMock()
+        patch_get_client.table.return_value = tbl
+        tbl.select.return_value.execute.side_effect = Exception("boom")
+        report = db.reencrypt_app_credentials("OLD")
+        assert report["ok"] is False
+        assert "boom" in report.get("error", "")
 
 
 # ════════════════════════════════════════════════════════════════
