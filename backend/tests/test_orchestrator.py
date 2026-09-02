@@ -30,6 +30,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import backend.orchestrator as orch
 from backend.orchestrator import (
     route,
+    route_hunt,
+    list_hunt_skills,
     execute,
     list_specialists,
     get_specialist,
@@ -133,6 +135,76 @@ class TestRoute:
 
 
 # ═══════════════════════════════════════════════════════════════
+#  1b. route_hunt() & list_hunt_skills() — hunt-* specialization
+# ═══════════════════════════════════════════════════════════════
+
+class TestRouteHunt:
+    def test_sqli_detects_hunt_sqli(self):
+        assert route_hunt("test for SQL injection in the search endpoint") == "hunt-sqli"
+
+    def test_sqli_shorthand(self):
+        assert route_hunt("look for sqli on /product?id=") == "hunt-sqli"
+
+    def test_nosql_precedence_over_sql(self):
+        # "nosql" must resolve to hunt-nosqli, never hunt-sqli.
+        assert route_hunt("check nosql injection on the API") == "hunt-nosqli"
+
+    def test_xss_detected(self):
+        assert route_hunt("fuzz for XSS payloads") == "hunt-xss"
+
+    def test_multiple_classes_most_hits_wins(self):
+        # "SQL injection" hits hunt-sqli; generic "sql" keywords stack.
+        assert route_hunt("sql injection via sqli vectors") == "hunt-sqli"
+
+    def test_rce_detected(self):
+        assert route_hunt("try to get rce on the upload") == "hunt-rce"
+
+    def test_ooauth_redirect_detected(self):
+        assert route_hunt("test oauth redirect_uri tampering") == "hunt-oauth"
+
+    def test_no_match_returns_empty(self):
+        assert route_hunt("encode this base64") == ""
+
+    def test_irrelevant_web_task_empty(self):
+        assert route_hunt("review the app architecture") == ""
+
+    def test_empty_string_empty(self):
+        assert route_hunt("") == ""
+
+    def test_non_string_empty(self):
+        assert route_hunt(None) == ""  # type: ignore[arg-type]
+
+    def test_case_insensitive(self):
+        assert route_hunt("SCAN FOR SSRF VULNERABILITIES") == "hunt-ssrf"
+
+    def test_multiword_collision_resolved(self):
+        # "request smuggling" is the common phrasing → hunt-http-smuggling.
+        assert route_hunt("probe HTTP request smuggling via CL.TE") == "hunt-http-smuggling"
+
+
+class TestListHuntSkills:
+    def test_returns_list_of_skill_keyword_pairs(self):
+        hunt = list_hunt_skills()
+        assert isinstance(hunt, list)
+        assert len(hunt) >= 30
+        for entry in hunt:
+            assert entry["skill"].startswith("hunt-")
+            assert isinstance(entry["keywords"], list)
+            assert entry["keywords"]
+
+    def test_skills_unique(self):
+        names = [e["skill"] for e in list_hunt_skills()]
+        assert len(names) == len(set(names))
+
+    def test_covers_major_classes(self):
+        names = {e["skill"] for e in list_hunt_skills()}
+        assert "hunt-sqli" in names
+        assert "hunt-xss" in names
+        assert "hunt-ssrf" in names
+        assert "hunt-rce" in names
+
+
+# ═══════════════════════════════════════════════════════════════
 #  2. _build_system_prompt() — grounding + fallback
 # ═══════════════════════════════════════════════════════════════
 
@@ -166,6 +238,48 @@ class TestBuildSystemPrompt:
             prompt = _build_system_prompt("bogus", "x", "y")
             assert "MIRV bogus specialist" in prompt
             assert "Target: x" in prompt
+
+
+# ═══════════════════════════════════════════════════════════════
+#  2b. _build_system_prompt() — hunt-* specialization layer
+# ═══════════════════════════════════════════════════════════════
+
+class TestBuildSystemPromptHunt:
+    def test_hunt_skill_replaces_base_playbook(self):
+        def _fake(name):
+            return "# HUNT SQLI METHODOLOGY" if name == "hunt-sqli" else "# WebVuln Base"
+        with patch("backend.orchestrator._render_skill", side_effect=_fake):
+            prompt = _build_system_prompt("webvuln", "target", "ctx", hunt_skill="hunt-sqli")
+            assert "MIRV webvuln specialist hunting sqli" in prompt
+            assert "# HUNT SQLI METHODOLOGY" in prompt
+            # The generic webvuln body must NOT appear (replaced).
+            assert "# WebVuln Base" not in prompt
+            assert "target" in prompt
+
+    def test_hunt_disabled_falls_back_to_base(self):
+        def _fake(name):
+            return "# WebVuln Base" if name == "webvuln" else ""
+        with patch("backend.orchestrator._render_skill", side_effect=_fake):
+            prompt = _build_system_prompt("webvuln", "x", "y", hunt_skill="hunt-rce")
+            assert "# WebVuln Base" in prompt
+            assert "hunting" not in prompt
+
+    def test_no_hunt_skill_uses_base(self):
+        with patch("backend.orchestrator._render_skill", return_value="# Base"):
+            prompt = _build_system_prompt("webvuln", "x", "y")
+            assert "# Base" in prompt
+            assert "hunting" not in prompt
+
+    def test_hunt_render_exception_degrades_to_base(self):
+        with patch("backend.orchestrator._render_skill", side_effect=RuntimeError("boom")):
+            prompt = _build_system_prompt("webvuln", "x", "y", hunt_skill="hunt-sqli")
+            assert "structured JSON array" in prompt
+            assert "hunting" not in prompt
+
+    def test_hunt_label_formatting(self):
+        with patch("backend.orchestrator._render_skill", return_value="# Body"):
+            prompt = _build_system_prompt("webvuln", "x", "y", hunt_skill="hunt-http-smuggling")
+            assert "hunting http smuggling" in prompt
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -305,6 +419,86 @@ class TestExecute:
              patch("backend.orchestrator._render_skill", return_value=""):
             result = execute(task="exploit", specialist="webvuln")
             assert result["ok"] is True
+
+
+# ═══════════════════════════════════════════════════════════════
+#  3b. execute() — hunt-* specialization wiring
+# ═══════════════════════════════════════════════════════════════
+
+class TestExecuteHunt:
+    def test_webvuln_sqli_task_reports_hunt_skill(self):
+        captured = {}
+        def _capture(messages, **kwargs):
+            captured["msgs"] = messages
+            return "ok"
+        with patch("backend.orchestrator._call_llm", side_effect=_capture), \
+             patch("backend.orchestrator._render_skill", return_value=""):
+            result = execute(task="test SQL injection in /search", specialist="webvuln")
+            assert result["ok"] is True
+            assert result["hunt_skill"] == "hunt-sqli"
+
+    def test_webvuln_hunt_skill_grounds_system_prompt(self):
+        captured = {}
+        def _capture(messages, **kwargs):
+            captured["msgs"] = messages
+            return "ok"
+        def _fake(name):
+            return "# SQLI DEEP DIVE" if name == "hunt-sqli" else "# Base WebVuln"
+        with patch("backend.orchestrator._call_llm", side_effect=_capture), \
+             patch("backend.orchestrator._render_skill", side_effect=_fake):
+            result = execute(task="sqli on /product", specialist="webvuln")
+            assert result["ok"] is True
+            assert result["hunt_skill"] == "hunt-sqli"
+            system = captured["msgs"][0]["content"]
+            assert "# SQLI DEEP DIVE" in system
+            assert "hunting sqli" in system
+
+    def test_scoped_hunt_skill_degrades_without_scope(self):
+        with patch("backend.orchestrator._call_llm", return_value="ok"), \
+             patch("backend.orchestrator._render_skill", return_value=""), \
+             patch("backend.orchestrator._specialist_requires_scope", return_value=False), \
+             patch("backend.orchestrator._skill_requires_scope", return_value=True), \
+             patch("backend.orchestrator._scope_authorized", return_value=False):
+            # hunt-rce is scope-flagged → without scope it is skipped
+            result = execute(task="get rce on the upload", specialist="webvuln")
+            assert result["ok"] is True
+            assert result["hunt_skill"] == ""
+
+    def test_scoped_hunt_skill_allowed_with_scope(self):
+        captured = {}
+        def _capture(messages, **kwargs):
+            captured["msgs"] = messages
+            return "ok"
+        with patch("backend.orchestrator._call_llm", side_effect=_capture), \
+             patch("backend.orchestrator._render_skill", return_value=""), \
+             patch("backend.orchestrator._specialist_requires_scope", return_value=False), \
+             patch("backend.orchestrator._skill_requires_scope", return_value=True), \
+             patch("backend.orchestrator._scope_authorized", return_value=True):
+            result = execute(task="get rce on the upload", specialist="webvuln")
+            assert result["ok"] is True
+            assert result["hunt_skill"] == "hunt-rce"
+
+    def test_non_webvuln_never_detects_hunt(self):
+        with patch("backend.orchestrator._call_llm", return_value="ok"), \
+             patch("backend.orchestrator._render_skill", return_value=""):
+            result = execute(task="test SQL injection", specialist="recon")
+            assert result["ok"] is True
+            assert result["hunt_skill"] == ""
+
+    def test_webvuln_no_class_no_hunt(self):
+        with patch("backend.orchestrator._call_llm", return_value="ok"), \
+             patch("backend.orchestrator._render_skill", return_value=""):
+            result = execute(task="review the login flow visually", specialist="webvuln")
+            assert result["ok"] is True
+            assert result["hunt_skill"] == ""
+
+    def test_hunt_detection_failure_does_not_break_execute(self):
+        with patch("backend.orchestrator._call_llm", return_value="ok"), \
+             patch("backend.orchestrator._render_skill", return_value=""), \
+             patch("backend.orchestrator.route_hunt", side_effect=RuntimeError("boom")):
+            result = execute(task="test XSS", specialist="webvuln")
+            assert result["ok"] is True
+            assert result["hunt_skill"] == ""
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -530,6 +724,20 @@ class TestOrchestratorEndpoints:
             assert resp.status_code == 500
             assert resp.json()["error"] == "Internal error"
 
+    def test_get_hunt_200(self, client: TestClient):
+        resp = client.get("/api/orchestrator/hunt")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["ok"] is True
+        assert isinstance(data["hunt_skills"], list)
+        assert any(e["skill"] == "hunt-sqli" for e in data["hunt_skills"])
+
+    def test_get_hunt_internal_error_returns_500(self, client: TestClient):
+        with patch("main.orchestrator_list_hunt_skills", side_effect=RuntimeError("boom")):
+            resp = client.get("/api/orchestrator/hunt")
+            assert resp.status_code == 500
+            assert resp.json()["error"] == "Internal error"
+
 
 # ═══════════════════════════════════════════════════════════════
 #  6. _resolve_provider_config() & _call_llm() env fallbacks
@@ -688,6 +896,28 @@ class TestRenderSkillAndScope:
     def test_specialist_requires_scope_skill_info_none(self):
         with patch("backend.skill_playbooks.get_skill_info", return_value=None):
             assert orch._specialist_requires_scope("recon") is False
+
+    def test_skill_requires_scope_flagged(self):
+        with patch("backend.skill_playbooks.get_skill_info",
+                   return_value={"requires_scope": True}):
+            assert orch._skill_requires_scope("hunt-rce") is True
+
+    def test_skill_requires_scope_not_flagged(self):
+        with patch("backend.skill_playbooks.get_skill_info",
+                   return_value={"requires_scope": False}):
+            assert orch._skill_requires_scope("hunt-sqli") is False
+
+    def test_skill_requires_scope_empty_name(self):
+        assert orch._skill_requires_scope("") is False
+
+    def test_skill_requires_scope_skill_info_none(self):
+        with patch("backend.skill_playbooks.get_skill_info", return_value=None):
+            assert orch._skill_requires_scope("hunt-rce") is False
+
+    def test_skill_requires_scope_import_error_is_false(self):
+        with patch("backend.skill_playbooks.get_skill_info",
+                   side_effect=RuntimeError("boom")):
+            assert orch._skill_requires_scope("hunt-rce") is False
 
     def test_scope_authorized_false_when_empty(self):
         with patch("backend.scope_guard.get_config", return_value={}):

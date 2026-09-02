@@ -243,6 +243,7 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~3834 tests, ~95% coverage
 | Settings | `GET/POST /api/settings` |
 | n8n | `POST /api/n8n/trigger`, `GET /api/n8n/status` |
 | kali-mcp | `GET /api/kali-mcp/{status,tools}`, `POST /api/kali-mcp/exec` |
+| Orchestrator Hunt | `GET /api/orchestrator/hunt` — vulnerabilidad-class → hunt-* map (webvuln grounding) |
 | Docker | `GET /api/docker/status`, `POST /api/docker/{start,stop,clean,build}`, `GET /api/docker/task/{id}` |
 | Health | `GET /api/health` |
 | **EXIF OSINT** | `POST /api/exif/analyze`, `GET /api/exif/analyze?url=` |

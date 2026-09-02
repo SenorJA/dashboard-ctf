@@ -7064,13 +7064,24 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
     };
 
     // Route badge — shows which specialist processed the last request
-    window.showRouteBadge = function (spec) {
+    window.showRouteBadge = function (spec, huntSkill) {
         const badge = document.getElementById('opd-route-badge');
         const specEl = document.getElementById('opd-route-badge-spec');
+        const huntEl = document.getElementById('opd-hunt-badge');
         const sidEl = document.getElementById('opd-session-id');
         if (!badge || !specEl) return;
         const meta = SPECIALIST_META[spec] || SPECIALIST_META.auto;
         specEl.innerHTML = `<span class="w-1.5 h-1.5 rounded-full ${meta.dot} inline-block"></span><span class="${meta.color}">${escapeHTML(meta.label)}</span>`;
+        if (huntEl) {
+            if (huntSkill) {
+                const label = String(huntSkill).replace(/^hunt-/, '').replace(/-/g, ' ');
+                huntEl.textContent = '🎯 ' + label;
+                huntEl.classList.remove('hidden');
+            } else {
+                huntEl.textContent = '';
+                huntEl.classList.add('hidden');
+            }
+        }
         if (sidEl) sidEl.textContent = sessionId ? sessionId.slice(0, 24) : '—';
         badge.classList.remove('hidden');
     };
@@ -7097,6 +7108,7 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
             <div class="flex items-start gap-2 bg-void/60 border border-cyber/20 rounded px-2 py-1.5">
                 <span class="w-1.5 h-1.5 rounded-full ${meta.dot} shrink-0 mt-0.5"></span>
                 <span class="text-[9px] font-mono ${meta.color} shrink-0">[${meta.label}]</span>
+                ${d.huntSkill ? `<span class="text-[8px] font-mono text-amber-300 shrink-0">🎯${escapeHTML(String(d.huntSkill).replace(/^hunt-/, '').replace(/-/g, ' '))}</span>` : ''}
                 <span class="text-[9px] text-gray-400">${escapeHTML(task)}:</span>
                 <span class="text-[9px] text-gray-500 flex-1 leading-snug">${escapeHTML(d.decisions)}</span>
             </div>`;
@@ -7295,10 +7307,11 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
                         if (orcData.specialist) {
                             episodicDecisions.push({
                                 specialist: orcData.specialist,
+                                huntSkill: orcData.hunt_skill || '',
                                 task: desc,
                                 decisions: summarizeDecisions(orcData.response)
                             });
-                            window.showRouteBadge(orcData.specialist);
+                            window.showRouteBadge(orcData.specialist, orcData.hunt_skill);
                         }
 
                         // Response is usually a JSON array of steps, but may be free text

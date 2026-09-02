@@ -2261,6 +2261,7 @@ from backend.orchestrator import (
     route as orchestrator_route,
     list_specialists as orchestrator_list_specialists,
     get_specialist as orchestrator_get_specialist,
+    list_hunt_skills as orchestrator_list_hunt_skills,
 )
 
 
@@ -2339,6 +2340,24 @@ async def api_orchestrator_specialist(name: str):
         return JSONResponse({"ok": True, "specialist": info}, status_code=200)
     except Exception as e:
         logger.exception("[orchestrator specialist] %s", e, exc_info=False)
+        return JSONResponse({"ok": False, "error": "Internal error"}, status_code=500)
+
+
+@app.get("/api/orchestrator/hunt")
+async def api_orchestrator_hunt():
+    """List the vulnerability-class → hunt-* skill specialization map.
+
+    The ``webvuln`` specialist uses this mapping to load a deep-dive
+    ``hunt-*`` playbook for the specific vulnerability class detected in
+    the task (e.g. "SQL injection" → ``hunt-sqli``).
+    """
+    try:
+        return JSONResponse(
+            {"ok": True, "hunt_skills": orchestrator_list_hunt_skills()},
+            status_code=200,
+        )
+    except Exception as e:
+        logger.exception("[orchestrator hunt] %s", e, exc_info=False)
         return JSONResponse({"ok": False, "error": "Internal error"}, status_code=500)
 
 
