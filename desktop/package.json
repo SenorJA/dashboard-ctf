@@ -1,0 +1,16 @@
+{
+  "name": "mirv-desktop",
+  "private": true,
+  "version": "3.0.0",
+  "type": "module",
+  "scripts": {
+    "tauri": "tauri",
+    "dev": "tauri dev",
+    "prebuild": "node scripts/sync-frontend.mjs",
+    "build": "tauri build",
+    "icons": "tauri icon ../frontend/img/icon-192.svg"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}

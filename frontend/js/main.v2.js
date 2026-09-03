@@ -8,6 +8,41 @@
 
 let ws;
 
+// ============================================================
+//  DESKTOP (Tauri) SUPPORT — API/WS base URL resolution.
+//
+//  In a normal browser the backend serves the frontend, so relative
+//  URLs (``/api``, ``ws://<location.host>``) work. Inside the Tauri
+//  WebView the page is served from ``http://tauri.localhost`` and the
+//  backend runs as a sidecar on ``http://localhost:PORT`` — so we
+//  inject a base for HTTP fetches and wire the WebSocket to it.
+//
+//  Everything below is a NO-OP outside Tauri (behaviour unchanged).
+// ============================================================
+
+const IS_TAURI = !!(window.__TAURI_INTERNALS__);
+const API_BASE = IS_TAURI ? (window.MIRV_API_URL || 'http://localhost:8000') : '';
+const WM_PROTOCOL = (API_BASE || location.origin).replace(/^http/, 'ws');
+
+// WebSocket URL: the SSH proxy lives on the same backend as the API.
+window.WS_URL = IS_TAURI
+    ? (window.MIRV_WS_URL || `${WM_PROTOCOL}/ws`)
+    : window.WS_URL || `${location.protocol}//${location.host}/ws`;
+
+// Route relative /api fetches to the backend when running under Tauri.
+if (IS_TAURI && typeof window._mirvFetchPatched === 'undefined') {
+    window._mirvFetchPatched = true;
+    const _nativeFetch = window.fetch.bind(window);
+    window.fetch = function (input, init) {
+        if (typeof input === 'string' && input.startsWith('/')) {
+            input = API_BASE + input;
+        } else if (input && input.url && String(input.url).startsWith('/')) {
+            input = new Request(API_BASE + input.url, input);
+        }
+        return _nativeFetch(input, init);
+    };
+}
+
 document.addEventListener('DOMContentLoaded', () => {
 
     // ============================================================

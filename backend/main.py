@@ -334,8 +334,34 @@ async def _ensure_ssh_connection(ssh_ip: str = None, ssh_user: str = None, ssh_p
         logger.warning("Shared SSH connection failed: %s", e)
         return None
 
+# ── Packaging / Desktop support ──
+# Frozen (PyInstaller) detection: when packaged, static frontend assets (if
+# bundled) are extracted under sys._MEIPASS; otherwise we resolve them from
+# the repo layout (../frontend relative to the backend/ directory).
+IS_PACKAGED = bool(getattr(sys, "frozen", False))
+_FROZEN_MEIPASS = os.path.abspath(getattr(sys, "_MEIPASS", "")) if IS_PACKAGED else ""
+
+# --tauri-mode: the frontend is served by the Tauri WebView, not by this
+# backend, so static routes can resolve to the (bundled) assets if present
+# but the app is intended to run headless on localhost:PORT for the desktop.
+TAURI_MODE = "--tauri-mode" in sys.argv
+
+
+def _resolve_frontend_dir() -> str:
+    """Locate the frontend assets directory for dev, frozen, and tauri modes."""
+    if IS_PACKAGED:
+        cand = _FROZEN_MEIPASS or os.path.dirname(os.path.abspath(__file__))
+        for sub in ("frontend", "assets", _FROZEN_MEIPASS):
+            base = os.path.join(cand, sub) if sub != _FROZEN_MEIPASS else cand
+            if os.path.isdir(base):
+                return os.path.normpath(base)
+        # Fall back to data manifest dir only on error; tauri mode doesn't use it.
+    return os.path.normpath(
+        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend"))
+
+
 # ── Static files ──
-frontend_dir = os.path.normpath(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend"))
+frontend_dir = _resolve_frontend_dir()
 css_dir = os.path.normpath(os.path.join(frontend_dir, "css"))
 js_dir = os.path.normpath(os.path.join(frontend_dir, "js"))
 print(f"[*] Frontend dir: {frontend_dir}")
@@ -6188,25 +6214,45 @@ async def api_bc_stats():
 if __name__ == "__main__":
     import uvicorn
 
-    # Detect where we're running from to build the correct module path
-    this_dir = os.path.basename(os.path.dirname(os.path.abspath(__file__)))
-    cwd_dir = os.path.basename(os.path.abspath(os.getcwd()))
+    # Per-argument / env-driven config (e.g. Tauri sidecar: --host 127.0.0.1).
+    argv = sys.argv[1:]
+    host = os.getenv("MIRV_HOST", "0.0.0.0")
+    if "--host" in argv:
+        host = argv[argv.index("--host") + 1]
+    port = int(os.getenv("PORT", os.getenv("MIRV_PORT", "8000")))
+    if "--port" in argv:
+        try:
+            port = int(argv[argv.index("--port") + 1])
+        except (IndexError, ValueError):
+            pass
 
-    if cwd_dir == "backend":
-        # We're inside backend/ — use relative module name
-        app_str = "main:app"
-        print("[*] Running from backend/ directory — using 'main:app'")
+    if IS_PACKAGED:
+        # Frozen (PyInstaller): module-string imports don't resolve reliably,
+        # so pass the already-imported app object directly to uvicorn.
+        app_str = None
+        print("[*] Packaged (PyInstaller) — running app object directly")
     else:
-        # We're at project root or elsewhere — use fully qualified name
-        app_str = "backend.main:app"
+        # Detect where we're running from to build the correct module path
+        this_dir = os.path.basename(os.path.dirname(os.path.abspath(__file__)))
+        cwd_dir = os.path.basename(os.path.abspath(os.getcwd()))
+        if cwd_dir == "backend":
+            app_str = "main:app"
+            print("[*] Running from backend/ directory — using 'main:app'")
+        else:
+            app_str = "backend.main:app"
 
-    port = int(os.getenv("PORT", "8000"))
     mode_str = "PRODUCTION" if PRODUCTION else "DEVELOPMENT"
     print("=" * 50)
     print(f"  VulnForge — Red Team Dashboard ({mode_str})")
+    if TAURI_MODE:
+        print("  Desktop mode (--tauri-mode) — frontend served by Tauri WebView")
     print(f"  Version {VERSION}")
     print(f"  -> http://localhost:{port}")
     if PRODUCTION:
         print(f"  -> Remote: https://vulnforge.YOUR-DOMAIN.com")
     print("=" * 50)
-    uvicorn.run(app_str, host="0.0.0.0", port=port, reload=(port == 8000))
+    # --tauri-mode runs headless behind a Tauri sidecar: never auto-reload.
+    if app_str is None:
+        uvicorn.run(app, host=host, port=port, reload=False)
+    else:
+        uvicorn.run(app_str, host=host, port=port, reload=(port == 8000 and not TAURI_MODE))

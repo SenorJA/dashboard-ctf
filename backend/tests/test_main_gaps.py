@@ -2051,3 +2051,40 @@ class TestMainGuard:
             if main_mod:
                 main_mod.__dict__.clear()
                 main_mod.__dict__.update(saved_main)
+
+    def test_guard_frozen_tauri_mode_passes_app_object(self):
+        """`__main__` under PyInstaller (sys.frozen) + --tauri-mode must run
+        uvicorn with the app OBJECT directly (module-string fails when frozen)
+        and never auto-reload. Also exercises `_resolve_frontend_dir()`'s
+        "bundled frontend found" branch."""
+        import runpy as _runpy
+        import tempfile
+
+        root = os.path.dirname(os.path.dirname(os.path.abspath(main.__file__)))
+        full_path = os.path.abspath(main.__file__)
+        fake_uv = SimpleNamespace(run=MagicMock())
+
+        # A real temp "MEIPASS" containing a bundled frontend dir, so the
+        # frozen branch of _resolve_frontend_dir() finds it and returns early.
+        tmp_root = tempfile.mkdtemp(prefix="mirv_meipass_")
+        os.makedirs(os.path.join(tmp_root, "frontend"), exist_ok=True)
+
+        @patch.object(sys, "argv", ["mirv-backend.exe", "--tauri-mode"])
+        @patch.object(sys, "frozen", True, create=True)
+        @patch.object(sys, "_MEIPASS", tmp_root, create=True)
+        @patch.dict(sys.modules, {"uvicorn": fake_uv, "dotenv": None})
+        @patch.object(sys, "stdout", _FakeStream())
+        @patch.object(sys, "stderr", _FakeStream())
+        def _run_frozen():
+            _runpy.run_path(full_path, run_name="__main__")
+
+        _run_frozen()
+        assert fake_uv.run.call_count >= 1
+        call = fake_uv.run.call_args
+        target = call.kwargs.get("app", call.args[0] if call.args else None)
+        # Frozen path directed uvicorn at the app OBJECT (a FastAPI with live
+        # routes), not a module string, and never auto-reloads (the sidecar
+        # lifecycle is managed by Tauri).
+        assert not isinstance(target, str)
+        assert hasattr(target, "routes")
+        assert call.kwargs.get("reload") is False
