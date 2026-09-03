@@ -3,9 +3,11 @@
 All notable changes to this project are documented in this file.
 Format based on [Keep a Changelog](https://keepachangelog.com/), auto-generated from Conventional Commits.
 
-## [Unreleased] — 1 Sep 2026
+## [Unreleased] — 3 Sep 2026
 
 ### Added
+- `fd8aa7b` — feat(desktop): MIRV Desktop — PyInstaller sidecar + Tauri scaffold. Backend: `mirv-backend.spec` (bundles skills/plugins/frontend) + `build_backend.bat` + `main.py` `IS_PACKAGED`/`TAURI_MODE`/`_resolve_frontend_dir` (frozen-aware) + `__main__` con `--host/--port/MIRV_PORT` y app-object directo a uvicorn (fix "Could not import module main"). Frontend: `main.v2.js` detección `IS_TAURI` + `API_BASE`/`WS_URL` + monkeypatch condicional `window.fetch`. Desktop: scaffold Tauri completo (`desktop/`). Tests: 4387 passed.
+- `ba21232` — feat(op-admiral + security + a11y): T4 auto-guardar/cargar planes Op Admiral (`Save Plan`/`📚`, `/api/plans`, auto-save/load/delete) + fix `list_mission_plans` parsea `steps` JSON. T7 rotación de key `secret_store` (`encrypt_with`/`decrypt_with` + `reencrypt_app_credentials` + `POST /api/credentials/reencrypt`). T6 contraste P1 residual en modules JS secundarios (`text-gray-600/700→400`). Tests: 4385 passed.
 - `feat(security)` — `secret_store.py`: encriptación at-rest Fernet (AES-128-CBC+HMAC) para `app_credentials`; fail-closed si crypto no disponible; key env `MIRV_ENC_KEY`/derivada scrypt o archivo `backend/data/enc_secret.key` (0600); passthrough de rows legacy + re-cifrado
 - `feat(orchestrator)` — hunt-* routing: webvuln detecta clase de vuln (`route_hunt`) y groundea prompt en playbook `hunt-<class>` + `GET /api/orchestrator/hunt` + badge 🎯 en Op Admiral
 - `feat(skills)` — port 60 skills de Claude-BugHunter → 88 built-ins (58 `hunt-*` + `triage-validation` + `evidence-hygiene`), atribución CC-BY-4.0/MIT (Sachin Sharma), 22 skills `requires_scope`

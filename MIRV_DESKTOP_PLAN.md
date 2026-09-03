@@ -412,10 +412,12 @@ Tauri busca el binario con ese naming automáticamente.
 
 | Fase | Tarea | Estado |
 |:----:|-------|:------:|
-| 1 | Backend PyInstaller | ⏳ Pendiente |
-| 2 | Frontend rutas absolutas | ⏳ Pendiente |
-| 3 | Proyecto Tauri | ⏳ Pendiente |
+| 1 | Backend PyInstaller | ✅ **Completado (commit `fd8aa7b`)** — `mirv-backend.spec` + `build_backend.bat`; exe validado: `/api/health` + `/api/skills` (91 skills empaquetadas) → 200 OK |
+| 2 | Frontend @ Tauri | ✅ **Completado (commit `fd8aa7b`)** — se usó detección `IS_TAURI` + `API_BASE`/`WS_URL` + monkeypatch condicional de `window.fetch` (no-op en browser) en `main.v2.js`, en vez de reescribir las 100 `fetch()` relativas |
+| 3 | Proyecto Tauri | 🧱 **Scaffold completo (`fd8aa7b`)** — `desktop/` (package.json + `sync-frontend.mjs`, src-tauri: Cargo.toml/tauri.conf.json/build.rs/src/main.rs sidecar, build_desktop.bat). ⏳ Recompilar requiere Rust + WebView2 (ver nota abajo) |
 | 4 | System tray, updater, iconos | ⏳ Pendiente |
 | 5 | Distribución (.msi, GitHub) | ⏳ Pendiente |
+
+> **Nota (Fase 3 — por qué no se puede compilar aquí):** el scaffold Tauri no se ha compilado porque requiere (a) **toolchain Rust/Cargo** (rustc + tauri-cli + ~500 cajas) y (b) **WebView2 Runtime / NuGet WebView2** en Windows, ninguno disponible en este entorno de build sin toolchain. El código Rust está completo y coherente, pero necesita **`cargo build` local** para generar los binarios; ver "Cómo compilar" en `desktop/README.md`.
 
 > **Primero probar la app actual, después implementar este plan.**
