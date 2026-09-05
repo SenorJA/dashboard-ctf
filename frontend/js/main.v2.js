@@ -6624,6 +6624,15 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         sysMounts:        { en: '💾 Mounted Volumes',       es: '💾 Volúmenes Montados' },
         sysCleanup:       { en: '🧹 Disk Cleanup Candidates', es: '🧹 Candidatos para Limpieza de Disco' },
 
+        // ── PC Analyzer ──
+        tabPCAnalyzer:    { en: '🩺 PC Analyzer',            es: '🩺 Analizador de PC' },
+        pcaTitle:         { en: 'PC Analyzer',               es: 'Analizador de PC' },
+        pcaRun:           { en: '🩺 Analyze',                es: '🩺 Analizar' },
+        pcaAI:            { en: '🤖 Explain with AI',        es: '🤖 Explicar con IA' },
+        pcaHealthScore:   { en: 'Health score',              es: 'Puntuación de salud' },
+        pcaSuggestions:   { en: '💡 Suggested Solutions',    es: '💡 Soluciones Sugeridas' },
+        pcaAIExplain:     { en: '🤖 AI Explanation',         es: '🤖 Explicación con IA' },
+
         // ── Backup / Restore (localStorage) ──
         exportData:        { en: '📦 Export Data',           es: '📦 Exportar Datos' },
         importData:        { en: '📥 Import Data',           es: '📥 Importar Datos' },
@@ -10238,6 +10247,128 @@ Reglas:
             _sysPoll.timer = setInterval(() => refreshSystem(), 15000);
         }
         if (_origSysSwitch) _origSysSwitch(name);
+    };
+
+    // ════════════════════════════════════════════════════════════════
+    //  PC ANALYZER — health diagnostics + grade + suggestions
+    //  (GET /api/pc-analyzer)
+    // ════════════════════════════════════════════════════════════════
+
+    let _pcaReport = null;
+
+    const _pcaSevColor = {
+        critical: 'text-blood border-blood/40',
+        warn: 'text-yellow-500 border-yellow-500/40',
+        ok: 'text-neon border-neon/30',
+        skip: 'text-gray-400 border-gray-700'
+    };
+    const _pcaSevIcon = {
+        critical: '🔴',
+        warn: '🟡',
+        ok: '🟢',
+        skip: '⚪'
+    };
+    const _pcaGradeTone = {
+        A: 'text-neon', B: 'text-cyber', C: 'text-yellow-500',
+        D: 'text-orange-500', E: 'text-blood', F: 'text-blood'
+    };
+
+    window.runPCAnalysis = async function() {
+        const checksEl = document.getElementById('pca-checks');
+        const heroEl = document.getElementById('pca-hero');
+        const suggEl = document.getElementById('pca-suggestions');
+        const hostEl = document.getElementById('pca-host');
+        const btn = document.getElementById('pca-run-btn');
+        if (!checksEl) return;
+        if (btn) { btn.disabled = true; btn.textContent = 'Analyzing…'; }
+        checksEl.innerHTML = '<div class="text-gray-500 text-[11px] col-span-full py-2">Running diagnostics…</div>';
+        try {
+            const data = await _fetchJSON('/api/pc-analyzer');
+            _pcaReport = data;
+            renderPCA(data, checksEl, heroEl, suggEl, hostEl);
+        } catch (e) {
+            checksEl.innerHTML = `<div class="text-blood text-[11px] col-span-full py-2">Error: ${_escH(e.message)}</div>`;
+        } finally {
+            if (btn) { btn.disabled = false; btn.textContent = '🩺 Analyze'; }
+        }
+    };
+
+    function renderPCA(data, checksEl, heroEl, suggEl, hostEl) {
+        if (data.host && hostEl) {
+            hostEl.textContent = [data.host.os, data.host.release].filter(Boolean).join(' · ');
+        }
+        if (heroEl) {
+            heroEl.classList.remove('hidden');
+            const gradeEl = document.getElementById('pca-grade');
+            const scoreEl = document.getElementById('pca-score');
+            const summaryEl = document.getElementById('pca-summary');
+            if (gradeEl) {
+                gradeEl.textContent = data.grade || '—';
+                gradeEl.className = `text-5xl font-bold font-mono ${_pcaGradeTone[data.grade] || 'text-gray-400'}`;
+            }
+            if (scoreEl) scoreEl.textContent = (data.score == null ? '—' : data.score + '/100');
+            if (summaryEl) summaryEl.textContent = data.summary || '';
+        }
+        if (checksEl) {
+            const checks = (data.checks || []).map(c => `
+                <div class="p-2.5 bg-deep/50 border rounded transition-colors ${_pcaSevColor[c.status] || _pcaSevColor.skip}">
+                    <div class="flex items-center justify-between mb-0.5">
+                        <span class="text-[10px] font-semibold uppercase tracking-wider">${_pcaSevIcon[c.status] || ''} ${_escH(c.name)}</span>
+                        <span class="text-[9px] text-gray-400">${_escH(c.category)}</span>
+                    </div>
+                    <div class="text-[10px] text-gray-200 leading-snug">${_escH(c.message)}</div>
+                    ${c.details ? `<div class="text-[9px] text-gray-400 mt-0.5 font-mono">${_escH(c.details)}</div>` : ''}
+                    ${c.suggestion ? `<div class="text-[9px] text-neon/80 mt-1">💡 ${_escH(c.suggestion)}</div>` : ''}
+                </div>
+            `).join('');
+            checksEl.innerHTML = checks || '<div class="text-gray-400 text-[11px] col-span-full py-2">No checks returned.</div>';
+        }
+        const suggestions = (data.suggestions || []).filter(s => s.action);
+        if (suggEl) {
+            suggEl.innerHTML = suggestions.length
+                ? suggestions.map(s => `
+                    <div class="flex items-start gap-2 p-2 bg-deep/40 border border-gray-800 rounded">
+                        <span class="text-xs">🛠️</span>
+                        <div>
+                            <div class="text-[10px] text-gray-300">${_escH(s.message)}</div>
+                            <div class="text-[9px] text-neon mt-0.5">→ ${_escH(s.action)}</div>
+                        </div>
+                    </div>
+                `).join('')
+                : '<div class="text-gray-400 text-[11px] py-1">No fixes suggested — machine looks healthy.</div>';
+        }
+    }
+
+    window.explainPCAnalysis = async function() {
+        const out = document.getElementById('pca-ai-output');
+        const wrap = document.getElementById('pca-ai-wrap');
+        if (!out) return;
+        if (!_pcaReport) {
+            showToast('⚠️ Run Analysis first');
+            return;
+        }
+        wrap.classList.remove('hidden');
+        out.textContent = 'Thinking…';
+        const brief = {
+            grade: _pcaReport.grade,
+            score: _pcaReport.score,
+            summary: _pcaReport.summary,
+            checks: (_pcaReport.checks || []).map(c => ({ name: c.name, status: c.status, message: c.message })),
+            suggestions: _pcaReport.suggestions || []
+        };
+        const systemPrompt = 'You are a friendly PC support specialist. Explain the diagnostic result in plain, '
+            + 'actionable language. Do NOT invent data. Keep it concise; number the recommended steps.';
+        const result = await aiChat(systemPrompt, JSON.stringify(brief) + '\n\nWhat is wrong with this PC and what do I do about it?');
+        out.textContent = result || '⚠️ No AI explanation returned.';
+    };
+
+    // Auto-refresh PC Analyzer on tab switch
+    const _origPCASwitch = window.switchTab;
+    window.switchTab = function(name) {
+        if (name === 'pcanalyzer' && !_pcaReport) {
+            runPCAnalysis();
+        }
+        if (_origPCASwitch) _origPCASwitch(name);
     };
 
     // ════════════════════════════════════════════════════════════════

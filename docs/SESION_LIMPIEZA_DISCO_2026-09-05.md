@@ -121,6 +121,25 @@ feature):
 
 ---
 
+### PC Analyzer (idea implementada)
+
+Extensión de la sesión: herramienta que **analiza el PC y dice qué falla, qué
+hacer y cómo arreglarlo** (fase 1: diagnóstico + soluciones, sin auto-fix).
+
+- **Módulo**: `backend/pc_analyzer.py` — 8 checks deterministas del host local
+  (host, RAM, CPU, disco sistema, resto de volúmenes, basura/caché, red,
+  uptime) reutilizando `system_monitor`.
+- **Resultado**: grade A–F + score 0–100 + lista de sugerencias accionables.
+- **Endpoint**: `GET /api/pc-analyzer`.
+- **Frontend**: pestaña 🩺 **PC Analyzer** (`tab-pcanalyzer`) con hero de
+  puntuación, grid de checks, soluciones sugeridas y botón "🤖 Explain with AI"
+  que pasa el diagnóstico a `/api/ai/chat` (auto-redact).
+- **Tests**: `backend/tests/test_pc_analyzer.py` (28).
+- **Fase 2 (a futuro)**: auto-fix con confirmación, EventLog/WMI,
+  actualizaciones pendientes.
+
+---
+
 ## 5. Pendientes
 
 - Commitear `.github/workflows/desktop-build.yml` + `desktop/BUILD_INSTRUCTIONS.md`

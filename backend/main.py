@@ -185,6 +185,9 @@ from backend import intelligence as intel
 # ── System Monitor (CPU/RAM/disk + disk-cleanup candidates) ──
 from backend import system_monitor as sysmon
 
+# ── PC Analyzer (health diagnostics, grade + suggestions) ──
+from backend import pc_analyzer as pcan
+
 # ── Browser Capture (HAR import, session storage, security analysis) ──
 from backend.browser_capture import (
     import_har as bc_import,
@@ -6150,6 +6153,18 @@ async def sysmon_cleanup_delete(payload: SysMonCleanModel):
     except Exception:
         logger.exception("sysmon cleanup delete failed")
         return JSONResponse({"ok": False, "error": "cleanup delete failed"}, status_code=500)
+
+
+# ── PC Analyzer (health diagnostics + suggestions) ──────────────────
+
+@app.get("/api/pc-analyzer")
+async def pc_analyzer_analyze():
+    """Local PC health report: checks + grade + score + suggestions."""
+    try:
+        return JSONResponse({"ok": True, **await asyncio.to_thread(pcan.analyze)})
+    except Exception:
+        logger.exception("pc analyzer failed")
+        return JSONResponse({"ok": False, "error": "pc analyzer failed"}, status_code=500)
 
 
 # ── Browser Capture ──────────────────────────────────────────────────

@@ -47,7 +47,7 @@ C:\Users\34678\Desktop\Proyecto ciber\
 │   ├── Dockerfile             # Container image for mirv-backend
 │   └── requirements.txt
 ├── frontend/
-│   ├── index.html            # SPA (Tailwind CDN, 25 tabs, ~2660 lines)
+│   ├── index.html            # SPA (Tailwind CDN, 28 tabs, ~2850 lines)
 │   ├── css/
 │   │   └── style.css          # Signal Intelligence + Monochrome theme (~873 lines)
 │   ├── img/
@@ -122,6 +122,7 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~3834 tests, ~95% coverage
 | `finding_poc.py` | ~735 | Reproducible Finding PoC — curl replay, markdown reports, evidence hash | 61 | 99% |
 | `intelligence.py` | ~500 | Continuous Intelligence — watch/snapshot/diff/alert system | 43 | 99% |
 | `system_monitor.py` | ~490 | Host resource monitor — CPU/RAM/uptime, disk volumes, safe cleanup-candidate scan + delete (stdlib, psutil optional) | 29 | — |
+| `pc_analyzer.py` | ~330 | PC health diagnostics — deterministic checks (RAM/CPU/disk/junk/network/uptime), grade A–F, score 0–100, suggestions (no auto-fix) | 28 | — |
 
 ## Backend quirks (main.py)
 
@@ -138,7 +139,7 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~3834 tests, ~95% coverage
 - **Audit log auto-init** on startup + existing `logger` wired with `AuditLogHandler`.
 - **Swarm sessions route** registered BEFORE `/api/swarm/{session_id}` to avoid catch-all collision.
 
-## Frontend structure (25 tabs)
+## Frontend structure (28 tabs)
 
 | Tab | ID | Purpose |
 |-----|----|---------| 
@@ -169,6 +170,7 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~3834 tests, ~95% coverage
 | Intelligence | `tab-intelligence` | Continuous Intelligence monitoring + alerts |
 | Browser Capture | `tab-browsercapture` | HAR import + security analysis |
 | Sys Monitor | `tab-system` | Host resources (CPU/RAM/disk) + cleanup candidates |
+| PC Analyzer | `tab-pcanalyzer` | PC health diagnostics (grade A–F) + suggestions + AI explanation |
 
 - **Single HTML file** (`index.html`, ~2694 lines) — no build step, no bundler, no framework.
 - **Tailwind via CDN** (`https://cdn.tailwindcss.com`). Custom colors: `neon`, `cyber`, `deep`, `void`, `blood`.
@@ -184,7 +186,7 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~3834 tests, ~95% coverage
 | `sendPredefinedCmd(cmd)` | Sends command to WS with `▶` prefix |
 | `sendCommand()` | Reads manual input and sends |
 | `appendOutput(text)` | Terminal output (ANSI strip, \r handling, buffer accumulation, prompt detection) |
-| `switchTab(name)` | Toggles among 25 panes (wraps refresh on tab switch) |
+| `switchTab(name)` | Toggles among 28 panes (wraps refresh on tab switch) |
 | `toggleTheme()` | Toggles `body.monochrome` class |
 | `switchLanguage()` | Toggles `window.currentLang` (en/es) |
 | `refreshSIEM()` | Fetches stats/events/alerts/rules, renders SIEM dashboard |
@@ -265,6 +267,7 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~3834 tests, ~95% coverage
 | **Permissions** | `GET /api/permissions/pending`, `GET /api/permissions/{id}`, `POST /api/permissions/{id}/decide`, `POST /api/permissions/{classify,request,cleanup}`, `DELETE /api/permissions` |
 | **Intelligence** | `POST /api/intelligence/watches`, `GET /api/intelligence/watches`, `GET /api/intelligence/watches/{id}`, `PUT /api/intelligence/watches/{id}`, `DELETE /api/intelligence/watches/{id}`, `POST /api/intelligence/watches/{id}/snapshot`, `GET /api/intelligence/watches/{id}/snapshots`, `GET /api/intelligence/alerts`, `POST /api/intelligence/alerts/{id}/acknowledge`, `DELETE /api/intelligence/alerts`, `POST /api/intelligence/diff/{id}` |
 | **Sys Monitor** | `GET /api/system/stats`, `GET /api/system/disk`, `GET /api/system/cleanup`, `POST /api/system/cleanup` |
+| **PC Analyzer** | `GET /api/pc-analyzer` |
 
 ## Plugin system
 

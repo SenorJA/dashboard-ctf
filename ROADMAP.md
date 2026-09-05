@@ -106,6 +106,23 @@
 - [x] Snapshot → Diff → Alert pipeline with type-specific differ engines
 - [x] Stdlib-only collectors (urllib, ssl, socket), 10s timeout, graceful fallback
 - [x] 43 tests covering all collectors, diff engines, and alert generation
+
+---
+
+## ✅ Host Health & Monitoring (Sep 2026)
+
+### System Monitor
+- [x] `backend/system_monitor.py` — CPU/RAM/uptime, per-volume disk usage, cleanup-candidate scan (explicit roots, 1.5s budget/dir, refuses root/system/home paths) + delete
+- [x] 4 endpoints: `/api/system/stats`, `/api/system/disk`, `/api/system/cleanup` (GET + POST)
+- [x] Frontend tab 🖥️ Sys Monitor (`tab-system`) — gauges, volume table, cleanup candidates con delete, polling 15s
+- [x] 29 tests
+
+### PC Analyzer
+- [x] `backend/pc_analyzer.py` — deterministic local checks (host/memory/cpu/system disk/other volumes/junk/network/uptime), grade A–F, score 0–100, suggestions list (phase 1, no auto-fix)
+- [x] Endpoint `GET /api/pc-analyzer` (reuses sysmon data)
+- [x] Frontend tab 🩺 PC Analyzer (`tab-pcanalyzer`) — grade hero, checks grid, suggestions, AI explanation vía `/api/ai/chat`
+- [x] 28 tests
+- [ ] Fase 2: auto-fix con confirmación + EventLog/WMI + actualizaciones pendientes (a futuro)
 - [x] 11 endpoints: CRUD watches + snapshots + diff + alerts
 - [x] Frontend tab #23: Intel dashboard with watch list + alerts + manual snapshot
 
