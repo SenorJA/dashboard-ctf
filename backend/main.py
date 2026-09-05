@@ -182,6 +182,9 @@ from backend.finding_poc import (
 # ── Continuous Intelligence (watches, snapshots, diff, alerts) ──
 from backend import intelligence as intel
 
+# ── System Monitor (CPU/RAM/disk + disk-cleanup candidates) ──
+from backend import system_monitor as sysmon
+
 # ── Browser Capture (HAR import, session storage, security analysis) ──
 from backend.browser_capture import (
     import_har as bc_import,
@@ -6095,6 +6098,58 @@ async def intel_diff(watch_id: str, payload: IntelSnapshotModel):
     except Exception:
         logger.exception("intel diff failed")
         return JSONResponse({"ok": False, "error": "diff failed"}, status_code=500)
+
+
+# ── System Monitor (CPU / RAM / disk + disk cleanup) ────────────────
+
+class SysMonCleanModel(BaseModel):
+    """Payload for deleting a single disk-cleanup candidate."""
+    path: str
+    force: bool = False
+
+
+@app.get("/api/system/stats")
+async def sysmon_stats():
+    """CPU / RAM / disk usage for the operator's host machine."""
+    try:
+        return JSONResponse({"ok": True, "stats": sysmon.summary()})
+    except Exception:
+        logger.exception("sysmon stats failed")
+        return JSONResponse({"ok": False, "error": "stats failed"}, status_code=500)
+
+
+@app.get("/api/system/disk")
+async def sysmon_disk():
+    """Per-mount disk usage."""
+    try:
+        return JSONResponse({"ok": True, "disk": sysmon.disk_partitions()})
+    except Exception:
+        logger.exception("sysmon disk failed")
+        return JSONResponse({"ok": False, "error": "disk failed"}, status_code=500)
+
+
+@app.get("/api/system/cleanup")
+async def sysmon_cleanup():
+    """List disk-cleanup candidates (scans user profile)."""
+    try:
+        cands = [c.to_dict() for c in sysmon.scan_candidates()]
+        return JSONResponse({"ok": True, "candidates": cands})
+    except Exception:
+        logger.exception("sysmon cleanup scan failed")
+        return JSONResponse({"ok": False, "error": "cleanup scan failed"}, status_code=500)
+
+
+@app.post("/api/system/cleanup")
+async def sysmon_cleanup_delete(payload: SysMonCleanModel):
+    """Delete a single cleanup candidate path."""
+    try:
+        result = sysmon.cleanup_candidate(payload.path, force=payload.force)
+        if not result.get("ok"):
+            return JSONResponse(result, status_code=400)
+        return JSONResponse({"ok": True, **result})
+    except Exception:
+        logger.exception("sysmon cleanup delete failed")
+        return JSONResponse({"ok": False, "error": "cleanup delete failed"}, status_code=500)
 
 
 # ── Browser Capture ──────────────────────────────────────────────────

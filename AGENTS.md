@@ -121,6 +121,7 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~3834 tests, ~95% coverage
 | `mission_store.py` | ~356 | Self-Improvement Loop — mission history + AI context (auto-redacts) + Session Compaction | ~30+63 | 100% |
 | `finding_poc.py` | ~735 | Reproducible Finding PoC — curl replay, markdown reports, evidence hash | 61 | 99% |
 | `intelligence.py` | ~500 | Continuous Intelligence — watch/snapshot/diff/alert system | 43 | 99% |
+| `system_monitor.py` | ~490 | Host resource monitor — CPU/RAM/uptime, disk volumes, safe cleanup-candidate scan + delete (stdlib, psutil optional) | 29 | — |
 
 ## Backend quirks (main.py)
 
@@ -167,6 +168,7 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~3834 tests, ~95% coverage
 | Skills | `tab-skills` | Skill playbooks (browse, create, render) |
 | Intelligence | `tab-intelligence` | Continuous Intelligence monitoring + alerts |
 | Browser Capture | `tab-browsercapture` | HAR import + security analysis |
+| Sys Monitor | `tab-system` | Host resources (CPU/RAM/disk) + cleanup candidates |
 
 - **Single HTML file** (`index.html`, ~2694 lines) — no build step, no bundler, no framework.
 - **Tailwind via CDN** (`https://cdn.tailwindcss.com`). Custom colors: `neon`, `cyber`, `deep`, `void`, `blood`.
@@ -262,6 +264,7 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~3834 tests, ~95% coverage
 | **Finding PoC** | `POST /api/poc/{build,parse-curl,finding-to-md,from-burp,validate,replay}` |
 | **Permissions** | `GET /api/permissions/pending`, `GET /api/permissions/{id}`, `POST /api/permissions/{id}/decide`, `POST /api/permissions/{classify,request,cleanup}`, `DELETE /api/permissions` |
 | **Intelligence** | `POST /api/intelligence/watches`, `GET /api/intelligence/watches`, `GET /api/intelligence/watches/{id}`, `PUT /api/intelligence/watches/{id}`, `DELETE /api/intelligence/watches/{id}`, `POST /api/intelligence/watches/{id}/snapshot`, `GET /api/intelligence/watches/{id}/snapshots`, `GET /api/intelligence/alerts`, `POST /api/intelligence/alerts/{id}/acknowledge`, `DELETE /api/intelligence/alerts`, `POST /api/intelligence/diff/{id}` |
+| **Sys Monitor** | `GET /api/system/stats`, `GET /api/system/disk`, `GET /api/system/cleanup`, `POST /api/system/cleanup` |
 
 ## Plugin system
 

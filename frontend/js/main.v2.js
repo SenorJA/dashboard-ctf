@@ -6612,6 +6612,18 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         intelAlerts:       { en: '⚠️ Alerts',                es: '⚠️ Alertas' },
         intelClearAlerts:  { en: 'Clear all',                es: 'Limpiar todo' },
 
+        // ── System Monitor ──
+        tabSystem:        { en: '🖥️ Sys Monitor',           es: '🖥️ Sys Monitor' },
+        sysTitle:         { en: 'Host Monitor',             es: 'Monitor del Host' },
+        sysRefresh:       { en: '🔄 Refresh',               es: '🔄 Actualizar' },
+        sysRescan:        { en: '🕵️ Scan for junk',         es: '🕵️ Buscar basura' },
+        sysCPU:           { en: 'CPU',                      es: 'CPU' },
+        sysCPUHint:       { en: 'Live system-wide load',    es: 'Carga total en vivo' },
+        sysRAM:           { en: 'RAM',                      es: 'RAM' },
+        sysDisk:          { en: 'Disk',                     es: 'Disco' },
+        sysMounts:        { en: '💾 Mounted Volumes',       es: '💾 Volúmenes Montados' },
+        sysCleanup:       { en: '🧹 Disk Cleanup Candidates', es: '🧹 Candidatos para Limpieza de Disco' },
+
         // ── Backup / Restore (localStorage) ──
         exportData:        { en: '📦 Export Data',           es: '📦 Exportar Datos' },
         importData:        { en: '📥 Import Data',           es: '📥 Importar Datos' },
@@ -10052,7 +10064,180 @@ Reglas:
         if (name === 'browsercapture') {
             refreshBrowserCapture();
         }
+        if (name === 'system') {
+            refreshSystem();
+        }
         if (_origSwitchTabIntel) _origSwitchTabIntel(name);
+    };
+
+    // ════════════════════════════════════════════════════════════════
+    //  SYSTEM MONITOR — host resources & disk cleanup intelligence
+    //  (GET /api/system/stats | GET /api/system/disk | GET/POST /api/system/cleanup)
+    // ════════════════════════════════════════════════════════════════
+
+    const _sysPoll = { timer: null, active: false };
+
+    async function _fetchJSON(url, opts) {
+        const r = await fetch(url, opts);
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+        return j;
+    }
+
+    function _sysBar(elId, pct) {
+        const el = document.getElementById(elId);
+        if (el) el.style.width = `${Math.min(100, Math.max(0, pct || 0))}%`;
+    }
+
+    function _sysGauge(elId, value) {
+        const el = document.getElementById(elId);
+        if (el) el.textContent = value;
+    }
+
+    window.refreshSystem = async function() {
+        const hostEl = document.getElementById('sys-host');
+        const tableEl = document.getElementById('sys-disk-table');
+        if (!tableEl) return;
+        try {
+            const [stats, disk] = await Promise.all([
+                _fetchJSON('/api/system/stats'),
+                _fetchJSON('/api/system/disk')
+            ]);
+
+            if (hostEl && stats.platform) {
+                const plat = [stats.platform.os, stats.platform.release, stats.platform.hostname].filter(Boolean).join(' · ');
+                hostEl.textContent = plat;
+            }
+
+            const cpu = stats.cpu?.percent ?? null;
+            const mem = stats.memory?.percent ?? null;
+            if (cpu !== null) {
+                _sysGauge('sys-cpu-percent', cpu.toFixed(1) + '%');
+                _sysBar('sys-cpu-bar', cpu);
+            }
+            const memDetail = document.getElementById('sys-mem-detail');
+            if (mem !== null) {
+                _sysGauge('sys-mem-percent', mem.toFixed(1) + '%');
+                _sysBar('sys-mem-bar', mem);
+                if (memDetail && stats.memory) {
+                    memDetail.textContent = `${stats.memory.used?.gb?.toFixed(1)} / ${stats.memory.total?.gb?.toFixed(1)} GB`;
+                }
+            }
+            if (stats.uptime) {
+                const up = stats.uptime.formatted || '';
+                const upEl = document.getElementById('sys-uptime');
+                if (upEl && up) upEl.textContent = 'Uptime: ' + up;
+            }
+
+            // disk summary gauge (first physical mount with total)
+            const vols = disk.volumes || [];
+            const primary = vols.find(v => v.total > 0 && v.mount && /^[A-Z]:[\\/]?$/.test(v.mount)) || vols[0];
+            const diskPct = primary ? primary.percent : null;
+            if (diskPct !== null) {
+                _sysGauge('sys-disk-percent', diskPct.toFixed(1) + '%');
+                _sysBar('sys-disk-bar', diskPct);
+            }
+
+            if (vols.length === 0) {
+                tableEl.innerHTML = '<tr><td colspan="5" class="px-2 py-3 text-center text-gray-500">No volume data available.</td></tr>';
+            } else {
+                tableEl.innerHTML = vols.map(v => {
+                    const hue = v.percent > 90 ? 'bg-blood' : v.percent > 75 ? 'bg-yellow-500' : 'bg-neon';
+                    const mount = _escH(v.mount || v.device || '?');
+                    return `
+                        <tr class="border-t border-gray-800/60 hover:bg-deep/30">
+                            <td class="px-2 py-1.5">${mount}</td>
+                            <td class="px-2 py-1.5 text-right text-gray-300">${_escH(v.total_h || '—')}</td>
+                            <td class="px-2 py-1.5 text-right text-gray-400">${_escH(v.used_h || '—')}</td>
+                            <td class="px-2 py-1.5 text-right text-neon">${_escH(v.free_h || '—')}</td>
+                            <td class="px-2 py-1.5">
+                                <div class="flex items-center gap-1.5">
+                                    <div class="flex-1 h-1.5 bg-void rounded overflow-hidden">
+                                        <div class="h-full ${hue}" style="width:${Math.min(100, v.percent)}%"></div>
+                                    </div>
+                                    <span class="text-[9px] text-gray-400 w-9 text-right">${v.percent.toFixed(0)}%</span>
+                                </div>
+                            </td>
+                        </tr>`;
+                }).join('');
+            }
+        } catch (e) {
+            if (tableEl) tableEl.innerHTML = `<tr><td colspan="5" class="px-2 py-3 text-center text-blood">Error: ${_escH(e.message)}</td></tr>`;
+            console.error('refreshSystem error:', e);
+        }
+    };
+
+    window.runCleanupScan = async function() {
+        const listEl = document.getElementById('sys-cleanup-list');
+        const summaryEl = document.getElementById('sys-cleanup-summary');
+        const btn = document.getElementById('sys-scan-btn');
+        if (!listEl || _sysPoll.active) return;
+        _sysPoll.active = true;
+        if (btn) { btn.disabled = true; btn.textContent = 'Scanning…'; }
+        if (summaryEl) summaryEl.textContent = 'Scanning…';
+        listEl.innerHTML = '<div class="text-gray-500 text-[11px] py-2">Scanning for large/unused directories…</div>';
+        try {
+            const data = await _fetchJSON('/api/system/cleanup');
+            const cands = data.candidates || [];
+            if (summaryEl) summaryEl.textContent = `${cands.length} candidate${cands.length !== 1 ? 's' : ''} · ${_escH(data.message || '')}`;
+            if (cands.length === 0) {
+                listEl.innerHTML = '<div class="text-gray-400 text-[11px] py-2">No large/unused candidates found.</div>';
+                return;
+            }
+            listEl.innerHTML = cands.sort((a, b) => (b.size || 0) - (a.size || 0)).map((c, i) => `
+                <div class="flex items-center justify-between p-2 bg-deep/40 border border-gray-800 rounded hover:border-cyber/30 transition-colors">
+                    <div class="min-w-0 flex-1">
+                        <div class="text-[11px] font-mono text-gray-200 truncate" title="${_escH(c.path)}">${_escH(c.path)}</div>
+                        <div class="text-[9px] text-gray-500 mt-0.5">
+                            <span class="text-yellow-500 font-semibold">${_escH(c.size_h || '—')}</span>
+                            ${c.suggested ? ' · ' + _escH(c.suggested) : ''}
+                        </div>
+                    </div>
+                    <button onclick="deleteCleanupCandidate(${i})" data-path="${_escH(c.path)}"
+                            class="ml-2 shrink-0 px-2 py-1 bg-blood/15 text-blood rounded text-[9px] hover:bg-blood/30 transition-colors" title="Delete this path">
+                        🗑️ Delete
+                    </button>
+                </div>
+            `).join('');
+        } catch (e) {
+            listEl.innerHTML = `<div class="text-blood text-[11px] py-2">Error: ${_escH(e.message)}</div>`;
+        } finally {
+            _sysPoll.active = false;
+            if (btn) { btn.disabled = false; btn.textContent = '🕵️ Scan for junk'; }
+        }
+    };
+
+    window.deleteCleanupCandidate = async function(idx) {
+        const rows = Array.from(document.querySelectorAll('#sys-cleanup-list button[data-path]'));
+        const btn = rows[idx];
+        if (!btn) return;
+        const path = btn.getAttribute('data-path');
+        if (!path) return;
+        if (!confirm('Delete folder recursively?\n\n' + path)) return;
+        try {
+            const data = await _fetchJSON('/api/system/cleanup', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path: path })
+            });
+            alert(data.message || 'Deleted');
+            refreshSystem();
+            runCleanupScan();
+        } catch (e) {
+            alert('Error: ' + e.message);
+        }
+    };
+
+    // Brief inline polling while the tab is open (15s cadence, stops on tab switch away)
+    const _origSysSwitch = window.switchTab;
+    window.switchTab = function(name) {
+        if (_sysPoll.timer && name !== 'system') {
+            clearInterval(_sysPoll.timer);
+            _sysPoll.timer = null;
+        } else if (name === 'system' && !_sysPoll.timer) {
+            _sysPoll.timer = setInterval(() => refreshSystem(), 15000);
+        }
+        if (_origSysSwitch) _origSysSwitch(name);
     };
 
     // ════════════════════════════════════════════════════════════════
