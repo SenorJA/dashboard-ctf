@@ -43,7 +43,7 @@ fn main() {
                 }
             };
 
-            if let Some(Ok((rx, _child))) = spawn_result {
+            if let Some((rx, _child)) = spawn_result {
                 // Pipe backend stdout/stderr into the host console.
                 spawn_sidecar_logger(handle.clone(), rx, SIDECAR.to_string());
                 // Wait for the backend health endpoint before showing UI.
