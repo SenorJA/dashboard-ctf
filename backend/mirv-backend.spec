@@ -8,6 +8,7 @@
 #   pyinstaller mirv-backend.spec
 #
 # Output: dist/mirv-backend(.exe) — a self-contained HTTP/WS backend.
+#   * OneFile build so it ships cleanly as a Tauri sidecar binary.
 #   * Bundles built-in skills/ and plugins/ so the packaged binary finds them
 #     under sys._MEIPASS (the modules resolve their dirs via __file__).
 #   * Bundles ../frontend so the binary can serve the SPA standalone
@@ -100,8 +101,10 @@ pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 exe = EXE(
     pyz,
     a.scripts,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
     [],
-    exclude_binaries=True,
     name="mirv-backend",
     debug=False,
     bootloader_ignore_signals=False,
@@ -113,16 +116,4 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-)
-
-# ── OneDir layout (dist/mirv-backend/) ────────────────────────────────────
-coll = COLLECT(
-    exe,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
-    strip=False,
-    upx=True,
-    upx_exclude=[],
-    name="mirv-backend",
 )

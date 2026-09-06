@@ -49,13 +49,11 @@ jobs:
       - name: Copy sidecar into Tauri binaries
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path "desktop/src-tauri/binaries/mirv-backend" | Out-Null
-          Copy-Item -Recurse -Force "backend/dist/mirv-backend/*" "desktop/src-tauri/binaries/mirv-backend/"
-          # Tauri resuelve el sidecar por nombre (opcional sufijo target triple).
-          if (Test-Path "desktop/src-tauri/binaries/mirv-backend/mirv-backend.exe") {
-            Rename-Item "desktop/src-tauri/binaries/mirv-backend/mirv-backend.exe" "mirv-backend-x86_64-pc-windows-msvc.exe"
-          }
-          Get-ChildItem -Recurse "desktop/src-tauri/binaries/mirv-backend" |
+          New-Item -ItemType Directory -Force -Path "desktop/src-tauri/binaries" | Out-Null
+          # OneFile build => single exe. Tauri resuelve el sidecar por
+          # nombre + target triple directamente en src-tauri/binaries/.
+          Copy-Item -Force "backend/dist/mirv-backend.exe" "desktop/src-tauri/binaries/mirv-backend-x86_64-pc-windows-msvc.exe"
+          Get-ChildItem -Recurse "desktop/src-tauri/binaries" |
             Select-Object FullName, Length | Format-Table -AutoSize
 
       # ---- Tauri shell ----
