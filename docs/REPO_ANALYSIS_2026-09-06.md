@@ -35,7 +35,7 @@ pero el repo es valioso como **banco de casos**:
    system/user/tools (p. ej. delimitadores de sección) para reforzar los prompts que MIRV
    inyecta vía `GET /api/skills/{name}/render` (prompt injection de skills) y el system
    prompt de `/api/ai/chat` (anti-exfiltración de secrets tras la redacción).
-2. **Casos de prompt-injection/boKanç**: usar ejemplos del repo como dataset para un
+2. **Casos de prompt-injection**: usar ejemplos del repo como dataset para un
    test de robustez del `prompt` inyectado cuando se usan skills renderizadas.
 3. **Hardening del escalation in /api/ai/chat**: las defensas documentadas en el repo
    (instrucciones de no-exfiltración, avisos de "ignore previous instructions") son
