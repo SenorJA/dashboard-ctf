@@ -9,7 +9,7 @@
 use std::time::{Duration, Instant};
 
 use tauri::Manager;
-use tauri_plugin_shell::process::{CommandChild, CommandEvent};
+use tauri_plugin_shell::process::CommandEvent;
 use tauri_plugin_shell::ShellExt;
 
 /// Backend sidecar name (+ optional target triple). Tauri resolves the name
@@ -30,7 +30,13 @@ fn main() {
             // mount, no auto-reload, configurable port via MIRV_PORT/PORT).
             let sidecar = app.shell().sidecar(SIDECAR);
             let spawn_result = match sidecar {
-                Ok(cmd) => cmd.args(["--tauri-mode"]).spawn(),
+                Ok(cmd) => match cmd.args(["--tauri-mode"]).spawn() {
+                    Ok(tuple) => Some(tuple),
+                    Err(spawn_err) => {
+                        eprintln!("[mirv] sidecar spawn failed: {spawn_err}");
+                        None
+                    }
+                },
                 Err(e) => {
                     eprintln!("[mirv] sidecar command build failed: {e}");
                     None
@@ -86,7 +92,7 @@ async fn wait_for_backend(handle: &tauri::AppHandle) {
                 }
                 return;
             }
-            _ => tauri::async_runtime::sleep(Duration::from_millis(500)).await,
+            _ => tokio::time::sleep(Duration::from_millis(500)).await,
         }
     }
 }
@@ -99,7 +105,7 @@ async fn health_failed_dialog() {
 }
 
 /// Forward backend sidecar stdout/stderr to the host console.
-fn spawn_sidecar_logger(handle: tauri::AppHandle, mut rx: tauri_plugin_shell::process::CommandEventReceiver, name: String) {
+fn spawn_sidecar_logger(handle: tauri::AppHandle, mut rx: tauri::async_runtime::Receiver<CommandEvent>, name: String) {
     tauri::async_runtime::spawn(async move {
         while let Some(event) = rx.recv().await {
             match event {
