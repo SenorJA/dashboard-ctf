@@ -122,7 +122,7 @@
 - [x] Endpoint `GET /api/pc-analyzer` (reuses sysmon data)
 - [x] Frontend tab 🩺 PC Analyzer (`tab-pcanalyzer`) — grade hero, checks grid, suggestions, AI explanation vía `/api/ai/chat`
 - [x] 28 tests
-- [ ] Fase 2: auto-fix con confirmación + EventLog/WMI + actualizaciones pendientes (a futuro)
+- [x] Fase 2: auto-fix con confirmación (`POST /api/pc-analyzer/fix`, `cleanup_junk` gated) + EventLog (`wevtutil`) + actualizaciones pendientes (registry `RebootRequired`/`PendingFileRenameOperations`/WinUpdate `LastSuccessTime` en Windows, `apt list --upgradable` en Linux) + check reboot pendiente — 62 tests, 95% cobertura del módulo
 - [x] 11 endpoints: CRUD watches + snapshots + diff + alerts
 - [x] Frontend tab #23: Intel dashboard with watch list + alerts + manual snapshot
 

@@ -122,7 +122,7 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~3834 tests, ~95% coverage
 | `finding_poc.py` | ~735 | Reproducible Finding PoC — curl replay, markdown reports, evidence hash | 61 | 99% |
 | `intelligence.py` | ~500 | Continuous Intelligence — watch/snapshot/diff/alert system | 43 | 99% |
 | `system_monitor.py` | ~490 | Host resource monitor — CPU/RAM/uptime, disk volumes, safe cleanup-candidate scan + delete (stdlib, psutil optional) | 29 | — |
-| `pc_analyzer.py` | ~330 | PC health diagnostics — deterministic checks (RAM/CPU/disk/junk/network/uptime), grade A–F, score 0–100, suggestions (no auto-fix) | 28 | — |
+| `pc_analyzer.py` | ~530 | PC health diagnostics — deterministic checks (RAM/CPU/disk/junk/network/uptime + eventlog/updates/reboot), grade A–F, score 0–100, suggestions + confirmation-gated auto-fix (`/api/pc-analyzer/fix`) | 62 | 95% |
 
 ## Backend quirks (main.py)
 
@@ -267,7 +267,7 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~3834 tests, ~95% coverage
 | **Permissions** | `GET /api/permissions/pending`, `GET /api/permissions/{id}`, `POST /api/permissions/{id}/decide`, `POST /api/permissions/{classify,request,cleanup}`, `DELETE /api/permissions` |
 | **Intelligence** | `POST /api/intelligence/watches`, `GET /api/intelligence/watches`, `GET /api/intelligence/watches/{id}`, `PUT /api/intelligence/watches/{id}`, `DELETE /api/intelligence/watches/{id}`, `POST /api/intelligence/watches/{id}/snapshot`, `GET /api/intelligence/watches/{id}/snapshots`, `GET /api/intelligence/alerts`, `POST /api/intelligence/alerts/{id}/acknowledge`, `DELETE /api/intelligence/alerts`, `POST /api/intelligence/diff/{id}` |
 | **Sys Monitor** | `GET /api/system/stats`, `GET /api/system/disk`, `GET /api/system/cleanup`, `POST /api/system/cleanup` |
-| **PC Analyzer** | `GET /api/pc-analyzer` |
+| **PC Analyzer** | `GET /api/pc-analyzer`, `POST /api/pc-analyzer/fix` (auto-fix confirmation-gated) |
 
 ## Plugin system
 
