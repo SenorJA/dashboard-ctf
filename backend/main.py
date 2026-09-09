@@ -2623,6 +2623,32 @@ class OsintCorrelateRequest(BaseModel):
     target: str = Field(..., max_length=254)
 
 
+class OsintDnsRequest(BaseModel):
+    """Body for POST /api/osint/dns — passive DNS over HTTPS."""
+    host: str = Field(..., max_length=253)
+
+
+class OsintWhoisRequest(BaseModel):
+    """Body for POST /api/osint/whois — RDAP WHOIS-lite."""
+    domain: str = Field(..., max_length=253)
+
+
+class OsintPwnedRequest(BaseModel):
+    """Body for POST /api/osint/pwned — HIBP Pwned Passwords range."""
+    password: str = Field(..., max_length=200)
+
+
+class OsintUrlhausRequest(BaseModel):
+    """Body for POST /api/osint/urlhaus — abuse.ch URLhaus reputation."""
+    url: str = Field("", max_length=2048)
+    host: str = Field("", max_length=253)
+
+
+class OsintPageRequest(BaseModel):
+    """Body for POST /api/osint/page — Jina Reader text extraction."""
+    url: str = Field(..., max_length=2048)
+
+
 
 @app.post("/api/osint/email")
 async def api_osint_email(body: OsintEmailRequest, request: Request):
@@ -2887,6 +2913,116 @@ async def api_osint_correlate(body: OsintCorrelateRequest, request: Request):
         return JSONResponse(result)
     except Exception:
         logger.exception("[osint correlate] unexpected failure", exc_info=False)
+        return JSONResponse({"ok": False, "error": "Internal error"}, status_code=500)
+
+
+@app.post("/api/osint/dns")
+async def api_osint_dns(body: OsintDnsRequest, request: Request):
+    """
+    Passive DNS recon via DNS-over-HTTPS (dns.google).
+
+    Body: {"host": "example.com"}
+    Resolves A, AAAA, MX, NS, CNAME and TXT records in parallel.
+    """
+    guard = _osint_guard(request, "/api/osint/dns")
+    if guard is not None:
+        return guard
+    host = body.host.strip()
+    if not host:
+        return JSONResponse({"ok": False, "error": "host must not be empty"}, status_code=422)
+    try:
+        from backend.osint_recon import dns_recon
+        return JSONResponse(await dns_recon(host))
+    except Exception:
+        logger.exception("[osint dns] unexpected failure", exc_info=False)
+        return JSONResponse({"ok": False, "error": "Internal error"}, status_code=500)
+
+
+@app.post("/api/osint/whois")
+async def api_osint_whois(body: OsintWhoisRequest, request: Request):
+    """
+    WHOIS-lite via RDAP (rdap.org) — registrar, events, nameservers.
+
+    Body: {"domain": "example.com"}
+    """
+    guard = _osint_guard(request, "/api/osint/whois")
+    if guard is not None:
+        return guard
+    domain = body.domain.strip()
+    if not domain:
+        return JSONResponse({"ok": False, "error": "domain must not be empty"}, status_code=422)
+    try:
+        from backend.osint_recon import rdap_whois
+        return JSONResponse(await rdap_whois(domain))
+    except Exception:
+        logger.exception("[osint whois] unexpected failure", exc_info=False)
+        return JSONResponse({"ok": False, "error": "Internal error"}, status_code=500)
+
+
+@app.post("/api/osint/pwned")
+async def api_osint_pwned(body: OsintPwnedRequest, request: Request):
+    """
+    Check a candidate password against HIBP Pwned Passwords (k-anonymity).
+
+    Body: {"password": "..."}  — the raw password is never stored, echoed
+    back or logged; only the SHA-1 prefix travels to HIBP.
+    """
+    guard = _osint_guard(request, "/api/osint/pwned")
+    if guard is not None:
+        return guard
+    password = body.password.strip() if body.password else ""
+    if not password:
+        return JSONResponse({"ok": False, "error": "password must not be empty"}, status_code=422)
+    try:
+        from backend.osint_recon import pwned_passwords
+        result = await pwned_passwords(password)
+        if result.get("ok"):
+            result.pop("length", None)  # never leak password metadata back to clients either
+        return JSONResponse(result)
+    except Exception:
+        logger.exception("[osint pwned] unexpected failure", exc_info=False)
+        return JSONResponse({"ok": False, "error": "Internal error"}, status_code=500)
+
+
+@app.post("/api/osint/urlhaus")
+async def api_osint_urlhaus(body: OsintUrlhausRequest, request: Request):
+    """
+    Check a URL or host against abuse.ch URLhaus (malware distribution).
+
+    Body: {"url": "https://..."} or {"host": "example.com"} — ``url`` wins.
+    """
+    guard = _osint_guard(request, "/api/osint/urlhaus")
+    if guard is not None:
+        return guard
+    if not body.url.strip() and not body.host.strip():
+        return JSONResponse(
+            {"ok": False, "error": "Provide a 'url' or 'host' value"}, status_code=422)
+    try:
+        from backend.osint_recon import urlhaus_lookup
+        return JSONResponse(await urlhaus_lookup(body.url.strip(), body.host.strip()))
+    except Exception:
+        logger.exception("[osint urlhaus] unexpected failure", exc_info=False)
+        return JSONResponse({"ok": False, "error": "Internal error"}, status_code=500)
+
+
+@app.post("/api/osint/page")
+async def api_osint_page(body: OsintPageRequest, request: Request):
+    """
+    Extract readable text from a public page (Jina Reader, keyless).
+
+    Body: {"url": "https://example.com/"}
+    """
+    guard = _osint_guard(request, "/api/osint/page")
+    if guard is not None:
+        return guard
+    url = body.url.strip()
+    if not url:
+        return JSONResponse({"ok": False, "error": "url must not be empty"}, status_code=422)
+    try:
+        from backend.osint_recon import page_snapshot
+        return JSONResponse(await page_snapshot(url))
+    except Exception:
+        logger.exception("[osint page] unexpected failure", exc_info=False)
         return JSONResponse({"ok": False, "error": "Internal error"}, status_code=500)
 
 

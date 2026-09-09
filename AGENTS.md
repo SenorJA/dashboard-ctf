@@ -122,6 +122,7 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~3834 tests, ~95% coverage
 | `finding_poc.py` | ~735 | Reproducible Finding PoC — curl replay, markdown reports, evidence hash | 61 | 99% |
 | `intelligence.py` | ~500 | Continuous Intelligence — watch/snapshot/diff/alert system | 43 | 99% |
 | `system_monitor.py` | ~490 | Host resource monitor — CPU/RAM/uptime, disk volumes, safe cleanup-candidate scan + delete (stdlib, psutil optional) | 29 | — |
+| `osint_recon.py` | ~1141 | Passive OSINT — 14 tools: email breach/verify, dorking, phone, reverse-image, wayback, IP geo, username, github + **Ronda #2**: dns_recon (DoH), rdap_whois (RDAP), pwned_passwords (HIBP k-anonymity), urlhaus_lookup (abuse.ch), page_snapshot (Jina Reader) — all stdlib, keyless | 115 | 100% |
 | `pc_analyzer.py` | ~530 | PC health diagnostics — deterministic checks (RAM/CPU/disk/junk/network/uptime + eventlog/updates/reboot), grade A–F, score 0–100, suggestions + confirmation-gated auto-fix (`/api/pc-analyzer/fix`) | 62 | 95% |
 
 ## Backend quirks (main.py)
@@ -252,6 +253,7 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~3834 tests, ~95% coverage
 | Docker | `GET /api/docker/status`, `POST /api/docker/{start,stop,clean,build}`, `GET /api/docker/task/{id}` |
 | Health | `GET /api/health` |
 | **EXIF OSINT** | `POST /api/exif/analyze`, `GET /api/exif/analyze?url=` |
+| **OSINT Recon** | `POST /api/osint/{email,dork,phone,reverse-image,username,instagram,correlate,dns,whois,pwned,urlhaus,page}`, `GET /api/osint/{wayback,ip,github}` — 14 tools keyless, `_osint_guard` (rate-limit + `MIRV_OSINT_TOKEN`), módulo `osint_recon.py` 100% cov |
 | **Canary Tokens** | `POST /api/canary/token`, `GET /api/canary/tokens`, `GET /api/canary/activate/{id}`, `GET /api/canary/events`, `DELETE /api/canary/token/{id}` |
 | **DLP Scanner** | `POST /api/dlp/scan`, `POST /api/dlp/scan-file`, `GET /api/dlp/scan-url` |
 | **SIEM** | `POST /api/siem/event`, `GET /api/siem/events`, `GET /api/siem/stats`, `POST /api/siem/rules`, `GET /api/siem/rules`, `DELETE /api/siem/rules/{id}`, `GET /api/siem/alerts`, `GET /api/siem/findings` |

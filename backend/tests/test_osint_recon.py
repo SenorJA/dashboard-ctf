@@ -13,6 +13,7 @@ Run:
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import io
 import json
 import os
@@ -34,11 +35,16 @@ from backend.osint_recon import (  # noqa: E402
     _parse_ddg_results,
     _parse_json,
     check_email_breach,
+    dns_recon,
     github_recon,
     google_dorking,
     ip_geolocation,
+    page_snapshot,
     phone_number_lookup,
+    pwned_passwords,
+    rdap_whois,
     reverse_image_search,
+    urlhaus_lookup,
     username_recon,
     verify_email,
     wayback_machine_lookup,
@@ -121,6 +127,8 @@ def _clear_osint_env(monkeypatch):
         "ABUSEIPDB_API_KEY",
         "ABUSEIPDB_KEY",
         "TINEYE_API_KEY",
+        "MIRV_URLHAUS_TOKEN",
+        "MIRV_JINA_KEY",
     ):
         monkeypatch.delenv(key, raising=False)
 
@@ -996,4 +1004,427 @@ def test_github_endpoint_500(client):
     with patch("backend.osint_recon.github_recon", new_callable=AsyncMock,
                side_effect=RuntimeError("boom")):
         resp = client.get("/api/osint/github", params={"username": "octocat"})
+    assert resp.status_code == 500
+
+
+# ════════════════════════════════════════════════════════════════
+#  Ronda API-based #2 — unit tests (dns / whois / pwned / urlhaus / page)
+# ════════════════════════════════════════════════════════════════
+
+
+def _doh_fake(url, *args, **kwargs):
+    """Fake DoH JSON — A answers only for the given host."""
+    if "type=A" in url:
+        return {"ok": True, "status": 200, "text": json.dumps(
+            {"Status": 0, "Answer": [{"data": "1.2.3.4."}, {"data": "1.2.3.5."}]})}
+    return {"ok": True, "status": 200, "text": json.dumps({"Status": 0, "Answer": []})}
+
+
+async def test_dns_recon_success():
+    with patch("backend.osint_recon._fetch", side_effect=_doh_fake) as m:
+        r = await dns_recon("Example.COM.")
+    assert r["ok"] is True and r["host"] == "example.com"
+    assert "A" in r["resolved_types"]
+    rec = next(x for x in r["records"] if x["type"] == "A")
+    assert rec["values"] == ["1.2.3.4", "1.2.3.5"]
+    assert m.await_count == 6
+
+
+async def test_dns_recon_bad_hosts():
+    for bad in ("", "8.8.8.8", "foo", "nope.local"):
+        r = await dns_recon(bad)
+        assert r["ok"] is False and r["error"]
+
+
+async def test_dns_recon_fetch_failure_degrades():
+    with patch("backend.osint_recon._fetch",
+               return_value={"ok": False, "status": None, "error": "Network error: down"}):
+        r = await dns_recon("example.com")
+    assert r["ok"] is True
+    assert r["resolved_types"] == []
+    assert all(not x["ok"] for x in r["records"])
+
+
+RDAP_JSON = json.dumps({
+    "handle": "ABC-123",
+    "status": ["client delete prohibited"],
+    "events": [
+        {"eventAction": "registration", "eventDate": "2020-01-01T00:00:00Z"},
+        {"eventAction": "expiration", "eventDate": "2026-01-01T00:00:00Z"},
+    ],
+    "nameservers": [{"ldhName": "NS1.EXAMPLE.NET"}, {"ldhName": "NS2.EXAMPLE.NET."}],
+    "entities": [
+        {"roles": ["registrar"], "vcardArray": ["vcard", [["version", {}, "text", "4.0"], ["fn", {}, "text", "Example Registrar"]]]},
+        {"roles": ["abuse"], "vcardArray": ["vcard", [["fn", {}, "text", "Abuse Desk"]]]},
+    ],
+})
+
+
+async def test_rdap_whois_success():
+    with patch("backend.osint_recon._fetch",
+               return_value={"ok": True, "status": 200, "text": RDAP_JSON}):
+        r = await rdap_whois("example.com")
+    assert r["ok"] is True
+    assert r["registrar"] == "Example Registrar"
+    assert r["abuse_contact"] == "Abuse Desk"
+    assert "NS1.EXAMPLE.NET" in r["nameservers"]
+    assert r["events"]["registration"] == "2020-01-01T00:00:00Z"
+
+
+async def test_rdap_whois_not_registered():
+    with patch("backend.osint_recon._fetch",
+               return_value={"ok": False, "status": 404, "error": "HTTP 404", "body": ""}):
+        r = await rdap_whois("example.com")
+    assert r["ok"] is False and "not found" in r["error"].lower()
+
+
+async def test_rdap_whois_bad_domain():
+    r = await rdap_whois("example.local")
+    assert r["ok"] is False and "Private" in r["error"]
+    r = await rdap_whois("1.2.3.4")
+    assert r["ok"] is False and "IP" in r["error"]
+
+
+async def test_pwned_passwords_found_counts():
+    digest = hashlib.sha1(b"password").hexdigest().upper()
+    suffix = digest[5:]
+    for n, rank in ((50_000, "high"), (2_000_000, "critical"), (42, "medium")):
+        with patch("backend.osint_recon._fetch",
+                   return_value={"ok": True, "status": 200, "text": "AAAA:1\n{}:{}\n".format(suffix, n)}):
+            r = await pwned_passwords("password")
+        assert r["ok"] is True and r["found"] is True
+        assert r["times_seen"] == n and r["rank"] == rank
+
+
+async def test_pwned_passwords_not_found_is_clean():
+    with patch("backend.osint_recon._fetch",
+               return_value={"ok": True, "status": 200, "text": "FFFF:999\n"}):
+        r = await pwned_passwords("definitely-not-in-breaches-xyz")
+    assert r["ok"] is True and r["found"] is False and r["rank"] == "clean"
+
+
+async def test_pwned_passwords_input_validation_and_errors():
+    for empty in ("", "   "):
+        r = await pwned_passwords(empty)
+        assert r["ok"] is False
+    r = await pwned_passwords("x" * 300)
+    assert r["ok"] is False and "too long" in r["error"]
+    with patch("backend.osint_recon._fetch",
+               return_value={"ok": False, "status": 403, "error": "HTTP 403", "body": ""}):
+        r = await pwned_passwords("password")
+    assert r["ok"] is False and "rate limited" in r["error"]
+
+
+async def test_urlhaus_lookup_url_listed():
+    payload = json.dumps({"query_status": "ok", "threat": "malware_download",
+                          "tags": ["emotet"], "urlhaus_reference": "https://urlhaus.abuse.ch/url/1/",
+                          "blacklists": {"spamhaus_dbl": "not listed"}, "id": 1})
+    with patch("backend.osint_recon._fetch",
+               return_value={"ok": True, "status": 200, "text": payload}) as m:
+        r = await urlhaus_lookup("https://evil.example.com/file.exe")
+    assert r["ok"] is True and r["found"] is True and r["threat"] == "malware_download"
+    assert r["tags"] == ["emotet"]
+    call = m.await_args.kwargs or {}
+    assert call.get("method") == "POST"
+    assert b"url=" in call.get("data", b"")
+
+
+async def test_urlhaus_lookup_host_clean():
+    payload = json.dumps({"query_status": "no_results"})
+    with patch("backend.osint_recon._fetch",
+               return_value={"ok": True, "status": 200, "text": payload}) as m:
+        r = await urlhaus_lookup("", host="example.com")
+    assert r["ok"] is True and r["found"] is False
+    assert b"host=example.com" in (m.await_args.kwargs or {}).get("data", b"")
+
+
+async def test_urlhaus_lookup_validation():
+    r = await urlhaus_lookup("", "")
+    assert r["ok"] is False and "url or host" in r["error"]
+    r = await urlhaus_lookup("not-a-url")
+    assert r["ok"] is False and "full http(s) URL" in r["error"]
+    with patch("backend.osint_recon._fetch",
+               return_value={"ok": True, "status": 200, "text": json.dumps({"query_status": "rate_limit"})}):
+        r = await urlhaus_lookup("https://evil.example.com/")
+    assert r["ok"] is False and "rate limit" in r["error"]
+
+
+async def test_page_snapshot_success_and_truncation():
+    with patch("backend.osint_recon._fetch",
+               return_value={"ok": True, "status": 200, "text": "Title here\nBody text."}):
+        r = await page_snapshot("https://example.com/")
+    assert r["ok"] is True and r["title"] == "Title here" and r["chars"] == 21
+    big = "A" * 70000
+    with patch("backend.osint_recon._fetch",
+               return_value={"ok": True, "status": 200, "text": big}):
+        r = await page_snapshot("https://example.com/")
+    assert r["ok"] is True and r["chars"] == 60000 + len("\n...[truncated]")
+    assert "[truncated]" in r["text"]
+
+
+async def test_page_snapshot_rejects_non_http():
+    for u in ("ftp://example.com", "example.com", ""):
+        r = await page_snapshot(u)
+        assert r["ok"] is False and "http" in r["error"]
+
+
+# ──────────────────────────────────────────────────────────────
+#  Gap closure — keep osint_recon at 100% module coverage
+# ──────────────────────────────────────────────────────────────
+
+async def test_dns_recon_schemed_host_is_normalized():
+    with patch("backend.osint_recon._fetch", side_effect=_doh_fake) as m:
+        r = await dns_recon("https://example.com/some/path?x=1")
+    assert r["ok"] is True and r["host"] == "example.com"
+    assert m.await_count == 6
+
+
+async def test_dns_recon_invalid_payload_degrades():
+    with patch("backend.osint_recon._fetch",
+               return_value={"ok": True, "status": 200, "text": "not json"}):
+        r = await dns_recon("example.com")
+    assert r["ok"] is True
+    assert all(rec.get("ok") is False and "invalid payload" in rec.get("error", "") for rec in r["records"])
+
+
+async def test_rdap_whois_server_error_and_invalid_payload():
+    with patch("backend.osint_recon._fetch",
+               return_value={"ok": False, "status": 500, "error": "HTTP 500", "body": "oops"}):
+        r = await rdap_whois("example.com")
+    assert r["ok"] is False and "HTTP 500" in r["error"]
+    with patch("backend.osint_recon._fetch",
+               return_value={"ok": True, "status": 200, "text": "not json"}):
+        r = await rdap_whois("example.com")
+    assert r["ok"] is False and "invalid payload" in r["error"]
+
+
+RDAP_MESSY_JSON = json.dumps({
+    "handle": "H-1",
+    "events": ["not-a-dict", {"eventAction": "registration", "eventDate": "2020-05-05T00:00:00Z"}],
+    "entities": [
+        "not-an-entity",
+        {"roles": ["registrar"], "vcardArray": "not-a-list"},
+        {"roles": ["abuse"], "vcardArray": ["vcard", [["version", {}, "text", "4.0"]]]},
+        {"roles": ["registrant"], "vcardArray": ["vcard", [["fn", {}, "text", "Jane Doe"]]]},
+    ],
+})
+
+
+async def test_rdap_whois_messy_entities_and_events():
+    with patch("backend.osint_recon._fetch",
+               return_value={"ok": True, "status": 200, "text": RDAP_MESSY_JSON}):
+        r = await rdap_whois("example.com")
+    assert r["ok"] is True
+    assert r["registrants"] == ["Jane Doe"]
+
+
+async def test_pwned_passwords_non_403_error():
+    with patch("backend.osint_recon._fetch",
+               return_value={"ok": False, "status": 502, "error": "gateway", "body": ""}):
+        r = await pwned_passwords("password")
+    assert r["ok"] is False and "gateway" in r["error"]
+
+
+async def test_pwned_passwords_malformed_count_line():
+    digest = hashlib.sha1(b"password").hexdigest().upper()
+    with patch("backend.osint_recon._fetch",
+               return_value={"ok": True, "status": 200,
+                             "text": "{}:not-a-number\n".format(digest[5:])}):
+        r = await pwned_passwords("password")
+    assert r["ok"] is True and r["found"] is False and r["rank"] == "clean"
+
+
+async def test_urlhaus_host_invalid_and_unavailable_and_statuses():
+    r = await urlhaus_lookup("", host="not a valid host/@bad")
+    assert r["ok"] is False and "Invalid host" in r["error"]
+    with patch("backend.osint_recon._fetch",
+               return_value={"ok": True, "status": 200, "text": "not json"}):
+        r = await urlhaus_lookup("https://evil.example.com/")
+    assert r["ok"] is False and "unavailable" in r["error"]
+    for status, marker in (("invalid_url", "invalid url/host"), ("weird_status", "unknown query status")):
+        with patch("backend.osint_recon._fetch",
+                   return_value={"ok": True, "status": 200,
+                                 "text": json.dumps({"query_status": status})}):
+            r = await urlhaus_lookup("https://evil.example.com/")
+        assert r["ok"] is False and marker in r["error"]
+
+
+async def test_urlhaus_unauthorized_429_and_key(monkeypatch):
+    with patch("backend.osint_recon._fetch",
+               return_value={"ok": True, "status": 200,
+                             "text": json.dumps({"query_status": "", "error": "Unauthorized"})}):
+        r = await urlhaus_lookup("https://evil.example.com/")
+    assert r["ok"] is False and "MIRV_URLHAUS_TOKEN" in r["error"]
+    with patch("backend.osint_recon._fetch",
+               return_value={"ok": True, "status": 200,
+                             "text": json.dumps({"query_status": "unauthorized"})}):
+        r = await urlhaus_lookup("https://evil.example.com/")
+    assert r["ok"] is False and "MIRV_URLHAUS_TOKEN" in r["error"]
+    monkeypatch.setenv("MIRV_URLHAUS_TOKEN", "tok123")
+    with patch("backend.osint_recon._fetch",
+               return_value={"ok": True, "status": 200,
+                             "text": json.dumps({"query_status": "ok", "threat": "malware"})}) as m:
+        r = await urlhaus_lookup("https://evil.example.com/")
+    assert r["ok"] is True and r["threat"] == "malware"
+    assert m.await_args.kwargs["headers"].get("Auth-Key") == "tok123"
+
+
+async def test_page_snapshot_reader_unavailable():
+    with patch("backend.osint_recon._fetch",
+               return_value={"ok": False, "status": None, "error": "network down", "body": ""}):
+        r = await page_snapshot("https://example.com/")
+    assert r["ok"] is False and "network down" in r["error"]
+    for status in (401, 403):
+        with patch("backend.osint_recon._fetch",
+                   return_value={"ok": False, "status": status, "error": "HTTP {}".format(status), "body": ""}):
+            r = await page_snapshot("https://example.com/")
+        assert r["ok"] is False and "MIRV_JINA_KEY" in r["error"]
+
+
+async def test_page_snapshot_sends_bearer_when_keyed(monkeypatch):
+    monkeypatch.setenv("MIRV_JINA_KEY", "jina-secret")
+    with patch("backend.osint_recon._fetch",
+               return_value={"ok": True, "status": 200, "text": "T\nbody"}) as m:
+        r = await page_snapshot("https://example.com/")
+    assert r["ok"] is True
+    assert m.await_args.kwargs["headers"] == {"Authorization": "Bearer jina-secret"}
+
+
+async def test_wayback_strict_validation_branches():
+    for bad in ("..com", "127.0.0.1", "example.local"):
+        r = await wayback_machine_lookup(bad)
+        assert r["ok"] is False and r["error"]
+
+
+async def test_ip_geolocation_rejects_private_ip():
+    with patch("urllib.request.urlopen", _fake_urlopen(b"{}", 200)):
+        r = await ip_geolocation("192.168.1.1")
+    assert r["ok"] is False and "Private/reserved IP" in r["error"]
+
+
+# ──────────────────────────────────────────────────────────────
+#  Ronda API-based #2 — endpoint tests
+# ──────────────────────────────────────────────────────────────
+
+def test_dns_endpoint_success(client):
+    result = {"ok": True, "host": "example.com", "resolved_types": ["A"],
+              "records": [{"type": "A", "ok": True, "status": 0, "values": ["1.2.3.4"]}]}
+    with patch("backend.osint_recon.dns_recon", new_callable=AsyncMock) as m:
+        m.return_value = result
+        resp = client.post("/api/osint/dns", json={"host": "example.com"})
+    assert resp.status_code == 200
+    assert resp.json()["resolved_types"] == ["A"]
+    m.assert_awaited_once_with("example.com")
+
+
+def test_dns_endpoint_empty_422(client):
+    resp = client.post("/api/osint/dns", json={"host": ""})
+    assert resp.status_code == 422
+
+
+def test_dns_endpoint_500(client):
+    with patch("backend.osint_recon.dns_recon", new_callable=AsyncMock,
+               side_effect=RuntimeError("boom")):
+        resp = client.post("/api/osint/dns", json={"host": "example.com"})
+    assert resp.status_code == 500
+
+
+def test_whois_endpoint_success(client):
+    result = {"ok": True, "domain": "example.com", "registrar": "Example Registrar",
+              "events": {"registration": "2020-01-01"}, "nameservers": ["NS1.EXAMPLE.NET"],
+              "handle": None, "status": [], "registrants": [], "abuse_contact": None}
+    with patch("backend.osint_recon.rdap_whois", new_callable=AsyncMock) as m:
+        m.return_value = result
+        resp = client.post("/api/osint/whois", json={"domain": "example.com"})
+    assert resp.status_code == 200
+    assert resp.json()["registrar"] == "Example Registrar"
+    m.assert_awaited_once_with("example.com")
+
+
+def test_whois_endpoint_empty_422(client):
+    resp = client.post("/api/osint/whois", json={"domain": ""})
+    assert resp.status_code == 422
+
+
+def test_whois_endpoint_500(client):
+    with patch("backend.osint_recon.rdap_whois", new_callable=AsyncMock,
+               side_effect=RuntimeError("boom")):
+        resp = client.post("/api/osint/whois", json={"domain": "example.com"})
+    assert resp.status_code == 500
+
+
+def test_pwned_endpoint_success(client):
+    result = {"ok": True, "found": True, "times_seen": 42, "rank": "medium", "note": ""}
+    with patch("backend.osint_recon.pwned_passwords", new_callable=AsyncMock) as m:
+        m.return_value = result
+        resp = client.post("/api/osint/pwned", json={"password": "secret123"})
+    assert resp.status_code == 200
+    assert resp.json()["rank"] == "medium"
+    assert "secret123" not in resp.text
+    m.assert_awaited_once_with("secret123")
+
+
+def test_pwned_endpoint_empty_422(client):
+    resp = client.post("/api/osint/pwned", json={"password": "  "})
+    assert resp.status_code == 422
+
+
+def test_pwned_endpoint_500(client):
+    with patch("backend.osint_recon.pwned_passwords", new_callable=AsyncMock,
+               side_effect=RuntimeError("boom")):
+        resp = client.post("/api/osint/pwned", json={"password": "secret123"})
+    assert resp.status_code == 500
+
+
+def test_urlhaus_endpoint_success_url(client):
+    result = {"ok": True, "found": True, "target": "https://evil.example.com/",
+              "threat": "malware", "tags": ["emotet"], "blacklists": {}, "urlhaus_reference": None, "id": None}
+    with patch("backend.osint_recon.urlhaus_lookup", new_callable=AsyncMock) as m:
+        m.return_value = result
+        resp = client.post("/api/osint/urlhaus", json={"url": "https://evil.example.com/"})
+    assert resp.status_code == 200
+    assert resp.json()["threat"] == "malware"
+    m.assert_awaited_once_with("https://evil.example.com/", "")
+
+
+def test_urlhaus_endpoint_success_host(client):
+    result = {"ok": True, "found": False, "target": "example.com", "note": ""}
+    with patch("backend.osint_recon.urlhaus_lookup", new_callable=AsyncMock) as m:
+        m.return_value = result
+        resp = client.post("/api/osint/urlhaus", json={"host": "example.com"})
+    assert resp.status_code == 200
+    m.assert_awaited_once_with("", "example.com")
+
+
+def test_urlhaus_endpoint_empty_422(client):
+    resp = client.post("/api/osint/urlhaus", json={"url": "", "host": ""})
+    assert resp.status_code == 422
+
+
+def test_urlhaus_endpoint_500(client):
+    with patch("backend.osint_recon.urlhaus_lookup", new_callable=AsyncMock,
+               side_effect=RuntimeError("boom")):
+        resp = client.post("/api/osint/urlhaus", json={"host": "example.com"})
+    assert resp.status_code == 500
+
+
+def test_page_endpoint_success(client):
+    result = {"ok": True, "url": "https://example.com/", "title": "Title", "chars": 5, "text": "Body"}
+    with patch("backend.osint_recon.page_snapshot", new_callable=AsyncMock) as m:
+        m.return_value = result
+        resp = client.post("/api/osint/page", json={"url": "https://example.com/"})
+    assert resp.status_code == 200
+    assert resp.json()["title"] == "Title"
+    m.assert_awaited_once_with("https://example.com/")
+
+
+def test_page_endpoint_empty_422(client):
+    resp = client.post("/api/osint/page", json={"url": ""})
+    assert resp.status_code == 422
+
+
+def test_page_endpoint_500(client):
+    with patch("backend.osint_recon.page_snapshot", new_callable=AsyncMock,
+               side_effect=RuntimeError("boom")):
+        resp = client.post("/api/osint/page", json={"url": "https://example.com/"})
     assert resp.status_code == 500

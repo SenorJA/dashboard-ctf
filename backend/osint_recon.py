@@ -27,6 +27,14 @@ Modules implemented (BlackTrace mapping):
   - ``username_recon``       -> social_media_investigation (HEAD probe of ~18 platforms)
   - ``github_recon``         -> github_recon (api.github.com user + repos)
 
+Ronda API-based #2 (from the ``cporter202/agentic-ai-apis`` catalogue, all
+keyless public APIs, one per network-data / security / lookup category):
+  - ``dns_recon``            -> DNS-over-HTTPS (dns.google) A/AAAA/MX/NS/CNAME/TXT
+  - ``rdap_whois``           -> RDAP (rdap.org) registrar + events + nameservers
+  - ``pwned_passwords``      -> HIBP Pwned Passwords k-anonymity range (no key)
+  - ``urlhaus_lookup``       -> abuse.ch URLhaus URL/host reputation (POST)
+  - ``page_snapshot``        -> Jina Reader (r.jina.ai) page-content extraction
+
 All public functions are ``async``, never raise, and return JSON-serializable
 dicts (``{"ok": True, ...}`` or ``{"ok": False, "error": ...}``). Use them from
 async route handlers directly — blocking I/O runs via ``asyncio.to_thread``.
@@ -35,6 +43,7 @@ async route handlers directly — blocking I/O runs via ``asyncio.to_thread``.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import html
 import ipaddress
 import json
@@ -124,6 +133,11 @@ __all__ = [
     "ip_geolocation",
     "username_recon",
     "github_recon",
+    "dns_recon",
+    "rdap_whois",
+    "pwned_passwords",
+    "urlhaus_lookup",
+    "page_snapshot",
 ]
 
 
@@ -848,3 +862,297 @@ async def github_recon(username: str, timeout: float = TIMEOUT_DEFAULT) -> dict:
         "repos": repos,
         "repo_count": len(repos),
     }
+
+
+# ════════════════════════════════════════════════════════════════
+#  Ronda API-based #2 (agentic-ai-apis catalogue, keyless public APIs)
+#   10. dns_recon        — DNS-over-HTTPS (dns.google)
+#   11. rdap_whois       — RDAP (rdap.org)
+#   12. pwned_passwords  — HIBP range (k-anonymity)
+#   13. urlhaus_lookup   — abuse.ch URLhaus reputation
+#   14. page_snapshot    — Jina Reader text extraction
+# ════════════════════════════════════════════════════════════════
+
+def _normalize_host(raw: str) -> tuple[str | None, str | None]:
+    """Validate a plain domain/host; returns (host, None) or (None, error)."""
+    host = (raw or "").strip().lower().rstrip(".")
+    if "://" in host:
+        host = urllib.parse.urlparse(host).netloc or host
+    host = host.split("/")[0].split(":")[0]
+    if not host or not _DOMAIN_RE.match(host):
+        return None, "Invalid host. Use a domain like 'example.com'"
+    try:
+        ipaddress.ip_address(host)
+        return None, "Invalid domain. IP addresses are not supported"
+    except ValueError:
+        pass
+    if host.rsplit(".", 1)[-1] in _PRIVATE_TLDS:
+        return None, "Invalid domain. Private/reserved TLD is not publicly resolvable"
+    return host, None
+
+
+async def dns_recon(host: str, timeout: float = TIMEOUT_DEFAULT) -> dict:
+    """
+    Resolve common DNS record types via DNS-over-HTTPS (dns.google).
+
+    Keyless public API.  Queries A, AAAA, MX, NS, CNAME and TXT in
+    parallel and returns the raw record values per type.  Validates the
+    host strictly (H-005) and rejects IPs / private TLDs.
+    """
+    host, err = _normalize_host(host)
+    if err:
+        return {"ok": False, "error": err}
+
+    async def _resolve(record_type: str) -> dict:
+        url = f"https://dns.google/resolve?name={urllib.parse.quote(host)}&type={record_type}"
+        resp = await _fetch(url, timeout=timeout)
+        data = _parse_json(resp)
+        if not resp.get("ok"):
+            return {"type": record_type, "ok": False, "error": resp.get("error", "DoH unavailable")}
+        if data is None or not isinstance(data, dict):
+            return {"type": record_type, "ok": False, "error": "DoH returned an invalid payload"}
+        values = [
+            str(a.get("data", "")).rstrip(".").strip('"')
+            for a in data.get("Answer", [])
+            if isinstance(a, dict) and a.get("data")
+        ]
+        return {
+            "type": record_type,
+            "ok": True,
+            "status": data.get("Status"),
+            "values": list(dict.fromkeys(values)),
+        }
+
+    records = await asyncio.gather(*(_resolve(t) for t in ("A", "AAAA", "MX", "NS", "CNAME", "TXT")))
+    types = [r["type"] for r in records if r.get("ok") and r.get("values")]
+    return {"ok": True, "host": host, "resolved_types": types, "records": records}
+
+
+def _vcard_value(entity: dict) -> str:
+    """Best-effort extract the FN/org name from an RDAP vcardArray."""
+    vcard = entity.get("vcardArray") if isinstance(entity, dict) else None
+    if not isinstance(vcard, list) or len(vcard) < 2 or not isinstance(vcard[1], list):
+        return ""
+    for field in vcard[1]:
+        if isinstance(field, list) and field and field[0] in ("fn", "org") and len(field) > 3:
+            return str(field[3])
+    return ""
+
+
+async def rdap_whois(domain: str, timeout: float = TIMEOUT_DEFAULT) -> dict:
+    """
+    WHOIS-lite via RDAP (rdap.org) — registrar, lifecycle events and
+    nameservers for a publicly registered domain.  Keyless.
+    """
+    domain, err = _normalize_host(domain)
+    if err:
+        return {"ok": False, "error": err}
+
+    resp = await _fetch(
+        f"https://rdap.org/domain/{urllib.parse.quote(domain)}",
+        timeout=timeout,
+        headers={"Accept": "application/json"},
+    )
+    if not resp.get("ok"):
+        if resp.get("status") == 404:
+            return {"ok": False, "error": "Domain not found in RDAP (not publicly registered)"}
+        return {"ok": False, "error": resp.get("error", "RDAP unavailable")}
+    data = _parse_json(resp)
+    if data is None or not isinstance(data, dict):
+        return {"ok": False, "error": "RDAP returned an invalid payload"}
+
+    events = {}
+    for e in data.get("events", []):
+        if not isinstance(e, dict):
+            continue
+        action = e.get("eventAction") or e.get("action")
+        date = e.get("eventDate") or e.get("date")
+        if action:
+            events[str(action)] = str(date or "")
+    nameservers = [
+        str(ns.get("ldhName", "")) for ns in data.get("nameservers", [])
+        if isinstance(ns, dict) and ns.get("ldhName")
+    ]
+    entities = data.get("entities", [])
+    registrars, abuse_contacts, registrants = [], [], []
+    for e in entities:
+        if not isinstance(e, dict):
+            continue
+        roles = e.get("roles") or []
+        name = _vcard_value(e)
+        if not name:
+            continue
+        if "registrar" in roles:
+            registrars.append(name)
+        if "abuse" in roles:
+            abuse_contacts.append(name)
+        if "registrant" in roles:
+            registrants.append(name)
+
+    return {
+        "ok": True,
+        "domain": domain,
+        "handle": data.get("handle"),
+        "status": data.get("status") or [],
+        "events": events,
+        "nameservers": nameservers,
+        "registrar": registrars[0] if registrars else None,
+        "registrants": list(dict.fromkeys(registrants)),
+        "abuse_contact": abuse_contacts[0] if abuse_contacts else None,
+    }
+
+
+async def pwned_passwords(password: str, timeout: float = TIMEOUT_DEFAULT) -> dict:
+    """
+    Check a candidate password against the HIBP Pwned Passwords corpus
+    via the k-anonymity range endpoint (no API key, full hash never sent).
+
+    Only the SHA-1 prefix is transmitted; the caller is told how many
+    times the full hash has been seen in breaches.  The raw password is
+    never echoed back or logged.
+    """
+    password = (password or "").strip() if password else ""
+    if not password:
+        return {"ok": False, "error": "password must not be empty"}
+    if len(password) > 200:
+        return {"ok": False, "error": "password too long (max 200 chars)"}
+
+    digest = hashlib.sha1(password.encode("utf-8")).hexdigest().upper()
+    prefix, suffix = digest[:5], digest[5:]
+    resp = await _fetch(
+        f"https://api.pwnedpasswords.com/range/{prefix}",
+        timeout=timeout,
+        headers={"Add-Padding": "true", "Accept": "text/plain"},
+    )
+    if not resp.get("ok"):
+        status = resp.get("status")
+        if status == 403:
+            return {"ok": False, "error": "Pwned Passwords rate limited; retry later"}
+        return {"ok": False, "error": resp.get("error", "Pwned Passwords unavailable")}
+
+    seen = 0
+    for line in (resp.get("text", "") or "").splitlines():
+        parts = line.split(":")
+        if len(parts) >= 2 and parts[0].strip().upper() == suffix:
+            try:
+                seen = int(parts[1].strip())
+            except ValueError:
+                seen = 0
+            break
+
+    if seen >= 1000000:
+        rank = "critical"
+    elif seen >= 10000:
+        rank = "high"
+    elif seen >= 1:
+        rank = "medium"
+    else:
+        rank = "clean"
+    return {
+        "ok": True,
+        "length": len(password),
+        "found": seen > 0,
+        "times_seen": seen,
+        "rank": rank,
+        "note": "Checked against HIBP Pwned Passwords via k-anonymity range; the full hash was never sent.",
+    }
+
+
+async def urlhaus_lookup(url: str, host: str = "", timeout: float = TIMEOUT_DEFAULT) -> dict:
+    """
+    Check a URL or host against abuse.ch URLhaus (malware distribution).
+
+    Keyless POST to the URLhaus v1 API.  ``url`` wins when both are given
+    (the URL is more specific).  Response includes the threat tag and the
+    provider blacklist verdicts when the entry is known.
+    """
+    url = (url or "").strip()
+    host = (host or "").strip()
+    if not url and not host:
+        return {"ok": False, "error": "Provide a url or host"}
+    if url:
+        parsed = urllib.parse.urlparse(url)
+        if not url.startswith(("http://", "https://")) or not parsed.netloc:
+            return {"ok": False, "error": "url must be a full http(s) URL"}
+        endpoint, form = "url/", {"url": url}
+    else:
+        norm_host, err = _normalize_host(host)
+        if err:
+            return {"ok": False, "error": "Invalid host. Use a domain like 'example.com'"}
+        endpoint, form = "host/", {"host": norm_host}
+
+    resp = await _fetch(
+        f"https://urlhaus-api.abuse.ch/v1/{endpoint}",
+        timeout=timeout,
+        method="POST",
+        data=urllib.parse.urlencode(form).encode("utf-8"),
+        headers={
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Accept": "application/json",
+            **({"Auth-Key": urlhaus_token} if (urlhaus_token := os.environ.get("MIRV_URLHAUS_TOKEN")) else {}),
+        },
+    )
+    data = _parse_json(resp)
+    if data is None or not isinstance(data, dict):
+        return {"ok": False, "error": resp.get("error", "URLhaus API unavailable")}
+
+    status = str(data.get("query_status", "")).lower()
+    if status in ("", "error") and str(data.get("error", "")).lower() == "unauthorized":
+        return {"ok": False,
+                "error": "URLhaus now requires a free account API key (set MIRV_URLHAUS_TOKEN)"}
+    if status == "no_results":
+        return {"ok": True, "found": False, "target": url or host,
+                "type": "url" if url else "host", "note": "Not listed in URLhaus."}
+    if status == "invalid_url":
+        return {"ok": False, "error": "URLhaus rejected the value (invalid url/host)"}
+    if status == "rate_limit":
+        return {"ok": False, "error": "URLhaus rate limit reached; retry later"}
+    if status == "unauthorized":
+        return {"ok": False,
+                "error": "URLhaus now requires a free account API key (set MIRV_URLHAUS_TOKEN)"}
+    if status != "ok":
+        return {"ok": False, "error": "URLhaus unknown query status: {}".format(status)}
+
+    return {
+        "ok": True,
+        "found": True,
+        "target": url or host,
+        "type": "url" if url else "host",
+        "threat": data.get("threat"),
+        "tags": data.get("tags") or [],
+        "blacklists": data.get("blacklists") or {},
+        "urlhaus_reference": data.get("urlhaus_reference"),
+        "id": data.get("id"),
+    }
+
+
+async def page_snapshot(url: str, timeout: float = TIMEOUT_DEFAULT) -> dict:
+    """
+    Extract readable text from a public page via the Jina Reader
+    (https://r.jina.ai/) — free keyless tier for webvuln/recon passive
+    recon and intelligence page-content checks.
+
+    Output is capped to keep the response small for the dashboard/AI.
+    """
+    url = (url or "").strip()
+    if not url.startswith(("http://", "https://")):
+        return {"ok": False, "error": "url must start with http:// or https://"}
+    headers = (
+        {"Authorization": f"Bearer {jina_key}"}
+        if (jina_key := os.environ.get("MIRV_JINA_KEY")) else None
+    )
+    resp = await _fetch(f"https://r.jina.ai/{url}", timeout=timeout, headers=headers)
+    if not resp.get("ok"):
+        if resp.get("status") in (401, 403):
+            return {"ok": False,
+                    "error": "Jina Reader rate-limited or requires a free API key (set MIRV_JINA_KEY)"}
+        return {"ok": False, "error": resp.get("error", "Reader unavailable")}
+    text = resp.get("text", "") or ""
+    if len(text) > 60000:
+        text = text[:60000] + "\n...[truncated]"
+    title = ""
+    for line in text.splitlines():
+        if line.strip():
+            title = line.strip()[:120]
+            break
+    return {"ok": True, "url": url, "title": title, "chars": len(text), "text": text}

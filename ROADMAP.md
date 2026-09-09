@@ -192,6 +192,22 @@
 
 ---
 
+## ✅ Ronda API-based #2 — 5 herramientas OSINT (9 Sep 2026)
+
+- [x] Backend: 5 funciones nuevas en `backend/osint_recon.py` (818→1141L, sigue al **100%** cobertura):
+  **dns_recon** (DNS-over-HTTPS dns.google, 6 tipos en paralelo), **rdap_whois** (RDAP rdap.org,
+  registrar vcard + events + nameservers + abuse), **pwned_passwords** (HIBP range k-anonymity,
+  rank critical/high/medium/clean, password nunca echo/log), **urlhaus_lookup** (abuse.ch URLhaus
+  POST url/host, blacklists), **page_snapshot** (Jina Reader r.jina.ai, texto cap 60 KB)
+- [x] Backend: 5 endpoints `POST /api/osint/{dns,whois,pwned,urlhaus,page}` con `_osint_guard`
+  (rate-limit + token `MIRV_OSINT_TOKEN`) en `backend/main.py` (244→**249 endpoints**)
+- [x] Frontend: 5 tarjetas nuevas en tab OSINT (before Correlate) + `window.osint{...}` +
+  Enter-key bindings + i18n en/es (8 keys nuevas)
+- [x] Tests: +41 (test_osint_recon.py → 115), osint_recon 100% cov, suite OSINT 168 passed
+- [x] Fuente: cantera `cporter202/agentic-ai-apis` (todo keyless, stdlib-only, timeouts)
+
+---
+
 ## 🚧 Pendientes
 
 ### Prioridad ALTA

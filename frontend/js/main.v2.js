@@ -6503,6 +6503,13 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         "osint-github-title": { en: '🐙 GitHub Recon',  es: '🐙 Recon GitHub' },
         "osint-instagram-title": { en: '📸 Instagram Recon', es: '📸 Recon de Instagram' },
         "osint-correlate-title": { en: '🔗 Correlate', es: '🔗 Correlar' },
+        "osint-dns-title":     { en: '🌐 DNS Recon',   es: '🌐 Recon DNS' },
+        "osint-whois-title":   { en: '🗂️ WHOIS / RDAP', es: '🗂️ WHOIS / RDAP' },
+        "osint-pwned-title":   { en: '🛡️ Pwned Password', es: '🛡️ Contraseña Filtrada' },
+        "osint-urlhaus-title": { en: '☠️ URLhaus',     es: '☠️ URLhaus' },
+        "osint-page-title":    { en: '📄 Page Snapshot', es: '📄 Captura de Página' },
+        "osint-resolve":       { en: 'Resolve',         es: 'Resolver' },
+        "osint-extract":       { en: 'Extract',         es: 'Extraer' },
         "osint-corcanalyze":     { en: 'Analyze',         es: 'Analizar' },
         "osint-instagram-lookup": { en: 'include lookup', es: 'incluir lookup' },
         "osint-check":        { en: 'Check',            es: 'Comprobar' },
@@ -11003,6 +11010,153 @@ Reglas:
         }
     };
 
+    // ── 10. DNS Recon (DNS over HTTPS) ─────────────────────────────
+    window.osintDns = async function () {
+        const host = (document.getElementById('osint-dns-input')?.value || '').trim();
+        if (!host) { showToast('🕵️ Enter a host'); return; }
+        _osintLoading('osint-dns-result', '🕵️ Resolving DNS records via DoH...');
+        showToast('🕵️ Running DNS recon...');
+        try {
+            const data = await _osintFetch('/api/osint/dns', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ host })
+            });
+            if (!data.ok) { _osintRenderError('osint-dns-result', data.error || 'DNS lookup failed'); showToast('🕵️ DNS recon failed'); return; }
+            const records = (data.records || []).filter(r => r.ok);
+            const body = records.length
+                ? records.map(r => `
+                    <div class="bg-void border border-cyber/50 rounded p-2">
+                        <div class="text-[10px] uppercase tracking-wider text-cyber font-semibold mb-1">${_escH(r.type)}</div>
+                        <div class="flex flex-wrap gap-1">${(r.values || []).map(v => `<span class="font-mono text-[11px] text-gray-200">${_escH(v)}</span>`).join('') || '<span class="text-gray-500 text-xs">no records</span>'}</div>
+                    </div>`).join('')
+                : '<div class="text-gray-400 text-xs">No records returned.</div>';
+            _osintRender('osint-dns-result', `<div class="text-[10px] text-gray-400 mb-2 font-mono">${_escH(data.host)} — ${data.resolved_types.length} record types resolved</div><div class="space-y-2">${body}</div>`);
+            showToast('🕵️ DNS recon complete');
+        } catch (err) {
+            _osintRenderError('osint-dns-result', 'Network error: ' + (err.message || err));
+            showToast('🕵️ DNS recon failed');
+        }
+    };
+
+    // ── 11. WHOIS / RDAP ───────────────────────────────────────────
+    window.osintWhois = async function () {
+        const domain = (document.getElementById('osint-whois-input')?.value || '').trim();
+        if (!domain) { showToast('🕵️ Enter a domain'); return; }
+        _osintLoading('osint-whois-result', '🕵️ Querying RDAP...');
+        showToast('🕵️ Running WHOIS lookup...');
+        try {
+            const data = await _osintFetch('/api/osint/whois', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ domain })
+            });
+            if (!data.ok) { _osintRenderError('osint-whois-result', data.error || 'WHOIS lookup failed'); showToast('🕵️ WHOIS failed'); return; }
+            const events = Object.entries(data.events || {}).map(([k, v]) => `<span class="inline-block bg-void border border-cyber rounded px-2 py-0.5 mr-1 mb-1 text-[11px] text-gray-300"><span class="text-gray-500">${_escH(k)}:</span> ${_escH(v)}</span>`).join('') || '<span class="text-gray-500 text-xs">—</span>';
+            const ns = (data.nameservers || []).map(n => `<span class="font-mono text-[11px] text-cyber inline-block mr-2">${_escH(n)}</span>`).join('') || '<span class="text-gray-500 text-xs">—</span>';
+            _osintRender('osint-whois-result', `
+                <div class="space-y-2">
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                        <div class="bg-void border border-cyber/50 rounded p-2"><div class="text-[10px] text-gray-500">Registrar</div><div class="text-gray-200">${_escH(data.registrar || '—')}</div></div>
+                        <div class="bg-void border border-cyber/50 rounded p-2"><div class="text-[10px] text-gray-500">Handle</div><div class="text-gray-200 font-mono text-[11px]">${_escH(data.handle || '—')}</div></div>
+                        <div class="bg-void border border-cyber/50 rounded p-2"><div class="text-[10px] text-gray-500">Abuse</div><div class="text-gray-200">${_escH(data.abuse_contact || '—')}</div></div>
+                        <div class="bg-void border border-cyber/50 rounded p-2"><div class="text-[10px] text-gray-500">Status</div><div class="text-gray-200 text-[11px]">${_escH((data.status || []).join(', ') || '—')}</div></div>
+                    </div>
+                    <div class="bg-void border border-cyber/50 rounded p-2"><div class="text-[10px] text-gray-500 mb-1">Nameservers</div><div>${ns}</div></div>
+                    <div class="bg-void border border-cyber/50 rounded p-2"><div class="text-[10px] text-gray-500 mb-1">Key dates</div><div>${events}</div></div>
+                </div>`);
+            showToast('🕵️ WHOIS complete');
+        } catch (err) {
+            _osintRenderError('osint-whois-result', 'Network error: ' + (err.message || err));
+            showToast('🕵️ WHOIS failed');
+        }
+    };
+
+    // ── 12. Pwned Passwords (HIBP k-anonymity) ─────────────────────
+    window.osintPwned = async function () {
+        const password = (document.getElementById('osint-pwned-input')?.value || '');
+        if (!password) { showToast('🕵️ Enter a password to check'); return; }
+        _osintLoading('osint-pwned-result', '🕵️ Checking HIBP range (k-anonymity)...');
+        showToast('🕵️ Checking password...');
+        try {
+            const data = await _osintFetch('/api/osint/pwned', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password })
+            });
+            if (!data.ok) { _osintRenderError('osint-pwned-result', data.error || 'Pwned check failed'); showToast('🕵️ Pwned check failed'); return; }
+            const rankColor = data.rank === 'clean' ? 'text-neon' : (data.rank === 'critical' ? 'text-blood' : 'text-yellow-500');
+            _osintRender('osint-pwned-result', `
+                <div class="bg-void border border-cyber rounded p-3 text-xs">
+                    <div class="mb-1">Verdict: <span class="font-bold ${rankColor}">${data.found ? `⚠ FOUND in ${_escH(data.times_seen)} breaches (${_escH(data.rank)})` : '✓ Not found in any known breach'}</span></div>
+                    <div class="text-[10px] text-gray-500 mt-2">${_escH(data.note || '')}</div>
+                </div>`);
+            showToast('🕵️ Pwned check complete');
+        } catch (err) {
+            _osintRenderError('osint-pwned-result', 'Network error: ' + (err.message || err));
+            showToast('🕵️ Pwned check failed');
+        }
+    };
+
+    // ── 13. URLhaus reputation ─────────────────────────────────────
+    window.osintUrlhaus = async function () {
+        const target = (document.getElementById('osint-urlhaus-input')?.value || '').trim();
+        if (!target) { showToast('🕵️ Enter a URL or host'); return; }
+        const isUrl = /^https?:\/\//i.test(target);
+        _osintLoading('osint-urlhaus-result', '🕵️ Querying URLhaus...');
+        showToast('🕵️ Checking URLhaus...');
+        try {
+            const data = await _osintFetch('/api/osint/urlhaus', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(isUrl ? { url: target } : { host: target })
+            });
+            if (!data.ok) { _osintRenderError('osint-urlhaus-result', data.error || 'URLhaus check failed'); showToast('🕵️ URLhaus failed'); return; }
+            const tags = (data.tags || []).map(t => `<span class="inline-block bg-blood/20 border border-blood/40 rounded px-2 py-0.5 mr-1 mb-1 text-[10px] text-blood">${_escH(t)}</span>`).join('') || '<span class="text-gray-500 text-xs">no tags</span>';
+            const bl = data.blacklists && typeof data.blacklists === 'object'
+                ? Object.entries(data.blacklists).map(([k, v]) => `<span class="inline-block bg-void border border-cyber rounded px-2 py-0.5 mr-1 mb-1 text-[10px] text-gray-300">${_escH(k)}: <span class="${v === 'listed' ? 'text-blood' : 'text-neon'}">${_escH(v)}</span></span>`).join('')
+                : '';
+            const head = data.found
+                ? `<div class="text-blood font-bold">☠️ Listed — ${_escH(data.threat || 'malicious')}</div>`
+                : '<div class="text-green-400 font-bold">✓ Not listed in URLhaus</div>';
+            _osintRender('osint-urlhaus-result', `
+                <div class="bg-void border border-cyber rounded p-3 text-xs">
+                    ${head}
+                    <div class="mt-2">${tags}</div>
+                    ${bl ? `<div class="mt-2 text-[10px] text-gray-500">Blacklists</div><div class="mt-1">${bl}</div>` : ''}
+                    ${data.urlhaus_reference ? `<a class="text-cyber hover:text-neon text-[11px] block mt-2 truncate" href="${_safeUrl(data.urlhaus_reference)}" target="_blank" rel="noopener">${_escH(data.urlhaus_reference)}</a>` : ''}
+                </div>`);
+            showToast('🕵️ URLhaus check complete');
+        } catch (err) {
+            _osintRenderError('osint-urlhaus-result', 'Network error: ' + (err.message || err));
+            showToast('🕵️ URLhaus failed');
+        }
+    };
+
+    // ── 14. Page Snapshot (Jina Reader) ────────────────────────────
+    window.osintPage = async function () {
+        const url = (document.getElementById('osint-page-input')?.value || '').trim();
+        if (!url) { showToast('🕵️ Enter a page URL'); return; }
+        _osintLoading('osint-page-result', '🕵️ Extracting page text...');
+        showToast('🕵️ Extracting page...');
+        try {
+            const data = await _osintFetch('/api/osint/page', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url })
+            });
+            if (!data.ok) { _osintRenderError('osint-page-result', data.error || 'Page extraction failed'); showToast('🕵️ Page extraction failed'); return; }
+            _osintRender('osint-page-result', `
+                <div class="bg-void border border-cyber rounded p-3">
+                    <div class="mb-1 flex items-center justify-between gap-2 flex-wrap">
+                        <span class="text-xs text-neon font-semibold truncate">${_escH(data.url)}</span>
+                        <span class="text-[10px] text-gray-500 font-mono">${_escH(data.chars)} chars</span>
+                    </div>
+                    ${data.title ? `<div class="text-[11px] text-gray-300 mb-2">${_escH(data.title)}</div>` : ''}
+                    <pre class="text-[10px] text-gray-400 max-h-64 overflow-y-auto whitespace-pre-wrap break-all leading-snug">${_escH(data.text || '')}</pre>
+                </div>`);
+            showToast('🕵️ Page extracted');
+        } catch (err) {
+            _osintRenderError('osint-page-result', 'Network error: ' + (err.message || err));
+            showToast('🕵️ Page extraction failed');
+        }
+    };
+
     // ── 9. Instagram Recon ─────────────────────────────────────────
     window.osintInstagram = async function () {
         const raw = (document.getElementById('osint-instagram-input')?.value || '').trim();
@@ -11303,6 +11457,11 @@ Reglas:
         ['osint-username-input', 'osintUsername'],
         ['osint-github-input', 'osintGithub'],
         ['osint-instagram-input', 'osintInstagram'],
+        ['osint-dns-input', 'osintDns'],
+        ['osint-whois-input', 'osintWhois'],
+        ['osint-pwned-input', 'osintPwned'],
+        ['osint-urlhaus-input', 'osintUrlhaus'],
+        ['osint-page-input', 'osintPage'],
         ['osint-correlate-input', 'osintCorrelate']
     ];
     _osintEnterMap.forEach(([inputId, fnName]) => {

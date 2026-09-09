@@ -89,8 +89,9 @@ desde el frontend con `fetch()`). El catálogo es una cantera de nuevas integrac
 ## Estado
 
 - ✅ Documentación creada (este archivo)
+- ✅ Ronda API-based #2 (5 herramientas OSINT) — implementada, testeada y verde en CI
+  (backend `osint_recon.py` + 5 endpoints `/api/osint/*` + tab OSINT del frontend)
 - ⬜ Importar ejemplos CL4R1T4S a un test de robustez de prompts — pendiente de "SÍ"
 - ⬜ Crear `docs/AGENTIC_APIS.md` con APIs preseleccionadas — pendiente de "SÍ"
-- ⬜ Ronda API-based #2 (5 herramientas OSINT) — pendiente de "SÍ"
 
-*Documentado: 6 Sep 2026*
+*Documentado: 6 Sep 2026 — actualizado 9 Sep 2026*
