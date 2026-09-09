@@ -10273,6 +10273,23 @@ Reglas:
         D: 'text-orange-500', E: 'text-blood', F: 'text-blood'
     };
 
+    window.runPCAFix = async function(action) {
+        const name = action === 'cleanup_junk' ? 'remove temporary/cache files' : action;
+        if (!window.confirm(`🧹 Apply fix "${name}"?\n\nThis deletes selected junk on the MIRV host. Manual cleanup via Sys Monitor is always available instead.`)) return;
+        try {
+            const r = await _fetchJSON('/api/pc-analyzer/fix', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action, confirm: true })
+            });
+            const detail = (r && r.freed_human) ? ` ~${r.freed_human} freed (${r.count} items)` : '';
+            showToast(`✅ Fix applied: ${r.action}${detail}`);
+        } catch (e) {
+            showToast('❌ ' + e.message);
+        }
+        runPCAnalysis();
+    };
+
     window.runPCAnalysis = async function() {
         const checksEl = document.getElementById('pca-checks');
         const heroEl = document.getElementById('pca-hero');
@@ -10329,10 +10346,11 @@ Reglas:
                 ? suggestions.map(s => `
                     <div class="flex items-start gap-2 p-2 bg-deep/40 border border-gray-800 rounded">
                         <span class="text-xs">🛠️</span>
-                        <div>
+                        <div class="flex-1">
                             <div class="text-[10px] text-gray-300">${_escH(s.message)}</div>
                             <div class="text-[9px] text-neon mt-0.5">→ ${_escH(s.action)}</div>
                         </div>
+                        ${s.fix ? `<button onclick="runPCAFix('${_escH(s.fix)}')" class="px-2 py-1 text-[9px] font-semibold rounded border border-neon/40 text-neon hover:bg-neon/10">▶ Fix</button>` : ''}
                     </div>
                 `).join('')
                 : '<div class="text-gray-400 text-[11px] py-1">No fixes suggested — machine looks healthy.</div>';

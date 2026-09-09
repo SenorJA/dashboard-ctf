@@ -6167,6 +6167,30 @@ async def pc_analyzer_analyze():
         return JSONResponse({"ok": False, "error": "pc analyzer failed"}, status_code=500)
 
 
+class PCAFixIn(BaseModel):
+    action: str
+    confirm: bool = False
+
+
+@app.post("/api/pc-analyzer/fix")
+async def pc_analyzer_fix(payload: PCAFixIn):
+    """Run a confirmation-gated safe fix (e.g. ``cleanup_junk``)."""
+    try:
+        result = await asyncio.to_thread(pcan.apply_fix, payload.action, payload.confirm)
+        if not result.get("ok"):
+            code = 409 if result.get("confirm") else 400
+            return JSONResponse(result, status_code=code)
+        logger.info("pc analyzer fix applied", extra={
+            "action": payload.action,
+            "items_deleted": result.get("count"),
+            "freed_bytes": result.get("freed_bytes"),
+        })
+        return JSONResponse({"ok": True, **result})
+    except Exception:
+        logger.exception("pc analyzer fix failed")
+        return JSONResponse({"ok": False, "error": "pc analyzer fix failed"}, status_code=500)
+
+
 # ── Browser Capture ──────────────────────────────────────────────────
 
 @app.post("/api/browser-capture/import")
