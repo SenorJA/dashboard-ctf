@@ -266,22 +266,26 @@ class _FakeReg:
 
 
 def test_pending_reboot_detail_windows_reboot_key():
-    reg = _FakeReg({pa._REG_REBOOT_REQUIRED: {}})
-    assert pa._pending_reboot_detail(reg) == "Windows Update reboot required"
+    with patch.object(pa.os, "name", "nt"):
+        reg = _FakeReg({pa._REG_REBOOT_REQUIRED: {}})
+        assert pa._pending_reboot_detail(reg) == "Windows Update reboot required"
 
 
 def test_pending_reboot_detail_windows_file_ops():
-    reg = _FakeReg({pa._REG_SESSION_MANAGER: {"PendingFileRenameOperations": ["a", "b", "c", "d"]}})
-    d = pa._pending_reboot_detail(reg)
-    assert d and "2" in d
+    with patch.object(pa.os, "name", "nt"):
+        reg = _FakeReg({pa._REG_SESSION_MANAGER: {"PendingFileRenameOperations": ["a", "b", "c", "d"]}})
+        d = pa._pending_reboot_detail(reg)
+        assert d and "2" in d
 
 
 def test_pending_reboot_detail_windows_clean():
-    assert pa._pending_reboot_detail(_FakeReg({})) == ""
+    with patch.object(pa.os, "name", "nt"):
+        assert pa._pending_reboot_detail(_FakeReg({})) == ""
 
 
 def test_pending_reboot_detail_windows_no_registry():
-    assert pa._pending_reboot_detail(None) is None
+    with patch.object(pa.os, "name", "nt"):
+        assert pa._pending_reboot_detail(None) is None
 
 
 def test_pending_reboot_detail_linux_marker():
@@ -293,17 +297,19 @@ def test_pending_reboot_detail_linux_marker():
 
 
 def test_windows_update_info_when_no_registry():
-    assert pa._windows_update_info(None) is None
+    with patch.object(pa.os, "name", "nt"):
+        assert pa._windows_update_info(None) is None
 
 
 def test_windows_update_info_pending_and_last():
-    reg = _FakeReg({
-        pa._REG_REBOOT_REQUIRED: {},
-        pa._REG_LAST_INSTALL: {"LastSuccessTime": "2026-09-01"},
-    })
-    info = pa._windows_update_info(reg)
-    assert info["pending"] == ["Windows Update reboot required"]
-    assert info["last_install"] == "2026-09-01"
+    with patch.object(pa.os, "name", "nt"):
+        reg = _FakeReg({
+            pa._REG_REBOOT_REQUIRED: {},
+            pa._REG_LAST_INSTALL: {"LastSuccessTime": "2026-09-01"},
+        })
+        info = pa._windows_update_info(reg)
+        assert info["pending"] == ["Windows Update reboot required"]
+        assert info["last_install"] == "2026-09-01"
 
 
 def test_linux_pending_updates_windows_returns_none():
