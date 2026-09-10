@@ -50,6 +50,11 @@ def test_tools_defined_with_expected_schema():
         "vulnforge_browser_get_analysis",
         "vulnforge_browser_create_findings",
         "vulnforge_browser_stats",
+        "vulnforge_osint_code_search",
+        "vulnforge_osint_cert_transparency",
+        "vulnforge_osint_sigstore",
+        "vulnforge_osint_urlscan",
+        "vulnforge_osint_mac_lookup",
     ]
     for tool in mcp.TOOLS:
         assert tool["description"]
@@ -135,6 +140,115 @@ def test_handle_message_tools_call_error_captured():
 
 def test_handle_tool_call_unknown_tool():
     assert asyncio.run(mcp.handle_tool_call("nope", {})) == "Unknown tool: nope"
+
+
+# ════════════════════════════════════════════════════════════════
+#  OSINT ROUND 3 — API-based tools (keyless)
+# ════════════════════════════════════════════════════════════════
+
+def test_tool_osint_code_search_ok():
+    with patch("backend.osint_recon.code_search") as mock_fn:
+        mock_fn.return_value = {
+            "ok": True, "query": "lang:python apikey", "total": 2,
+            "hits": [{"repo": "a/b", "path": "cfg.py", "snippet": "KEY = 'x'"}],
+        }
+        text = asyncio.run(mcp.handle_tool_call("vulnforge_osint_code_search", {"query": "lang:python apikey"}))
+    assert "Code search" in text
+    assert "a/b" in text
+    assert "(matchCount=2)" in text
+    mock_fn.assert_awaited_once_with("lang:python apikey", limit=8)
+
+
+def test_tool_osint_code_search_requires_query():
+    text = asyncio.run(mcp.handle_tool_call("vulnforge_osint_code_search", {}))
+    assert "query" in text
+
+
+def test_tool_osint_cert_transparency_ok():
+    with patch("backend.osint_recon.cert_transparency") as mock_fn:
+        mock_fn.return_value = {
+            "ok": True, "domain": "example.com", "count": 2,
+            "subdomains": ["a.example.com", "b.example.com"],
+        }
+        text = asyncio.run(mcp.handle_tool_call("vulnforge_osint_cert_transparency", {"domain": "example.com"}))
+    assert "Cert Transparency" in text
+    assert "a.example.com" in text and "b.example.com" in text
+    assert "(2 unique)" in text
+    mock_fn.assert_awaited_once_with("example.com", limit=100)
+
+
+def test_tool_osint_cert_transparency_requires_domain():
+    text = asyncio.run(mcp.handle_tool_call("vulnforge_osint_cert_transparency", {}))
+    assert "domain" in text
+
+
+def test_tool_osint_sigstore_ok():
+    with patch("backend.osint_recon.sigstore_lookup") as mock_fn:
+        mock_fn.return_value = {
+            "ok": True, "query": "dev@example.com", "count": 1,
+            "entries": [{"log_index": 5, "integrated_time": "2026-01-01", "uuid": "abc123"}],
+        }
+        text = asyncio.run(mcp.handle_tool_call("vulnforge_osint_sigstore", {"email": "dev@example.com"}))
+    assert "Sigstore Rekor" in text
+    assert "dev@example.com" in text
+    mock_fn.assert_awaited_once_with(email="dev@example.com", sha256="")
+
+
+def test_tool_osint_sigstore_unavailable():
+    with patch("backend.osint_recon.sigstore_lookup") as mock_fn:
+        mock_fn.return_value = {"ok": False, "error": "rate limited"}
+        text = asyncio.run(mcp.handle_tool_call("vulnforge_osint_sigstore", {"sha256": "deadbeef"}))
+    assert "rate limited" in text
+
+
+def test_tool_osint_urlscan_ok():
+    with patch("backend.osint_recon.urlscan_search") as mock_fn:
+        mock_fn.return_value = {
+            "ok": True, "domain": "example.com", "total": 3,
+            "results": [{"url": "https://example.com/x", "ip": "1.2.3.4", "country": "US", "server": "nginx", "asn": "AS123"}],
+        }
+        text = asyncio.run(mcp.handle_tool_call("vulnforge_osint_urlscan", {"domain": "example.com"}))
+    assert "urlscan.io" in text
+    assert "1.2.3.4" in text and "nginx" in text
+    mock_fn.assert_awaited_once_with("example.com", size=5)
+
+
+def test_tool_osint_urlscan_requires_domain():
+    text = asyncio.run(mcp.handle_tool_call("vulnforge_osint_urlscan", {}))
+    assert "domain" in text
+
+
+def test_tool_osint_mac_lookup_ok():
+    with patch("backend.osint_recon.mac_vendor_lookup") as mock_fn:
+        mock_fn.return_value = {
+            "ok": True, "found": True, "mac": "00:11:22:33:44:55",
+            "vendor": "Cisco", "address": "CA", "updated": "2025",
+        }
+        text = asyncio.run(mcp.handle_tool_call("vulnforge_osint_mac_lookup", {"mac": "00:11:22:33:44:55"}))
+    assert "Cisco" in text
+    assert "00:11:22:33:44:55" in text
+    mock_fn.assert_awaited_once_with("00:11:22:33:44:55")
+
+
+def test_tool_osint_mac_lookup_requires_mac():
+    text = asyncio.run(mcp.handle_tool_call("vulnforge_osint_mac_lookup", {}))
+    assert "mac" in text
+
+
+def test_tool_osint_mac_lookup_unknown_vendor():
+    with patch("backend.osint_recon.mac_vendor_lookup") as mock_fn:
+        mock_fn.return_value = {"ok": True, "found": False, "mac": "00:11:22:33:44:55"}
+        text = asyncio.run(mcp.handle_tool_call("vulnforge_osint_mac_lookup", {"mac": "00:11:22:33:44:55"}))
+    assert "no vendor" in text
+
+
+def test_handle_message_tools_list_includes_osint_new():
+    msg = {"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}
+    resp = asyncio.run(mcp.handle_message(msg))
+    names = [t["name"] for t in resp["result"]["tools"]]
+    for t in ("vulnforge_osint_code_search", "vulnforge_osint_cert_transparency",
+              "vulnforge_osint_sigstore", "vulnforge_osint_urlscan", "vulnforge_osint_mac_lookup"):
+        assert t in names
 
 
 def test_add_finding_stores_record():

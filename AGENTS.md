@@ -144,6 +144,7 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~3834 tests, ~95% coverage
 
 | Tab | ID | Purpose |
 |-----|----|---------| 
+| Home | `tab-home` | Command Center dashboard (KPIs: backend, findings, targets, coverage, SIEM, intel, CPU/RAM/disco) + quick actions | 
 | Terminal | `tab-terminal` | SSH interactive shell + command bar |
 | Reports | `tab-reports` | Saved scan reports + export |
 | Scripts | `tab-scripts` | Script builder + deploy to /tmp/ |
@@ -158,7 +159,7 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~3834 tests, ~95% coverage
 | CTF | `tab-ctf` | CTF challenges with flag tracking |
 | Mobile | `tab-mobile` | APK analysis lab (static + dynamic) |
 | Forensics | `tab-forensics` | Digital forensics lab |
-| Payload Studio | (external link) | Hak5 payload editor (opens new tab) |
+| Payload Studio | (external link) | Hak5 payload editor (opens new tab) — 6 devices: Bunny, OMG, M5, Shark Jack, Packet Squirrel Mark II, Shark Jack Display |
 | EXIF OSINT | `tab-exif` | EXIF metadata + GPS map (Leaflet) |
 | Canary Tokens | `tab-canary` | Honeytoken generator + activation log |
 | DLP Scanner | `tab-dlp` | PII/secret detection (text/file/URL) |
@@ -202,6 +203,10 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~3834 tests, ~95% coverage
 | `saveMission()` / `loadMissionHistory()` / `viewMissionDetails(id)` | Mission history |
 | `opsecModalOpen()` / `opsecSave()` / `opsecApply(tool, command, target)` | OPSEC controls |
 | `refreshIntel()` / `intelCreateWatch()` / `intelSnapshot(id)` / `intelDeleteWatch(id)` / `intelAckAlert(id)` / `intelClearAlerts()` | Intelligence monitoring |
+| `refreshDashboard()` | Home KPIs (health/findings/coverage/SIEM/intel/CPU-RAM-disco) |
+| `downloadFindingsExport(format)` | CSV/SARIF/HTML export via `/api/findings/export` |
+| `siemWebhookSave()` / `siemWebhookClear()` | SIEM external alert webhook (Slack/Telegram) |
+| `insertHak5Template()` / `validateHak5Payload()` / `downloadHak5Payload()` | Hak5 templates / validator / export |
 
 ## Findings parsing system
 
@@ -230,7 +235,7 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~3834 tests, ~95% coverage
 | Connections | `GET/POST/DELETE /api/connections` |
 | Reports | `GET/POST/DELETE /api/reports`, `POST /api/report/generate`, `POST /api/generate-pdf` |
 | Scripts | `GET/POST/DELETE /api/scripts` |
-| Findings | `GET/POST/DELETE /api/findings`, `POST /api/findings/bulk`, `GET /api/findings/stats` |
+| Findings | `GET/POST/DELETE /api/findings`, `POST /api/findings/bulk`, `GET /api/findings/stats`, `GET /api/findings/export?format=csv\|sarif\|html` |
 | Payloads | `GET/POST/DELETE /api/payloads` |
 | Credentials | `GET/POST/DELETE /api/credentials` |
 | CTF | `GET/POST/DELETE /api/ctf/challenges`, `POST /api/ctf/challenges/{id}/solve`, `GET /api/ctf/score` |
@@ -256,7 +261,7 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~3834 tests, ~95% coverage
 | **OSINT Recon** | `POST /api/osint/{email,dork,phone,reverse-image,username,instagram,correlate,dns,whois,pwned,urlhaus,page,code,cert,sigstore,urlscan,mac}`, `GET /api/osint/{wayback,ip,github}` — 19 tools keyless, `_osint_guard` (rate-limit + `MIRV_OSINT_TOKEN`), módulo `osint_recon.py` 100% cov (620 stmts) |
 | **Canary Tokens** | `POST /api/canary/token`, `GET /api/canary/tokens`, `GET /api/canary/activate/{id}`, `GET /api/canary/events`, `DELETE /api/canary/token/{id}` |
 | **DLP Scanner** | `POST /api/dlp/scan`, `POST /api/dlp/scan-file`, `GET /api/dlp/scan-url` |
-| **SIEM** | `POST /api/siem/event`, `GET /api/siem/events`, `GET /api/siem/stats`, `POST /api/siem/rules`, `GET /api/siem/rules`, `DELETE /api/siem/rules/{id}`, `GET /api/siem/alerts`, `GET /api/siem/findings` |
+| **SIEM** | `POST /api/siem/event`, `GET /api/siem/events`, `GET /api/siem/stats`, `POST /api/siem/rules`, `GET /api/siem/rules`, `DELETE /api/siem/rules/{id}`, `GET /api/siem/alerts`, `GET /api/siem/findings`, `GET/POST/DELETE /api/siem/webhook` |
 | **Plugins** | `GET /api/plugins`, `GET /api/plugins/{name}`, `POST /api/plugins/{name}/{load,unload,reload,enable,disable}`, `POST /api/plugins/hooks/{hook_name}` |
 | **Plugin Watcher** | `POST /api/plugins/watcher/{start,stop}`, `GET /api/plugins/watcher/{events,status}` |
 | **Coverage** | `POST /api/coverage/mark`, `GET /api/coverage/{list,summary,untested,next,sessions,export,vocab}`, `DELETE /api/coverage` |
@@ -359,7 +364,7 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~3834 tests, ~95% coverage
 | `mirv_ai_endpoint` / `mirv_ai_key` / `mirv_ai_model` | string | AI API config |
 | `mirv_theme` | "neon" \| "mono" | Color theme |
 | `mirv_lang` | "en" \| "es" | Language |
-| `mirv_hak5_{bunny,omg,m5,shack}` | JSON array | Hak5 payloads per device |
+| `vulnforge_hak5_{bunny,omg,m5,shack,squirrel,shark}` | JSON array | Hak5 payloads per device (Bash Bunny, OMG Cable, M5 Stack, Shark Jack, Packet Squirrel Mark II, Shark Jack Display) |
 | `mirv_ps_creds` | JSON object | Payload Studio credentials |
 | `mirv_opsec` | "silent" \| "covert" \| "loud" | OPSEC level |
 

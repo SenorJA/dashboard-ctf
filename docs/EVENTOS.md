@@ -98,13 +98,14 @@ app.addEventListener('change', (e) => {
 | Scripts | 5 | `data-script`, `data-action` |
 | Bounty | 3 | `data-action` |
 | AI Writeup | 2 | `data-action` |
-| Hak5 | 9 | `data-device`(4) + `data-action`(5) |
+| Hak5 | 14 | `data-device`(6) + `data-action`(8: save, export-db, delete, **tpl-hak5, val-hak5, dl-hak5**, load-db, clear) |
 | n8n | 5 | `data-action` |
 | Op Admiral | 5 | `data-action` |
 | Swarm | 4 | `data-action` |
-| Findings | 5 | `data-action` |
+| Findings | 8 | `data-action` (clear-findings, export-findings, generate-report, view-finding, delete-finding, **export-findings-csv, export-findings-sarif, export-findings-html**) |
 | Scope | 4 | `data-action` |
 | OPSEC | 3 | `data-action` |
+| SIEM | 2 | `data-action="siem-webhook-save"` / `siem-webhook-clear` |
 | Docker | 6 | `data-action` |
 | Forensics | 2 | `data-action` |
 | Mobile | 6 | `data-action` |
@@ -113,7 +114,8 @@ app.addEventListener('change', (e) => {
 | KnowledgeBase | 3 | `data-action` |
 | File upload | 1 | `data-action="file-upload"` |
 | Payload Studio | 3 | `data-action` |
-| **Total** | **126** | |
+| Home (Command Center) | 9 | `data-action="refresh-dashboard"` + 8 quick actions `data-action="tab"` + `data-tab` |
+| **Total** | **143** | |
 
 ### main.v2.js (7 onclick + 1 onchange)
 

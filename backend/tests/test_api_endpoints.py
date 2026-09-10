@@ -965,6 +965,72 @@ class TestFindingsStatsEndpoint:
         assert isinstance(data["targets"], list)
 
 
+class TestFindingsExportEndpoint:
+    """GET /api/findings/export — CSV / SARIF / HTML report export."""
+
+    def test_export_csv(self, client: TestClient):
+        resp = client.get("/api/findings/export", params={"format": "csv"})
+        assert resp.status_code == 200
+        assert resp.headers.get("content-type", "").startswith("text/csv")
+        assert "attachment" in resp.headers.get("content-disposition", "")
+        assert "tool,target,type,severity,title" in resp.text
+
+    def test_export_sarif(self, client: TestClient):
+        resp = client.get("/api/findings/export", params={"format": "sarif"})
+        assert resp.status_code == 200
+        assert resp.headers.get("content-type", "").startswith("application/sarif+json")
+        doc = resp.json()
+        assert doc["version"] == "2.1.0"
+        assert doc["runs"][0]["tool"]["driver"]["name"] == "MIRV"
+
+    def test_export_json_unsupported(self, client: TestClient):
+        """Only csv, sarif and html are supported."""
+        resp = client.get("/api/findings/export", params={"format": "json"})
+        assert resp.status_code == 400
+
+    def test_export_html(self, client: TestClient):
+        resp = client.get("/api/findings/export", params={"format": "html"})
+        assert resp.status_code == 200
+        assert resp.headers.get("content-type", "").startswith("text/html")
+        assert "MIRV" in resp.text and "<table" in resp.text
+
+    def test_export_invalid_format(self, client: TestClient):
+        resp = client.get("/api/findings/export", params={"format": "xml"})
+        assert resp.status_code == 400
+        assert resp.json().get("ok") is False
+
+    def test_export_defaults_to_csv(self, client: TestClient):
+        resp = client.get("/api/findings/export")
+        assert resp.status_code == 200
+        assert resp.headers.get("content-type", "").startswith("text/csv")
+
+    def test_export_with_data(self, client, monkeypatch):
+        """A populated findings list is rendered across the three formats."""
+        from backend import database as db_mod
+        findings = [
+            {"tool": "nmap", "target": "10.0.0.1", "type": "open-port", "severity": "high",
+             "title": "Port 22 open", "detail": "ssh banner", "port": "22", "protocol": "tcp",
+             "service": "ssh", "version": "OpenSSH", "path": "", "created_at": "2026-01-01"},
+            {"tool": "nikto", "target": "http://x/", "type": "misconfig", "severity": "medium",
+             "title": "Info leak", "detail": "server header", "path": "/", "created_at": "2026-01-01"},
+        ]
+        monkeypatch.setattr(db_mod, "list_findings", lambda *a, **kw: findings)
+
+        csv_resp = client.get("/api/findings/export", params={"format": "csv"})
+        assert "Port 22 open" in csv_resp.text
+        assert "Info leak" in csv_resp.text
+
+        sarif_resp = client.get("/api/findings/export", params={"format": "sarif"})
+        doc = sarif_resp.json()
+        assert len(doc["runs"][0]["results"]) == 2
+        assert doc["runs"][0]["results"][0]["level"] == "error"  # high -> error
+        levels = {r["level"] for r in doc["runs"][0]["results"]}
+        assert "warning" in levels  # medium -> warning
+
+        html_resp = client.get("/api/findings/export", params={"format": "html"})
+        assert "Critical" in html_resp.text or "High" in html_resp.text
+
+
 # ═══════════════════════════════════════════════════════════════════════
 #  15. Credentials endpoints
 # ═══════════════════════════════════════════════════════════════════════
@@ -1884,6 +1950,45 @@ class TestSIEMEventEndpoint:
         })
         assert resp.status_code == 200
         assert resp.json().get("ok") is True
+
+
+class TestSiemWebhookEndpoint:
+    """GET/POST/DELETE /api/siem/webhook — external alert forwarding."""
+
+    def test_siem_webhook_get_initial(self, client: TestClient):
+        resp = client.get("/api/siem/webhook")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data.get("ok") is True
+        assert "url" in data
+
+    def test_siem_webhook_set_valid(self, client: TestClient):
+        resp = client.post("/api/siem/webhook", json={"url": "https://hooks.slack.com/services/A/B"})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data.get("ok") is True
+        assert data.get("url") == "https://hooks.slack.com/services/A/B"
+        # persisted: GET reflects it
+        assert client.get("/api/siem/webhook").json().get("url") == "https://hooks.slack.com/services/A/B"
+
+    def test_siem_webhook_set_invalid_scheme(self, client: TestClient):
+        resp = client.post("/api/siem/webhook", json={"url": "ftp://evil/notify"})
+        assert resp.status_code == 400
+        data = resp.json()
+        assert data.get("ok") is False
+        assert "http" in data.get("error", "")
+
+    def test_siem_webhook_set_empty_body(self, client: TestClient):
+        resp = client.post("/api/siem/webhook", json={})
+        assert resp.status_code == 422
+
+    def test_siem_webhook_delete(self, client: TestClient):
+        client.post("/api/siem/webhook", json={"url": "https://example.com/hook"})
+        resp = client.delete("/api/siem/webhook")
+        assert resp.status_code == 200
+        assert resp.json().get("ok") is True
+        assert resp.json().get("url") is None
+        assert client.get("/api/siem/webhook").json().get("url") is None
 
 
 class TestSIEMEventsListEndpoint:

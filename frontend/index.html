@@ -447,6 +447,9 @@
 
             <!-- ── TABS BAR ── -->
             <nav aria-label="Main navigation" class="tabs-bar px-4" role="tablist">
+                <button class="tab-btn" id="tab-btn-home" data-tab="home" role="tab" aria-selected="false" aria-controls="tab-home" data-i18n="tabHome">
+                    🏠 Home
+                </button>
                 <button class="tab-btn active" id="tab-btn-terminal" data-tab="terminal" role="tab" aria-selected="true" aria-controls="tab-terminal" data-i18n="tabTerminal">
                     ⌨ Terminal
                 </button>
@@ -558,6 +561,93 @@
                 <span data-i18n="statTools">🔧 <span id="stat-tools">0</span> tools</span>
                 <span class="w-px h-3 bg-gray-800"></span>
                 <span data-i18n="statReports">📁 <span id="stat-reports">0</span> reports</span>
+            </div>
+
+            <!-- ════════════════════════════════════════════════════════
+                 TAB: HOME (Command Center)
+                 ════════════════════════════════════════════════════════ -->
+            <div id="tab-home" role="tabpanel" aria-labelledby="tab-btn-home" class="tab-pane p-4 pt-3 overflow-y-auto">
+
+                <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+                    <div>
+                        <h2 class="text-lg font-bold text-neon tracking-wider">⚡ MIRV Command Center</h2>
+                        <p class="text-[10px] text-gray-400">Multi-platform Incident Response & Vulnerabilities — <span id="home-version">v1.0.0</span> · <span id="home-mode">dev</span></p>
+                    </div>
+                    <button data-action="refresh-dashboard" class="bg-neon/10 hover:bg-neon/20 text-neon border border-neon/30 px-3 py-1.5 rounded text-[10px] font-semibold transition-all">
+                        ⟳ Refresh
+                    </button>
+                </div>
+
+                <!-- KPI grid -->
+                <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 mb-4">
+                    <div class="bg-deep rounded-lg border border-gray-800 p-3">
+                        <div class="text-[9px] text-gray-500 uppercase tracking-wider mb-1">Backend</div>
+                        <div class="flex items-center gap-2">
+                            <span id="home-health-dot" class="inline-block w-2 h-2 rounded-full bg-gray-800"></span>
+                            <span id="home-health-status" class="text-sm font-semibold text-gray-300">checking…</span>
+                        </div>
+                        <div class="text-[9px] text-gray-500 mt-1">uptime <span id="home-uptime">—</span></div>
+                    </div>
+                    <div class="bg-deep rounded-lg border border-gray-800 p-3">
+                        <div class="text-[9px] text-gray-500 uppercase tracking-wider mb-1">Findings</div>
+                        <div class="text-2xl font-bold text-neon" id="home-findings-count">0</div>
+                        <div class="text-[9px] text-gray-500 mt-1"><span id="home-findings-high" class="text-blood">0 high+crit</span> · <span id="home-findings-tools">0 tools</span></div>
+                    </div>
+                    <div class="bg-deep rounded-lg border border-gray-800 p-3">
+                        <div class="text-[9px] text-gray-500 uppercase tracking-wider mb-1">Targets</div>
+                        <div class="text-2xl font-bold text-neon" id="home-targets-count">0</div>
+                        <div class="text-[9px] text-gray-500 mt-1"><span id="home-conns-count">0 saved connections</span></div>
+                    </div>
+                    <div class="bg-deep rounded-lg border border-gray-800 p-3">
+                        <div class="text-[9px] text-gray-500 uppercase tracking-wider mb-1">Coverage</div>
+                        <div class="text-2xl font-bold text-neon" id="home-coverage-total">0</div>
+                        <div class="text-[9px] text-gray-500 mt-1">pass <span id="home-coverage-ratio" class="text-green-400">0%</span></div>
+                    </div>
+                    <div class="bg-deep rounded-lg border border-gray-800 p-3">
+                        <div class="text-[9px] text-gray-500 uppercase tracking-wider mb-1">SIEM Events</div>
+                        <div class="text-2xl font-bold text-neon" id="home-siem-events">0</div>
+                        <div class="text-[9px] text-gray-500 mt-1"><span id="home-siem-alerts" class="text-blood">0 alerts</span></div>
+                    </div>
+                    <div class="bg-deep rounded-lg border border-gray-800 p-3">
+                        <div class="text-[9px] text-gray-500 uppercase tracking-wider mb-1">Intel Alerts</div>
+                        <div class="text-2xl font-bold text-yellow-400" id="home-intel-alerts">0</div>
+                        <div class="text-[9px] text-gray-500 mt-1">continuous intel</div>
+                    </div>
+                    <div class="bg-deep rounded-lg border border-gray-800 p-3">
+                        <div class="text-[9px] text-gray-500 uppercase tracking-wider mb-1">CPU</div>
+                        <div class="text-2xl font-bold text-cyber" id="home-cpu">—</div>
+                        <div class="mt-1 h-1.5 bg-void rounded overflow-hidden"><div id="home-cpu-bar" class="h-full bg-cyber" style="width:0%"></div></div>
+                    </div>
+                    <div class="bg-deep rounded-lg border border-gray-800 p-3">
+                        <div class="text-[9px] text-gray-500 uppercase tracking-wider mb-1">RAM</div>
+                        <div class="text-2xl font-bold text-cyber" id="home-mem">—</div>
+                        <div class="text-[9px] text-gray-500 mt-1">disk <span id="home-disk" class="text-gray-400">—</span></div>
+                    </div>
+                </div>
+
+                <!-- Quick actions -->
+                <div class="flex flex-wrap gap-2 mb-4">
+                    <button data-action="tab" data-tab="terminal" class="bg-cyber/10 hover:bg-cyber/20 text-cyber border border-cyber/30 px-3 py-1.5 rounded text-[10px] transition-all">⌨ Terminal</button>
+                    <button data-action="tab" data-tab="findings" class="bg-neon/10 hover:bg-neon/20 text-neon border border-neon/30 px-3 py-1.5 rounded text-[10px] transition-all">🎯 Findings</button>
+                    <button data-action="tab" data-tab="osint" class="bg-deep hover:bg-gray-800 text-gray-300 border border-gray-800 px-3 py-1.5 rounded text-[10px] transition-all">🕵️ OSINT</button>
+                    <button data-action="tab" data-tab="coverage" class="bg-deep hover:bg-gray-800 text-gray-300 border border-gray-800 px-3 py-1.5 rounded text-[10px] transition-all">🧭 Coverage</button>
+                    <button data-action="tab" data-tab="siem" class="bg-deep hover:bg-gray-800 text-gray-300 border border-gray-800 px-3 py-1.5 rounded text-[10px] transition-all">📊 SIEM</button>
+                    <button data-action="tab" data-tab="system" class="bg-deep hover:bg-gray-800 text-gray-300 border border-gray-800 px-3 py-1.5 rounded text-[10px] transition-all">🖥️ Host</button>
+                    <button data-action="tab" data-tab="intelligence" class="bg-deep hover:bg-gray-800 text-gray-300 border border-gray-800 px-3 py-1.5 rounded text-[10px] transition-all">🔍 Intel</button>
+                    <button data-action="tab" data-tab="hak5" class="bg-deep hover:bg-gray-800 text-gray-300 border border-gray-800 px-3 py-1.5 rounded text-[10px] transition-all">🔌 Hak5</button>
+                </div>
+
+                <div class="bg-void border border-gray-800 rounded-lg p-3 mb-4">
+                    <h3 class="text-xs text-neon font-semibold tracking-wider mb-2">🗺️ Toolkit</h3>
+                    <div class="flex flex-wrap gap-1.5">
+                        <span class="text-[9px] bg-deep border border-gray-800 rounded px-2 py-1 text-gray-400">83+ arsenal modules</span>
+                        <span class="text-[9px] bg-deep border border-gray-800 rounded px-2 py-1 text-gray-400">20 OSINT tools</span>
+                        <span class="text-[9px] bg-deep border border-gray-800 rounded px-2 py-1 text-gray-400">88 skill playbooks</span>
+                        <span class="text-[9px] bg-deep border border-gray-800 rounded px-2 py-1 text-gray-400">6 Hak5 devices</span>
+                        <span class="text-[9px] bg-deep border border-gray-800 rounded px-2 py-1 text-gray-400">7 swarm operators</span>
+                        <span class="text-[9px] bg-deep border border-gray-800 rounded px-2 py-1 text-gray-400">4 SIEM rules</span>
+                    </div>
+                </div>
             </div>
 
             <!-- ════════════════════════════════════════════════════════
@@ -1016,7 +1106,7 @@
                         <span class="text-cyber/50 group-hover:text-cyber text-lg">↗</span>
                     </a>
 
-                    <p class="text-[9px] text-gray-400">Supports Bash Bunny, OMG Cable, Shark Jack, Key Croc, and all Hak5 devices.</p>
+                    <p class="text-[9px] text-gray-400">Supports Bash Bunny, OMG Cable, Shark Jack, Key Croc, Packet Squirrel Mark II, Shark Jack Display, and all Hak5 devices.</p>
                 </div>
 
                 <!-- ── GitHub Payload Repos ── -->
@@ -1055,13 +1145,23 @@
                             </div>
                             <span class="text-[9px] text-gray-400 shrink-0">▸</span>
                         </a>
-                        <!-- Shack Jack -->
+                        <!-- Shark Jack -->
                         <a href="https://github.com/hak5/sharkjack-payloads" target="_blank"
                             class="flex items-center gap-2.5 bg-deep border border-gray-800 rounded-lg p-2.5 hover:border-blood/40 transition-all group">
                             <span class="text-lg">🦈</span>
                             <div class="flex-1 min-w-0">
-                                <p class="text-[11px] font-semibold text-gray-300 group-hover:text-blood transition-colors truncate">Shack Jack</p>
+                                <p class="text-[11px] font-semibold text-gray-300 group-hover:text-blood transition-colors truncate">Shark Jack</p>
                                 <p class="text-[9px] text-gray-400 truncate">hak5/sharkjack-payloads</p>
+                            </div>
+                            <span class="text-[9px] text-gray-400 shrink-0">▸</span>
+                        </a>
+                        <!-- Packet Squirrel -->
+                        <a href="https://github.com/hak5/packetsquirrel-payloads" target="_blank"
+                            class="flex items-center gap-2.5 bg-deep border border-gray-800 rounded-lg p-2.5 hover:border-cyber/40 transition-all group">
+                            <span class="text-lg">🐿️</span>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-[11px] font-semibold text-gray-300 group-hover:text-cyber transition-colors truncate">Packet Squirrel</p>
+                                <p class="text-[9px] text-gray-400 truncate">hak5/packetsquirrel-payloads</p>
                             </div>
                             <span class="text-[9px] text-gray-400 shrink-0">▸</span>
                         </a>
@@ -1086,7 +1186,13 @@
                             📟 M5
                         </button>
                         <button class="hak5-device-btn" data-device="shack" data-device="shack">
-                            🦈 Shack Jack
+                            🦈 Shark Jack
+                        </button>
+                        <button class="hak5-device-btn" data-device="squirrel" data-device="squirrel">
+                            🐿️ Squirrel
+                        </button>
+                        <button class="hak5-device-btn" data-device="shark" data-device="shark">
+                            🦈 Shark Display
                         </button>
                     </div>
 
@@ -1116,6 +1222,27 @@
                             🤖 AI
                         </button>
                         <span id="hak5-payload-status" class="text-[10px] text-gray-400 ml-auto"></span>
+                    </div>
+
+                    <!-- Payload templates → validate → export -->
+                    <div class="flex items-center gap-2 mb-2.5 flex-wrap">
+                        <span class="text-[9px] text-gray-400 uppercase tracking-wider">Template</span>
+                        <select id="hak5-template-select" aria-label="Hak5 payload template"
+                            class="bg-void border border-gray-800 rounded px-2 py-1 text-[10px] text-gray-300 focus:outline-none focus:border-neon/50">
+                            <option value="">— none —</option>
+                        </select>
+                        <button data-action="tpl-hak5"
+                            class="bg-cyber/10 hover:bg-cyber/20 text-cyber border border-cyber/30 px-3 py-1 rounded text-[10px] transition-all">
+                            ✦ Insert
+                        </button>
+                        <button data-action="val-hak5"
+                            class="bg-green-900/30 hover:bg-green-800/40 text-green-400 border border-green-700/40 px-3 py-1 rounded text-[10px] transition-all">
+                            ✓ Check
+                        </button>
+                        <button data-action="dl-hak5"
+                            class="bg-blue-900/30 hover:bg-blue-800/40 text-blue-400 border border-blue-700/40 px-3 py-1 rounded text-[10px] transition-all">
+                            ⬇ Export
+                        </button>
                     </div>
 
                     <!-- Device info bar -->
@@ -1518,6 +1645,16 @@
                     </button>
                     <button data-action="export-findings" data-i18n="exportFindings" class="bg-neon/10 hover:bg-neon/20 text-neon border border-neon/30 px-3 py-1 rounded text-[10px] transition-all">
                         📥 Export
+                    </button>
+                    <span class="w-px h-4 bg-gray-800 mx-1 hidden sm:block"></span>
+                    <button data-action="export-findings-csv" class="bg-deep hover:bg-gray-800 text-green-400 border border-green-800/50 px-3 py-1 rounded text-[10px] transition-all">
+                        ⬇ CSV
+                    </button>
+                    <button data-action="export-findings-sarif" class="bg-deep hover:bg-gray-800 text-purple-400 border border-purple-800/50 px-3 py-1 rounded text-[10px] transition-all">
+                        ⬇ SARIF
+                    </button>
+                    <button data-action="export-findings-html" class="bg-deep hover:bg-gray-800 text-blue-400 border border-blue-800/50 px-3 py-1 rounded text-[10px] transition-all">
+                        ⬇ HTML
                     </button>
                     <button data-action="generate-report" data-i18n="generateReportBtn" class="bg-cyber/10 hover:bg-cyber/20 text-cyber border border-cyber/30 px-3 py-1 rounded text-[10px] transition-all font-semibold">
                         📊 Generate Report
@@ -2460,6 +2597,27 @@
                 <div class="bg-deep rounded-lg p-3 border border-cyber text-center"><div class="text-2xl font-bold text-red-400" id="siem-stat-high">0</div><div class="text-xs text-gray-500">High</div></div>
                 <div class="bg-deep rounded-lg p-3 border border-cyber text-center"><div class="text-2xl font-bold text-yellow-400" id="siem-stat-medium">0</div><div class="text-xs text-gray-500">Medium</div></div>
                 <div class="bg-deep rounded-lg p-3 border border-cyber text-center"><div class="text-2xl font-bold text-blue-400" id="siem-stat-low">0</div><div class="text-xs text-gray-500">Low/Info</div></div>
+              </div>
+
+              <!-- External alert webhook -->
+              <div class="bg-deep rounded-lg p-3 border border-gray-800 mb-6">
+                <div class="flex items-center justify-between mb-2">
+                  <h3 class="text-xs font-semibold text-neon tracking-wider">🔔 External Alert Webhook</h3>
+                  <span id="siem-webhook-badge" class="text-[9px] text-gray-400 border border-gray-800 rounded px-2 py-0.5">⚪ not configured</span>
+                </div>
+                <p class="text-[10px] text-gray-400 mb-2">Each SIEM alert (brute-force, port-scan, canary, DLP) fires a POST JSON to this URL — Slack/Telegram/Teams/Make/Zapier compatible.</p>
+                <div class="flex items-center gap-2">
+                  <input type="url" id="siem-webhook-url" placeholder="https://hooks.slack.com/services/…"
+                    class="flex-1 bg-void border border-gray-800 rounded px-2.5 py-1.5 text-[11px] text-gray-300 placeholder-gray-500 focus:outline-none focus:border-neon/50 font-mono" aria-label="SIEM alert webhook URL">
+                  <button data-action="siem-webhook-save"
+                    class="bg-neon/10 hover:bg-neon/20 text-neon border border-neon/30 px-3 py-1.5 rounded text-[10px] font-semibold transition-all">
+                    💾 Save
+                  </button>
+                  <button data-action="siem-webhook-clear"
+                    class="bg-blood/10 hover:bg-blood/20 text-blood border border-blood/30 px-3 py-1.5 rounded text-[10px] transition-all">
+                    ✕ Clear
+                  </button>
+                </div>
               </div>
 
               <!-- Filters -->

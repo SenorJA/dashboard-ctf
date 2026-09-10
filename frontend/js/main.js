@@ -1584,10 +1584,12 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
     //  HAK5 PAYLOAD EDITOR
     // ============================================================
     const hak5Devices = {
-        bunny:  { name: 'Bash Bunny',      icon: '🐰', ext: 'txt', lang: 'ducky script', desc: 'USB Rubber Ducky-style HID attacks' },
-        omg:    { name: 'OMG Cable',       icon: '🔌', ext: 'js',  lang: 'javascript',    desc: 'WiFi-enabled drop cable payloads' },
-        m5:     { name: 'M5 Stack',        icon: '📟', ext: 'py',  lang: 'micropython',   desc: 'ESP32-based multi-tool payloads' },
-        shack:  { name: 'Shack Jack',      icon: '🦈', ext: 'txt', lang: 'bash',          desc: 'Ethernet remote access payloads' }
+        bunny:   { name: 'Bash Bunny',        icon: '🐰', ext: 'txt', lang: 'ducky script', desc: 'USB Rubber Ducky-style HID attacks' },
+        omg:     { name: 'OMG Cable',         icon: '🔌', ext: 'js',  lang: 'javascript',    desc: 'WiFi-enabled drop cable payloads' },
+        m5:      { name: 'M5 Stack',          icon: '📟', ext: 'py',  lang: 'micropython',   desc: 'ESP32-based multi-tool payloads' },
+        shack:   { name: 'Shark Jack',        icon: '🦈', ext: 'txt', lang: 'bash',          desc: 'Ethernet remote access payloads' },
+        squirrel: { name: 'Packet Squirrel Mark II', icon: '🐿️', ext: 'sh', lang: 'bash', desc: 'Inline ethernet tap, MITM & pivot payloads' },
+        shark:   { name: 'Shark Jack Display', icon: '🦈', ext: 'sh',  lang: 'bash',          desc: 'Ethernet rogue with OLED vetting display payloads' }
     };
     let currentHak5Device = 'bunny';
 

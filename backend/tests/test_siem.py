@@ -18,10 +18,12 @@ Covers:
 import sys
 import os
 import time
+import json
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import pytest
+from unittest.mock import patch
 from backend.siem import (
     ingest_event,
     get_events,
@@ -32,6 +34,9 @@ from backend.siem import (
     get_alerts,
     report_to_mirv_findings,
     reset,
+    set_webhook_url,
+    get_webhook_url,
+    _notify_webhook,
     SIEMEvent,
     SIEMAlert,
     _events,
@@ -485,3 +490,106 @@ def test_get_events_combined_filters():
     results = get_events(severity="high", source="ssh")
     assert len(results) == 1
     assert results[0]["title"] == "SSH high"
+
+
+# ──────────────────────────────────────────────
+# 12. External alert webhook (Slack/Telegram/Teams)
+# ──────────────────────────────────────────────
+
+
+def test_set_webhook_url_valid():
+    """http/https URLs are accepted and returned by getter."""
+    set_webhook_url("https://hooks.slack.com/services/A/B")
+    assert get_webhook_url() == "https://hooks.slack.com/services/A/B"
+    set_webhook_url(None)
+
+
+def test_set_webhook_url_rejects_non_http():
+    """Non-http(s) schemes must raise ValueError."""
+    for bad in ("ftp://x", "javascript:alert(1)", "not-a-url"):
+        with pytest.raises(ValueError):
+            set_webhook_url(bad)
+    set_webhook_url(None)
+
+
+def test_set_webhook_url_none_clears():
+    """Passing None (or empty) clears the stored URL."""
+    set_webhook_url("https://example.com/hook")
+    assert get_webhook_url() is not None
+    set_webhook_url(None)
+    assert get_webhook_url() is None
+    set_webhook_url("")
+    assert get_webhook_url() is None
+
+
+def test_notify_webhook_no_url_noop():
+    """With no webhook configured, _notify_webhook must do nothing (no thread)."""
+    set_webhook_url(None)
+    alert = SIEMAlert(
+        id="al-full-1", rule_name="Brute Force Detection", rule_id="rule-brute-force",
+        severity="high", title="Brute force", detail="ddd",
+        timestamp="2026-01-01T00:00:00Z", event_ids=["e1"],
+    )
+    with patch("backend.siem.threading.Thread") as thr:
+        _notify_webhook(alert)
+        thr.assert_not_called()
+
+
+def test_notify_webhook_sends_post():
+    """With a URL set, _notify_webhook POSTs a JSON payload (synchronous mock)."""
+    from unittest.mock import patch as _patch, MagicMock, call
+
+    set_webhook_url("https://example.com/hook")
+
+    class RunThread:
+        def __init__(self, target=None, args=(), kwargs=None, **kw):
+            self._t = target
+            self._a = args
+            self._k = kwargs or {}
+        def start(self):
+            self._t(*self._a, **self._k)
+
+    alert = SIEMAlert(
+        id="al-web-1", rule_name="Canary Token Triggered", rule_id="rule-canary",
+        severity="critical", title="Canary triggered", detail="Token hit",
+        timestamp="2026-01-01T00:00:00Z", event_ids=["c1"],
+    )
+    mock_open = MagicMock()
+    with _patch("backend.siem.threading.Thread", RunThread), \
+         _patch("backend.siem.urllib.request.urlopen", mock_open):
+        _notify_webhook(alert)
+
+    assert mock_open.call_count == 1
+    req = mock_open.call_args[0][0]
+    assert req.method == "POST"
+    assert req.full_url == "https://example.com/hook"
+    payload = json.loads(req.data.decode("utf-8"))
+    assert payload["type"] == "siem-alert"
+    assert payload["rule_id"] == "rule-canary"
+    assert payload["severity"] == "critical"
+    assert payload["title"] == "Canary triggered"
+    assert payload["event_ids"] == ["c1"]
+    set_webhook_url(None)
+
+
+def test_create_alert_fires_webhook():
+    """A correlation alert should trigger the webhook when configured."""
+    from unittest.mock import patch as _patch
+
+    set_webhook_url("https://example.com/hook")
+    seen = {}
+    real = _notify_webhook
+
+    def spy(alert):
+        seen["alert"] = alert
+        return real(alert)
+
+    with _patch("backend.siem._notify_webhook", side_effect=spy):
+        for i in range(5):
+            ingest_event("ssh", "high", f"fail {i}", "auth fail",
+                         tags=["failed-auth"], ip="10.0.0.9")
+
+    assert seen.get("alert") is not None
+    assert seen["alert"].rule_id == "rule-brute-force"
+    assert len(get_alerts()) >= 1
+    set_webhook_url(None)

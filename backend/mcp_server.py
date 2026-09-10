@@ -342,6 +342,96 @@ TOOLS = [
             },
         },
     },
+{
+        "name": "vulnforge_osint_code_search",
+        "description": "Search public source code for a query via Sourcegraph streaming SSE (gap-free code search, keyless)",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Code search query using Sourcegraph syntax (e.g. 'lang:python apikey', 'AKIA[0-9A-Z]{16}')",
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Max results to return",
+                    "default": 8,
+                },
+            },
+            "required": ["query"],
+        },
+    },
+    {
+        "name": "vulnforge_osint_cert_transparency",
+        "description": "Enumerate subdomains of a domain from public Certificate Transparency logs (crt.sh, keyless)",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "domain": {
+                    "type": "string",
+                    "description": "Base domain (e.g. example.com)",
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Max subdomains to return",
+                    "default": 100,
+                },
+            },
+            "required": ["domain"],
+        },
+    },
+    {
+        "name": "vulnforge_osint_sigstore",
+        "description": "Look up software-signing identities in the Sigstore Rekor transparency log (keyless)",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "description": "Email used to sign artifacts (mutually exclusive with sha256)",
+                    "default": "",
+                },
+                "sha256": {
+                    "type": "string",
+                    "description": "Hex sha256 of the artifact to find its signer (mutually exclusive with email)",
+                    "default": "",
+                },
+            },
+        },
+    },
+    {
+        "name": "vulnforge_osint_urlscan",
+        "description": "Search urlscan.io public scans for a domain (recent URLs, IPs, countries, servers, ASNs — keyless)",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "domain": {
+                    "type": "string",
+                    "description": "Domain to search public scans for",
+                },
+                "size": {
+                    "type": "integer",
+                    "description": "Max results to return",
+                    "default": 5,
+                },
+            },
+            "required": ["domain"],
+        },
+    },
+    {
+        "name": "vulnforge_osint_mac_lookup",
+        "description": "Identify the hardware vendor of a MAC address (OUI lookup via maclookup.app, keyless)",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "mac": {
+                    "type": "string",
+                    "description": "MAC address (accepts 6/8/12 hex chars separated by ':' or '-', e.g. 00:11:22:33:44:55)",
+                },
+            },
+            "required": ["mac"],
+        },
+    },
 ]
 
 # In-memory findings store (accumulated during the MCP session)
@@ -369,6 +459,11 @@ async def handle_tool_call(name: str, arguments: dict) -> str:
         "vulnforge_browser_get_analysis": _tool_browser_get_analysis,
         "vulnforge_browser_create_findings": _tool_browser_create_findings,
         "vulnforge_browser_stats": _tool_browser_stats,
+        "vulnforge_osint_code_search": _tool_osint_code_search,
+        "vulnforge_osint_cert_transparency": _tool_osint_cert_transparency,
+        "vulnforge_osint_sigstore": _tool_osint_sigstore,
+        "vulnforge_osint_urlscan": _tool_osint_urlscan,
+        "vulnforge_osint_mac_lookup": _tool_osint_mac_lookup,
     }
     handler = handlers.get(name)
     if not handler:
@@ -863,6 +958,135 @@ async def _tool_browser_stats(args: dict) -> str:
         output_parts.append(f"max_requests/session:{st.get('max_requests_per_session', 0)}")
         output_parts.append(f"max_body:            {st.get('max_body', 0)}")
     return "\n".join(output_parts)
+
+
+async def _tool_osint_code_search(args: dict) -> str:
+    """Search public source code via Sourcegraph streaming SSE."""
+    from backend import osint_recon
+
+    query = args.get("query", "").strip()
+    limit = int(args.get("limit", 8))
+    if not query:
+        return "❌ query is required"
+    try:
+        res = await osint_recon.code_search(query, limit=limit)
+    except Exception as e:
+        return f"❌ Code search failed: {e}"
+
+    if not res.get("ok"):
+        return f"❌ {res.get('error', 'Sourcegraph unavailable')}"
+    hits = res.get("hits") or []
+    parts = [f"🔎 Code search: {res.get('query')} (matchCount={res.get('total', 0)})",
+             "=" * 40]
+    if not hits:
+        parts.append("(no hits)")
+    for h in hits[:8]:
+        parts.append(f"- {h.get('repo', '')}:{h.get('path', '')}")
+        snippet = (h.get('snippet') or '').replace("\n", " ⏎ ")[:200]
+        parts.append(f"    {snippet}")
+    return "\n".join(parts)
+
+
+async def _tool_osint_cert_transparency(args: dict) -> str:
+    """Enumerate subdomains via crt.sh Certificate Transparency."""
+    from backend import osint_recon
+
+    domain = args.get("domain", "").strip()
+    limit = int(args.get("limit", 100))
+    if not domain:
+        return "❌ domain is required"
+    try:
+        res = await osint_recon.cert_transparency(domain, limit=limit)
+    except Exception as e:
+        return f"❌ Cert transparency failed: {e}"
+
+    if not res.get("ok"):
+        return f"❌ {res.get('error', 'crt.sh unavailable')}"
+    subs = res.get("subdomains") or []
+    parts = [f"🌐 Cert Transparency: {res.get('domain')} ({res.get('count', 0)} unique)",
+             "=" * 40]
+    if not subs:
+        parts.append("(no subdomains)")
+    shown = " ".join(subs[:40]) if len(subs) <= 40 else " ".join(subs[:30]) + f" … ({len(subs) - 30} more)"
+    parts.append(shown)
+    return "\n".join(parts)
+
+
+async def _tool_osint_sigstore(args: dict) -> str:
+    """Look up signing identities in Sigstore Rekor."""
+    from backend import osint_recon
+
+    email = args.get("email", "").strip()
+    sha = args.get("sha256", "").strip()
+    try:
+        res = await osint_recon.sigstore_lookup(email=email, sha256=sha)
+    except Exception as e:
+        return f"❌ Sigstore lookup failed: {e}"
+
+    if not res.get("ok"):
+        return f"❌ {res.get('error', 'Rekor unavailable')}"
+    entries = res.get("entries") or []
+    parts = [f"🛡️ Sigstore Rekor: {res.get('query')} — {res.get('count', 0)} signing entries",
+             "=" * 40]
+    if not entries:
+        parts.append(res.get("note", "(no entries)"))
+    for e in entries[:10]:
+        ts = e.get("integrated_time")
+        parts.append(f"- logIndex={e.get('log_index', '?')} integrated={ts} uuid={str(e.get('uuid', ''))[:16]}")
+    return "\n".join(parts)
+
+
+async def _tool_osint_urlscan(args: dict) -> str:
+    """Search public urlscan.io scans for a domain."""
+    from backend import osint_recon
+
+    domain = args.get("domain", "").strip()
+    size = int(args.get("size", 5))
+    if not domain:
+        return "❌ domain is required"
+    try:
+        res = await osint_recon.urlscan_search(domain, size=size)
+    except Exception as e:
+        return f"❌ urlscan search failed: {e}"
+
+    if not res.get("ok"):
+        return f"❌ {res.get('error', 'urlscan.io unavailable')}"
+    results = res.get("results") or []
+    parts = [f"🌍 urlscan.io: domain:{res.get('domain')} — total={res.get('total', 0)}",
+             "=" * 40]
+    if not results:
+        parts.append("(no scans)")
+    for r in results[:10]:
+        parts.append(f"- {r.get('url', '')}")
+        parts.append(f"    {r.get('ip', '')} · {r.get('country', '')} · {r.get('server', '')} · {r.get('asn', '')}")
+    return "\n".join(parts)
+
+
+async def _tool_osint_mac_lookup(args: dict) -> str:
+    """Identify the vendor of a MAC address (OUI lookup)."""
+    from backend import osint_recon
+
+    mac = args.get("mac", "").strip()
+    if not mac:
+        return "❌ mac is required"
+    try:
+        res = await osint_recon.mac_vendor_lookup(mac)
+    except Exception as e:
+        return f"❌ MAC lookup failed: {e}"
+
+    if not res.get("ok"):
+        return f"❌ {res.get('error', 'maclookup unavailable')}"
+    if not res.get("found"):
+        return f"MAC {res.get('mac', mac)} → no vendor recorded (prefix not in OUI db)"
+    parts = [
+        "📶 MAC vendor",
+        "=" * 40,
+        f"mac:     {res.get('mac', '')}",
+        f"vendor:  {res.get('vendor', '')}",
+        f"address: {res.get('address', '') or '—'}",
+        f"updated: {res.get('updated', '') or '—'}",
+    ]
+    return "\n".join(parts)
 
 
 # ════════════════════════════════════════════════════════════════

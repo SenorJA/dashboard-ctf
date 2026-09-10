@@ -13,6 +13,8 @@ import json
 import os
 import sys
 import io
+import csv
+import html
 import shlex
 import asyncio
 import logging
@@ -44,7 +46,7 @@ if _project_root not in sys.path:
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File, Form, Request, Body, Query
 from dataclasses import asdict
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -992,6 +994,147 @@ async def findings_stats():
         "targets": sorted(targets)
     })
 
+
+# ════════════════════════════════════════════════════════════════
+#  FINDINGS EXPORT (CSV / SARIF 2.1.0 / self-contained HTML)
+# ════════════════════════════════════════════════════════════════
+
+_findings_sev_rank = {"info": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}
+
+
+def _export_findings_csv(data: list) -> str:
+    buf = io.StringIO()
+    fieldnames = ["tool", "target", "type", "severity", "title", "detail",
+                  "port", "protocol", "service", "version", "path", "created_at"]
+    writer = csv.DictWriter(buf, fieldnames=fieldnames, extrasaction="ignore")
+    writer.writeheader()
+    for f in data:
+        writer.writerow({k: f.get(k, "") for k in fieldnames})
+    return buf.getvalue()
+
+
+def _export_findings_sarif(data: list) -> str:
+    rules = {}
+    results = []
+    for f in data:
+        title = f.get("title") or f.get("detail") or "Finding"
+        if title not in rules:
+            sev = f.get("severity", "info")
+            rules[title] = {
+                "id": f"F-{len(rules) + 1}",
+                "name": title,
+                "shortDescription": {"text": str(title)[:500]},
+                "defaultConfiguration": {"level": _sarif_level(sev)},
+                "properties": {"severity": sev, "tool": f.get("tool", ""), "type": f.get("type", "")},
+            }
+        rule = rules[title]
+        sev = f.get("severity", "info")
+        message = str(f.get("detail") or title)
+        location = {}
+        if f.get("path") or f.get("target"):
+            uri = f.get("path") or ""
+            loc = {"logicalLocations": [{"fullyQualifiedName": str(f.get("target") or uri)}]}
+            if uri:
+                loc["physicalLocation"] = {"artifactLocation": {"uri": uri}}
+            location = loc
+        results.append({
+            "ruleId": rule["id"],
+            "level": _sarif_level(sev),
+            "message": {"text": message[:500]},
+            "locations": [location] if location else [],
+            "properties": {"target": f.get("target", ""), "tool": f.get("tool", ""), "port": f.get("port", "")},
+        })
+    doc = {
+        "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+        "version": "2.1.0",
+        "runs": [{
+            "tool": {"driver": {"name": "MIRV", "informationUri": "https://github.com/SenorJA/dashboard-ctf",
+                                 "rules": list(rules.values())}},
+            "results": results,
+        }],
+    }
+    return json.dumps(doc, indent=2)
+
+
+def _sarif_level(severity: str) -> str:
+    if severity in ("critical", "high"):
+        return "error"
+    if severity == "medium":
+        return "warning"
+    return "note"
+
+
+def _export_findings_html(data: list) -> str:
+    order = ["critical", "high", "medium", "low", "info"]
+    rows = []
+    for f in sorted(data, key=lambda x: _findings_sev_rank.get(x.get("severity", "info"), 0), reverse=True):
+        sev = f.get("severity", "info")
+        badge = {"critical": ("#e11d48", "Critical"), "high": ("#f97316", "High"),
+                 "medium": ("#eab308", "Medium"), "low": ("#3b82f6", "Low"), "info": ("#64748b", "Info")}
+        color, label = badge.get(sev, ("#64748b", "Info"))
+        esc = html.escape
+        rows.append(
+            f'<tr><td>{esc(f.get("created_at", ""))}</td>'
+            f'<td>{esc(f.get("tool", ""))}</td>'
+            f'<td>{esc(f.get("target", ""))}</td>'
+            f'<td>{esc(f.get("type", ""))}</td>'
+            f'<td><span class="badge" style="background:{color}">{label}</span></td>'
+            f'<td>{esc(f.get("title", ""))}</td>'
+            f'<td>{esc(f.get("detail", ""))[:250]}</td>'
+            f'<td>{esc(f.get("port", ""))} {esc(f.get("protocol", ""))}</td>'
+            f'<td>{esc(f.get("service", ""))} {esc(f.get("version", ""))}</td>'
+            f'<td><code>{esc(f.get("path", ""))}</code></td></tr>'
+        )
+    by_sev = {s: sum(1 for f in data if f.get("severity") == s) for s in order}
+    summary = "".join(
+        f'<span class="chip"><b style="color:{badge[s][0]}">{by_sev[s]}</b> {badge[s][1]}</span>'
+        for s in order if by_sev[s]
+    )
+    stamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+    return f"""<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<title>MIRV — Findings Report</title>
+<style>
+  body {{ font-family: 'IBM Plex Mono', Consolas, monospace; background: #0a0e14; color: #c9d1d9; padding: 24px; }}
+  h1 {{ color: #22d3ee; font-size: 20px; }}
+  .meta {{ color: #8b949e; font-size: 12px; margin-bottom: 16px; }}
+  .chip {{ display: inline-block; background: #161b22; border: 1px solid #30363d; border-radius: 999px;
+           padding: 4px 12px; margin-right: 8px; font-size: 12px; }}
+  table {{ width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 12px; }}
+  th, td {{ border: 1px solid #30363d; padding: 6px 10px; text-align: left; vertical-align: top; }}
+  th {{ background: #161b22; color: #8b949e; }}
+  .badge {{ display: inline-block; color: #fff; border-radius: 4px; padding: 2px 8px; font-size: 10px; font-weight: 700; }}
+  code {{ background: #161b22; border-radius: 4px; padding: 1px 6px; color: #7ee787; }}
+  tr:nth-child(even) {{ background: #0d1117; }}
+</style></head><body>
+<h1>MIRV — Security Findings Report</h1>
+<div class="meta">Generated {stamp} · {len(data)} findings · {summary}</div>
+<table><thead><tr><th>Timestamp</th><th>Tool</th><th>Target</th><th>Type</th><th>Severity</th><th>Title</th><th>Detail</th><th>Port</th><th>Service</th><th>Path</th></tr></thead>
+<tbody>{''.join(rows)}</tbody></table>
+</body></html>"""
+
+
+@app.get("/api/findings/export")
+async def api_findings_export(format: str = "csv"):
+    """Export all findings as CSV, SARIF 2.1.0, or self-contained HTML."""
+    data = db.list_findings()
+    if data is None:
+        data = []
+    fmt = format.strip().lower()
+    if fmt == "csv":
+        content = _export_findings_csv(data)
+        return Response(content=content, media_type="text/csv",
+                        headers={"Content-Disposition": "attachment; filename=mirv-findings.csv"})
+    if fmt == "sarif":
+        content = _export_findings_sarif(data)
+        return Response(content=content, media_type="application/sarif+json",
+                        headers={"Content-Disposition": "attachment; filename=mirv-findings.sarif"})
+    if fmt == "html":
+        content = _export_findings_html(data)
+        return Response(content=content, media_type="text/html",
+                        headers={"Content-Disposition": "attachment; filename=mirv-findings.html"})
+    return JSONResponse({"ok": False, "error": "format must be csv, sarif or html"}, status_code=400)
+
 # ════════════════════════════════════════════════════════════════
 #  HTTP HEADERS SCANNER
 # ════════════════════════════════════════════════════════════════
@@ -1676,6 +1819,8 @@ from backend.siem import (
     delete_rule as siem_delete_rule,
     get_alerts as siem_get_alerts,
     report_to_mirv_findings as siem_to_mirv,
+    set_webhook_url as siem_set_webhook,
+    get_webhook_url as siem_get_webhook,
 )
 
 
@@ -1758,6 +1903,41 @@ async def api_siem_stats():
         return JSONResponse({"ok": True, **stats})
     except Exception as e:
         logger.error("[siem stats] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+class SIEMWebhookRequest(BaseModel):
+    """External webhook (Slack/Telegram/Teams) for alert forwarding."""
+    url: str
+
+
+@app.get("/api/siem/webhook")
+async def api_siem_webhook_get():
+    """Return the configured external alert webhook (URL or null)."""
+    return JSONResponse({"ok": True, "url": siem_get_webhook() or None, "configured": bool(siem_get_webhook())})
+
+
+@app.post("/api/siem/webhook")
+async def api_siem_webhook_set(body: SIEMWebhookRequest):
+    """Configure the external alert webhook. Alerts fire POST JSON to it."""
+    try:
+        url = siem_set_webhook(body.url)
+        return JSONResponse({"ok": True, "url": url, "configured": bool(url)})
+    except ValueError as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+    except Exception as e:
+        logger.error("[siem webhook set] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.delete("/api/siem/webhook")
+async def api_siem_webhook_clear():
+    """Disable external alert forwarding."""
+    try:
+        siem_set_webhook(None)
+        return JSONResponse({"ok": True, "url": None, "configured": False})
+    except Exception as e:
+        logger.error("[siem webhook clear] %s", e)
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 
 

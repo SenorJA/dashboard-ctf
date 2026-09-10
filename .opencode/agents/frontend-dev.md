@@ -17,7 +17,7 @@ Your focus is on writing clean, highly performant, and maintainable frontend cod
 - **Persistence**: localStorage (connections, scripts, payloads, settings, i18n)
 - **Theme**: SIGINT dark theme (warm amber `#d4a843`, teal `#3b8f8a`, deep charcoal `#0b0e14`)
 - **Fonts**: `'IBM Plex Mono'` (monospace) for all UI, `'Inter'` for sans-serif
-- **Devices**: Hak5 (Bash Bunny, OMG Cable, M5 Stack, Shark Jack) — payload editor & management
+- **Devices**: Hak5 (Bash Bunny, OMG Cable, M5 Stack, Shark Jack, Packet Squirrel Mark II, Shark Jack Display) — payload editor & management
 
 ## Code Architecture (Single-Page Application)
 

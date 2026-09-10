@@ -155,7 +155,7 @@
 4. **✅ Supabase persistence** — Datos persistentes en la nube
 5. **✅ Exportación PDF** — ReportLab integration
 6. **✅ i18n EN/ES** — Interfaz en dos idiomas
-7. **✅ Hak5 Payload Editor** — Bash Bunny, OMG, M5, Shark Jack
+7. **✅ Hak5 Payload Editor** — Bash Bunny, OMG, M5, Shark Jack, Packet Squirrel Mark II, Shark Jack Display
 8. **✅ Bounty Reports** — Plantillas para bug bounty
 9. **✅ n8n Automation** — Integración con workflows n8n
 10. **✅ Interrupt (Ctrl+C)** — Botón para detener procesos en SSH

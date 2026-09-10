@@ -234,6 +234,46 @@ real antes de cerrar.
 
 ---
 
+## ✅ Improvements pack — 5 features (10 Sep 2026)
+
+Las 6 ideas de mejora solicitadas: 5 implementadas en esta tanda (+ los 2 dispositivos Hak5
+ya cerrados antes).
+
+- [x] **Hak5 tools** (editor de payloads): plantillas por dispositivo (`window.insertHak5Template`,
+  ídem 7 templates para Bunny/OMG/M5/Shark Jack/Squirrel/Shark Display), validador por lenguaje
+  (`window.validateHak5Payload` — DuckyScript/bash/JS/MicroPython, warning no-bloqueante),
+  descarga (`window.downloadHak5Payload`, blob con `.ext` del device). Botones `data-action`
+  `tpl-hak5`/`val-hak5`/`dl-hak5` + `ACTION_MAP`; `populateHak5Templates()` en `switchHak5Device`
+  e `initHak5`
+- [x] **Dashboard Home** 🏠: tab `tab-home` (28→29 tabs). `refreshDashboard()` con 8 fetches
+  paralelos (health, findings/stats, findings, coverage/summary, siem/stats, system/stats,
+  system/disk, intel alerts) + wrapper `switchTab('home')`. KPIs: backend health+uptime,
+  findings total+high+crit+targets+tools, coverage pass-ratio, SIEM events+alerts, intel alerts,
+  CPU/RAM/disco; quick actions (data-action="tab") + toolkit strip
+- [x] **Findings export estructurado**: `GET /api/findings/export?format=csv|sarif|html` —
+  SARIF **2.1.0** (driver MIRV, severity→level error/warning/note), CSV plano, HTML
+  self-contained (badges de severidad + summary chips). Botones ⬇ CSV/SARIF/HTML en tab
+  Findings + `downloadFindingsExport(format)` (blob download, Content-Disposition). 400 para
+  format inválido
+- [x] **SIEM webhook externo**: `set_webhook_url`/`get_webhook_url` en `siem.py` (solo
+  http/https, string vacío = clear, lock thread-safe) + `_notify_webhook` fire-and-forget
+  disparada desde `_create_alert` (urllib daemon thread, 5 s timeout, payload JSON `siem-alert`
+  con id/rule_id/rule_name/severity/title/detail/timestamp/event_ids). Endpoints
+  `GET/POST/DELETE /api/siem/webhook` (400 URL inválida). Card UI en tab SIEM con input +
+  save/clear + badge de estado, refresco dentro de `refreshSIEM`
+- [x] **MCP OSINT #3**: `mcp_server.py` expone las 5 tools de la Ronda #3
+  (`vulnforge_osint_code_search`, `vulnforge_osint_cert_transparency`, `vulnforge_osint_sigstore`,
+  `vulnforge_osint_urlscan`, `vulnforge_osint_mac_lookup`) — definiciones TOOLS + handlers
+  `_tool_osint_*` que delegan en `osint_recon`
+- [x] Tests: **13 SIEM webhook** (validación, send JSON con mock síncrono de thread, disparo
+  desde correlación) + **12 export endpoints** (3 formatos, con datos, 400) + **13 MCP OSINT**
+  (routing + tools/list). Suites afectadas: **484 passed**. Falls pre-existente ambiental en
+  `test_main_gaps.py::TestMobileApi::test_delete_not_found` (usa `db.delete_mobile_apk` real,
+  sin relación con estas features)
+- [x] UI checked: `node --check main.v2.js` ✅; timings: DOMContentLoaded
+
+---
+
 ## 🚧 Pendientes
 
 ### Prioridad ALTA

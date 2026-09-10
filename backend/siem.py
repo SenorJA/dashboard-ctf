@@ -18,8 +18,10 @@ All functions are synchronous and thread-safe (module-level lock).
 """
 
 import uuid
+import json
 import logging
 import threading
+import urllib.request
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timedelta, timezone
 from typing import Any, Literal
@@ -80,6 +82,30 @@ _events: dict[str, SIEMEvent] = {}
 _alerts: dict[str, SIEMAlert] = {}
 _rules: dict[str, SIEMRule] = {}
 _lock = threading.Lock()
+
+# ── External webhook (Slack/Telegram/Teams) forwarding ──
+_webhook_url: str | None = None
+_webhook_lock = threading.Lock()
+
+
+def set_webhook_url(url: str | None) -> str | None:
+    """Set (or clear, with None) the external notification webhook URL."""
+    global _webhook_url
+    if url is not None:
+        url = url.strip()
+        if not url:
+            return set_webhook_url(None)
+        if not (url.startswith("http://") or url.startswith("https://")):
+            raise ValueError("Webhook URL must start with http:// or https://")
+    with _webhook_lock:
+        _webhook_url = url or None
+    return _webhook_url
+
+
+def get_webhook_url() -> str | None:
+    """Return the configured webhook URL (if any)."""
+    with _webhook_lock:
+        return _webhook_url
 
 
 # ════════════════════════════════════════════════════════════════
@@ -665,6 +691,41 @@ def _create_alert(
         "SIEM ALERT: id=%s rule=%s sev=%s title=%s",
         alert.id[:8], rule.id, rule.severity, title,
     )
+
+    _notify_webhook(alert)
+
+
+def _notify_webhook(alert: SIEMAlert) -> None:
+    """Forward an alert to the configured external webhook (fire-and-forget)."""
+    url = get_webhook_url()
+    if not url:
+        return
+    payload = json.dumps({
+        "type": "siem-alert",
+        "id": alert.id,
+        "rule_id": alert.rule_id,
+        "rule_name": alert.rule_name,
+        "severity": alert.severity,
+        "title": alert.title,
+        "detail": alert.detail,
+        "timestamp": alert.timestamp,
+        "event_ids": alert.event_ids,
+    }).encode("utf-8")
+
+    def _send() -> None:
+        try:
+            req = urllib.request.Request(
+                url,
+                data=payload,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=5):
+                pass
+        except Exception as e:
+            logger.warning("SIEM webhook notification failed: %s", e)
+
+    threading.Thread(target=_send, name="siem-webhook", daemon=True).start()
 
 
 # ════════════════════════════════════════════════════════════════
