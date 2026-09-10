@@ -1123,6 +1123,7 @@ class TestMobileApi:
     def test_delete_not_found(self, client: TestClient):
         with (
             patch("main.mobile_delete_apk", return_value=False),
+            patch("main.db.delete_mobile_apk", return_value=False),
             patch("main.os.listdir", return_value=[]),
         ):
             r = client.delete("/api/mobile/apks/nope")
