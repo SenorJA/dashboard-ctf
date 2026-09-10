@@ -6508,6 +6508,14 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         "osint-pwned-title":   { en: '🛡️ Pwned Password', es: '🛡️ Contraseña Filtrada' },
         "osint-urlhaus-title": { en: '☠️ URLhaus',     es: '☠️ URLhaus' },
         "osint-page-title":    { en: '📄 Page Snapshot', es: '📄 Captura de Página' },
+        "osint-code-title":     { en: '🔢 Code Search',   es: '🔢 Búsqueda de Código' },
+        "osint-cert-title":     { en: '📜 Cert Transparency', es: '📜 Transparencia de Certificados' },
+        "osint-sigstore-title": { en: '🪪 Sigstore Rekor', es: '🪪 Sigstore Rekor' },
+        "osint-urlscan-title":  { en: '🔎 urlscan.io',    es: '🔎 urlscan.io' },
+        "osint-mac-title":      { en: '📡 MAC Vendor',    es: '📡 Fabricante MAC' },
+        "osint-enumerate":      { en: 'Enumerate',        es: 'Enumerar' },
+        "osint-query":          { en: 'Query',            es: 'Consultar' },
+        "osint-scan":           { en: 'Scan History',     es: 'Historial de Escaneos' },
         "osint-resolve":       { en: 'Resolve',         es: 'Resolver' },
         "osint-extract":       { en: 'Extract',         es: 'Extraer' },
         "osint-corcanalyze":     { en: 'Analyze',         es: 'Analizar' },
@@ -11157,6 +11165,172 @@ Reglas:
         }
     };
 
+    // Ronda API-based #3: Sourcegraph · crt.sh · Sigstore · urlscan.io · MAC
+    // ── 15. Code Search (Sourcegraph) ────────────────────────────
+    window.osintCode = async function () {
+        const query = (document.getElementById('osint-code-input')?.value || '').trim();
+        if (!query) { showToast('🕵️ Enter a search string'); return; }
+        _osintLoading('osint-code-result', '🕵️ Searching public code...');
+        showToast('🕵️ Searching code...');
+        try {
+            const data = await _osintFetch('/api/osint/code', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ query })
+            });
+            if (!data.ok) { _osintRenderError('osint-code-result', data.error || 'Code search failed'); showToast('🕵️ Code search failed'); return; }
+            const hits = (data.hits || []).map(h => `
+                <div class="border border-cyber/40 rounded p-2">
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="text-[10px] text-neon font-mono truncate">${_escH(h.repo)}</span>
+                    </div>
+                    <div class="text-[10px] text-gray-500 font-mono truncate mb-1">${_escH(h.path)}</div>
+                    <div class="text-[10px] text-gray-300 whitespace-pre-wrap break-all leading-snug max-h-20 overflow-y-auto">${_escH(h.snippet || '')}</div>
+                </div>`).join('') || '<div class="text-gray-500 text-xs">no hits</div>';
+            _osintRender('osint-code-result', `
+                <div class="bg-void border border-cyber rounded p-3 text-xs">
+                    <div class="mb-2 flex items-center justify-between">
+                        <span class="text-neon font-semibold">🔢 Public code</span>
+                        <span class="text-[10px] text-gray-500 font-mono">${_escH(data.returned)}/${_escH(data.total)} hits</span>
+                    </div>
+                    <div class="space-y-1.5">${hits}</div>
+                </div>`);
+            showToast('🕵️ Code search complete');
+        } catch (err) {
+            _osintRenderError('osint-code-result', 'Network error: ' + (err.message || err));
+            showToast('🕵️ Code search failed');
+        }
+    };
+
+    // ── 16. Cert Transparency (crt.sh) ─────────────────────────────
+    window.osintCert = async function () {
+        const domain = (document.getElementById('osint-cert-input')?.value || '').trim();
+        if (!domain) { showToast('🕵️ Enter a domain'); return; }
+        _osintLoading('osint-cert-result', '🕵️ Querying Certificate Transparency...');
+        showToast('🕵️ Querying crt.sh...');
+        try {
+            const data = await _osintFetch('/api/osint/cert', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ domain })
+            });
+            if (!data.ok) { _osintRenderError('osint-cert-result', data.error || 'CT query failed'); showToast('🕵️ CT query failed'); return; }
+            const subs = (data.subdomains || []).map(s =>
+                `<div class="text-[10px] text-gray-300 font-mono px-1 py-0.5 bg-deep rounded">${_escH(s)}</div>`).join('') || '<div class="text-gray-500 text-xs">no subdomains found</div>';
+            _osintRender('osint-cert-result', `
+                <div class="bg-void border border-cyber rounded p-3 text-xs">
+                    <div class="mb-2 flex items-center justify-between">
+                        <span class="text-neon font-semibold">📜 ${_escH(data.domain)}</span>
+                        <span class="text-[10px] text-gray-500 font-mono">${_escH(data.total_found)} subdomains</span>
+                    </div>
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-1">${subs}</div>
+                </div>`);
+            showToast('🕵️ CT enumeration complete');
+        } catch (err) {
+            _osintRenderError('osint-cert-result', 'Network error: ' + (err.message || err));
+            showToast('🕵️ CT query failed');
+        }
+    };
+
+    // ── 17. Sigstore Rekor ─────────────────────────────────────────
+    window.osintSigstore = async function () {
+        const email = (document.getElementById('osint-sigstore-email')?.value || '').trim();
+        const sha256 = (document.getElementById('osint-sigstore-hash')?.value || '').trim();
+        if (!email && !sha256) { showToast('🕵️ Enter an email or sha256'); return; }
+        const body = email ? { email } : { sha256 };
+        _osintLoading('osint-sigstore-result', '🕵️ Querying Rekor transparency log...');
+        showToast('🕵️ Querying Sigstore...');
+        try {
+            const data = await _osintFetch('/api/osint/sigstore', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            if (!data.ok) { _osintRenderError('osint-sigstore-result', data.error || 'Rekor query failed'); showToast('🕵️ Rekor query failed'); return; }
+            const rows = (data.entries || []).map(e => `
+                <div class="flex items-center justify-between gap-2 border-t border-cyber/30 pt-1">
+                    <span class="text-[10px] text-gray-300 font-mono truncate">${_escH(e.uuid || '—')}</span>
+                    <span class="text-[10px] text-gray-500 whitespace-nowrap">${e.integrated_time != null ? new Date(e.integrated_time * 1000).toISOString().slice(0, 10) : '—'}</span>
+                </div>`).join('');
+            _osintRender('osint-sigstore-result', `
+                <div class="bg-void border border-cyber rounded p-3 text-xs">
+                    <div class="mb-2 flex items-center justify-between">
+                        <span class="text-neon font-semibold">🪪 Rekor</span>
+                        <span class="text-[10px] text-gray-500 font-mono">${_escH(data.count)} entries</span>
+                    </div>
+                    ${data.count === 0 ? `<div class="text-gray-500 text-xs">${_escH(data.note || 'No signing entries found.')}</div>` : `<div class="space-y-1">${rows}</div>`}
+                </div>`);
+            showToast('🕵️ Rekor query complete');
+        } catch (err) {
+            _osintRenderError('osint-sigstore-result', 'Network error: ' + (err.message || err));
+            showToast('🕵️ Rekor query failed');
+        }
+    };
+
+    // ── 18. urlscan.io ─────────────────────────────────────────────
+    window.osintUrlscan = async function () {
+        const domain = (document.getElementById('osint-urlscan-input')?.value || '').trim();
+        if (!domain) { showToast('🕵️ Enter a domain'); return; }
+        _osintLoading('osint-urlscan-result', '🕵️ Searching public scans...');
+        showToast('🕵️ Searching urlscan.io...');
+        try {
+            const data = await _osintFetch('/api/osint/urlscan', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ domain })
+            });
+            if (!data.ok) { _osintRenderError('osint-urlscan-result', data.error || 'urlscan search failed'); showToast('🕵️ urlscan search failed'); return; }
+            const rows = (data.results || []).map(r => `
+                <div class="border border-cyber/40 rounded p-2">
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="text-[10px] text-neon font-mono truncate">${_escH(r.domain || '')}</span>
+                        <span class="text-[10px] text-gray-500 whitespace-nowrap">${_escH(r.ip || '')}</span>
+                    </div>
+                    ${r.url ? `<div class="text-[10px] text-gray-400 truncate">${_escH(r.url)}</div>` : ''}
+                    <div class="text-[9px] text-gray-600">${_escH(r.country || '')} ${_escH(r.server || '')} ${_escH(r.asn || '')}</div>
+                </div>`).join('') || '<div class="text-gray-500 text-xs">no public scans found</div>';
+            _osintRender('osint-urlscan-result', `
+                <div class="bg-void border border-cyber rounded p-3 text-xs">
+                    <div class="mb-2 flex items-center justify-between">
+                        <span class="text-neon font-semibold">🔎 ${_escH(data.domain)}</span>
+                        <span class="text-[10px] text-gray-500 font-mono">${_escH(data.returned)} results</span>
+                    </div>
+                    <div class="space-y-1.5">${rows}</div>
+                </div>`);
+            showToast('🕵️ urlscan search complete');
+        } catch (err) {
+            _osintRenderError('osint-urlscan-result', 'Network error: ' + (err.message || err));
+            showToast('🕵️ urlscan search failed');
+        }
+    };
+
+    // ── 19. MAC Vendor (maclookup) ─────────────────────────────────
+    window.osintMac = async function () {
+        const mac = (document.getElementById('osint-mac-input')?.value || '').trim();
+        if (!mac) { showToast('🕵️ Enter a MAC address'); return; }
+        _osintLoading('osint-mac-result', '🕵️ Resolving vendor...');
+        showToast('🕵️ Resolving MAC vendor...');
+        try {
+            const data = await _osintFetch('/api/osint/mac', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ mac })
+            });
+            if (!data.ok) { _osintRenderError('osint-mac-result', data.error || 'MAC lookup failed'); showToast('🕵️ MAC lookup failed'); return; }
+            _osintRender('osint-mac-result', `
+                <div class="bg-void border border-cyber rounded p-3 text-xs">
+                    <div class="mb-1 flex items-center justify-between">
+                        <span class="text-neon font-mono font-semibold">${_escH(data.mac || mac)}</span>
+                        ${data.found
+                            ? '<span class="text-green-400 text-[10px]">✓ vendor found</span>'
+                            : '<span class="text-gray-500 text-[10px]">✗ unknown prefix</span>'}
+                    </div>
+                    ${data.vendor ? `<div class="text-gray-200 font-semibold">${_escH(data.vendor)}</div>` : ''}
+                    ${data.address ? `<div class="text-[10px] text-gray-500 mt-1">${_escH(data.address)}</div>` : ''}
+                    ${data.note ? `<div class="text-[10px] text-gray-500 mt-1">${_escH(data.note)}</div>` : ''}
+                </div>`);
+            showToast('🕵️ MAC lookup complete');
+        } catch (err) {
+            _osintRenderError('osint-mac-result', 'Network error: ' + (err.message || err));
+            showToast('🕵️ MAC lookup failed');
+        }
+    };
+
     // ── 9. Instagram Recon ─────────────────────────────────────────
     window.osintInstagram = async function () {
         const raw = (document.getElementById('osint-instagram-input')?.value || '').trim();
@@ -11462,6 +11636,12 @@ Reglas:
         ['osint-pwned-input', 'osintPwned'],
         ['osint-urlhaus-input', 'osintUrlhaus'],
         ['osint-page-input', 'osintPage'],
+        ['osint-code-input', 'osintCode'],
+        ['osint-cert-input', 'osintCert'],
+        ['osint-sigstore-email', 'osintSigstore'],
+        ['osint-sigstore-hash', 'osintSigstore'],
+        ['osint-urlscan-input', 'osintUrlscan'],
+        ['osint-mac-input', 'osintMac'],
         ['osint-correlate-input', 'osintCorrelate']
     ];
     _osintEnterMap.forEach(([inputId, fnName]) => {

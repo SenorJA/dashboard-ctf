@@ -34,17 +34,22 @@ from backend.osint_recon import (  # noqa: E402
     _fetch,
     _parse_ddg_results,
     _parse_json,
+    cert_transparency,
     check_email_breach,
+    code_search,
     dns_recon,
     github_recon,
     google_dorking,
     ip_geolocation,
+    mac_vendor_lookup,
     page_snapshot,
     phone_number_lookup,
     pwned_passwords,
     rdap_whois,
     reverse_image_search,
+    sigstore_lookup,
     urlhaus_lookup,
+    urlscan_search,
     username_recon,
     verify_email,
     wayback_machine_lookup,
@@ -1428,3 +1433,318 @@ def test_page_endpoint_500(client):
                side_effect=RuntimeError("boom")):
         resp = client.post("/api/osint/page", json={"url": "https://example.com/"})
     assert resp.status_code == 500
+
+
+# ══════════════════════════════════════════════════════════════
+#  Ronda API-based #3 — code_search / cert / sigstore / urlscan / MAC
+# ══════════════════════════════════════════════════════════════
+
+def _sse(data_lines):
+    return "\n".join("data: " + d for d in data_lines) + "\n"
+
+
+async def test_code_search_parses_sse_stream():
+    sse = _sse([
+        '[{"type":"content","repository":"github.com/a/b","path":"src/x.txt",'
+        '"lineMatches":[{"line":"secret = 123"}]}]',
+        '[{"type":"path","repository":"github.com/a/b","path":"other.txt"}]',
+        '{"type":"progress","done":true,"matchCount":12}',
+    ])
+    with patch("backend.osint_recon._fetch",
+               return_value={"ok": True, "status": 200, "text": sse}) as m:
+        r = await code_search("example.com")
+    assert r["ok"] is True and r["returned"] == 1 and r["total"] == 12
+    assert r["hits"][0]["repo"] == "github.com/a/b" and r["hits"][0]["path"] == "src/x.txt"
+    assert "secret = 123" in r["hits"][0]["snippet"]
+    m.assert_awaited_once()
+    assert "sourcegraph.com/.api/search/stream" in m.await_args.args[0]
+
+
+async def test_code_search_lenient_events_and_limit_cap():
+    sse = "\n".join([
+        "event: progress",
+        "data: not-json-{{",
+        'data: [{"type":"content","repository":"r","path":"p","lineMatches":[{"line":"l1"},"raw"]}]',
+        'data: [{"type":"content","repository":"r2","path":"p2","lineMatches":"bad"}]',
+        'data: {"type":"progress","done":false,"matchCount":99}',
+        'data: {"type":"progress","done":true,"matchCount":7}',
+    ])
+    with patch("backend.osint_recon._fetch",
+               return_value={"ok": True, "status": 200, "text": sse}):
+        r = await code_search("example.com")
+    assert r["ok"] is True and r["returned"] == 2 and r["total"] == 7
+    assert r["hits"][0]["repo"] == "r" and "l1; raw" in r["hits"][0]["snippet"]
+    assert r["hits"][1]["repo"] == "r2" and r["hits"][1]["snippet"] == "bad"
+    with patch("backend.osint_recon._fetch",
+               return_value={"ok": True, "status": 200, "text": sse}):
+        r1 = await code_search("example.com", limit=1)
+    assert r1["returned"] == 1 and r1["hits"][0]["repo"] == "r"
+
+
+async def test_code_search_validation_and_failure():
+    assert (await code_search(""))["ok"] is False
+    assert (await code_search("x" * 201))["ok"] is False
+    assert (await code_search("a\nb"))["ok"] is False
+    assert (await code_search("a\rb"))["ok"] is False
+    with patch("backend.osint_recon._fetch",
+               return_value={"ok": False, "status": 429, "error": "HTTP 429", "body": ""}):
+        r = await code_search("example.com")
+    assert r["ok"] is False and "429" in r["error"]
+    with patch("backend.osint_recon._fetch",
+               return_value={"ok": False, "status": 500, "error": "HTTP 500", "body": ""}):
+        assert (await code_search("example.com"))["ok"] is False
+
+
+async def test_cert_transparency_dedupe_wildcards_and_filter():
+    payload = json.dumps([
+        {"name_value": "example.com\nwww.example.com\n*.www.example.com", "id": 1},
+        {"name_value": "example.com\napi.example.com", "id": 2},
+        {"name_value": "other.com", "id": 3},
+        "junk",
+    ])
+    with patch("backend.osint_recon._fetch",
+               return_value={"ok": True, "status": 200, "text": payload}):
+        r = await cert_transparency("example.com")
+    assert r["ok"] is True and r["count"] == 3 and r["total_found"] == 3
+    assert set(r["subdomains"]) == {"example.com", "www.example.com", "api.example.com"}
+    assert "other.com" not in r["subdomains"]
+    with patch("backend.osint_recon._fetch",
+               return_value={"ok": True, "status": 200, "text": payload}):
+        r = await cert_transparency("example.com", limit=2)
+    assert len(r["subdomains"]) == 2
+
+
+async def test_cert_transparency_errors():
+    assert (await cert_transparency(""))["ok"] is False
+    assert (await cert_transparency("exa mple"))["ok"] is False
+    with patch("backend.osint_recon._fetch",
+               return_value={"ok": True, "status": 200, "text": json.dumps({"oops": True})}):
+        r = await cert_transparency("example.com")
+    assert r["ok"] is False and "crt.sh" in r["error"]
+    with patch("backend.osint_recon._fetch",
+               return_value={"ok": False, "status": 502, "error": "HTTP 502", "body": ""}):
+        r = await cert_transparency("example.com")
+    assert r["ok"] is False
+
+
+async def test_gap_bad_limit_clamps_to_defaults():
+    with patch("backend.osint_recon._fetch",
+               return_value={"ok": True, "status": 200, "text": "[]"}):
+        r = await cert_transparency("example.com", limit="many")
+    assert r["ok"] is True and len(r["subdomains"]) == 0
+    with patch("backend.osint_recon._fetch",
+               return_value={"ok": True, "status": 200, "text": _sse([])}):
+        r = await code_search("example.com", limit="many")
+    assert r["ok"] is True and r["returned"] == 0
+
+
+async def test_sigstore_email_list_and_post_body():
+    with patch("backend.osint_recon._fetch",
+               return_value={"ok": True, "status": 200, "text": "[]"}) as m:
+        r = await sigstore_lookup(email="a@b.co")
+    assert r["ok"] is True and r["count"] == 0 and r["entries"] == []
+    kwargs = m.await_args.kwargs or {}
+    assert kwargs.get("method") == "POST"
+    assert "retrieve" in m.await_args.args[0]
+    assert b"a@b.co" in kwargs.get("data", b"")
+
+
+async def test_sigstore_dict_entries_and_cap():
+    entries = {f"uuid{i}": {"integratedTime": 1700000000 + i, "logIndex": i} for i in range(25)}
+    with patch("backend.osint_recon._fetch",
+               return_value={"ok": True, "status": 200, "text": json.dumps(entries)}):
+        r = await sigstore_lookup(email="a@b.co")
+    assert r["count"] == 25 and len(r["entries"]) == 20
+    assert r["entries"][0]["uuid"] == "uuid5"
+    assert r["entries"][0]["log_index"] == 5
+
+
+async def test_sigstore_hash_list_and_errors():
+    with patch("backend.osint_recon._fetch",
+               return_value={"ok": True, "status": 200,
+                             "text": json.dumps(["not a dict", {"integratedTime": 1}])}):
+        r = await sigstore_lookup(sha256="0" * 64)
+    assert r["ok"] is True and r["count"] == 2 and len(r["entries"]) == 1
+    assert r["entries"][0]["uuid"] is None
+    assert (await sigstore_lookup("", ""))["ok"] is False
+    assert (await sigstore_lookup(email="invalid!!", sha256="zz"))["ok"] is False
+    with patch("backend.osint_recon._fetch",
+               return_value={"ok": True, "status": 200, "text": "[]"}):
+        r = await sigstore_lookup(email="not-an-email", sha256="1" * 64)
+    assert r["ok"] is True and r["query"] == "111111111111…"
+    with patch("backend.osint_recon._fetch",
+               return_value={"ok": False, "status": 404, "error": "HTTP 404", "body": ""}):
+        r = await sigstore_lookup(email="a@b.co")
+    assert r["ok"] is True and r["count"] == 0
+    with patch("backend.osint_recon._fetch",
+               return_value={"ok": False, "status": 500, "error": "HTTP 500", "body": ""}):
+        assert (await sigstore_lookup(sha256="0" * 64))["ok"] is False
+    with patch("backend.osint_recon._fetch",
+               return_value={"ok": True, "status": 200, "text": "not-json"}):
+        assert (await sigstore_lookup(email="a@b.co"))["ok"] is False
+
+
+async def test_urlscan_search_success_and_mixed_results():
+    payload = json.dumps({
+        "total": 42,
+        "results": [
+            {"page": {"page_url": "https://example.com/x", "domain": "example.com", "ip": "1.2.3.4",
+                      "country": "US", "server": "cloudflare", "asn": "AS13335"}, "_id": "abc"},
+            "junk",
+        ],
+    })
+    with patch("backend.osint_recon._fetch",
+               return_value={"ok": True, "status": 200, "text": payload}):
+        r = await urlscan_search("example.com")
+    assert r["ok"] is True and r["total"] == 42 and r["returned"] == 1
+    hit = r["results"][0]
+    assert hit["server"] == "cloudflare" and hit["term"] == "abc" and hit["asn"] == "AS13335"
+
+
+async def test_urlscan_search_clamps_and_errors():
+    with patch("backend.osint_recon._fetch",
+               return_value={"ok": True, "status": 200,
+                             "text": json.dumps({"total": "not-int", "results": []})}):
+        r = await urlscan_search("example.com", size="x")
+    assert r["ok"] is True and r["total"] == 0 and r["returned"] == 0
+    with patch("backend.osint_recon._fetch",
+               return_value={"ok": True, "status": 200,
+                             "text": json.dumps({"results": [{"page": "not-a-dict"}]})}):
+        r = await urlscan_search("example.com")
+    assert r["ok"] is True and r["returned"] == 0
+    with patch("backend.osint_recon._fetch",
+               return_value={"ok": True, "status": 200, "text": json.dumps({"results": []})}):
+        r = await urlscan_search("example.com", size=999)
+    assert r["ok"] is True and r["returned"] == 0
+    assert (await urlscan_search(""))["ok"] is False
+    assert (await urlscan_search("exa mple"))["ok"] is False
+    with patch("backend.osint_recon._fetch",
+               return_value={"ok": True, "status": 200, "text": "not-json"}):
+        assert (await urlscan_search("example.com"))["ok"] is False
+    with patch("backend.osint_recon._fetch",
+               return_value={"ok": False, "status": 429, "error": "HTTP 429", "body": ""}):
+        assert (await urlscan_search("example.com"))["ok"] is False
+
+
+async def test_mac_vendor_success_and_company_fallback():
+    with patch("backend.osint_recon._fetch",
+               return_value={"ok": True, "status": 200,
+                             "text": json.dumps({"success": True, "company": "CIMSYS Inc",
+                                                 "result": "CIMSYS", "address": "KR",
+                                                 "updated": "2015-11-17"})}):
+        r = await mac_vendor_lookup("00:11:22:33:44:55")
+    assert r["ok"] is True and r["found"] is True and r["vendor"] == "CIMSYS Inc"
+    assert r["mac"] == "00:11:22" and r["address"] == "KR" and r["updated"] == "2015-11-17"
+    with patch("backend.osint_recon._fetch",
+               return_value={"ok": True, "status": 200,
+                             "text": json.dumps({"success": True, "result": "Fallback Inc"})}):
+        r = await mac_vendor_lookup("001122334455")
+    assert r["ok"] is True and r["vendor"] == "Fallback Inc" and r["mac"] == "00:11:22"
+
+
+async def test_mac_vendor_errors():
+    with patch("backend.osint_recon._fetch",
+               return_value={"ok": True, "status": 200,
+                             "text": json.dumps({"success": False, "error": "unknown MAC"})}):
+        r = await mac_vendor_lookup("00-11-22")
+    assert r["ok"] is True and r["found"] is False and r["vendor"] is None
+    with patch("backend.osint_recon._fetch",
+               return_value={"ok": True, "status": 200,
+                             "text": json.dumps({"success": False, "error": "blocked"})}):
+        assert (await mac_vendor_lookup("00:11:22"))["ok"] is False
+    with patch("backend.osint_recon._fetch",
+               return_value={"ok": True, "status": 200, "text": "not-json"}):
+        assert (await mac_vendor_lookup("00:11:22"))["ok"] is False
+    with patch("backend.osint_recon._fetch",
+               return_value={"ok": False, "status": 500, "error": "HTTP 500", "body": ""}):
+        assert (await mac_vendor_lookup("00:11:22"))["ok"] is False
+    for bad in ("", "12345", "GG:11:22", "00:11:22:33:44:55:66:77:88"):
+        assert (await mac_vendor_lookup(bad))["ok"] is False
+
+
+def test_cert_endpoint_success(client):
+    result = {"ok": True, "domain": "example.com", "count": 2, "subdomains": ["a.example.com"],
+              "total_found": 2, "note": ""}
+    with patch("backend.osint_recon.cert_transparency", new_callable=AsyncMock) as m:
+        m.return_value = result
+        resp = client.post("/api/osint/cert", json={"domain": "example.com"})
+    assert resp.status_code == 200 and resp.json()["count"] == 2
+    m.assert_awaited_once_with("example.com", limit=100)
+
+
+def test_cert_endpoint_empty_and_500(client):
+    assert client.post("/api/osint/cert", json={"domain": "  "}).status_code == 422
+    with patch("backend.osint_recon.cert_transparency", new_callable=AsyncMock,
+               side_effect=RuntimeError("boom")):
+        assert client.post("/api/osint/cert", json={"domain": "example.com"}).status_code == 500
+
+
+def test_sigstore_endpoint_success_email(client):
+    result = {"ok": True, "query": "a@b.co", "count": 0, "entries": [], "note": ""}
+    with patch("backend.osint_recon.sigstore_lookup", new_callable=AsyncMock) as m:
+        m.return_value = result
+        resp = client.post("/api/osint/sigstore", json={"email": "a@b.co", "sha256": ""})
+    assert resp.status_code == 200 and resp.json()["count"] == 0
+    m.assert_awaited_once_with(email="a@b.co", sha256="")
+
+
+def test_sigstore_endpoint_hash_and_422_500(client):
+    result = {"ok": True, "query": "aa", "count": 1, "entries": [], "note": ""}
+    with patch("backend.osint_recon.sigstore_lookup", new_callable=AsyncMock) as m:
+        m.return_value = result
+        resp = client.post("/api/osint/sigstore", json={"email": "", "sha256": "a" * 64})
+    assert resp.status_code == 200
+    m.assert_awaited_once_with(email="", sha256="a" * 64)
+    assert client.post("/api/osint/sigstore", json={"email": "  ", "sha256": " "}).status_code == 422
+    assert client.post("/api/osint/sigstore", json={"email": "", "sha256": ""}).status_code == 422
+    with patch("backend.osint_recon.sigstore_lookup", new_callable=AsyncMock,
+               side_effect=RuntimeError("boom")):
+        assert client.post("/api/osint/sigstore", json={"email": "a@b.co"}).status_code == 500
+
+
+def test_urlscan_endpoint_success(client):
+    result = {"ok": True, "domain": "example.com", "total": 5, "returned": 2, "results": []}
+    with patch("backend.osint_recon.urlscan_search", new_callable=AsyncMock) as m:
+        m.return_value = result
+        resp = client.post("/api/osint/urlscan", json={"domain": "example.com"})
+    assert resp.status_code == 200 and resp.json()["total"] == 5
+    m.assert_awaited_once_with("example.com", size=5)
+
+
+def test_urlscan_endpoint_empty_and_500(client):
+    assert client.post("/api/osint/urlscan", json={"domain": ""}).status_code == 422
+    with patch("backend.osint_recon.urlscan_search", new_callable=AsyncMock,
+               side_effect=RuntimeError("boom")):
+        assert client.post("/api/osint/urlscan", json={"domain": "example.com"}).status_code == 500
+
+
+def test_mac_endpoint_success(client):
+    result = {"ok": True, "mac": "00:11:22", "found": True, "vendor": "CIMSYS Inc", "address": None}
+    with patch("backend.osint_recon.mac_vendor_lookup", new_callable=AsyncMock) as m:
+        m.return_value = result
+        resp = client.post("/api/osint/mac", json={"mac": "00:11:22:33:44:55"})
+    assert resp.status_code == 200 and resp.json()["vendor"] == "CIMSYS Inc"
+    m.assert_awaited_once_with("00:11:22:33:44:55")
+
+
+def test_mac_endpoint_empty_and_500(client):
+    assert client.post("/api/osint/mac", json={"mac": "  "}).status_code == 422
+    with patch("backend.osint_recon.mac_vendor_lookup", new_callable=AsyncMock,
+               side_effect=RuntimeError("boom")):
+        assert client.post("/api/osint/mac", json={"mac": "00:11:22"}).status_code == 500
+
+
+def test_code_endpoint_success(client):
+    result = {"ok": True, "query": "example.com", "total": 3, "returned": 1, "hits": []}
+    with patch("backend.osint_recon.code_search", new_callable=AsyncMock) as m:
+        m.return_value = result
+        resp = client.post("/api/osint/code", json={"query": "example.com", "limit": 5})
+    assert resp.status_code == 200 and resp.json()["total"] == 3
+    m.assert_awaited_once_with("example.com", limit=5)
+
+
+def test_code_endpoint_empty_and_500(client):
+    assert client.post("/api/osint/code", json={"query": "  "}).status_code == 422
+    with patch("backend.osint_recon.code_search", new_callable=AsyncMock,
+               side_effect=RuntimeError("boom")):
+        assert client.post("/api/osint/code", json={"query": "example.com"}).status_code == 500

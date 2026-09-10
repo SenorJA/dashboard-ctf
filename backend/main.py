@@ -2649,6 +2649,34 @@ class OsintPageRequest(BaseModel):
     url: str = Field(..., max_length=2048)
 
 
+class OsintCodeRequest(BaseModel):
+    """Body for POST /api/osint/code — public-code leak discovery."""
+    query: str = Field(..., max_length=200)
+    limit: int = Field(8, ge=1, le=20)
+
+
+class OsintCertRequest(BaseModel):
+    """Body for POST /api/osint/cert — crt.sh Certificate Transparency."""
+    domain: str = Field(..., max_length=253)
+    limit: int = Field(100, ge=1, le=500)
+
+
+class OsintSigstoreRequest(BaseModel):
+    """Body for POST /api/osint/sigstore — Sigstore Rekor signing identities."""
+    email: str = Field("", max_length=128)
+    sha256: str = Field("", max_length=64)
+
+
+class OsintUrlscanRequest(BaseModel):
+    """Body for POST /api/osint/urlscan — urlscan.io public scan search."""
+    domain: str = Field(..., max_length=253)
+    size: int = Field(5, ge=1, le=20)
+
+
+class OsintMacRequest(BaseModel):
+    """Body for POST /api/osint/mac — MAC OUI vendor lookup."""
+    mac: str = Field(..., max_length=32)
+
 
 @app.post("/api/osint/email")
 async def api_osint_email(body: OsintEmailRequest, request: Request):
@@ -3023,6 +3051,108 @@ async def api_osint_page(body: OsintPageRequest, request: Request):
         return JSONResponse(await page_snapshot(url))
     except Exception:
         logger.exception("[osint page] unexpected failure", exc_info=False)
+        return JSONResponse({"ok": False, "error": "Internal error"}, status_code=500)
+
+
+@app.post("/api/osint/code")
+async def api_osint_code(body: OsintCodeRequest, request: Request):
+    """
+    Public-code leak discovery via Sourcegraph streaming search (keyless).
+
+    Body: {"query": "example.com", "limit": 8}
+    """
+    guard = _osint_guard(request, "/api/osint/code")
+    if guard is not None:
+        return guard
+    query = body.query.strip()
+    if not query:
+        return JSONResponse({"ok": False, "error": "query must not be empty"}, status_code=422)
+    try:
+        from backend.osint_recon import code_search
+        return JSONResponse(await code_search(query, limit=body.limit))
+    except Exception:
+        logger.exception("[osint code] unexpected failure", exc_info=False)
+        return JSONResponse({"ok": False, "error": "Internal error"}, status_code=500)
+
+
+@app.post("/api/osint/cert")
+async def api_osint_cert(body: OsintCertRequest, request: Request):
+    """
+    Passive subdomain discovery via crt.sh Certificate Transparency (keyless).
+
+    Body: {"domain": "example.com", "limit": 100}
+    """
+    guard = _osint_guard(request, "/api/osint/cert")
+    if guard is not None:
+        return guard
+    domain = body.domain.strip()
+    if not domain:
+        return JSONResponse({"ok": False, "error": "domain must not be empty"}, status_code=422)
+    try:
+        from backend.osint_recon import cert_transparency
+        return JSONResponse(await cert_transparency(domain, limit=body.limit))
+    except Exception:
+        logger.exception("[osint cert] unexpected failure", exc_info=False)
+        return JSONResponse({"ok": False, "error": "Internal error"}, status_code=500)
+
+
+@app.post("/api/osint/sigstore")
+async def api_osint_sigstore(body: OsintSigstoreRequest, request: Request):
+    """
+    Sigstore Rekor transparency log — signing identities behind an email
+    or artifact sha256 (keyless).  Body: {"email": "a@b.co"} or {"sha256": "..."}.
+    """
+    guard = _osint_guard(request, "/api/osint/sigstore")
+    if guard is not None:
+        return guard
+    email = (body.email or "").strip()
+    sha256 = (body.sha256 or "").strip()
+    if not email and not sha256:
+        return JSONResponse(
+            {"ok": False, "error": "Provide email or sha256"}, status_code=422)
+    try:
+        from backend.osint_recon import sigstore_lookup
+        return JSONResponse(await sigstore_lookup(email=email, sha256=sha256))
+    except Exception:
+        logger.exception("[osint sigstore] unexpected failure", exc_info=False)
+        return JSONResponse({"ok": False, "error": "Internal error"}, status_code=500)
+
+
+@app.post("/api/osint/urlscan")
+async def api_osint_urlscan(body: OsintUrlscanRequest, request: Request):
+    """
+    Recent public scans touching a domain via urlscan.io (keyless).
+
+    Body: {"domain": "example.com", "size": 5}
+    """
+    guard = _osint_guard(request, "/api/osint/urlscan")
+    if guard is not None:
+        return guard
+    domain = body.domain.strip()
+    if not domain:
+        return JSONResponse({"ok": False, "error": "domain must not be empty"}, status_code=422)
+    try:
+        from backend.osint_recon import urlscan_search
+        return JSONResponse(await urlscan_search(domain, size=body.size))
+    except Exception:
+        logger.exception("[osint urlscan] unexpected failure", exc_info=False)
+        return JSONResponse({"ok": False, "error": "Internal error"}, status_code=500)
+
+
+@app.post("/api/osint/mac")
+async def api_osint_mac(body: OsintMacRequest, request: Request):
+    """MAC OUI → vendor lookup via maclookup.app (keyless). Body: {"mac": "..."}."""
+    guard = _osint_guard(request, "/api/osint/mac")
+    if guard is not None:
+        return guard
+    mac = body.mac.strip()
+    if not mac:
+        return JSONResponse({"ok": False, "error": "mac must not be empty"}, status_code=422)
+    try:
+        from backend.osint_recon import mac_vendor_lookup
+        return JSONResponse(await mac_vendor_lookup(mac))
+    except Exception:
+        logger.exception("[osint mac] unexpected failure", exc_info=False)
         return JSONResponse({"ok": False, "error": "Internal error"}, status_code=500)
 
 

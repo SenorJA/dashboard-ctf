@@ -35,6 +35,15 @@ keyless public APIs, one per network-data / security / lookup category):
   - ``urlhaus_lookup``       -> abuse.ch URLhaus URL/host reputation (POST)
   - ``page_snapshot``        -> Jina Reader (r.jina.ai) page-content extraction
 
+Ronda API-based #3 (curated keyless public APIs — the original catalogue
+dropped its OSINT/security directory, so these come from the same canon of
+public, free, ToS-friendly providers):
+  - ``code_search``          -> Sourcegraph streaming search (public-code leak discovery)
+  - ``cert_transparency``    -> crt.sh Certificate Transparency (subdomain discovery)
+  - ``sigstore_lookup``      -> Sigstore Rekor transparency log (signing identities)
+  - ``urlscan_search``       -> urlscan.io public scan search (pivot on a domain)
+  - ``mac_vendor_lookup``    -> maclookup.app OUI vendor lookup
+
 All public functions are ``async``, never raise, and return JSON-serializable
 dicts (``{"ok": True, ...}`` or ``{"ok": False, "error": ...}``). Use them from
 async route handlers directly — blocking I/O runs via ``asyncio.to_thread``.
@@ -138,6 +147,11 @@ __all__ = [
     "pwned_passwords",
     "urlhaus_lookup",
     "page_snapshot",
+    "code_search",
+    "cert_transparency",
+    "sigstore_lookup",
+    "urlscan_search",
+    "mac_vendor_lookup",
 ]
 
 
@@ -1156,3 +1170,259 @@ async def page_snapshot(url: str, timeout: float = TIMEOUT_DEFAULT) -> dict:
             title = line.strip()[:120]
             break
     return {"ok": True, "url": url, "title": title, "chars": len(text), "text": text}
+
+
+# ════════════════════════════════════════════════════════════════
+#  Ronda API-based #3 (curated keyless public APIs)
+#   15. code_search         — Sourcegraph streaming code search (leak discovery)
+#   16. cert_transparency   — crt.sh Certificate Transparency subdomains
+#   17. sigstore_lookup     — Sigstore Rekor transparency log
+#   18. urlscan_search      — urlscan.io public scan search
+#   19. mac_vendor_lookup   — maclookup.app OUI vendor lookup
+# ════════════════════════════════════════════════════════════════
+
+_EMAIL_RE = re.compile(r"^[^@\s]{1,128}@[^@\s]{1,255}$")
+
+
+def _normalize_mac(raw: str) -> str | None:
+    """Normalize any common MAC notation to 'XX:XX:XX:XX:XX:XX' (6 hex pairs)."""
+    mac = (raw or "").strip().upper().replace(":", "").replace("-", "")
+    if len(mac) not in (6, 8, 12) or any(c not in "0123456789ABCDEF" for c in mac):
+        return None
+    return ":".join(mac[i:i + 2] for i in range(0, 6, 2))
+
+
+async def code_search(query: str, limit: int = 8, timeout: float = TIMEOUT_DEFAULT) -> dict:
+    """
+    Search public open-source code via Sourcegraph streaming search
+    (keyless anonymous tier) for a domain, email or secret prefix — the
+    classic "leak discovery" passive-OSINT check.
+
+    Returns a small capped list of ``{repo, path, snippet}`` hits so the
+    dashboard/AI never runs away with a huge payload.
+    """
+    query = (query or "").strip()
+    if not query:
+        return {"ok": False, "error": "query must not be empty"}
+    if len(query) > 200:
+        return {"ok": False, "error": "query too long (max 200 chars)"}
+    if "\n" in query or "\r" in query:
+        return {"ok": False, "error": "query must be a single line"}
+    try:
+        limit = max(1, min(int(limit), 20))
+    except (TypeError, ValueError):
+        limit = 8
+
+    url = ("https://sourcegraph.com/.api/search/stream?"
+           + urllib.parse.urlencode({"q": f"{query} context:global type:file",
+                                     "display": limit}))
+    resp = await _fetch(url, timeout=timeout)
+    if not resp.get("ok"):
+        return {"ok": False, "error": resp.get("error", "Sourcegraph unavailable")}
+
+    hits = []
+    total = 0
+    for line in (resp.get("text", "") or "").splitlines():
+        line = line.strip()
+        if not line.startswith("data: "):
+            continue
+        try:
+            evt = json.loads(line[6:].strip())
+        except (ValueError, TypeError):
+            continue
+        if isinstance(evt, list):
+            for m in evt:
+                if not isinstance(m, dict) or m.get("type") != "content":
+                    continue
+                lines = m.get("lineMatches") or []
+                if isinstance(lines, str):
+                    snippet = lines[:400]
+                else:
+                    snippet = "; ".join(
+                        str(lm.get("line", "")) if isinstance(lm, dict) else str(lm)
+                        for lm in lines[:3])[:400]
+                hits.append({
+                    "repo": str(m.get("repository", "") or ""),
+                    "path": str(m.get("path", "") or ""),
+                    "snippet": snippet,
+                })
+        elif (isinstance(evt, dict) and evt.get("type") == "progress"
+              and evt.get("done") and isinstance(evt.get("matchCount"), int)):
+            total = evt["matchCount"]
+
+    return {"ok": True, "query": query, "total": total,
+            "returned": len(hits[:limit]), "hits": hits[:limit]}
+
+
+async def cert_transparency(domain: str, limit: int = 100, timeout: float = TIMEOUT_DEFAULT) -> dict:
+    """
+    Passive subdomain discovery via crt.sh Certificate Transparency logs
+    (keyless).  ``name_value`` entries carry the full certificate name
+    list, so a single query yields many unique hostnames.
+
+    Output is capped to ``limit`` unique names to keep the dashboard/AI
+    payload small; enable ``all_names`` when you want the raw list.
+    """
+    domain, err = _normalize_host(domain)
+    if err:
+        return {"ok": False, "error": err}
+    try:
+        limit = max(1, min(int(limit), 500))
+    except (TypeError, ValueError):
+        limit = 100
+
+    resp = await _fetch(f"https://crt.sh/?q={urllib.parse.quote(domain)}&output=json",
+                        timeout=timeout)
+    data = _parse_json(resp)
+    if data is None or not isinstance(data, list):
+        return {"ok": False, "error": resp.get("error", "crt.sh unavailable (flaky service, retry)")}
+
+    seen: set[str] = set()
+    for entry in data:
+        if not isinstance(entry, dict):
+            continue
+        for raw in str(entry.get("name_value", "")).split("\n"):
+            name = raw.strip().lstrip("*.").strip().lower()
+            if name and (name == domain or name.endswith("." + domain)):
+                seen.add(name)
+    subdomains = sorted(seen)
+    return {
+        "ok": True,
+        "domain": domain,
+        "count": len(subdomains),
+        "subdomains": subdomains[:limit],
+        "total_found": len(subdomains),
+        "note": "Certificate Transparency via crt.sh (passive subdomain discovery).",
+    }
+
+
+async def sigstore_lookup(email: str = "", sha256: str = "", timeout: float = TIMEOUT_DEFAULT) -> dict:
+    """
+    Query the Sigstore Rekor transparency log (keyless) for signing
+    identities linked to an email or an artifact SHA-256.
+
+    Useful OSINT pivot: which open-source projects / CI pipelines have
+    signed artifacts with this identity. ``email`` wins when both given.
+    """
+    email = (email or "").strip().lower()
+    sha256 = (sha256 or "").strip().lower()
+    if email and _EMAIL_RE.match(email) and email.count("@") == 1:
+        body = {"email": email}
+        label = email
+    elif sha256 and re.fullmatch(r"[0-9a-f]{64}", sha256):
+        body = {"hash": f"sha256:{sha256}"}
+        label = sha256[:12] + "…"
+    else:
+        return {"ok": False, "error": "Provide a valid email or a 64-hex sha256 digest"}
+
+    resp = await _fetch("https://rekor.sigstore.dev/api/v1/log/entries/retrieve",
+                        timeout=timeout, method="POST",
+                        data=json.dumps(body).encode("utf-8"),
+                        headers={"Content-Type": "application/json", "Accept": "application/json"})
+    if not resp.get("ok"):
+        if resp.get("status") == 404:
+            return {"ok": True, "query": label, "count": 0, "entries": [],
+                    "note": "No signing entries found for this identity."}
+        return {"ok": False, "error": resp.get("error", "Rekor unavailable")}
+    data = _parse_json(resp)
+    if data is None or not isinstance(data, (list, dict)):
+        return {"ok": False, "error": "Rekor returned an invalid payload"}
+
+    raw_entries = data if isinstance(data, list) else list(data.items())
+    entries = []
+    for item in raw_entries:
+        if isinstance(item, tuple):  # (uuid, entry) from a dict response
+            uuid, entry = item
+        else:
+            uuid, entry = None, item
+        if not isinstance(entry, dict):
+            continue
+        entries.append({
+            "uuid": uuid or entry.get("uuid"),
+            "integrated_time": entry.get("integratedTime"),
+            "log_index": entry.get("logIndex"),
+        })
+    if len(entries) > 20:
+        entries = entries[len(entries) - 20:]
+    return {
+        "ok": True,
+        "query": label,
+        "count": len(raw_entries),
+        "note": "Rekor (Sigstore) transparency log — identities that signed artifacts.",
+        "entries": entries,
+    }
+
+
+async def urlscan_search(domain: str, size: int = 5, timeout: float = TIMEOUT_DEFAULT) -> dict:
+    """
+    Public urlscan.io search for recent submissions touching a domain
+    (keyless anonymous quota).  Passive — it lists scans uploaded by the
+    urlscan community, useful to pivot to discovered hosts/IPs.
+    """
+    domain, err = _normalize_host(domain)
+    if err:
+        return {"ok": False, "error": err}
+    try:
+        size = max(1, min(int(size), 20))
+    except (TypeError, ValueError):
+        size = 5
+
+    resp = await _fetch(
+        f"https://urlscan.io/api/v1/search/?q=domain:{urllib.parse.quote(domain)}&size={size}",
+        timeout=timeout, headers={"Accept": "application/json"})
+    data = _parse_json(resp)
+    if data is None or not isinstance(data, dict):
+        return {"ok": False, "error": resp.get("error", "urlscan.io unavailable")}
+
+    results = []
+    for r in data.get("results") or []:
+        if not isinstance(r, dict):
+            continue
+        page = r.get("page")
+        if not isinstance(page, dict):
+            continue
+        results.append({
+            "url": str(page.get("page_url", "") or "")[:300],
+            "domain": str(page.get("domain", "") or ""),
+            "ip": str(page.get("ip", "") or ""),
+            "country": str(page.get("country", "") or ""),
+            "server": str(page.get("server", "") or ""),
+            "asn": str(page.get("asn", "") or ""),
+            "term": str(r.get("_id", "") or "")[:200],
+        })
+
+    total = data.get("total")
+    return {"ok": True, "domain": domain, "total": total if isinstance(total, int) else len(results),
+            "returned": len(results), "results": results}
+
+
+async def mac_vendor_lookup(mac: str, timeout: float = TIMEOUT_DEFAULT) -> dict:
+    """
+    OUI → hardware vendor lookup via maclookup.app (keyless).
+
+    Accepts 6/8/12-hex MACs in ``-`` or ``:`` notation; the 24-bit OUI is
+    what is resolved.  Useful to pivot from a DHCP/ARP artifact to a
+    device manufacturer during forensics/engagement recon.
+    """
+    norm = _normalize_mac(mac)
+    if not norm:
+        return {"ok": False, "error": "Invalid MAC. Use 6/8/12 hex pairs like '00:11:22:AA:BB:CC'"}
+    resp = await _fetch(f"https://api.maclookup.app/v2/macs/{urllib.parse.quote(norm)}",
+                        timeout=timeout, headers={"Accept": "application/json"})
+    data = _parse_json(resp)
+    if data is None or not isinstance(data, dict):
+        return {"ok": False, "error": resp.get("error", "maclookup unavailable")}
+
+    if data.get("success") is False:
+        if data.get("error") in ("unknown MAC", "invalid MAC"):
+            return {"ok": True, "mac": norm, "found": False, "vendor": None,
+                    "note": "No vendor recorded for this prefix in maclookup."}
+        return {"ok": False, "error": "maclookup rejected the request"}
+    return {
+        "ok": True,
+        "mac": norm,
+        "found": True,
+        "vendor": data.get("company") or data.get("result"),
+        "address": data.get("address"),
+        "updated": data.get("updated"),
+    }

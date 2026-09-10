@@ -24,6 +24,7 @@
 > ✅ **Desktop MSI en CI** (6 Sep 2026, commits `d47a2c1`→`b072429`, run `34029048423`): `desktop-build.yml` verde — iconos commit (`.gitignore` los excluía), errores Rust E0425/E0308 en `main.rs` resueltos (CommandEvent, `tokio::time::sleep`, `Receiver<CommandEvent>`), sidecar **onefile** (spec PyInstaller) + `externalBin` + layout `binaries/mirv-backend-x86_64-pc-windows-msvc.exe` + capabilities (`shell:allow-execute` scope al sidecar). Artefacto `mirv-desktop-msi` (37.3 MB). ⬜ Runtime test del MSI pendiente de usuario. Análisis de repos externos: `docs/REPO_ANALYSIS_2026-09-06.md` (CL4R1T4S → hardening de prompts; agentic-ai-apis → cantera APIs OSINT).
 > ✅ **PC Analyzer Fase 2** (6 Sep 2026, commits `55a3e60`+`cf22015`, CI ✅ Deploy ✅ Desktop Build ✅): checks **eventlog** (wevtutil System/Application, solo Windows) + **updates** (Windows registry `RebootRequired`/`PendingFileRenameOperations`/`LastSuccessTime`, Linux `apt list --upgradable`) + **reboot** (`/var/run/reboot-required`). **Auto-fix con confirmación**: campo `fix` en Check → `POST /api/pc-analyzer/fix` (409 sin `confirm`, 400 acción desconocida) + `apply_fix()` gated reusando `sysmon.scan_candidates()`/`cleanup_candidate()` (acciones: `cleanup_junk`). Frontend: botón ▶ Fix por sugerencia + `runPCAFix()` con diálogo nativo. 62 tests del módulo, 95% cobertura.
 > ✅ **Ronda API-based #2 — 5 herramientas OSINT** (9 Sep 2026): desde la cantera `cporter202/agentic-ai-apis` (todo keyless, público) se añadieron 5 tools pasivas a `backend/osint_recon.py` (818L→**1141L**, sigue al **100%**): **dns_recon** (DNS-over-HTTPS dns.google, A/AAAA/MX/NS/CNAME/TXT en paralelo), **rdap_whois** (RDAP rdap.org — registrar vcard `fn/org`, lifecycle events `eventAction/eventDate`, nameservers, abuse), **pwned_passwords** (HIBP range k-anonymity — prefijo SHA-1 5 chars + header `Add-Padding`; rank critical ≥1e6 / high ≥1e4 / medium ≥1 / clean; la password nunca se loguea ni se devuelve y el endpoint elimina `length`), **urlhaus_lookup** (abuse.ch POST `url/`|`host/` — threat tags + blacklists), **page_snapshot** (Jina Reader r.jina.ai, texto cap 60 KB). 5 endpoints `POST /api/osint/{dns,whois,pwned,urlhaus,page}` con `_osint_guard` (rate-limit + `MIRV_OSINT_TOKEN`). Frontend: 5 tarjetas nuevas en tab OSINT + `window.osint{Dns,Whois,Pwned,Urlhaus,Page}` + Enter-key bindings + i18n en/es (8 keys). Tests: +41 (`test_osint_recon.py` 115), `osint_recon` **100%** cobertura.
+> ✅ **Ronda API-based #3 — 5 herramientas OSINT curadas** (10 Sep 2026): la cantera `cporter202/agentic-ai-apis` cambió de alcance (solo Agents/AI/MCP), así que las 5 tools de esta ronda vienen de la misma canonía keyless y se validaron con **smoke real** antes de cerrar. `backend/osint_recon.py` **1141L→1428L** (sigue **100%**, ahora 620 stmts): **code_search** (Sourcegraph streaming SSE `/.api/search/stream` + `type:file` — leaks en código público; grep.app descartado por 429 persistentes), **cert_transparency** (crt.sh CT `output=json` — subdominios pasivos con dedupe + `*.` wildcards, cap 500; crt.sh es intermitente → error "flaky service, retry"), **sigstore_lookup** (Sigstore Rekor `POST /api/v1/log/entries/retrieve` — identidades de firma por email o sha256; emailrep.io quedó **fuera** porque su tier unauthenticated está disabled y exige key), **urlscan_search** (urlscan.io `search/?q=domain:` — URL/IP/country/server/ASN de escaneos públicos recientes), **mac_vendor_lookup** (maclookup.app `v2/macs/` — OUI→fabricante; `_normalize_mac` acepta 6/8/12 hex en `:`/`-` y reduce a OUI). 5 endpoints `POST /api/osint/{code,cert,sigstore,urlscan,mac}` con `_osint_guard` + límites conservadores (`rate_limiter.py`: urlscan 6/min, cert 6/min, sigstore 10/min) — **249→254 endpoints**. Frontend: 5 tarjetas nuevas en tab OSINT + `window.osint{Code,Cert,Sigstore,Urlscan,Mac}` + Enter-key bindings + i18n en/es (8 keys). Tests: +25 (`test_osint_recon.py` 115→**140**), suite OSINT **266 passed**, `osint_recon` **100%**.`
 
 ---
 
@@ -32,15 +33,15 @@
 | Métrica | Valor |
 |---------|-------|
 | Backend modules | 36 (main.py + 35 especializados, +orchestrator.py +episodic_memory.py +secret_store.py) |
-| REST endpoints | 249 (+4: `/api/orchestrator/route`, `/api/orchestrator/specialists`, `/api/orchestrator/specialists/{name}`, `/api/orchestrator/hunt`; +2: `/api/credentials/reencrypt`, `/api/pc-analyzer/fix`; +5: `/api/osint/{dns,whois,pwned,urlhaus,page}`) |
+| REST endpoints | 254 (+4: `/api/orchestrator/route`, `/api/orchestrator/specialists`, `/api/orchestrator/specialists/{name}`, `/api/orchestrator/hunt`; +2: `/api/credentials/reencrypt`, `/api/pc-analyzer/fix`; +5: `/api/osint/{dns,whois,pwned,urlhaus,page}`; +5: `/api/osint/{code,cert,sigstore,urlscan,mac}`) |
 | Test files | 87 (+3: `test_orchestrator.py`, `test_episodic_memory.py`, `test_secret_store.py`) |
 | Tests collected | 4385 (4384 pass / 1 slow-deselected) |
 | Skill playbooks built-in | **88** (28 originales + 60 port de Claude-BugHunter) |
 | Orchestrator hunt routing | `route_hunt()` + `_HUNT_BY_CLASS` (45 keywords → 39 hunt-* skills) + `GET /api/orchestrator/hunt` |
 | Coverage | ~97% global — **main.py 100%**, **orchestrator 100%**, **episodic_memory 100%**, **exif_osint 100%**, **dlp_scanner 100%**, **pdf_engine 99%**, **osint_recon 100%**, **subdomain_scanner 99%**, **instagram_osint 100%**, **osint_correlate 100%**, **rate_limiter 100%**, **pc_analyzer 95%** |
 | Frontend tabs | 26 |
-| Frontend JS | ~11475 líneas (main.v2.js) |
-| Frontend HTML | ~3263 líneas (index.html) |
+| Frontend JS | ~11655 líneas (main.v2.js) |
+| Frontend HTML | ~3314 líneas (index.html) |
 | GitHub Actions | 2 workflows (CI + Deploy) |
 | Docker images | 2 (mirv-backend + kali-tools) |
 | GitHub commits | 18+ esta serie |
@@ -101,7 +102,7 @@
 | 26 | **Secrets Scanner** | `secrets_scanner.py` | 33 | 25 regex patterns |
 | 27 | **Port Scanner** | `port_scanner.py` | 18 | ~1600 puertos async |
 | 28 | **Subdomain Scanner** | `subdomain_scanner.py` | 24 | ~700 prefijos DNS brute + **pasivo (crt.sh + Wayback CDX)** |
-| 29 | **OSINT Recon** | `osint_recon.py` (1141L) | 115 | 14 funciones OSINT pasivas: (1) suite clásica de 9 (email breach/verify, dorking, phone, reverse-image, wayback, IP geo, username, github) + (2) Ronda API-based #2: **dns_recon** (DoH), **rdap_whois** (RDAP), **pwned_passwords** (HIBP k-anonymity), **urlhaus_lookup** (abuse.ch), **page_snapshot** (Jina Reader) — todo stdlib-only, keyless, 100% cobertura |
+| 29 | **OSINT Recon** | `osint_recon.py` (1428L) | 159 | 19 funciones OSINT pasivas: (1) suite clásica de 9 (email breach/verify, dorking, phone, reverse-image, wayback, IP geo, username, github) + (2) Ronda API-based #2: **dns_recon** (DoH), **rdap_whois** (RDAP), **pwned_passwords** (HIBP k-anonymity), **urlhaus_lookup** (abuse.ch), **page_snapshot** (Jina Reader) + (3) Ronda API-based #3: **code_search** (Sourcegraph SSE), **cert_transparency** (crt.sh CT), **sigstore_lookup** (Rekor), **urlscan_search** (urlscan.io), **mac_vendor_lookup** (maclookup) — todo stdlib-only, keyless, 100% cobertura (620 stmts) |
 | 30 | **Instagram OSINT** | `instagram_osint.py` (412L) | 39 | Port de `ghostig`: perfil público de Instagram vía `web_profile_info` + `users/{id}/info` + lookup avanzado (email/phone obfuscados). Sesión del operador por env `IG_SESSIONID`, stdlib only, 100% cobertura, manejo 404/429/parse-error |
 | 30+ | DNS Lookup, Hash Cracker, Stego, News, API Scanner | — | 126+ | Variados |
 
@@ -126,7 +127,7 @@
 | 12 | Mobile | `tab-mobile` | mobile_analyzer.py | APK analysis lab |
 | 13 | Forensics | `tab-forensics` | forensics.py | Forense digital |
 | 14 | EXIF OSINT | `tab-exif` | exif_osint.py | Metadata + GPS map |
-| 15 | **OSINT Recon** | `tab-osint` | osint_recon.py | 15 herramientas: email, dork, phone, reverse-image, wayback, IP, username, github, instagram, correlate, dns (DoH), whois (RDAP), pwned, urlhaus, page |
+| 15 | **OSINT Recon** | `tab-osint` | osint_recon.py | 20 herramientas: email, dork, phone, reverse-image, wayback, IP, username, github, instagram, correlate, dns (DoH), whois (RDAP), pwned, urlhaus, page, code (Sourcegraph), cert (crt.sh), sigstore (Rekor), urlscan, mac |
 | 16 | Canary Tokens | `tab-canary` | canary_tokens.py | Honeytokens |
 | 17 | DLP Scanner | `tab-dlp` | dlp_scanner.py | PII detection |
 | 18 | SIEM | `tab-siem` | siem.py | Event feed + alerts |

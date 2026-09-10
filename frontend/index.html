@@ -2224,6 +2224,57 @@
                         <div id="osint-page-result" class="mt-3 text-sm"></div>
                     </div>
 
+                    <!-- Code search (Sourcegraph) -->
+                    <div class="bg-deep rounded-lg border border-cyber p-4">
+                        <h3 class="text-sm font-semibold text-neon mb-3" data-i18n="osint-code-title">🔢 Code Search</h3>
+                        <div class="flex gap-2 flex-wrap">
+                            <input type="text" id="osint-code-input" maxlength="200" placeholder="example.com or API key prefix" class="flex-1 min-w-[180px] bg-void border border-cyber rounded px-3 py-2 text-white placeholder-gray-600 focus:border-neon outline-none" aria-label="String to search in public code (leak discovery)">
+                            <button onclick="osintCode()" class="px-4 py-2 bg-cyber hover:bg-neon text-white rounded font-mono text-sm transition-colors" data-i18n="osint-search">Search</button>
+                        </div>
+                        <div id="osint-code-result" class="mt-3 text-sm"></div>
+                    </div>
+
+                    <!-- Certificate Transparency (crt.sh) -->
+                    <div class="bg-deep rounded-lg border border-cyber p-4">
+                        <h3 class="text-sm font-semibold text-neon mb-3" data-i18n="osint-cert-title">📜 Cert Transparency</h3>
+                        <div class="flex gap-2 flex-wrap">
+                            <input type="text" id="osint-cert-input" maxlength="253" placeholder="example.com" class="flex-1 min-w-[180px] bg-void border border-cyber rounded px-3 py-2 text-white placeholder-gray-600 focus:border-neon outline-none" aria-label="Domain for Certificate Transparency subdomain discovery">
+                            <button onclick="osintCert()" class="px-4 py-2 bg-cyber hover:bg-neon text-white rounded font-mono text-sm transition-colors" data-i18n="osint-enumerate">Enumerate</button>
+                        </div>
+                        <div id="osint-cert-result" class="mt-3 text-sm"></div>
+                    </div>
+
+                    <!-- Sigstore (Rekor transparency log) -->
+                    <div class="bg-deep rounded-lg border border-cyber p-4">
+                        <h3 class="text-sm font-semibold text-neon mb-3" data-i18n="osint-sigstore-title">🪪 Sigstore Rekor</h3>
+                        <div class="flex gap-2 flex-wrap">
+                            <input type="text" id="osint-sigstore-email" maxlength="128" placeholder="signer@example.com" class="flex-1 min-w-[150px] bg-void border border-cyber rounded px-3 py-2 text-white placeholder-gray-600 focus:border-neon outline-none" aria-label="Email identity to search in the Rekor log">
+                            <input type="text" id="osint-sigstore-hash" maxlength="64" placeholder="sha256 (64 hex) or blank" class="flex-1 min-w-[160px] bg-void border border-cyber rounded px-3 py-2 text-white placeholder-gray-600 focus:border-neon outline-none" aria-label="Artifact sha256 digest to search in the Rekor log">
+                            <button onclick="osintSigstore()" class="px-4 py-2 bg-cyber hover:bg-neon text-white rounded font-mono text-sm transition-colors" data-i18n="osint-query">Query</button>
+                        </div>
+                        <div id="osint-sigstore-result" class="mt-3 text-sm"></div>
+                    </div>
+
+                    <!-- urlscan.io search -->
+                    <div class="bg-deep rounded-lg border border-cyber p-4">
+                        <h3 class="text-sm font-semibold text-neon mb-3" data-i18n="osint-urlscan-title">🔎 urlscan.io</h3>
+                        <div class="flex gap-2 flex-wrap">
+                            <input type="text" id="osint-urlscan-input" maxlength="253" placeholder="example.com" class="flex-1 min-w-[180px] bg-void border border-cyber rounded px-3 py-2 text-white placeholder-gray-600 focus:border-neon outline-none" aria-label="Domain to pivot through public urlscan.io scans">
+                            <button onclick="osintUrlscan()" class="px-4 py-2 bg-cyber hover:bg-neon text-white rounded font-mono text-sm transition-colors" data-i18n="osint-scan">Scan History</button>
+                        </div>
+                        <div id="osint-urlscan-result" class="mt-3 text-sm"></div>
+                    </div>
+
+                    <!-- MAC vendor lookup -->
+                    <div class="bg-deep rounded-lg border border-cyber p-4">
+                        <h3 class="text-sm font-semibold text-neon mb-3" data-i18n="osint-mac-title">📡 MAC Vendor</h3>
+                        <div class="flex gap-2 flex-wrap">
+                            <input type="text" id="osint-mac-input" maxlength="32" placeholder="00:11:22:33:44:55" class="flex-1 min-w-[180px] bg-void border border-cyber rounded px-3 py-2 text-white placeholder-gray-600 focus:border-neon outline-none" aria-label="MAC address prefix to resolve to a vendor">
+                            <button onclick="osintMac()" class="px-4 py-2 bg-cyber hover:bg-neon text-white rounded font-mono text-sm transition-colors" data-i18n="osint-lookup">Lookup</button>
+                        </div>
+                        <div id="osint-mac-result" class="mt-3 text-sm"></div>
+                    </div>
+
                     <!-- Correlate (multi-OSINT parallel) -->
                     <div class="bg-deep rounded-lg border border-cyber p-4">
                         <h3 class="text-neon text-sm font-bold mb-2" data-i18n="osint-correlate-title">🔗 Correlate</h3>

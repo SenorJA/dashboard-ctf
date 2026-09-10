@@ -30,6 +30,12 @@ _LIMITS = {
     # Correlation fans out 2-3 OSINT sources per call, so it is
     # markedly more expensive than a single-source endpoint — 10/min.
     "/api/osint/correlate": 10,
+    # Ronda API-based #3: external keyless tiers with their own quotas
+    # (urlscan.io anonymous tier, crt.sh flakiness) — keep the MIRV
+    # burner conservative so we never blow the upstream allowance.
+    "/api/osint/urlscan": 6,
+    "/api/osint/sigstore": 10,
+    "/api/osint/cert": 6,
 }
 _DEFAULT_LIMIT = 30  # requests per minute
 _WINDOW = 60.0  # seconds

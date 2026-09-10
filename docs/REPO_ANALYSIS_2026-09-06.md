@@ -91,6 +91,12 @@ desde el frontend con `fetch()`). El catálogo es una cantera de nuevas integrac
 - ✅ Documentación creada (este archivo)
 - ✅ Ronda API-based #2 (5 herramientas OSINT) — implementada, testeada y verde en CI
   (backend `osint_recon.py` + 5 endpoints `/api/osint/*` + tab OSINT del frontend)
+- ✅ Ronda API-based #3 (10 Sep 2026) — la cantera cambió de alcance (solo Agents/AI/MCP),
+  así que se curaron 5 APIs keyless equivalentes validadas con smoke real: `code_search`
+  (Sourcegraph SSE), `cert_transparency` (crt.sh), `sigstore_lookup` (Rekor), `urlscan_search`
+  (urlscan.io), `mac_vendor_lookup` (maclookup). Mismo patrón: `osint_recon.py` (620 stmts,
+  100% cov) + 5 endpoints `/api/osint/{code,cert,sigstore,urlscan,mac}` + 5 tarjetas OSINT y
+  límites conservadores en `rate_limiter.py`. Suite OSINT 266 passed.
 - ⬜ Importar ejemplos CL4R1T4S a un test de robustez de prompts — pendiente de "SÍ"
 - ⬜ Crear `docs/AGENTIC_APIS.md` con APIs preseleccionadas — pendiente de "SÍ"
 

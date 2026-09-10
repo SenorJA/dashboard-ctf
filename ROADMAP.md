@@ -208,6 +208,32 @@
 
 ---
 
+## ✅ Ronda API-based #3 — 5 herramientas OSINT (10 Sep 2026)
+
+La cantera `cporter202/agentic-ai-apis` cambió de alcance (solo Agents/AI/MCP),
+así que estas 5 vienen curadas de la misma canonía keyless y validadas con smoke
+real antes de cerrar.
+
+- [x] Backend: 5 funciones nuevas en `backend/osint_recon.py` (1141→1428L, **100%** cobertura):
+  **code_search** (Sourcegraph streaming SSE — búsqueda pasiva de leaks en código público;
+  grep.app quedó descartado tras 429 persistentes), **cert_transparency** (crt.sh Certificate
+  Transparency — subdominios pasivos, dedupe + `*.` wildcards, cap 500), **sigstore_lookup**
+  (Rekor `POST /log/entries/retrieve` — identidades de firma por email o sha256; notar que
+  emailrep.io ya **exige API key**, por eso no entró), **urlscan_search** (urlscan.io search
+  público por dominio: URL/IP/country/server/ASN), **mac_vendor_lookup** (maclookup.app OUI →
+  fabricante; acepta 6/8/12 hex en `:`/`-` y normaliza a OUI)
+- [x] Backend: 5 endpoints `POST /api/osint/{code,cert,sigstore,urlscan,mac}` con `_osint_guard`;
+  límites conservadores en `rate_limiter.py` (urlscan 6/min, cert 6/min, sigstore 10/min) —
+  `backend/main.py` (249→**254 endpoints**)
+- [x] Frontend: 5 tarjetas nuevas en tab OSINT (before Correlate) + `window.osint{Code,Cert,Sigstore,Urlscan,Mac}` +
+  Enter-key bindings + i18n en/es (8 keys nuevas)
+- [x] Tests: +25 (test_osint_recon.py 115→140, función-fake para SSE), osint_recon **100%**
+  cobertura (620 stmts), suite OSINT **266 passed**
+- [x] Fuente: APIs públicas keyless validadas con smoke real (crt.sh es intermitente → error
+  "flaky service, retry"; Sourcegraph → stream SSE)
+
+---
+
 ## 🚧 Pendientes
 
 ### Prioridad ALTA
