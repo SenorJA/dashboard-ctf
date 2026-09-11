@@ -781,6 +781,17 @@ class TestProviderConfig:
 # ═══════════════════════════════════════════════════════════════
 
 class TestCallLlm:
+    @pytest.fixture(autouse=True)
+    def _isolate_ai_env(self, monkeypatch):
+        """Make LLM tests hermetic against operator env vars. main.py loads
+        backend/.env at import time, which sets MIRV_AI_MODEL, so the fallback
+        ``if not m: m = default_model_map[...]`` silently didn't run locally
+        while passing in CI (no .env). Delenv both defaults and overrides."""
+        monkeypatch.delenv("MIRV_AI_PROVIDER", raising=False)
+        monkeypatch.delenv("MIRV_AI_KEY", raising=False)
+        monkeypatch.delenv("MIRV_AI_MODEL", raising=False)
+        monkeypatch.delenv("OLLAMA_URL", raising=False)
+
     def _fake_urlopen(self, payload: bytes):
         """Build a context-manager mock for urllib.request.urlopen."""
         cm = MagicMock()
