@@ -190,6 +190,10 @@ from backend import system_monitor as sysmon
 # ── PC Analyzer (health diagnostics, grade + suggestions) ──
 from backend import pc_analyzer as pcan
 
+# ── Assessments workspace + Scheduled scans ──
+from backend import assessments as assess
+from backend import scheduler as sched
+
 # ── Browser Capture (HAR import, session storage, security analysis) ──
 from backend.browser_capture import (
     import_har as bc_import,
@@ -6547,6 +6551,204 @@ async def intel_diff(watch_id: str, payload: IntelSnapshotModel):
     except Exception:
         logger.exception("intel diff failed")
         return JSONResponse({"ok": False, "error": "diff failed"}, status_code=500)
+
+
+# ── Assessments workspace (targets grouped by assessment) ───────────────
+
+class AssessmentCreateModel(BaseModel):
+    name: str
+    description: str = ""
+    status: str = "planning"
+    targets: List[str] = []
+    tags: List[str] = []
+    notes: str = ""
+
+
+class AssessmentUpdateModel(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    status: Optional[str] = None
+    targets: Optional[List[str]] = None
+    tags: Optional[List[str]] = None
+    notes: Optional[str] = None
+
+
+class TargetBody(BaseModel):
+    target: str
+
+
+@app.get("/api/assessments")
+def api_assessments_list():
+    """List all assessments (newest first) + aggregate summary."""
+    try:
+        items = assess.list_assessments()
+        s = assess.summary()
+        return JSONResponse({"ok": True, "assessments": items, "summary": s})
+    except Exception:
+        logger.exception("assessments list failed")
+        return JSONResponse({"ok": False, "error": "list failed"}, status_code=500)
+
+
+@app.post("/api/assessments")
+def api_assessments_create(body: AssessmentCreateModel):
+    try:
+        a = assess.create_assessment(
+            name=body.name,
+            description=body.description,
+            status=body.status,
+            targets=body.targets,
+            tags=body.tags,
+            notes=body.notes,
+        )
+        return JSONResponse({"ok": True, "assessment": a.to_dict()})
+    except ValueError as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+    except Exception:
+        logger.exception("assessments create failed")
+        return JSONResponse({"ok": False, "error": "create failed"}, status_code=500)
+
+
+@app.get("/api/assessments/{aid}")
+def api_assessments_get(aid: str):
+    a = assess.get_assessment(aid)
+    if a is None:
+        return JSONResponse({"ok": False, "error": "assessment not found"}, status_code=404)
+    return JSONResponse({"ok": True, "assessment": a})
+
+
+@app.put("/api/assessments/{aid}")
+def api_assessments_update(aid: str, body: AssessmentUpdateModel):
+    a = assess.update_assessment(
+        aid,
+        name=body.name,
+        description=body.description,
+        status=body.status,
+        targets=body.targets,
+        tags=body.tags,
+        notes=body.notes,
+    )
+    if a is None:
+        return JSONResponse({"ok": False, "error": "assessment not found or invalid"}, status_code=404)
+    return JSONResponse({"ok": True, "assessment": a})
+
+
+@app.delete("/api/assessments/{aid}")
+def api_assessments_delete(aid: str):
+    ok = assess.delete_assessment(aid)
+    if not ok:
+        return JSONResponse({"ok": False, "error": "assessment not found"}, status_code=404)
+    return JSONResponse({"ok": True})
+
+
+@app.post("/api/assessments/{aid}/targets")
+def api_assessments_add_target(aid: str, body: TargetBody):
+    """Add a target. Body: {"target": "10.0.0.5"}."""
+    a = assess.add_target(aid, body.target)
+    if a is None:
+        return JSONResponse({"ok": False, "error": "assessment not found or full"}, status_code=404)
+    return JSONResponse({"ok": True, "assessment": a})
+
+
+@app.delete("/api/assessments/{aid}/targets/{target:path}")
+def api_assessments_remove_target(aid: str, target: str):
+    a = assess.remove_target(aid, target)
+    if a is None:
+        return JSONResponse({"ok": False, "error": "assessment not found"}, status_code=404)
+    return JSONResponse({"ok": True, "assessment": a})
+
+
+@app.get("/api/assessments/by-target/{target:path}")
+def api_assessments_by_target(target: str):
+    return JSONResponse({"ok": True, "assessments": assess.assessments_by_target(target)})
+
+
+# ── Scheduled scans (in-app cron store) ─────────────────────────────────
+
+class SchedulerCreateModel(BaseModel):
+    name: str
+    tool_id: str
+    interval_seconds: int
+    target: str = ""
+    enabled: bool = True
+
+
+class SchedulerUpdateModel(BaseModel):
+    name: Optional[str] = None
+    tool_id: Optional[str] = None
+    interval_seconds: Optional[int] = None
+    target: Optional[str] = None
+    enabled: Optional[bool] = None
+
+
+@app.get("/api/scheduler/jobs")
+def api_scheduler_list():
+    try:
+        return JSONResponse({"ok": True, "jobs": sched.list_jobs(), "summary": sched.summary()})
+    except Exception:
+        logger.exception("scheduler list failed")
+        return JSONResponse({"ok": False, "error": "list failed"}, status_code=500)
+
+
+@app.post("/api/scheduler/jobs")
+def api_scheduler_create(body: SchedulerCreateModel):
+    try:
+        job = sched.create_job(
+            name=body.name,
+            tool_id=body.tool_id,
+            interval_seconds=body.interval_seconds,
+            target=body.target,
+            enabled=body.enabled,
+        )
+        return JSONResponse({"ok": True, "job": job.to_dict()})
+    except ValueError as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+    except Exception:
+        logger.exception("scheduler create failed")
+        return JSONResponse({"ok": False, "error": "create failed"}, status_code=500)
+
+
+@app.put("/api/scheduler/jobs/{jid}")
+@app.patch("/api/scheduler/jobs/{jid}")
+def api_scheduler_update(jid: str, body: SchedulerUpdateModel):
+    job = sched.update_job(
+        jid,
+        name=body.name,
+        tool_id=body.tool_id,
+        interval_seconds=body.interval_seconds,
+        target=body.target,
+        enabled=body.enabled,
+    )
+    if job is None:
+        return JSONResponse({"ok": False, "error": "job not found or invalid"}, status_code=404)
+    return JSONResponse({"ok": True, "job": job})
+
+
+@app.delete("/api/scheduler/jobs/{jid}")
+def api_scheduler_delete(jid: str):
+    ok = sched.delete_job(jid)
+    if not ok:
+        return JSONResponse({"ok": False, "error": "job not found"}, status_code=404)
+    return JSONResponse({"ok": True})
+
+
+@app.post("/api/scheduler/jobs/{jid}/run")
+def api_scheduler_run_now(jid: str):
+    """Force a job to fire on the next /api/scheduler/due poll."""
+    job = sched.advance_to_now(jid)
+    if job is None:
+        return JSONResponse({"ok": False, "error": "job not found or disabled"}, status_code=404)
+    return JSONResponse({"ok": True, "job": job})
+
+
+@app.get("/api/scheduler/due")
+def api_scheduler_due():
+    """Pop and advance every job whose interval has elapsed (single trigger per cycle)."""
+    try:
+        jobs = sched.due_jobs()
+        return JSONResponse({"ok": True, "jobs": jobs})
+    except Exception:
+        logger.exception("scheduler due failed")
+        return JSONResponse({"ok": False, "error": "due failed"}, status_code=500)
 
 
 # ── System Monitor (CPU / RAM / disk + disk cleanup) ────────────────

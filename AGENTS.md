@@ -15,7 +15,7 @@ Browser → WS (localhost:8000/ws) → FastAPI → Paramiko → Kali SSH
 ```
 C:\Users\34678\Desktop\Proyecto ciber\
 ├── backend/
-│   ├── main.py              # FastAPI app (~5235 lines, 208 endpoints)
+│   ├── main.py              # FastAPI app (~6800 lines, 208 endpoints + assessments/scheduler routes)
 │   ├── database.py           # Supabase CRUD layer (17 tables, 99% coverage)
 │   ├── exif_osint.py         # EXIF metadata extraction + GPS + reverse geocoding
 │   ├── canary_tokens.py      # Honeytoken generator (8 types) + activation tracking
@@ -43,11 +43,11 @@ C:\Users\34678\Desktop\Proyecto ciber\
 │   ├── plugins/               # Plugin directory (example_plugin/)
 │   ├── skills/                # Built-in skill playbooks (recon, webvuln, ssrf, jwt, supabase)
 │   ├── burp_plugin/           # Jython Burp Suite plugin (mirv_burp.py)
-│   ├── tests/                 # 3330 tests across 53 test files
+│   ├── tests/                 # ~4640 tests across 78 test files
 │   ├── Dockerfile             # Container image for mirv-backend
 │   └── requirements.txt
 ├── frontend/
-│   ├── index.html            # SPA (Tailwind CDN, 28 tabs, ~2850 lines)
+│   ├── index.html            # SPA (Tailwind CDN, 31 tabs, ~3600 lines)
 │   ├── css/
 │   │   └── style.css          # Signal Intelligence + Monochrome theme (~873 lines)
 │   ├── img/
@@ -55,7 +55,7 @@ C:\Users\34678\Desktop\Proyecto ciber\
 │   │   ├── favicon.svg         # Browser favicon
 │   │   └── icon-192.svg        # PWA/desktop app icon
 │   └── js/
-│       ├── main.v2.js          # All frontend logic (~8700 lines)
+│       ├── main.v2.js          # All frontend logic (~12500 lines)
 │       ├── main.js             # Legacy version
 │       ├── dataservice.js      # Supabase REST client
 │       ├── mobile.js           # Mobile analysis UI
@@ -86,7 +86,7 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 **Tests:**
 ```bash
 cd backend
-python -m pytest tests/ -k "not test_slow_hook" -q  # ~3834 tests, ~95% coverage
+python -m pytest tests/ -k "not test_slow_hook" -q  # ~4640 tests, ~95% coverage
 ```
 
 ## Backend modules (main.py + 30 modules)
@@ -124,6 +124,8 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~3834 tests, ~95% coverage
 | `system_monitor.py` | ~490 | Host resource monitor — CPU/RAM/uptime, disk volumes, safe cleanup-candidate scan + delete (stdlib, psutil optional) | 29 | — |
 | `osint_recon.py` | ~1428 | Passive OSINT — 19 tools: email breach/verify, dorking, phone, reverse-image, wayback, IP geo, username, github + **Ronda #2**: dns_recon (DoH), rdap_whois (RDAP), pwned_passwords (HIBP k-anonymity), urlhaus_lookup (abuse.ch), page_snapshot (Jina Reader) + **Ronda #3**: code_search (Sourcegraph SSE), cert_transparency (crt.sh CT), sigstore_lookup (Rekor), urlscan_search (urlscan.io), mac_vendor_lookup (maclookup) — all stdlib, keyless | 159 | 100% |
 | `pc_analyzer.py` | ~530 | PC health diagnostics — deterministic checks (RAM/CPU/disk/junk/network/uptime + eventlog/updates/reboot), grade A–F, score 0–100, suggestions + confirmation-gated auto-fix (`/api/pc-analyzer/fix`) | 62 | 95% |
+| `assessments.py` | ~280 | Assessment workspace — dataclass-based in-memory registry, status lifecycle (planning→in-scope→in-progress→done→archived), target dedup, tags, notes, per-target lookup, summary stats | 30 | 100% |
+| `scheduler.py` | ~230 | Scheduled scans — job registry, interval validation (10s–7d), `due_jobs()` auto-advance single-trigger per cycle, `advance_to_now()` for run-now, toggle enable/disable, summary stats | 37 | 100% |
 
 ## Backend quirks (main.py)
 
@@ -140,7 +142,7 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~3834 tests, ~95% coverage
 - **Audit log auto-init** on startup + existing `logger` wired with `AuditLogHandler`.
 - **Swarm sessions route** registered BEFORE `/api/swarm/{session_id}` to avoid catch-all collision.
 
-## Frontend structure (28 tabs)
+## Frontend structure (31 tabs)
 
 | Tab | ID | Purpose |
 |-----|----|---------| 
@@ -173,10 +175,12 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~3834 tests, ~95% coverage
 | Browser Capture | `tab-browsercapture` | HAR import + security analysis |
 | Sys Monitor | `tab-system` | Host resources (CPU/RAM/disk) + cleanup candidates |
 | PC Analyzer | `tab-pcanalyzer` | PC health diagnostics (grade A–F) + suggestions + AI explanation |
+| Assessments | `tab-assessments` | Assessment workspace: status lifecycle, per-target chips, scan/history |
+| Scheduler | `tab-scheduler` | Scheduled scans: job countdowns, pause/resume, run-now, 10s global polling |
 
-- **Single HTML file** (`index.html`, ~2694 lines) — no build step, no bundler, no framework.
+- **Single HTML file** (`index.html`, ~3600 lines) — no build step, no bundler, no framework.
 - **Tailwind via CDN** (`https://cdn.tailwindcss.com`). Custom colors: `neon`, `cyber`, `deep`, `void`, `blood`.
-- **All JS in one file** (`main.v2.js`, ~8700 lines) — DOMContentLoaded closure, functions on `window.*`.
+- **All JS in one file** (`main.v2.js`, ~12500 lines) — DOMContentLoaded closure, functions on `window.*`.
 - **i18n**: 170+ entries (en/es), `data-i18n` attributes, `applyLanguage()`.
 - **Vanilla JS**, no router, no package.json for frontend.
 
@@ -207,6 +211,12 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~3834 tests, ~95% coverage
 | `downloadFindingsExport(format)` | CSV/SARIF/HTML export via `/api/findings/export` |
 | `siemWebhookSave()` / `siemWebhookClear()` | SIEM external alert webhook (Slack/Telegram) |
 | `insertHak5Template()` / `validateHak5Payload()` / `downloadHak5Payload()` | Hak5 templates / validator / export |
+| `clearCmdHistory()` / `exportSession(format)` / `aiSessionSummary()` | Terminal history / session export (.log/.md) / AI summary |
+| `computeNextSteps(tool, items, buf, target)` / `renderNextStepSuggestions()` | Deterministic next-step suggestions after each tool |
+| `openCheatSheet()` / `closeCheatSheet()` / `loadCheatCommand(cmd)` / `renderCheatSheet(filter)` | Cheatsheet modal + preload command (TARGET→target) |
+| `renderFindingsCharts()` | Canvas charts by severity/tool/target in Findings |
+| `refreshAssessments()` / `renderAssessments()` / `createAssessment()` / `toggleAssessmentForm()` / `assessmentRemoveTarget()` / `assessmentDelete()` / `assessmentScan()` | Assessments workspace |
+| `refreshScheduler()` / `renderSchedulerJobs()` / `createScheduleJob()` / `toggleSchedulerForm()` / `_scheduleToggle()` / `_scheduleRun()` / `_scheduleDelete()` / `schedulerPollDue()` | Scheduler tab + 10s global due-polling |
 
 ## Findings parsing system
 
@@ -275,6 +285,8 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~3834 tests, ~95% coverage
 | **Intelligence** | `POST /api/intelligence/watches`, `GET /api/intelligence/watches`, `GET /api/intelligence/watches/{id}`, `PUT /api/intelligence/watches/{id}`, `DELETE /api/intelligence/watches/{id}`, `POST /api/intelligence/watches/{id}/snapshot`, `GET /api/intelligence/watches/{id}/snapshots`, `GET /api/intelligence/alerts`, `POST /api/intelligence/alerts/{id}/acknowledge`, `DELETE /api/intelligence/alerts`, `POST /api/intelligence/diff/{id}` |
 | **Sys Monitor** | `GET /api/system/stats`, `GET /api/system/disk`, `GET /api/system/cleanup`, `POST /api/system/cleanup` |
 | **PC Analyzer** | `GET /api/pc-analyzer`, `POST /api/pc-analyzer/fix` (auto-fix confirmation-gated) |
+| **Assessments** | `GET/POST /api/assessments`, `GET/PUT/DELETE /api/assessments/{aid}`, `POST /api/assessments/{aid}/targets`, `DELETE /api/assessments/{aid}/targets/{target}`, `GET /api/assessments/by-target/{target}` |
+| **Scheduler** | `GET/POST /api/scheduler/jobs`, `PUT/PATCH/DELETE /api/scheduler/jobs/{jid}`, `POST /api/scheduler/jobs/{jid}/run`, `GET /api/scheduler/due` |
 
 ## Plugin system
 
@@ -367,6 +379,8 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~3834 tests, ~95% coverage
 | `vulnforge_hak5_{bunny,omg,m5,shack,squirrel,shark}` | JSON array | Hak5 payloads per device (Bash Bunny, OMG Cable, M5 Stack, Shark Jack, Packet Squirrel Mark II, Shark Jack Display) |
 | `mirv_ps_creds` | JSON object | Payload Studio credentials |
 | `mirv_opsec` | "silent" \| "covert" \| "loud" | OPSEC level |
+| `mirv_cmd_history` | JSON array | Terminal command history (persisted, max 100) |
+| `mirv_findings_charts_open` | "1" \| "0" | Findings charts `<details>` collapsed state |
 
 ### Supabase (backend persistence)
 17 tables: `ssh_connections`, `scripts`, `reports`, `findings`, `hak5_payloads`, `app_settings`, `uploaded_files`, `credentials`, `ctf_challenges`, `ctf_solves`, `forensics_evidence`, `mobile_apks`, `mission_history`, `scope_events`, `swarm_sessions`, `mission_plans`, `app_credentials`.
@@ -405,11 +419,11 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~3834 tests, ~95% coverage
 
 ## Test summary
 
-- **76 test files** in `backend/tests/`
-- **~3834 tests** collected (295 in `test_main_gaps.py` + 19 in `test_main_websocket_gaps.py`)
+- **78 test files** in `backend/tests/`
+- **~4640 tests** collected (296 now in `test_main_gaps.py` + 19 in `test_main_websocket_gaps.py` + 30 `test_assessments.py` + 37 `test_scheduler.py`)
 - **~95% coverage** across measured backend modules
 - **`backend/main.py` = 100%** (2847/2847 statements; last gaps were websocket `read_shell` break on OSError/EOFError + outer `WebSocketDisconnect`)
-- **Key test files**: test_database (196), test_api_endpoints (333), test_main_gaps (295), test_main_coverage (165), test_main_extra (120), test_crud_endpoints (67), test_deep_coverage_1/2 (205), test_compaction (63), test_burp_bridge (72), test_redact (63), test_skill_playbooks (67), test_audit_log (45), test_plugin_manager (47), test_plugin_watcher (18), test_siem (31), test_coverage (33), test_exif_osint (63), test_mobile_analyzer (54), test_canary_tokens (24), test_dlp_scanner (25), test_finding_poc (61), test_intelligence (43), test_permission_system (56), test_opsec, test_scope_guard, test_forensics, test_adb_controller, test_kali_mcp_client, test_mission_store, test_knowledgebase, test_swarm, + scanner tools + gap files (test_*_gaps.py: redact, dlp_scanner, mission_store, dns_lookup, pdf_engine, database, finding_poc, headers_scanner, hash_cracker, adb_controller, skill_playbooks, audit_log, intelligence, opsec, scope_guard).
+- **Key test files**: test_database (196), test_api_endpoints (333), test_main_gaps (296), test_main_coverage (165), test_main_extra (120), test_crud_endpoints (67), test_deep_coverage_1/2 (205), test_compaction (63), test_burp_bridge (72), test_redact (63), test_skill_playbooks (67), test_audit_log (45), test_plugin_manager (47), test_plugin_watcher (18), test_siem (31), test_coverage (33), test_exif_osint (63), test_mobile_analyzer (54), test_canary_tokens (24), test_dlp_scanner (25), test_finding_poc (61), test_intelligence (43), test_permission_system (56), test_opsec, test_scope_guard, test_forensics, test_adb_controller, test_kali_mcp_client, test_mission_store, test_knowledgebase, test_swarm, test_assessments (30), test_scheduler (37), + scanner tools + gap files (test_*_gaps.py: redact, dlp_scanner, mission_store, dns_lookup, pdf_engine, database, finding_poc, headers_scanner, hash_cracker, adb_controller, skill_playbooks, audit_log, intelligence, opsec, scope_guard).
 
 ### main.py coverage tests (gaps)
 

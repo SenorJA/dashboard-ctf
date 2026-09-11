@@ -450,6 +450,14 @@
                 <button class="tab-btn" id="tab-btn-home" data-tab="home" role="tab" aria-selected="false" aria-controls="tab-home" data-i18n="tabHome">
                     🏠 Home
                 </button>
+                <button class="tab-btn" id="tab-btn-assessments" data-tab="assessments" role="tab" aria-selected="false" aria-controls="tab-assessments" data-i18n="tabAssessments">
+                    <span class="tab-icon">🗂️</span>
+                    <span>Assessments</span>
+                </button>
+                <button class="tab-btn" id="tab-btn-scheduler" data-tab="scheduler" role="tab" aria-selected="false" aria-controls="tab-scheduler" data-i18n="tabScheduler">
+                    <span class="tab-icon">⏰</span>
+                    <span>Scheduler</span>
+                </button>
                 <button class="tab-btn active" id="tab-btn-terminal" data-tab="terminal" role="tab" aria-selected="true" aria-controls="tab-terminal" data-i18n="tabTerminal">
                     ⌨ Terminal
                 </button>
@@ -635,6 +643,8 @@
                     <button data-action="tab" data-tab="system" class="bg-deep hover:bg-gray-800 text-gray-300 border border-gray-800 px-3 py-1.5 rounded text-[10px] transition-all">🖥️ Host</button>
                     <button data-action="tab" data-tab="intelligence" class="bg-deep hover:bg-gray-800 text-gray-300 border border-gray-800 px-3 py-1.5 rounded text-[10px] transition-all">🔍 Intel</button>
                     <button data-action="tab" data-tab="hak5" class="bg-deep hover:bg-gray-800 text-gray-300 border border-gray-800 px-3 py-1.5 rounded text-[10px] transition-all">🔌 Hak5</button>
+                    <button data-action="tab" data-tab="assessments" class="bg-deep hover:bg-gray-800 text-gray-300 border border-gray-800 px-3 py-1.5 rounded text-[10px] transition-all">🗂️ Assessments</button>
+                    <button data-action="tab" data-tab="scheduler" class="bg-deep hover:bg-gray-800 text-gray-300 border border-gray-800 px-3 py-1.5 rounded text-[10px] transition-all">⏰ Scheduler</button>
                 </div>
 
                 <div class="bg-void border border-gray-800 rounded-lg p-3 mb-4">
@@ -667,6 +677,26 @@
                     <button data-action="clear-terminal" id="btn-clear-terminal"
                         class="bg-gray-800/50 hover:bg-gray-800 text-gray-500 hover:text-gray-300 border border-gray-800 px-3 py-1.5 rounded text-[11px] transition-all duration-200">
                         ✕ Clear
+                    </button>
+                    <button data-action="clear-cmd-history" id="btn-clear-history"
+                        class="bg-gray-800/50 hover:bg-gray-800 text-gray-500 hover:text-gray-300 border border-gray-800 px-3 py-1.5 rounded text-[11px] transition-all duration-200"
+                        title="Clear saved command history">
+                        🗑 History
+                    </button>
+                    <button data-action="export-session" id="btn-export-session"
+                        class="bg-cyber/10 hover:bg-cyber/20 text-cyber border border-cyber/30 px-3 py-1.5 rounded text-[11px] transition-all duration-200"
+                        title="Download the terminal session as a text log">
+                        ⬇ Export
+                    </button>
+                    <button data-action="ai-summary" id="btn-ai-summary"
+                        class="bg-purple-900/30 hover:bg-purple-800/40 text-purple-300 border border-purple-700/40 px-3 py-1.5 rounded text-[11px] transition-all duration-200"
+                        title="Send the current session to the AI for a summary">
+                        🤖 Summary
+                    </button>
+                    <button data-action="cheatsheet" id="btn-cheatsheet"
+                        class="bg-deep hover:bg-gray-800 text-yellow-400 border border-yellow-800/50 px-3 py-1.5 rounded text-[11px] transition-all duration-200"
+                        title="Open the command cheatsheet">
+                        📖 Cheat
                     </button>
                     <button data-action="stop-cmd" id="btn-stop"
                         class="bg-blood/10 hover:bg-blood/20 text-blood border border-blood/30 px-3 py-1.5 rounded text-[11px] transition-all duration-200 font-semibold">
@@ -1701,6 +1731,20 @@
                     <input type="text" id="findings-search" placeholder="🔍 Search findings by text, tool, target..."
                         class="flex-1 bg-deep border border-gray-800 rounded px-2.5 py-1.5 text-[11px] text-gray-300 placeholder-gray-500 focus:outline-none focus:border-neon/50 font-mono" aria-label="Search findings by text, tool or target">
                 </div>
+
+                <!-- ── Charts overview (collapsible) ── -->
+                <details id="findings-charts-wrapper" class="mb-3 group">
+                    <summary class="flex items-center gap-2 cursor-pointer select-none text-[11px] text-gray-300 hover:text-neon">
+                        <span class="text-gray-500 group-open:rotate-90 transition-transform text-[10px]">▶</span>
+                        📊 Charts Overview
+                        <span class="text-[9px] text-gray-500 ml-auto font-mono" id="findings-charts-badge"></span>
+                    </summary>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
+                        <canvas id="chart-severity" class="bg-void border border-gray-800 rounded h-28" aria-label="Findings by severity"></canvas>
+                        <canvas id="chart-tools" class="bg-void border border-gray-800 rounded h-28" aria-label="Findings by tool"></canvas>
+                        <canvas id="chart-targets" class="bg-void border border-gray-800 rounded h-28" aria-label="Findings by target"></canvas>
+                    </div>
+                </details>
 
                 <!-- ── Findings list ── -->
                 <div id="findings-list" class="space-y-2" aria-live="polite" aria-label="Findings list">
@@ -3090,8 +3134,105 @@
             </div>
 
             <!-- ════════════════════════════════════════════════════════════
-                 SYSTEM MONITOR — host resource & disk cleanup intelligence
+                 ASSESSMENTS WORKSPACE — targets grouped by assessment
                  ════════════════════════════════════════════════════════════ -->
+            <div id="tab-assessments" role="tabpanel" aria-labelledby="tab-btn-assessments" class="tab-pane p-4 pt-3 overflow-y-auto">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="text-lg">🗂️</span>
+                        <h2 class="text-xl font-semibold text-neon">Assessments</h2>
+                        <span id="assess-summary" class="text-[9px] px-2 py-1 rounded bg-deep border border-gray-800 text-gray-400 font-mono"></span>
+                    </div>
+                    <button id="assess-new-btn" data-action="assessment-create"
+                        class="bg-neon/10 hover:bg-neon/20 text-neon border border-neon/30 px-3 py-1.5 rounded text-[11px] transition-all">+ New</button>
+                </div>
+
+                <!-- Create form (hidden by default) -->
+                <div id="assess-form" class="hidden bg-deep border border-gray-800 rounded p-3 mb-3 text-[11px] space-y-2">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <input id="assess-name" placeholder="Assessment name (e.g. Client A)" class="bg-void border border-gray-800 rounded px-2 py-1 text-[11px] text-gray-300 focus:outline-none focus:border-neon/50 font-mono">
+                        <select id="assess-status" class="bg-void border border-gray-800 rounded px-2 py-1 text-[11px] text-gray-300 focus:outline-none focus:border-neon/50 font-mono">
+                            <option value="planning">📋 Planning</option>
+                            <option value="in-scope">📌 In Scope</option>
+                            <option value="in-progress">🔄 In Progress</option>
+                            <option value="done">✅ Done</option>
+                            <option value="archived">📦 Archived</option>
+                        </select>
+                    </div>
+                    <textarea id="assess-desc" placeholder="Description" rows="1" class="w-full bg-void border border-gray-800 rounded px-2 py-1 text-[11px] text-gray-300 focus:outline-none focus:border-neon/50 font-mono"></textarea>
+                    <input id="assess-targets" placeholder="Targets (comma-separated: 10.0.0.1, example.com)" class="w-full bg-void border border-gray-800 rounded px-2 py-1 text-[11px] text-gray-300 focus:outline-none focus:border-neon/50 font-mono">
+                    <div class="flex gap-2">
+                        <input id="assess-tags" placeholder="Tags (comma-separated)" class="flex-1 bg-void border border-gray-800 rounded px-2 py-1 text-[11px] text-gray-300 focus:outline-none focus:border-neon/50 font-mono">
+                        <input id="assess-notes" placeholder="Notes" class="flex-1 bg-void border border-gray-800 rounded px-2 py-1 text-[11px] text-gray-300 focus:outline-none focus:border-neon/50 font-mono">
+                    </div>
+                    <div class="flex gap-2 justify-end">
+                        <button data-action="assessment-create-save" class="bg-neon/10 hover:bg-neon/20 text-neon border border-neon/30 px-3 py-1 rounded text-[10px] transition-all font-semibold">💾 Save</button>
+                        <button data-action="assessment-create-cancel" class="bg-gray-800/50 hover:bg-gray-800 text-gray-500 hover:text-gray-300 border border-gray-800 px-3 py-1 rounded text-[10px] transition-all">Cancel</button>
+                    </div>
+                </div>
+
+                <div id="assess-list" class="space-y-2" aria-live="polite" aria-label="Assessments list">
+                    <div class="text-center text-[11px] text-gray-400 py-8" id="assess-empty">No assessments yet — click <strong>+ New</strong> to start.</div>
+                </div>
+            </div>
+
+            <!-- ════════════════════════════════════════════════════════════
+                 SCHEDULER — scheduled scans (in-app cron)
+                 ════════════════════════════════════════════════════════════ -->
+            <div id="tab-scheduler" role="tabpanel" aria-labelledby="tab-btn-scheduler" class="tab-pane p-4 pt-3 overflow-y-auto">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="text-lg">⏰</span>
+                        <h2 class="text-xl font-semibold text-neon">Scheduler</h2>
+                        <span id="sched-summary" class="text-[9px] px-2 py-1 rounded bg-deep border border-gray-800 text-gray-400 font-mono"></span>
+                    </div>
+                    <button id="sched-new-btn" data-action="schedule-create"
+                        class="bg-neon/10 hover:bg-neon/20 text-neon border border-neon/30 px-3 py-1.5 rounded text-[11px] transition-all">+ New Job</button>
+                </div>
+
+                <!-- Create form (hidden by default) -->
+                <div id="sched-form" class="hidden bg-deep border border-gray-800 rounded p-3 mb-3 text-[11px] space-y-2">
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <input id="sched-name" placeholder="Job name (e.g. Daily recon)" class="bg-void border border-gray-800 rounded px-2 py-1 text-[11px] text-gray-300 focus:outline-none focus:border-neon/50 font-mono">
+                        <select id="sched-tool" class="bg-void border border-gray-800 rounded px-2 py-1 text-[11px] text-gray-300 focus:outline-none focus:border-neon/50 font-mono">
+                            <option value="nmap">🔍 Nmap (full port + service)</option>
+                            <option value="gobuster">📁 Gobuster (dir brute)</option>
+                            <option value="nikto">⚠️ Nikto (web vuln)</option>
+                            <option value="whatweb">🔎 WhatWeb (stack fingerprint)</option>
+                            <option value="dnsrecon">🌍 Dnsrecon (DNS enum)</option>
+                            <option value="masscan">⚡ Masscan (fast 65k ports)</option>
+                            <option value="wpscan">📌 WPScan (WordPress)</option>
+                            <option value="smbclient">📂 Smbclient (null session)</option>
+                            <option value="enum4linux">🏢 Enum4linux (SMB full)</option>
+                            <option value="ffuf">🌐 FFuf (fuzzing)</option>
+                            <option value="hydra-ssh">🔑 Hydra SSH (brute)</option>
+                            <option value="hydra-ftp">🔑 Hydra FTP (brute)</option>
+                            <option value="sqlmap">💉 SQLMap (SQLi)</option>
+                        </select>
+                        <select id="sched-interval" class="bg-void border border-gray-800 rounded px-2 py-1 text-[11px] text-gray-300 focus:outline-none focus:border-neon/50 font-mono">
+                            <option value="60">Every 1 min</option>
+                            <option value="300">Every 5 min</option>
+                            <option value="600">Every 10 min</option>
+                            <option value="1800">Every 30 min</option>
+                            <option value="3600" selected>Every 1 hour</option>
+                            <option value="14400">Every 4 hours</option>
+                            <option value="43200">Every 12 hours</option>
+                            <option value="86400">Every 24 hours</option>
+                        </select>
+                    </div>
+                    <input id="sched-target" placeholder="Target IP/host (optional — uses active target if blank)" class="w-full bg-void border border-gray-800 rounded px-2 py-1 text-[11px] text-gray-300 focus:outline-none focus:border-neon/50 font-mono">
+                    <div class="flex gap-2 justify-end">
+                        <button data-action="schedule-create-save" class="bg-neon/10 hover:bg-neon/20 text-neon border border-neon/30 px-3 py-1 rounded text-[10px] transition-all font-semibold">💾 Save</button>
+                        <button data-action="schedule-create-cancel" class="bg-gray-800/50 hover:bg-gray-800 text-gray-500 hover:text-gray-300 border border-gray-800 px-3 py-1 rounded text-[10px] transition-all">Cancel</button>
+                    </div>
+                </div>
+
+                <div id="sched-list" class="space-y-2" aria-live="polite" aria-label="Scheduled jobs list">
+                    <div class="text-center text-[11px] text-gray-400 py-8" id="sched-empty">No scheduled jobs — click <strong>+ New Job</strong> to start.</div>
+                </div>
+            </div>
+
+            <!-- ════════════════════════════════════════════════════════════
             <div id="tab-system" role="tabpanel" aria-labelledby="tab-btn-system" class="tab-pane p-4 pt-3 overflow-y-auto">
                 <!-- Header -->
                 <div class="flex items-center justify-between mb-4">
@@ -3464,6 +3605,21 @@ example.com
                 style="word-break: break-all;">
                 Ready.
             </div>
+        </div>
+    </div>
+
+    <!-- ── Cheatsheet Modal ── -->
+    <div id="cheatsheet-modal" class="hidden fixed inset-0 z-[99999] flex items-center justify-center p-4"
+        style="background:rgba(4,8,20,0.8); backdrop-filter: blur(3px);" role="dialog" aria-modal="true" aria-label="Command cheatsheet">
+        <div class="w-full max-w-2xl max-h-[80vh] flex flex-col bg-void border border-neon/20 rounded-lg overflow-hidden"
+            style="box-shadow:0 0 40px rgba(212,168,67,0.12);">
+            <div class="flex items-center gap-2 px-3 py-2 border-b border-gray-800">
+                <span class="text-[11px] text-yellow-400">📖 Cheatsheet</span>
+                <input type="text" id="cheat-search" placeholder="🔍 Filter commands (e.g. nmap, wordlist, scan)..."
+                    class="flex-1 bg-deep border border-gray-800 rounded px-2.5 py-1.5 text-[11px] text-gray-300 placeholder-gray-500 focus:outline-none focus:border-yellow-500/40 font-mono" aria-label="Filter cheatsheet commands">
+                <button data-action="close-cheatsheet" class="text-gray-400 hover:text-gray-200 text-[11px] px-2 rounded hover:bg-gray-800">✕</button>
+            </div>
+            <div id="cheat-list" class="overflow-y-auto p-2 space-y-1.5"></div>
         </div>
     </div>
 

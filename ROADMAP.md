@@ -234,6 +234,41 @@ real antes de cerrar.
 
 ---
 
+## ✅ Pack de 5 mejoras de uso (11 Sep 2026)
+
+Mejoras orientadas a flujo de trabajo real en la app (todos: sin dependencias externas).
+
+- [x] **Terminal workflow**:
+  - Historial de comandos **persistente** (`localStorage mirv_cmd_history`, flechas ↑/↓,
+    `window.clearCmdHistory` + botón 🗑 History)
+  - **Export de sesión** (`window.exportSession` → `.log`/`.md` descargable, botón ⬇ Export)
+  - **Resumen IA de la sesión** (`window.aiSessionSummary` → `/api/ai/chat`, botón 🤖 Summary)
+  - **Sugerencias next-step deterministas** (`computeNextSteps` + `renderNextStepSuggestions`,
+    cero IA): tras cada tool, 1–4 comandos de continuación (nmap→whatweb/gobuster/hydra según
+    puertos abiertos, gobuster/ffuf→nikto+wpscan si WP, whatweb→wpscan si wordpress, sqlmap→--dbs,
+    dnsrecon AXFR→dig, enum4linux→smbmap, cewl→hydra, …) renderizados clickeables en el panel
+    Findings→Suggestions + aviso en terminal
+- [x] **Charts Overview en Findings**: 3 mini-gráficas canvas puro (sin librerías) por severidad
+  (critical/high/medium/low/info con colores), top-8 tools y top-8 targets (`renderFindingsCharts`
+  + `_drawBars`); panel `details` colapsable con estado persistido
+- [x] **Cheatsheet integrada**: modal 📖 Cheat en terminal con ~50 comandos curados por categoría
+  (scan/web/sql/auth/smb/telnet/dns/osint/pivot/jwt/files/servicios/info), buscador en vivo,
+  clic precarga el comando en el input reemplazando `TARGET` por el target activo
+- [x] **Assessments workspace**: módulo `backend/assessments.py` + 8 endpoints
+  (`GET/POST /api/assessments`, `GET/PUT/DELETE /api/assessments/{id}`, targets add/remove,
+  `by-target/{target}`) + tab 🗂️ Assessments. Status planning/in-scope/in-progress/done/archived,
+  targets dedup, tags, notas, límites 200/100. Frontend: form inline + cards (chips de targets
+  con ✕, add con Enter, status selector, ⚡ Scan first → lanza nmap, 🗑 Delete)
+- [x] **Scheduler (escaneos programados)**: módulo `backend/scheduler.py` + 7 endpoints
+  (`/api/scheduler/jobs` CRUD, `/api/scheduler/due`, `/api/scheduler/jobs/{id}/run`) + tab ⏰
+  Scheduler. `due_jobs()` auto-avanza (single-trigger por ciclo), intervalos 10s–7d validados,
+  `advance_to_now` para "run now". Frontend: countdown, ⏸/▶, ⚡ Run now, y **polling global cada
+  10 s** que lanza `launchTool(tool_id)` en el terminal (target del job o el activo)
+- Tests añadidos: 30 `test_assessments.py` + 37 `test_scheduler.py`. Suite completa (cmd CI):
+  **4641 passed** ✅. Tabs 28→**31**, rutas registradas 254→**269** (+8 assessments, +7 scheduler).
+- ⬜ Pre-existente no relacionado: `test_orchestrator.py::TestCallLlm::test_openai_provider_default_model_when_empty`
+  (ambiental, falla igual en `ff057a8`)
+
 ## ✅ Improvements pack — 5 features (10 Sep 2026)
 
 Las 6 ideas de mejora solicitadas: 5 implementadas en esta tanda (+ los 2 dispositivos Hak5

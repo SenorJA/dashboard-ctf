@@ -1300,11 +1300,13 @@ ${bodyHtml}
         if (list.length === 0) {
             container.innerHTML = '<div class="text-center text-[11px] text-gray-400 py-8">No findings match this filter.</div>';
             updateStats();
+            renderFindingsCharts();
             return;
         }
 
         container.innerHTML = list.map(f => _renderOneFinding(f)).join('');
         updateStats();
+        renderFindingsCharts();
     }
 
     // ── Render a single finding card HTML (used by renderFindings + real-time append) ──
@@ -1401,6 +1403,64 @@ ${bodyHtml}
         document.getElementById('stat-tools').textContent = uniqueTools.size;
         document.getElementById('stat-reports').textContent = (window.reports || []).length;
     }
+
+    // ── Findings Charts Overview (pure canvas, no libs) ──
+    const _sevColor = { critical: '#f87171', high: '#fb923c', medium: '#facc15', low: '#60a5fa', info: '#94a3b8' };
+    const _barColors = ['#22d3ee','#34d399','#c084fc','#fb923c','#60a5fa','#f87171','#facc15','#94a3b8'];
+    function _drawBars(canvas, items, maxVal, total) {
+        const ctx = canvas.getContext('2d');
+        const w = canvas.width = canvas.offsetWidth;
+        const h = canvas.height = canvas.offsetHeight;
+        ctx.clearRect(0, 0, w, h);
+        if (!items.length) { ctx.fillStyle = '#6b7280'; ctx.font = '10px monospace'; ctx.fillText('No data', 10, 16); return; }
+        const max = maxVal || Math.max(...items.map(x => x.val)) || 1;
+        const barH = Math.min(14, Math.floor((h - 10) / items.length) - 2);
+        const labelW = 70;
+        const barMax = w - labelW - 32;
+        items.forEach((it, i) => {
+            const y = 4 + i * (barH + 2);
+            const bw = Math.max(2, (it.val / max) * barMax);
+            ctx.fillStyle = it.color || _barColors[i % _barColors.length];
+            ctx.fillRect(labelW, y, bw, barH);
+            ctx.fillStyle = '#9ca3af';
+            ctx.font = '10px monospace';
+            ctx.fillText(it.label.slice(0, 12), 2, y + barH - 2);
+            ctx.fillStyle = '#e5e7eb';
+            ctx.fillText(String(it.val), labelW + bw + 4, y + barH - 2);
+        });
+    }
+    function _countMap(arr, key) {
+        const m = {};
+        arr.forEach(it => { const k = (it && it[key]) || 'unknown'; m[k] = (m[k]||0)+1; });
+        return Object.entries(m).sort((a,b)=>b[1]-a[1]).slice(0,8);
+    }
+    function renderFindingsCharts() {
+        const f = window.findings || [];
+        const badge = document.getElementById('findings-charts-badge');
+        if (badge) badge.textContent = f.length ? `${f.length} total` : '';
+        // Severity bars
+        const sevCounts = {};
+        f.forEach(x => { const s = x.severity || 'info'; sevCounts[s] = (sevCounts[s]||0)+1; });
+        const sevOrder = ['critical','high','medium','low','info'];
+        const sevItems = sevOrder.filter(s=>sevCounts[s]).map(s=>({label:s,val:sevCounts[s],color:_sevColor[s]}));
+        _drawBars(document.getElementById('chart-severity'), sevItems, null, f.length);
+        // Tool bars
+        const toolItems = _countMap(f,'tool').map(([label,val],i)=>({label,val,color:_barColors[i%_barColors.length]}));
+        _drawBars(document.getElementById('chart-tools'), toolItems, null, f.length);
+        // Target bars
+        const tgtItems = _countMap(f,'target').map(([label,val],i)=>({label,val,color:_barColors[i%_barColors.length]}));
+        _drawBars(document.getElementById('chart-targets'), tgtItems, null, f.length);
+    }
+
+    (function _initChartsPanel() {
+        const wrapper = document.getElementById('findings-charts-wrapper');
+        if (!wrapper) return;
+        try { wrapper.open = localStorage.getItem('mirv_findings_charts_open') === 'true'; } catch {}
+        wrapper.addEventListener('toggle', () => {
+            try { localStorage.setItem('mirv_findings_charts_open', String(wrapper.open)); } catch {}
+            if (wrapper.open) renderFindingsCharts();
+        });
+    })();
 
     // ── Clear findings ──
     window.clearFindings = function () {
@@ -1524,20 +1584,35 @@ ${bodyHtml}
             .replace(/[\uE000-\uF8FF\u200B-\u200F\u2028-\u202F]/g, ''); // Nerd Font icons (PUA) + zero-width chars
     }
 
-    // ── Command history (client-side) ──
-    const cmdHistory = [];
-    let cmdHistoryIdx = -1;
+    // ── Command history (client-side, persisted across reloads) ──
+    let cmdHistory = [];
+    try { cmdHistory = JSON.parse(localStorage.getItem('mirv_cmd_history') || '[]'); } catch { cmdHistory = []; }
+    if (!Array.isArray(cmdHistory)) cmdHistory = [];
+    let cmdHistoryIdx = cmdHistory.length;
     const CMD_HISTORY_MAX = 100;
+
+    function persistCmdHistory() {
+        try { localStorage.setItem('mirv_cmd_history', JSON.stringify(cmdHistory.slice(-CMD_HISTORY_MAX))); }
+        catch { /* storage full/blocked — history stays in-memory */ }
+    }
+
+    window.clearCmdHistory = function () {
+        cmdHistory = [];
+        cmdHistoryIdx = 0;
+        persistCmdHistory();
+        showToast('✕ Command history cleared');
+    };
 
     window.sendCommand = function () {
         if (!ensureConnected()) return;
         const cmd = cmdInput.value.trim();
         if (!cmd) return;
         ws.send(cmd);
-        // Store in history (avoid dupes)
+        // Store in history (avoid dupes, persisted)
         if (cmdHistory.length === 0 || cmdHistory[cmdHistory.length - 1] !== cmd) {
             cmdHistory.push(cmd);
             if (cmdHistory.length > CMD_HISTORY_MAX) cmdHistory.shift();
+            persistCmdHistory();
         }
         cmdHistoryIdx = cmdHistory.length; // reset index to end
         cmdInput.value = '';
@@ -1839,6 +1914,111 @@ ${bodyHtml}
     }
 
     // Called when we detect a tool has finished
+    // ── Deterministic Next-Step Engine ──
+    // Suggests the logical follow-up tool after each run, w/o any AI or API.
+    // Reuses the Findings → Suggestions panel (click .suggest-run-cmd to load).
+    function computeNextSteps(tool, items, buf, target) {
+        const t = target || 'unknown';
+        const httpUrl = /^https?:\/\//i.test(t) ? t.replace(/\/+$/, '') : `http://${t}`;
+        const httpsUrl = `https://${t}`;
+        const results = [];
+        const ports = new Set();
+        const paths = new Set();
+        const bufLow = (buf || '').toLowerCase();
+        const has = (re) => re.test(bufLow);
+
+        for (const it of items || []) {
+            if (it.extra && it.extra.port) ports.add(parseInt(it.extra.port));
+            if (it.extra && it.extra.path) paths.add(String(it.extra.path));
+        }
+        if (tool === 'nmap' || tool === 'masscan') {
+            const opens = [];
+            for (const p of ports) opens.push(p);
+            if (has(/\bhttps\b/) || ports.has(443)) {
+                results.push({ tool: 'whatweb', reason: 'https detected — fingerprint the stack', command: `whatweb ${httpsUrl}` });
+                results.push({ tool: 'gobuster', reason: 'web service up — enumerate directories', command: `gobuster dir -u ${httpsUrl} -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt -t 50` });
+            }
+            if (has(/\bhttp\b/) || ports.has(80) || ports.has(8080) || ports.has(8000)) {
+                results.push({ tool: 'whatweb', reason: 'http service up — fingerprint the stack', command: `whatweb ${httpUrl}` });
+                results.push({ tool: 'nikto', reason: 'http service up — scan for known vulns', command: `nikto -h ${httpUrl} -C all` });
+            }
+            if (ports.has(22)) results.push({ tool: 'hydra-ssh', reason: 'ssh open — try auth brute (careful: scope!)', command: `hydra -L /usr/share/wordlists/metasploit/unix_users.txt -P /usr/share/wordlists/rockyou.txt ssh://${t}` });
+            if (ports.has(445) || ports.has(139)) results.push({ tool: 'enum4linux', reason: 'SMB open — enumerate shares/users', command: `enum4linux -a ${t}` });
+            if (ports.has(3306) || ports.has(1433) || ports.has(5432)) results.push({ tool: 'nmap', reason: 'DB port open — fingerprint DB version', command: `nmap -sV -p ${[...ports].filter(p => [3306, 1433, 5432].includes(p)).join(',')} ${t}` });
+            if (ports.has(21)) results.push({ tool: 'hydra-ftp', reason: 'FTP open — try auth brute (careful: scope!)', command: `hydra -L /usr/share/wordlists/metasploit/unix_users.txt -P /usr/share/wordlists/rockyou.txt ftp://${t}` });
+            if (opens.length && !results.length) {
+                results.push({ tool: 'nmap', reason: 'ports found — detailed service scan', command: `nmap -sV -sC -p ${opens.join(',')} ${t}` });
+            }
+        } else if (['gobuster', 'dirb', 'ffuf', 'wfuzz', 'feroxbuster'].includes(tool)) {
+            const real = [...paths].filter(p => !/^\/\d{3}$/.test(p));
+            let interesting = real.filter(p => !/(\.png|\.jpg|\.css|\.js|\.ico)$/i.test(p));
+            if (has(/wp-content|wp-admin|wordpress/i)) results.push({ tool: 'wpscan', reason: 'WordPress install detected — scan plugins/themes', command: `wpscan --url ${httpUrl} --enumerate vp,vt,u` });
+            results.push({ tool: 'nikto', reason: 'dirs enumerated — scan for known vulns', command: `nikto -h ${httpUrl} -C all` });
+            if (interesting.length > 0) {
+                const spot = interesting.slice(0, 3).join(' ');
+                results.push({ tool: 'curl', reason: 'interesting paths found — inspect responses', command: `for p in ${spot}; do echo -e "\\n== $p =="; curl -s -o /dev/null -w "%{http_code} %{size_download}B\\n" ${httpUrl}${'$p'}; done` });
+            }
+        } else if (tool === 'whatweb') {
+            if (has(/wordpress/i)) results.push({ tool: 'wpscan', reason: 'WordPress identified — enumerate plugins/themes', command: `wpscan --url ${httpUrl} --enumerate vp,vt,u` });
+            if (has(/apache/i)) results.push({ tool: 'searchsploit', reason: 'Apache fingerprint — check known exploits', command: `searchsploit apache` });
+            results.push({ tool: 'gobuster', reason: 'stack known — enumerate directories', command: `gobuster dir -u ${httpUrl} -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt -t 50` });
+        } else if (tool === 'nikto') {
+            if (has(/sql injection/i)) results.push({ tool: 'sqlmap', reason: 'SQLi evidence — confirm injection points', command: `sqlmap ${httpUrl} --batch --crawl=1` });
+            results.push({ tool: 'curl', reason: 'verify live responses manually', command: `curl -sI ${httpUrl}` });
+        } else if (tool === 'wpscan') {
+            if (has(/vulnerability|critical|themes/i)) results.push({ tool: 'searchsploit', reason: 'WP vulns found — look for public exploits', command: `searchsploit wordpress $(echo ${httpUrl} | grep -oP '(?<=//)[^/]+')` });
+        } else if (tool === 'dnsrecon') {
+            if (has(/zone transfer|axfr/i)) results.push({ tool: 'dnsrecon', reason: 'zone transfer leak — dig the full zone', command: `dig ${t} AXFR` });
+            results.push({ tool: 'nmap', reason: 'DNS records mapped — scan the host', command: `nmap -sV -sC ${t}` });
+        } else if (tool === 'searchsploit') {
+            results.push({ tool: 'searchsploit', reason: 'examine exploit code before running', command: `searchsploit --examine $(curl -s -o /dev/null -w '%{http_code}' https://www.exploit-db.com/raw/44139 || echo example)` });
+        } else if (tool === 'sqlmap') {
+            results.push({ tool: 'sqlmap', reason: 'injection confirmed — enumerate tables', command: `sqlmap ${httpUrl} --batch --dbs` });
+        } else if (tool === 'cewl') {
+            results.push({ tool: 'hydra-ssh', reason: 'wordlist built — reuse for auth brute', command: `hydra -L /usr/share/wordlists/metasploit/unix_users.txt -P cewl-words.txt ssh://${t}` });
+        } else if (tool === 'enum4linux' || tool === 'smbclient' || tool === 'smbmap') {
+            if (has(/password|credentials?|login/i)) results.push({ tool: 'smbmap', reason: 'creds hinted — re-scan with auth', command: `smbmap -H ${t}` });
+            results.push({ tool: 'smbclient', reason: 'SMB context — list shares + null session', command: `smbclient -L //${t} -N` });
+        } else if (tool === 'theharvester') {
+            results.push({ tool: 'theharvester', reason: 'emails found — deepen the OSINT', command: `theharvester -d $(echo ${t} | cut -d'/' -f1) -b all` });
+        } else if (tool === 'hydra-ssh' || tool === 'hydra-ftp') {
+            if (has(/login:|password:/i)) results.push({ tool: 'hydra-ssh', reason: 'creds leaked — validate the pair', command: `echo "machine ${t} login user password pass" | sshpass 2>/dev/null || echo "creds ready — test manually"` });
+        }
+        return results.slice(0, 4);
+    }
+
+    function renderNextStepSuggestions(suggestions, target) {
+        if (!suggestions || suggestions.length === 0) return;
+        const section = document.getElementById('suggestions-section');
+        const list = document.getElementById('suggestions-list');
+        if (!section || !list) return;
+        section.classList.remove('hidden');
+        suggestions.forEach(s => {
+            const card = document.createElement('div');
+            card.className = 'bg-void border border-neon/20 rounded p-2.5 text-[11px]';
+            card.innerHTML = `
+                <div class="flex items-center gap-1.5 mb-1.5">
+                    <span class="text-[9px] text-neon/70 font-mono">⚡ next-step</span>
+                    <span class="text-[9px] text-gray-500">·</span>
+                    <span class="text-[9px] text-gray-400 uppercase">${s.tool}</span>
+                </div>
+                <div class="text-gray-300 leading-relaxed text-[11px]">${mdToHTML('**' + s.reason + '**')}<div class="font-mono text-neon/70 mt-1 break-all">${s.command}</div></div>
+                <div class="flex gap-2 mt-1.5">
+                    <button data-cmd="${s.command.replace(/"/g, '&quot;')}"
+                        class="suggest-run-cmd text-[9px] text-neon/60 hover:text-neon transition-all">▶ Load in terminal</button>
+                    <button data-action="copy-clipboard"
+                        class="text-[9px] text-gray-400 hover:text-gray-400 transition-all">📋 Copy</button>
+                </div>
+            `;
+            list.appendChild(card);
+        });
+        list.scrollTop = list.scrollHeight;
+        try {
+            const plain = suggestions.map(s => `  ▶ ${s.tool}: ${s.reason}`).join('\n');
+            appendOutput(`\n⚡ ${suggestions.length} next-step suggestion(s) (Findings → Suggestions to run):\n${plain}\n`);
+        } catch { /* append output not ready */ }
+    }
+
     function finishToolOutput() {
         const tool = currentToolRunning || pendingTool;
         if (!tool || !outputBuffer || _toolParsed) return;
@@ -1864,6 +2044,7 @@ ${bodyHtml}
             if (items.length > 0) {
                 addFindings(items);
             }
+            renderNextStepSuggestions(computeNextSteps(tool, items, buf, target), target);
             if (dbg) dbg.textContent = `✓ ${items.length} findings (buf:${buf.length})`;
             setTimeout(() => { if (dbg) dbg.textContent = ''; }, 4000);
         }, 100);
@@ -1883,6 +2064,171 @@ ${bodyHtml}
         clearTimeout(window._toolFinishTimer);
         showToast('✕ Terminal cleared');
     };
+
+    // ── Export Terminal Session (.log / .md) ──
+    function downloadBlob(text, filename, mime) {
+        const blob = new Blob([text], { type: mime });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 4000);
+    }
+
+    window.exportSession = function (format) {
+        const body = (typeof output !== 'undefined' && output && output.textContent) ? output.textContent : '';
+        const clean = body.replace(/\n{3,}/g, '\n\n').trim();
+        const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+        const target = (typeof targetInput !== 'undefined' && targetInput) ? targetInput.value.trim() : '';
+        const header = `# MIRV Terminal Session export\n# timestamp: ${new Date().toISOString()}\n# target: ${target || 'n/a'}\n# chars: ${clean.length}\n\n---\n\n`;
+        let text, mime, ext;
+        if (format === 'md') {
+            text = header + '```text\n' + clean + '\n```\n';
+            mime = 'text/markdown';
+            ext = 'md';
+        } else {
+            text = header.replace(/#/g, '').replace(/^/, '') + clean + '\n';
+            mime = 'text/plain';
+            ext = 'log';
+        }
+        const host = (typeof window.location !== 'undefined' && window.location.hostname) ? window.location.hostname.replace(/[^a-z0-9]/gi, '_') : 'mirv';
+        downloadBlob(text, `mirv-session-${host}-${stamp}.${ext}`, mime);
+        showToast(`⬇ Session exported (.${ext})`);
+    };
+
+    // ── AI Session Summary (sends terminal buffer to /api/ai/chat) ──
+    window.aiSessionSummary = async function () {
+        const body = (typeof output !== 'undefined' && output && output.textContent) ? output.textContent : '';
+        const tail = body.slice(-5000); // cap report at last ~5KB
+        if (!tail.trim()) { showToast('ℹ Terminal vacío — no hay nada que resumir'); return; }
+        const target = (typeof targetInput !== 'undefined' && targetInput) ? targetInput.value.trim() : '';
+        try {
+            const syncResp = await fetch('/api/ai/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    messages: [{
+                        role: 'user',
+                        content: `You are a pentest session summarizer for MIRV. Summarize the following terminal session in ${window.currentLang === 'es' ? 'Spanish' : 'English'}, using bullets: (1) target, (2) tools/commands run, (3) key findings/signals, (4) recommended next 2-3 steps. Keep it under 180 words. Do NOT invent data. Session (target ${target || 'unknown'}):\n\n${tail}`
+                    }]
+                })
+            });
+            if (!syncResp.ok) throw new Error('HTTP ' + syncResp.status);
+            const data = await syncResp.json();
+            const summary = (data && (data.content || data.reply || (data.message && data.message.content))) || '';
+            appendOutput('\n━━━ 🤖 AI Session Summary ━━━\n' + summary + '\n━━━━━━━━━━━━━━━━━━━━━━━\n');
+        } catch (err) {
+            showToast('⚠ AI summary failed: ' + err.message);
+            appendOutput('\n⚠ AI summary failed (' + err.message + ') — ¿AI configurado en Ajustes?\n');
+        }
+    };
+
+    // ── Cheatsheet (searchable quick references, preloads commands) ──
+    const CHEATSHEET = [
+        { cat: 'scan', cmd: 'nmap -sV -sC TARGET', note: 'Version + default script scan' },
+        { cat: 'scan', cmd: 'nmap -p- -T4 TARGET', note: 'Full TCP port range (slow)' },
+        { cat: 'scan', cmd: 'nmap -p- --min-rate 3000 TARGET', note: 'Full port sweep, fast' },
+        { cat: 'scan', cmd: 'nmap -sU --top-ports 100 TARGET', note: 'Top UDP ports' },
+        { cat: 'scan', cmd: 'nmap -sn 192.168.1.0/24', note: 'Host discovery (ping sweep)' },
+        { cat: 'scan', cmd: 'masscan -p1-65535 -T4 TARGET', note: 'Quick mass port scan' },
+        { cat: 'web', cmd: 'gobuster dir -u http://TARGET -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt -t 50', note: 'Directory brute-force' },
+        { cat: 'web', cmd: 'gobuster dir -u http://TARGET -w /usr/share/wordlists/dirb/common.txt -x php,txt,bak', note: 'Dir brute + common extensions' },
+        { cat: 'web', cmd: 'ffuf -u http://TARGET/FUZZ -w /usr/share/wordlists/seclists/Discovery/Web-Content/raft-medium-words.txt', note: 'Fast recursive fuzzing' },
+        { cat: 'web', cmd: 'nikto -h http://TARGET -C all', note: 'Web vuln scanner' },
+        { cat: 'web', cmd: 'whatweb -v http://TARGET', note: 'Stack fingerprinting (verbose)' },
+        { cat: 'web', cmd: 'wpscan --url http://TARGET --enumerate vp,vt,u', note: 'WordPress plugin/theme/user enum' },
+        { cat: 'web', cmd: 'curl -sI http://TARGET', note: 'Inspect response headers' },
+        { cat: 'web', cmd: 'curl -s -X POST http://TARGET/login -d "user=admin&pass=test" -v', note: 'Inspect a login POST' },
+        { cat: 'web', cmd: 'wfuzz -c -z file,/usr/share/wordlists/dirb/common.txt --hc 404 http://TARGET/FUZZ', note: 'Fuzz paths hiding 404s' },
+        { cat: 'web', cmd: 'feroxbuster -u http://TARGET -x php,txt,html', note: 'Aggressive recursive dir search' },
+        { cat: 'sql', cmd: 'sqlmap http://TARGET?param=1 --batch --dbs', note: 'Auto SQLi test → dbs' },
+        { cat: 'sql', cmd: 'sqlmap -u "http://TARGET?id=1" --crawl=2', note: 'SQLi with crawling' },
+        { cat: 'auth', cmd: 'hydra -L /usr/share/wordlists/metasploit/unix_users.txt -P /usr/share/wordlists/rockyou.txt ssh://TARGET', note: 'SSH brute force (scope only!)' },
+        { cat: 'auth', cmd: 'hydra -l admin -P /usr/share/wordlists/rockyou.txt http-post-form "/login:user=^USER^&pass=^PASS^:Invalid"', note: 'Web form brute' },
+        { cat: 'auth', cmd: 'nmap -p 445 --script smb-brute.nse TARGET', note: 'SMB user/pass brute' },
+        { cat: 'smb', cmd: 'enum4linux -a TARGET', note: 'Full SMB enum (shares/users/os)' },
+        { cat: 'smb', cmd: 'smbclient -L //TARGET -N', note: 'List SMB shares (null session)' },
+        { cat: 'smb', cmd: 'smbmap -H TARGET', note: 'Shares + permissions over SMB' },
+        { cat: 'smb', cmd: 'crackmapexec smb TARGET -u users.txt -p passwords.txt', note: 'SMB creds spray' },
+        { cat: 'tel', cmd: 'nc -nvv TARGET PORT', note: 'Raw banner grab / chat' },
+        { cat: 'tel', cmd: 'openssl s_client -connect TARGET:443 -servername TARGET 2>/dev/null | openssl x509 -noout -text', note: 'Dump TLS certificate' },
+        { cat: 'tel', cmd: 'timeout 2 bash -c "</dev/tcp/TARGET/8080"', note: 'Quick TCP connectivity test' },
+        { cat: 'dns', cmd: 'dnsrecon -d TARGET -a', note: 'DNS records + zone transfer attempt' },
+        { cat: 'dns', cmd: 'dig TARGET AXFR', note: 'Test zone transfer' },
+        { cat: 'dns', cmd: 'dig TARGET any', note: 'All record types' },
+        { cat: 'osint', cmd: 'theharvester -d TARGET -b all', note: 'Emails/hosts/names OSINT' },
+        { cat: 'osint', cmd: 'cewl http://TARGET -d 2 -w cewl-words.txt', note: 'Build company wordlist' },
+        { cat: 'osint', cmd: 'searchsploit <product> <version>', note: 'Find public exploits' },
+        { cat: 'pivot', cmd: 'ip route | grep tun', note: 'Check VPN/tunnel routes' },
+        { cat: 'pivot', cmd: 'proxychains nmap -sT -Pn TARGET', note: 'Pivot scan via proxychains' },
+        { cat: 'jwt', cmd: 'python3 -c "import base64;print(base64.urlsafe_b64decode(\"<header>\").decode())"', note: 'Decode a JWT header' },
+        { cat: 'jwt', cmd: 'hashcat -m 3200 jwt_hash.txt /usr/share/wordlists/rockyou.txt', note: 'Crack HS256 JWT (jwt>hash format)' },
+        { cat: 'files', cmd: 'find / -type f -perm -4000 2>/dev/null', note: 'SUID binaries' },
+        { cat: 'files', cmd: 'getcap -r / 2>/dev/null', note: 'Capabilities (cap_setuid often = privesc)' },
+        { cat: 'files', cmd: 'grep -r "password" /etc/ --include="*.conf" -il 2>/dev/null', note: 'Find configs with passwords' },
+        { cat: 'files', cmd: 'tar -czf loot-$(date +%H%M).tar.gz <folder>', note: 'Bundle captured loot' },
+        { cat: 'svc', cmd: 'systemctl list-units --type=service --running', note: 'Running services (Box>)' },
+        { cat: 'svc', cmd: 'ss -tlnp', note: 'Listening TCP sockets + process' },
+        { cat: 'svc', cmd: 'ss -ulnp', note: 'Listening UDP sockets' },
+        { cat: 'info', cmd: 'uname -a && cat /etc/os-release', note: 'Kernel + OS version' },
+        { cat: 'info', cmd: 'whoami && id && sudo -l', note: 'Identity + sudo rights' },
+        { cat: 'info', cmd: 'lscpu | grep -E "Model name|Core(s) per socket"' , note: 'CPU model' },
+    ];
+    function _cheatEscape(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+    function renderCheatSheet(filter) {
+        const list = document.getElementById('cheat-list');
+        if (!list) return;
+        const q = (filter || '').toLowerCase().trim();
+        const rows = CHEATSHEET.filter(c => {
+            if (!q) return true;
+            return (c.cmd + ' ' + c.note + ' ' + c.cat).toLowerCase().includes(q);
+        });
+        list.innerHTML = rows.length ? rows.map(c => `
+            <button class="cheat-row w-full text-left bg-deep hover:bg-gray-800 border border-gray-800 hover:border-yellow-600/40 rounded px-2.5 py-1.5 transition-all group" data-cmd="${_cheatEscape(c.cmd)}">
+                <div class="flex flex-wrap items-center gap-x-2">
+                    <span class="text-[9px] uppercase tracking-wider text-yellow-500/60 border border-yellow-800/40 px-1 rounded">${c.cat}</span>
+                    <code class="font-mono text-[11px] text-yellow-300/90 group-hover:text-yellow-300">${_cheatEscape(c.cmd)}</code>
+                    <span class="ml-auto text-[10px] text-gray-500">${_cheatEscape(c.note)}</span>
+                </div>
+            </button>`).join('') : '<div class="text-center text-[11px] text-gray-500 py-6">No commands match.</div>';
+    }
+    window.openCheatSheet = function () {
+        document.getElementById('cheatsheet-modal').classList.remove('hidden');
+        renderCheatSheet('');
+        const inp = document.getElementById('cheat-search');
+        if (inp) { inp.value = ''; setTimeout(() => inp.focus(), 50); }
+        showToast('💡 Click a command to load it into the Terminal (TARGET → active target)');
+    };
+    window.closeCheatSheet = function () {
+        document.getElementById('cheatsheet-modal').classList.add('hidden');
+    };
+    window.loadCheatCommand = function (cmd) {
+        const target = (document.getElementById('target-ip')?.value || '').trim();
+        const filled = target ? cmd.replace(/TARGET/g, target) : cmd;
+        const input = document.getElementById('cmd-input');
+        if (input) { input.value = filled; input.focus(); }
+        closeCheatSheet();
+        showToast('▶ Command loaded — press Enter to run');
+    };
+    // Cheatsheet events (delegated — modal HTML is declared after the script tag)
+    document.addEventListener('click', function (e) {
+        if (e.target.closest('.cheat-row')) {
+            e.preventDefault();
+            window.loadCheatCommand(e.target.closest('.cheat-row').getAttribute('data-cmd') || '');
+            return;
+        }
+        if (e.target.closest('[data-action="close-cheatsheet"]')) window.closeCheatSheet();
+    });
+    document.addEventListener('input', function (e) {
+        if (e.target && e.target.id === 'cheat-search') renderCheatSheet(e.target.value);
+    });
+    document.addEventListener('keydown', function (e) {
+        const modal = document.getElementById('cheatsheet-modal');
+        if (e.key === 'Escape' && modal && !modal.classList.contains('hidden')) window.closeCheatSheet();
+    });
 
     // ── File Upload to Kali (with chunked base64 for large files) ──
     window.handleFileUpload = async function (input) {
@@ -3648,6 +3994,10 @@ ${bodyHtml}
 
         // ── Terminal ──
         'clear-terminal': ()   => { if (window.clearTerminal) clearTerminal(); },
+        'clear-cmd-history':() => { if (window.clearCmdHistory) clearCmdHistory(); },
+        'export-session':  ()   => { if (window.exportSession) exportSession(); },
+        'ai-summary':      ()   => { if (window.aiSessionSummary) aiSessionSummary(); },
+        'cheatsheet':      ()   => { if (window.openCheatSheet) openCheatSheet(); },
         'stop-cmd':       ()   => { if (window.stopCommand) stopCommand(); },
         'file-upload':    ()   => { const inp = document.getElementById('file-upload-input'); if (inp) inp.click(); },
 
@@ -3780,6 +4130,19 @@ ${bodyHtml}
         'kb-search':      ()   => { if (window.kbSearch) kbSearch(); },
         'kb-ask-ai':      ()   => { if (window.kbAskAI) kbAskAI(); },
         'kb-clear':       ()   => { const inp = document.getElementById('kb-query'); if (inp) { inp.value = ''; if (window.kbSearch) kbSearch(); } },
+
+        // ── Assessments workspace ──
+        'assessment-create':       ()   => { if (window.toggleAssessmentForm) toggleAssessmentForm(true); },
+        'assessment-create-save':  ()   => { if (window.createAssessment) createAssessment(); },
+        'assessment-create-cancel':()   => { if (window.toggleAssessmentForm) toggleAssessmentForm(false); },
+        'assessment-delete':       (el) => { if (window.assessmentDelete) assessmentDelete(el); },
+        'assessment-scan':         (el) => { if (window.assessmentScan) assessmentScan(el); },
+        'assessment-remove-target':(el) => { if (window.assessmentRemoveTarget) assessmentRemoveTarget(el); },
+
+        // ── Scheduler ──
+        'schedule-create':       ()   => { if (window.toggleSchedulerForm) toggleSchedulerForm(true); },
+        'schedule-create-save':  ()   => { if (window.createScheduleJob) createScheduleJob(); },
+        'schedule-create-cancel':()   => { if (window.toggleSchedulerForm) toggleSchedulerForm(false); },
     };
 
     function initEventListeners() {
@@ -6282,6 +6645,8 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         catBugbounty:      { en: 'Bug Bounty',       es: 'Bug Bounty' },
         tabTerminal:       { en: '⌨ Terminal',       es: '⌨ Terminal' },
         tabHome:           { en: '🏠 Home',           es: '🏠 Inicio' },
+        tabAssessments:    { en: '🗂️ Assessments',    es: '🗂️ Assessments' },
+        tabScheduler:      { en: '⏰ Scheduler',       es: '⏰ Programador' },
         tabReports:        { en: '📊 Reports',       es: '📊 Informes' },
         tabScripts:        { en: '⚡ Scripts',       es: '⚡ Scripts' },
         tabBounty:         { en: '📋 Bounty',        es: '📋 Bounty' },
@@ -11929,4 +12294,307 @@ Reglas:
             });
         }
     });
+
+    // ============================================================
+    //  ASSESSMENTS WORKSPACE — targets grouped by assessment
+    // ============================================================
+    function esc(s) {
+        return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+    const _assessStatusBadge = {
+        'planning':   'bg-gray-800 text-gray-400 border-gray-700',
+        'in-scope':   'bg-cyber/10 text-cyber border-cyber/30',
+        'in-progress':'bg-neon/10 text-neon border-neon/30',
+        'done':       'bg-green-900/20 text-green-400 border-green-800/50',
+        'archived':   'bg-gray-900 text-gray-500 border-gray-800',
+    };
+    const _assessStatusLabel = {
+        'planning':'📋','in-scope':'📌','in-progress':'🔄','done':'✅','archived':'📦',
+    };
+
+    window.toggleAssessmentForm = function (open) {
+        const form = document.getElementById('assess-form');
+        if (form) { form.classList.toggle('hidden', !open); if (open) setTimeout(() => document.getElementById('assess-name')?.focus(), 50); }
+    };
+
+    async function _assessFetch(url, options) {
+        const r = await fetch(url, options || {});
+        return r.json().catch(() => ({}));
+    }
+
+    window.createAssessment = async function () {
+        const name = (document.getElementById('assess-name')?.value || '').trim();
+        if (!name) { showToast('⚠ Assessment name required'); return; }
+        const targets = (document.getElementById('assess-targets')?.value || '').split(',').map(s => s.trim()).filter(Boolean);
+        const tags = (document.getElementById('assess-tags')?.value || '').split(',').map(s => s.trim()).filter(Boolean);
+        const d = await _assessFetch('/api/assessments', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name,
+                description: document.getElementById('assess-desc')?.value || '',
+                status: document.getElementById('assess-status')?.value || 'planning',
+                targets, tags,
+                notes: document.getElementById('assess-notes')?.value || '',
+            })
+        });
+        if (!d.ok) { showToast('⚠ ' + (d.error || 'create failed')); return; }
+        toggleAssessmentForm(false);
+        showToast('✅ Assessment created');
+        refreshAssessments();
+    };
+
+    window.refreshAssessments = async function () {
+        try {
+            const d = await _assessFetch('/api/assessments');
+            if (!d.ok) { showToast('⚠ ' + (d.error || 'list failed')); return; }
+            renderAssessments(d.assessments || [], d.summary || {});
+        } catch (e) { showToast('⚠ assessments: ' + e.message); }
+    };
+
+    function renderAssessments(list, summary) {
+        const container = document.getElementById('assess-list');
+        const empty = document.getElementById('assess-empty');
+        const badge = document.getElementById('assess-summary');
+        if (badge && summary) badge.textContent = `${summary.total} total • ${summary.unique_targets} targets`;
+        if (empty) empty.style.display = list.length ? 'none' : '';
+        if (!list.length) { if (container) container.innerHTML = ''; return; }
+        container.innerHTML = list.map(a => {
+            const chips = (a.targets || []).map(t => `
+                <span class="inline-flex items-center gap-1 bg-void border border-cyber/20 rounded px-1.5 py-0.5 font-mono text-[10px] text-cyber">
+                    ${esc(t)}
+                    <button class="text-gray-500 hover:text-blood" data-action="assessment-remove-target" data-aid="${esc(a.id)}" data-target="${esc(t)}" title="remove target">✕</button>
+                </span>`).join('') || '<span class="text-gray-600 text-[10px] italic">no targets</span>';
+            const tags = (a.tags || []).map(t => `<span class="text-[9px] text-gray-500 border border-gray-800 rounded px-1">#${esc(t)}</span>`).join(' ');
+            const badgeCls = _assessStatusBadge[a.status] || _assessStatusBadge.planning;
+            return `
+            <div class="bg-deep/50 border border-gray-800 rounded p-3 text-[11px]" data-assess-id="${esc(a.id)}">
+                <div class="flex items-center gap-2 flex-wrap">
+                    <span class="text-neon font-semibold">${esc(a.name)}</span>
+                    <span class="px-1.5 py-0.5 rounded border text-[9px] ${badgeCls}">${_assessStatusLabel[a.status] || ''} ${esc(a.status)}</span>
+                    ${tags}
+                    <span class="ml-auto text-[9px] text-gray-500 font-mono">${esc(a.updated_at || '')}</span>
+                </div>
+                ${a.description ? `<p class="text-gray-400 mt-1">${esc(a.description)}</p>` : ''}
+                <div class="flex flex-wrap items-center gap-1.5 mt-2">${chips}</div>
+                ${a.notes ? `<p class="text-gray-500 mt-1 italic text-[10px]">📝 ${esc(a.notes)}</p>` : ''}
+                <div class="flex items-center gap-2 mt-2 flex-wrap">
+                    <input data-aid="${esc(a.id)}" placeholder="+ add target (Enter)"
+                        class="assess-add-target bg-void border border-gray-800 rounded px-2 py-0.5 text-[10px] text-gray-300 focus:outline-none focus:border-cyber/50 font-mono w-40">
+                    <select data-aid="${esc(a.id)}" class="assess-status-sel bg-void border border-gray-800 rounded px-1.5 py-0.5 text-[10px] text-gray-300 focus:outline-none focus:border-neon/50 font-mono">
+                        ${Object.keys(_assessStatusLabel).map(s => `<option value="${s}" ${s === a.status ? 'selected' : ''}>${_assessStatusLabel[s]} ${s}</option>`).join('')}
+                    </select>
+                    <button data-action="assessment-scan" data-aid="${esc(a.id)}" data-target="${esc((a.targets || [])[0] || '')}"
+                        class="text-[10px] text-green-400 bg-green-900/10 border border-green-800/40 rounded px-2 py-0.5 hover:bg-green-900/20 transition-all" ${a.targets && a.targets.length ? '' : 'disabled'}>⚡ Scan first</button>
+                    <button data-action="assessment-delete" data-aid="${esc(a.id)}"
+                        class="ml-auto text-[10px] text-blood/70 border border-blood/30 rounded px-2 py-0.5 hover:text-blood hover:bg-blood/10 transition-all">🗑 Delete</button>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    window.assessmentRemoveTarget = async function (btn) {
+        const aid = btn.dataset.aid, tgt = btn.dataset.target;
+        const r = await _assessFetch(`/api/assessments/${encodeURIComponent(aid)}/targets/${encodeURIComponent(tgt)}`, { method: 'DELETE' });
+        if (!r.ok) showToast('⚠ remove failed');
+        refreshAssessments();
+    };
+    window.assessmentDelete = async function (btn) {
+        const aid = btn.dataset.aid;
+        if (!confirm('Delete this assessment?')) return;
+        const r = await _assessFetch(`/api/assessments/${encodeURIComponent(aid)}`, { method: 'DELETE' });
+        if (!r.ok) showToast('⚠ delete failed');
+        refreshAssessments();
+    };
+    window.assessmentScan = async function (btn) {
+        const tgt = btn.dataset.target;
+        if (!tgt) { showToast('⚠ Assessment has no targets'); return; }
+        const input = document.getElementById('target-ip');
+        if (input) input.value = tgt;
+        switchTab('terminal');
+        setTimeout(() => window.launchTool && launchTool('nmap'), 350);
+    };
+
+    // Assessments delegated events
+    document.addEventListener('click', function (e) {
+        const addInput = e.target.closest('.assess-add-target');
+        if (addInput) {
+            const btn = e.target.closest('button');
+            if (btn && btn.dataset.action === 'assessment-add-target-click') {
+                // handled via Enter key below — but also allow clicks on the field itself
+            }
+            return;
+        }
+        const tgtBtn = e.target.closest('[data-action="assessment-add-target"]');
+        if (tgtBtn) {
+            const aid = tgtBtn.dataset.aid;
+            const input = tgtBtn.parentElement.querySelector('.assess-add-target');
+            const val = (input?.value || '').trim();
+            if (!val) return;
+            _addAssessmentTarget(aid, val);
+        }
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.target && e.target.classList && e.target.classList.contains('assess-add-target') && (e.key === 'Enter')) {
+            e.preventDefault();
+            const aid = e.target.dataset.aid;
+            const val = e.target.value.trim();
+            if (!val) return;
+            _addAssessmentTarget(aid, val);
+        }
+    });
+    document.addEventListener('change', function (e) {
+        if (e.target && e.target.classList && e.target.classList.contains('assess-status-sel')) {
+            _updateAssessmentStatus(e.target.dataset.aid, e.target.value, e.target);
+        }
+    });
+    async function _addAssessmentTarget(aid, target) {
+        const r = await _assessFetch(`/api/assessments/${encodeURIComponent(aid)}/targets`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ target })
+        });
+        if (!r.ok) showToast('⚠ ' + (r.error || 'add target failed'));
+        refreshAssessments();
+    }
+    async function _updateAssessmentStatus(aid, status, el) {
+        const r = await _assessFetch(`/api/assessments/${encodeURIComponent(aid)}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status })
+        });
+        if (!r.ok) { showToast('⚠ status update failed'); el.value = el.dataset.old || 'planning'; }
+        refreshAssessments();
+    }
+
+    // ============================================================
+    //  SCHEDULER — scheduled scans (in-app cron)
+    // ============================================================
+    window.toggleSchedulerForm = function (open) {
+        const form = document.getElementById('sched-form');
+        if (form) { form.classList.toggle('hidden', !open); if (open) setTimeout(() => document.getElementById('sched-name')?.focus(), 50); }
+    };
+
+    window.createScheduleJob = async function () {
+        const name = (document.getElementById('sched-name')?.value || '').trim();
+        const tool_id = document.getElementById('sched-tool')?.value || 'nmap';
+        const interval_seconds = parseInt(document.getElementById('sched-interval')?.value || '3600', 10);
+        const target = (document.getElementById('sched-target')?.value || '').trim();
+        if (!name) { showToast('⚠ Job name required'); return; }
+        const r = await _assessFetch('/api/scheduler/jobs', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, tool_id, interval_seconds, target })
+        });
+        if (!r.ok) { showToast('⚠ ' + (r.error || 'create failed')); return; }
+        toggleSchedulerForm(false);
+        showToast('✅ Job scheduled');
+        refreshScheduler();
+    };
+
+    window.refreshScheduler = async function () {
+        try {
+            const d = await _assessFetch('/api/scheduler/jobs');
+            if (!d.ok) { showToast('⚠ ' + (d.error || 'list failed')); return; }
+            renderSchedulerJobs(d.jobs || [], d.summary || {});
+        } catch (e) { showToast('⚠ scheduler: ' + e.message); }
+    };
+
+    function _friendlyCountdown(sec) {
+        sec = Math.max(0, Math.round(sec));
+        if (sec < 60) return `${sec}s`;
+        const m = Math.floor(sec / 60), s = sec % 60;
+        if (m < 60) return `${m}m ${s}s`;
+        const h = Math.floor(m / 60);
+        return `${h}h ${m % 60}m`;
+    }
+
+    function renderSchedulerJobs(jobs, summary) {
+        const container = document.getElementById('sched-list');
+        const empty = document.getElementById('sched-empty');
+        const badge = document.getElementById('sched-summary');
+        if (badge && summary) badge.textContent = `${summary.total} jobs • ${summary.enabled} enabled${summary.due_now ? ' • ⚡ ' + summary.due_now + ' due now' : ''}`;
+        if (empty) empty.style.display = jobs.length ? 'none' : '';
+        if (!jobs.length) { if (container) container.innerHTML = ''; return; }
+        container.innerHTML = jobs.map(j => {
+            const enabled = j.enabled;
+            const due = j.due;
+            return `
+            <div class="bg-deep/50 border border-gray-800 rounded p-3 text-[11px]">
+                <div class="flex items-center gap-2 flex-wrap">
+                    <span class="font-mono text-neon font-semibold">⏰ ${esc(j.name)}</span>
+                    <span class="px-1.5 py-0.5 rounded border border-cyber/30 text-[9px] text-cyber font-mono uppercase">${esc(j.tool_id)}</span>
+                    <span class="text-[9px] text-gray-500 font-mono">every ${_friendlyCountdown(j.interval_seconds)}</span>
+                    ${j.target ? `<span class="text-[9px] text-gray-400 font-mono border border-gray-800 rounded px-1 py-0.5">🎯 ${esc(j.target)}</span>` : ''}
+                    <span class="ml-auto flex items-center gap-1 text-[9px] font-mono">
+                        <span class="${enabled ? 'text-green-400' : 'text-gray-500'}">${enabled ? (due ? '⚡ due now' : '⏳ next in ' + _friendlyCountdown(j.seconds_until_next)) : '⏸ paused'}</span>
+                    </span>
+                </div>
+                <div class="flex items-center gap-2 mt-2 flex-wrap">
+                    <button data-action="schedule-toggle" data-jid="${esc(j.id)}" data-state="${enabled}"
+                        class="text-[10px] ${enabled ? 'bg-neon/10 text-neon border border-neon/30' : 'bg-gray-800/60 text-gray-400 border border-gray-700'} rounded px-2 py-0.5 hover:opacity-80 transition-all">${enabled ? '⏸ Pause' : '▶ Enable'}</button>
+                    <button data-action="schedule-run" data-jid="${esc(j.id)}"
+                        class="text-[10px] bg-green-900/10 text-green-400 border border-green-800/40 rounded px-2 py-0.5 hover:bg-green-900/20 transition-all" ${enabled ? '' : 'disabled'}>⚡ Run now</button>
+                    <button data-action="schedule-delete" data-jid="${esc(j.id)}"
+                        class="ml-auto text-[10px] text-blood/70 border border-blood/30 rounded px-2 py-0.5 hover:text-blood hover:bg-blood/10 transition-all">🗑 Delete</button>
+                </div>
+            </div>`;
+        }).join('');
+        document.querySelectorAll('[data-action="schedule-toggle"]').forEach(btn => {
+            btn.addEventListener('click', () => _scheduleToggle(btn.dataset.jid, btn.dataset.state === 'true'));
+        });
+        document.querySelectorAll('[data-action="schedule-run"]').forEach(btn => {
+            btn.addEventListener('click', () => _scheduleRun(btn.dataset.jid));
+        });
+        document.querySelectorAll('[data-action="schedule-delete"]').forEach(btn => {
+            btn.addEventListener('click', () => _scheduleDelete(btn.dataset.jid));
+        });
+    }
+
+    async function _scheduleToggle(jid, wasEnabled) {
+        const r = await _assessFetch(`/api/scheduler/jobs/${encodeURIComponent(jid)}`, {
+            method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: !wasEnabled })
+        });
+        if (!r.ok) { showToast('⚠ ' + (r.error || 'toggle failed')); return; }
+        showToast('⏸ ' + (wasEnabled ? 'Paused' : 'Enabled') + ' — ' + (r.job?.name || 'job'));
+        refreshScheduler();
+    }
+    async function _scheduleRun(jid) {
+        const r = await _assessFetch(`/api/scheduler/jobs/${encodeURIComponent(jid)}/run`, { method: 'POST' });
+        if (!r.ok) { showToast('⚠ ' + (r.error || 'run failed')); return; }
+        showToast('⚡ Job will fire on next poll');
+        refreshScheduler();
+    }
+    async function _scheduleDelete(jid) {
+        if (!confirm('Delete this scheduled job?')) return;
+        const r = await _assessFetch(`/api/scheduler/jobs/${encodeURIComponent(jid)}`, { method: 'DELETE' });
+        if (!r.ok) { showToast('⚠ delete failed'); return; }
+        refreshScheduler();
+    }
+    async function schedulerPollDue() {
+        try {
+            const d = await _assessFetch('/api/scheduler/due');
+            const jobs = d.jobs || [];
+            if (jobs.length) {
+                jobs.forEach(j => {
+                    if (j.target) { const ip = document.getElementById('target-ip'); if (ip) ip.value = j.target; }
+                    showToast(`⚡ Scheduled: ${j.name} (${j.tool_id}) launching…`);
+                    setTimeout(() => {
+                        if (typeof window.launchTool === 'function') window.launchTool(j.tool_id);
+                        else showToast('⚠ launchTool unavailable');
+                    }, 400);
+                });
+                refreshScheduler();
+            }
+        } catch { /* silent network blip */ }
+    }
+    // Poll every 10s for due jobs (lightweight GET)
+    setInterval(schedulerPollDue, 10000);
+
+    // Register tab-switch refreshers for the two new tabs
+    const _origAssessSwitch = window.switchTab;
+    window.switchTab = function (name) {
+        _origAssessSwitch(name);
+        if (name === 'assessments') refreshAssessments();
+        if (name === 'scheduler') refreshScheduler();
+    };
+    // CRUD actions for these panes (delegated via ACTION_MAP data-action)
+    const _assessNew = document.getElementById('assess-new-btn');
+    if (_assessNew) _assessNew.dataset.action = 'assessment-create';
+    const _schedNew = document.getElementById('sched-new-btn');
+    if (_schedNew) _schedNew.dataset.action = 'schedule-create';
 });
