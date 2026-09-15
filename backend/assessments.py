@@ -5,9 +5,10 @@ Workspace / Assessments — organize targets into named assessments with
 status, notes, and tags. Keeps an in-memory registry (thread-safe) plus a
 human-readable summary per assessment.
 
-Every function is synchronous and guarded by a module-level lock.
-Stdlib only; no external persistence (assessments are ephemeral like SIEM
-events, though the frontend may mirror them to localStorage).
+Persistence: best-effort, opt-in via ``MIRV_PERSIST_WORKSPACE=1``.
+When enabled, each mutation snapshots the whole registry as JSON to the
+``workspace_state`` Supabase table so it survives backend restarts.
+The in-memory registry always stays authoritative.
 """
 
 from __future__ import annotations
@@ -18,6 +19,11 @@ import uuid
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
+
+try:
+    from backend import workspace_store as _store
+except ImportError:  # pragma: no cover
+    _store = None  # type: ignore[assignment]
 
 _logger = logging.getLogger("vulnforge.assessments")
 
@@ -95,7 +101,8 @@ def create_assessment(
             notes=(notes or "").strip()[:MAX_NOTES_LENGTH],
         )
         _assessments[a.id] = a
-        return a
+    _persist()
+    return a
 
 
 def _clean_targets(targets: Optional[List[str]]) -> List[str]:
@@ -163,16 +170,22 @@ def update_assessment(
         if notes is not None:
             a.notes = (notes or "").strip()[:MAX_NOTES_LENGTH]
         a.updated_at = _now_iso()
-        return a.to_dict()
+        result = a.to_dict()
+    _persist()
+    return result
 
 
 def delete_assessment(aid: str) -> bool:
     with _lock:
-        return _assessments.pop(aid, None) is not None
+        deleted = _assessments.pop(aid, None) is not None
+    if deleted:
+        _persist()
+    return deleted
 
 
 def add_target(aid: str, target: str) -> Optional[Dict[str, Any]]:
     """Add (or reorder-dedupe) a target. Returns updated dict or None."""
+    updated = None
     with _lock:
         a = _assessments.get(aid)
         if not a:
@@ -182,12 +195,15 @@ def add_target(aid: str, target: str) -> Optional[Dict[str, Any]]:
             return None
         if t in a.targets:
             a.updated_at = _now_iso()
-            return a.to_dict()
-        if len(a.targets) >= MAX_TARGETS_PER_ASSESSMENT:
+            updated = a.to_dict()
+        elif len(a.targets) >= MAX_TARGETS_PER_ASSESSMENT:
             return None
-        a.targets.append(t)
-        a.updated_at = _now_iso()
-        return a.to_dict()
+        else:
+            a.targets.append(t)
+            a.updated_at = _now_iso()
+            updated = a.to_dict()
+    _persist()
+    return updated
 
 
 def remove_target(aid: str, target: str) -> Optional[Dict[str, Any]]:
@@ -198,7 +214,9 @@ def remove_target(aid: str, target: str) -> Optional[Dict[str, Any]]:
         t = (target or "").strip().rstrip("/")
         a.targets = [x for x in a.targets if x != t]
         a.updated_at = _now_iso()
-        return a.to_dict()
+        result = a.to_dict()
+    _persist()
+    return result
 
 
 def assessments_by_target(target: str) -> List[Dict[str, Any]]:
@@ -216,6 +234,48 @@ def reset_assessments() -> None:
     """Clear the registry (used by tests)."""
     with _lock:
         _assessments.clear()
+    if _store and _store.is_enabled():
+        _store.clear_cache("assessments")
+
+
+def _persist() -> None:
+    """Best-effort snapshot of the whole registry to Supabase."""
+    if not _store or not _store.is_enabled():
+        return
+    try:
+        with _lock:
+            payload = [a.to_dict() for a in _assessments.values()]
+        _store.upsert("assessments", payload)
+    except Exception as exc:  # pragma: no cover
+        _logger.warning("assessments persist failed: %s", exc)
+
+
+def load_from_store() -> None:
+    """Hydrate the in-memory registry from the persisted snapshot (startup)."""
+    if not _store:
+        return
+    rows = _store.load("assessments")
+    if not rows:
+        return
+    with _lock:
+        _assessments.clear()
+        for row in rows:
+            try:
+                a = Assessment(
+                    id=row["id"],
+                    name=row["name"],
+                    description=row.get("description", ""),
+                    status=row.get("status", "planning"),
+                    targets=row.get("targets", []),
+                    tags=row.get("tags", []),
+                    notes=row.get("notes", ""),
+                    created_at=row.get("created_at", _now_iso()),
+                    updated_at=row.get("updated_at", _now_iso()),
+                )
+                _assessments[a.id] = a
+            except Exception as exc:  # pragma: no cover
+                _logger.warning("assessments load row failed: %s", exc)
+    _logger.info("assessments: loaded %d from store", len(_assessments))
 
 
 def summary() -> Dict[str, Any]:
@@ -232,3 +292,64 @@ def summary() -> Dict[str, Any]:
             "by_status": by_status,
             "unique_targets": len(target_set),
         }
+
+
+def export_state() -> List[Dict[str, Any]]:
+    """Full serializable state (without derived target_count)."""
+    with _lock:
+        out = []
+        for a in _assessments.values():
+            d = asdict(a)
+            d.pop("target_count", None)
+            out.append(d)
+    out.sort(key=lambda d: d["created_at"])
+    return out
+
+
+def import_state(
+    rows: List[Dict[str, Any]],
+    replace: bool = False,
+) -> Dict[str, Any]:
+    """Restore assessments from JSON. ``replace=True`` clears first.
+
+    Validates every row (id/name/status, targets/tags lists, bounds) and
+    skips invalid ones. Returns a summary dict.
+    """
+    if not isinstance(rows, list):
+        raise ValueError("debe ser una lista de assessments")
+    imported, skipped, rejected = 0, 0, 0
+    with _lock:
+        if replace:
+            _assessments.clear()
+        for row in rows:
+            if not isinstance(row, dict):
+                rejected += 1
+                continue
+            name = (row.get("name") or "").strip()
+            status = row.get("status") or "planning"
+            if not name or _validate_status(status):
+                skipped += 1
+                continue
+            aid = (row.get("id") or uuid.uuid4().hex[:12])
+            if aid in _assessments and not replace:
+                continue
+            _assessments[aid] = Assessment(
+                id=aid,
+                name=name,
+                description=row.get("description", ""),
+                status=status,
+                targets=_clean_targets(row.get("targets") or [])[:MAX_TARGETS_PER_ASSESSMENT],
+                tags=_clean_tags(row.get("tags") or []),
+                notes=(row.get("notes") or "")[:MAX_NOTES_LENGTH],
+                created_at=row.get("created_at", _now_iso()),
+                updated_at=row.get("updated_at", _now_iso()),
+            )
+            imported += 1
+    if imported:
+        _persist()
+    return {
+        "imported": imported,
+        "skipped": skipped,
+        "rejected": rejected,
+        "total": len(_assessments),
+    }

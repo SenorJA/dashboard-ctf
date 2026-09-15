@@ -2045,6 +2045,7 @@ ${bodyHtml}
                 addFindings(items);
             }
             renderNextStepSuggestions(computeNextSteps(tool, items, buf, target), target);
+            _reportScheduledRun(tool, items.length);
             if (dbg) dbg.textContent = `✓ ${items.length} findings (buf:${buf.length})`;
             setTimeout(() => { if (dbg) dbg.textContent = ''; }, 4000);
         }, 100);
@@ -2231,6 +2232,180 @@ ${bodyHtml}
     });
 
     // ── File Upload to Kali (with chunked base64 for large files) ──
+
+    // ============================================================
+    //  ⌘ COMMAND PALETTE — Ctrl+K global launcher
+    // ============================================================
+    const PALETTE_TOOLS = [
+        // Web Recon
+        { id: 'nmap', label: 'Nmap', cat: 'Recon Network' },
+        { id: 'masscan', label: 'Masscan', cat: 'Recon Network' },
+        { id: 'netcat', label: 'Netcat', cat: 'Recon Network' },
+        { id: 'dnsrecon', label: 'Dnsrecon', cat: 'Recon Network' },
+        { id: 'dns-lookup', label: 'DNS Lookup', cat: 'Recon Network' },
+        { id: 'testssl', label: 'TestSSL', cat: 'Recon Network' },
+        { id: 'gobuster', label: 'Gobuster', cat: 'Web Recon' },
+        { id: 'dirb', label: 'Dirb', cat: 'Web Recon' },
+        { id: 'wfuzz', label: 'Wfuzz', cat: 'Web Recon' },
+        { id: 'ffuf', label: 'Ffuf', cat: 'Web Recon' },
+        { id: 'feroxbuster', label: 'Feroxbuster', cat: 'Web Recon' },
+        { id: 'nikto', label: 'Nikto', cat: 'Web Recon' },
+        { id: 'whatweb', label: 'WhatWeb', cat: 'Web Recon' },
+        { id: 'wpscan', label: 'WPScan', cat: 'Web Recon' },
+        { id: 'curl', label: 'Curl Headers', cat: 'Web Recon' },
+        { id: 'api-scanner', label: 'API Scanner', cat: 'Web Recon' },
+        { id: 'headers-scan', label: 'Headers Scan', cat: 'Web Recon' },
+        { id: 'cors-check', label: 'CORS Check', cat: 'Web Recon' },
+        { id: 'nuclei', label: 'Nuclei', cat: 'Web Recon' },
+        { id: 'xsstrike', label: 'XSSStrike', cat: 'Web Recon' },
+        { id: 'dalfox', label: 'Dalfox', cat: 'Web Recon' },
+        { id: 'theharvester', label: 'TheHarvester', cat: 'OSINT' },
+        { id: 'spiderfoot', label: 'SpiderFoot', cat: 'OSINT' },
+        // SMB / AD
+        { id: 'enum4linux', label: 'Enum4Linux', cat: 'SMB / AD' },
+        { id: 'smbclient', label: 'Smbclient', cat: 'SMB / AD' },
+        { id: 'smbmap', label: 'SMBMap', cat: 'SMB / AD' },
+        { id: 'ldapsearch', label: 'Ldapsearch', cat: 'SMB / AD' },
+        { id: 'bloodhound', label: 'BloodHound', cat: 'SMB / AD' },
+        { id: 'evil-winrm', label: 'Evil-WinRM', cat: 'SMB / AD' },
+        { id: 'impacket', label: 'Impacket', cat: 'SMB / AD' },
+        // Exploitation
+        { id: 'hydra-ssh', label: 'Hydra SSH', cat: 'Exploitation' },
+        { id: 'hydra-ftp', label: 'Hydra FTP', cat: 'Exploitation' },
+        { id: 'sqlmap', label: 'SQLMap', cat: 'Exploitation' },
+        { id: 'burpsuite', label: 'Burp Suite', cat: 'Exploitation' },
+        { id: 'john', label: 'John', cat: 'Cracking' },
+        { id: 'hashcat', label: 'Hashcat', cat: 'Cracking' },
+        { id: 'hash-crack', label: 'Hash Crack API', cat: 'Cracking' },
+        { id: 'searchsploit', label: 'SearchSploit', cat: 'Exploitation' },
+        { id: 'smbmap', label: 'SMBMap', cat: 'SMB / AD' },
+        // Pivot / Tunnels
+        { id: 'ligolo', label: 'Ligolo-ng', cat: 'Pivoting' },
+        { id: 'nc-listener', label: 'NC Listener', cat: 'Pivoting' },
+        { id: 'chisel-client', label: 'Chisel', cat: 'Pivoting' },
+        { id: 'proxychains', label: 'Proxychains', cat: 'Pivoting' },
+        { id: 'socat', label: 'Socat', cat: 'Pivoting' },
+        // Crypto / utils
+        { id: 'jwt-decode', label: 'JWT Decode', cat: 'Crypto' },
+        { id: 'b64-encode', label: 'Base64 Encode', cat: 'Crypto' },
+        { id: 'b64-decode', label: 'Base64 Decode', cat: 'Crypto' },
+        { id: '7z-extract', label: '7z Extract', cat: 'Utils' },
+        { id: 'gunzip', label: 'Gunzip', cat: 'Utils' },
+        { id: 'bunzip2', label: 'Bunzip2', cat: 'Utils' },
+    ];
+    const PALETTE_ACTIONS = [
+        { label: 'Export Findings', hint: 'download CSV/SARIF/HTML', run: () => window.exportFindings ? exportFindings() : showToast('⚠ unavailable') },
+        { label: 'Clear Terminal', hint: 'reset the SSH output', run: () => window.clearTerminal() },
+        { label: 'AI Session Summary', hint: 'summarize last session', run: () => window.aiSessionSummary ? aiSessionSummary() : showToast('⚠ unavailable') },
+        { label: 'Export Session (.log)', hint: 'terminal export', run: () => window.exportSession ? exportSession('log') : showToast('⚠ unavailable') },
+        { label: 'Toggle Theme', hint: 'neon ⇄ monochrome', run: () => window.toggleTheme() },
+        { label: 'Toggle Language', hint: 'en ⇄ es', run: () => window.switchLanguage() },
+        { label: 'Save Mission', hint: 'persist current operation', run: () => window.saveMission ? saveMission() : showToast('⚠ unavailable') },
+        { label: 'Command Cheatsheet', hint: 'open the helper modal', run: () => openCheatSheet() },
+        { label: 'Refresh Dashboard', hint: 'reload KPIs', run: () => window.refreshDashboard ? refreshDashboard() : showToast('⚠ unavailable') },
+    ];
+    let _paletteItems = [];
+    let _paletteFocus = 0;
+
+    function _paletteSearch(query) {
+        const q = query.trim().toLowerCase();
+        const items = [];
+        const tabs = [...document.querySelectorAll('.tab-btn')]
+            .map(b => ({ id: b.dataset.tab }))
+            .filter((v, i, a) => v.id && a.findIndex(x => x.id === v.id) === i);
+        const add = (list, type) => list.forEach(it => {
+            const hay = (it.label + ' ' + (it.cat || '') + ' ' + (it.id || '') + ' ' + (it.hint || '')).toLowerCase();
+            if (!q || hay.includes(q)) items.push({ type, ...it });
+        });
+        add(tabs.map(t => ({ id: t.id, label: _paletteTabName(t.id), hint: 'switch tab ' + t.id })), 'tab');
+        add(PALETTE_TOOLS, 'tool');
+        add(PALETTE_ACTIONS, 'action');
+        return items.slice(0, 30);
+    }
+    function _paletteTabName(id) {
+        const btn = document.querySelector(`.tab-btn[data-tab="${id}"]`);
+        return (btn && btn.textContent.trim()) || id;
+    }
+    function _renderPalette(items) {
+        const box = document.getElementById('palette-results');
+        if (!box) return;
+        _paletteItems = items;
+        _paletteFocus = 0;
+        if (!items.length) { box.innerHTML = '<div class="text-center text-[11px] text-gray-500 py-6">No matches.</div>'; return; }
+        box.innerHTML = items.map((it, i) => `
+            <button data-pidx="${i}" class="palette-row w-full flex items-center gap-2 px-2.5 py-1.5 rounded text-left ${i === 0 ? 'bg-deep border border-neon/30' : 'border border-transparent hover:bg-deep'} transition-colors">
+                <span class="text-[10px] text-gray-500 font-mono w-12 shrink-0">${it.type === 'tool' ? '⚡' : it.type === 'tab' ? '▦' : '→'}</span>
+                <span class="text-[11px] text-gray-200 flex-1">${_paletteEsc(it.label)}</span>
+                ${it.cat ? `<span class="text-[9px] text-cyber font-mono">${_paletteEsc(it.cat)}</span>` : ''}
+                ${it.hint ? `<span class="text-[9px] text-gray-600 font-mono truncate max-w-[130px]">${_paletteEsc(it.hint)}</span>` : ''}
+            </button>`).join('');
+        box.querySelectorAll('.palette-row').forEach(b => {
+            b.addEventListener('click', () => _paletteRun(parseInt(b.dataset.pidx, 10), false));
+        });
+    }
+    function _paletteEsc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+    function _paletteClose() {
+        document.getElementById('palette-modal').classList.add('hidden');
+        document.getElementById('palette-input').value = '';
+    }
+    function _paletteRun(idx, stayOpen) {
+        const it = _paletteItems[idx];
+        if (!it) return;
+        if (it.type === 'tool') {
+            window.switchTab('terminal');
+            launchTool(it.id);
+        } else if (it.type === 'tab') {
+            window.switchTab(it.id);
+        } else if (it.type === 'action') {
+            it.run();
+        }
+        if (!stayOpen || it.type !== 'tab') _paletteClose();
+    }
+    document.addEventListener('keydown', function (e) {
+        // Ctrl+K / Cmd+K toggles the palette
+        if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
+            e.preventDefault();
+            const modal = document.getElementById('palette-modal');
+            if (!modal) return;
+            if (modal.classList.contains('hidden')) {
+                modal.classList.remove('hidden');
+                _renderPalette(_paletteSearch(''));
+                const inp = document.getElementById('palette-input');
+                inp.value = '';
+                setTimeout(() => inp.focus(), 30);
+            } else {
+                _paletteClose();
+            }
+            return;
+        }
+        const modal = document.getElementById('palette-modal');
+        if (!modal || modal.classList.contains('hidden')) return;
+        if (e.key === 'Escape') { _paletteClose(); return; }
+        if (e.key === 'ArrowDown') { e.preventDefault(); _paletteMove(1); return; }
+        if (e.key === 'ArrowUp') { e.preventDefault(); _paletteMove(-1); return; }
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            _paletteRun(_paletteFocus, e.shiftKey);
+        }
+    });
+    function _paletteMove(dir) {
+        if (!_paletteItems.length) return;
+        _paletteFocus = (_paletteFocus + dir + _paletteItems.length) % _paletteItems.length;
+        const box = document.getElementById('palette-results');
+        box.querySelectorAll('.palette-row').forEach(b => {
+            const on = parseInt(b.dataset.pidx, 10) === _paletteFocus;
+            b.className = `palette-row w-full flex items-center gap-2 px-2.5 py-1.5 rounded text-left ${on ? 'bg-deep border border-neon/30' : 'border border-transparent hover:bg-deep'} transition-colors`;
+        });
+        const sel = box.querySelector(`[data-pidx="${_paletteFocus}"]`);
+        if (sel) sel.scrollIntoView({ block: 'nearest' });
+    }
+    document.addEventListener('input', function (e) {
+        if (e.target && e.target.id === 'palette-input') _renderPalette(_paletteSearch(e.target.value));
+    });
+    document.addEventListener('mousedown', function (e) {
+        const modal = document.getElementById('palette-modal');
+        if (modal && !modal.classList.contains('hidden') && e.target === modal) _paletteClose();
+    });
     window.handleFileUpload = async function (input) {
         const file = input.files && input.files[0];
         if (!file) return;
@@ -3021,7 +3196,15 @@ ${bodyHtml}
     }
 
     window.launchTool = async function (tool) {
-        const target = targetInput.value.trim();
+        let target = targetInput.value.trim();
+        // Active-assessment context: auto-fill the target from the active
+        // engagement when the tool needs one and none is set yet.
+        if (!target && getActiveAssessment && getActiveAssessment()?.target) {
+            const active = getActiveAssessment();
+            target = active.target;
+            targetInput.value = target;
+            showToast(`⭐ Target '${target}' from active assessment '${active.name}'`);
+        }
         const extraFlags = document.getElementById('extra-flags').value.trim();
         const needsTarget = [
             'gobuster','dirb','wfuzz','ffuf','feroxbuster','nikto','whatweb','wpscan','cewl','wafw00f','cors-check','headers-scan','secrets-scan','port-scan','subdomain-scan','dns-lookup','hash-crack','stego-tool','api-scanner',
@@ -6647,6 +6830,37 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         tabHome:           { en: '🏠 Home',           es: '🏠 Inicio' },
         tabAssessments:    { en: '🗂️ Assessments',    es: '🗂️ Assessments' },
         tabScheduler:      { en: '⏰ Scheduler',       es: '⏰ Programador' },
+        assessTitle:       { en: 'Assessments',        es: 'Evaluaciones' },
+        assessNew:         { en: '+ New',              es: '+ Nueva' },
+        assessImport:      { en: '📥 Import',          es: '📥 Importar' },
+        assessExport:      { en: '📤 Export',          es: '📤 Exportar' },
+        assessEmpty:       { en: 'No assessments yet — click + New to start.', es: 'Aún no hay evaluaciones — haz clic en + Nueva para comenzar.' },
+        assessNamePh:      { en: 'Assessment name (e.g. Client A)', es: 'Nombre de evaluación (ej. Cliente A)' },
+        assessDescPh:      { en: 'Description',        es: 'Descripción' },
+        assessTargetsPh:   { en: 'Targets (comma-separated: 10.0.0.1, example.com)', es: 'Objetivos (separados por coma: 10.0.0.1, example.com)' },
+        assessTagsPh:      { en: 'Tags (comma-separated)', es: 'Etiquetas (separadas por coma)' },
+        assessNotesPh:     { en: 'Notes',              es: 'Notas' },
+        assessSave:        { en: '💾 Save',            es: '💾 Guardar' },
+        assessCancel:      { en: 'Cancel',             es: 'Cancelar' },
+        schedTitle:        { en: 'Scheduler',          es: 'Programador' },
+        schedNew:          { en: '+ New Job',          es: '+ Nuevo Job' },
+        schedImport:       { en: '📥 Import',          es: '📥 Importar' },
+        schedExport:       { en: '📤 Export',          es: '📤 Exportar' },
+        schedPresets:      { en: '🔗 Presets',         es: '🔗 Presets' },
+        schedEmpty:        { en: 'No scheduled jobs — click + New Job to start.', es: 'No hay trabajos programados — haz clic en + Nuevo Job para comenzar.' },
+        schedNamePh:       { en: 'Job name (e.g. Daily recon)', es: 'Nombre del trabajo (ej. Recon diario)' },
+        schedTargetPh:     { en: 'Target IP/host (optional — uses active target if blank)', es: 'IP/host objetivo (opcional — usa el objetivo activo si está vacío)' },
+        schedSave:         { en: '💾 Save',            es: '💾 Guardar' },
+        schedCancel:       { en: 'Cancel',             es: 'Cancelar' },
+        schedPause:        { en: '⏸ Pause',           es: '⏸ Pausar' },
+        schedEnable:       { en: '▶ Enable',          es: '▶ Activar' },
+        schedRun:          { en: '⚡ Run now',         es: '⚡ Ejecutar ya' },
+        schedDelete:       { en: '🗑 Delete',          es: '🗑 Eliminar' },
+        schedStatusPlanning: { en: '📋 Planning',     es: '📋 Planificación' },
+        schedStatusScope:  { en: '📌 In Scope',        es: '📌 En Alcance' },
+        schedStatusProgress: { en: '🔄 In Progress',  es: '🔄 En Progreso' },
+        schedStatusDone:   { en: '✅ Done',            es: '✅ Hecho' },
+        schedStatusArchived: { en: '📦 Archived',     es: '📦 Archivado' },
         tabReports:        { en: '📊 Reports',       es: '📊 Informes' },
         tabScripts:        { en: '⚡ Scripts',       es: '⚡ Scripts' },
         tabBounty:         { en: '📋 Bounty',        es: '📋 Bounty' },
@@ -7305,6 +7519,43 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         document.querySelectorAll('button[data-i18n="aiAskAIBtn"]').forEach(btn => {
             btn.textContent = translations.aiAskAIBtn[lang];
         });
+
+        // ── Assessments / Scheduler (dynamic tabs) ──
+        const setI18nText = (id, key) => {
+            const el = document.getElementById(id);
+            if (el && translations[key] && translations[key][lang]) el.textContent = translations[key][lang];
+        };
+        setI18nText('assessments-tab-title', 'assessTitle');
+        setI18nText('scheduler-tab-title', 'schedTitle');
+        const aNew = document.getElementById('assess-new-btn');
+        if (aNew && translations.assessNew) aNew.textContent = translations.assessNew[lang];
+        const sNew = document.getElementById('sched-new-btn');
+        if (sNew && translations.schedNew) sNew.textContent = translations.schedNew[lang];
+        const setPh = (id, key) => {
+            const el = document.getElementById(id);
+            if (el && translations[key] && translations[key][lang]) el.placeholder = translations[key][lang];
+        };
+        setPh('assess-name', 'assessNamePh');
+        setPh('assess-desc', 'assessDescPh');
+        setPh('assess-targets', 'assessTargetsPh');
+        setPh('assess-tags', 'assessTagsPh');
+        setPh('assess-notes', 'assessNotesPh');
+        setPh('sched-name', 'schedNamePh');
+        setPh('sched-target', 'schedTargetPh');
+        const aEmpty = document.getElementById('assess-empty');
+        if (aEmpty && translations.assessEmpty) aEmpty.innerHTML = translations.assessEmpty[lang];
+        const sEmpty = document.getElementById('sched-empty');
+        if (sEmpty && translations.schedEmpty) sEmpty.innerHTML = translations.schedEmpty[lang];
+        // reassign + New buttons (their onclick lives on the buttons, text only)
+        const patchBtn = (sel, key) => {
+            document.querySelectorAll(sel).forEach(el => {
+                if (translations[key] && translations[key][lang]) el.textContent = translations[key][lang];
+            });
+        };
+        patchBtn('[data-action="assessment-create-save"]', 'assessSave');
+        patchBtn('[data-action="assessment-create-cancel"]', 'assessCancel');
+        patchBtn('[data-action="schedule-create-save"]', 'schedSave');
+        patchBtn('[data-action="schedule-create-cancel"]', 'schedCancel');
     }
 
     // Apply saved language on load
@@ -12343,6 +12594,19 @@ Reglas:
         refreshAssessments();
     };
 
+    // ── Active assessment (context per engagement, persisted in localStorage) ──
+    const ACTIVE_ASSESS_KEY = 'mirv_active_assessment';
+    function getActiveAssessment() {
+        try { return JSON.parse(localStorage.getItem(ACTIVE_ASSESS_KEY) || 'null'); }
+        catch { return null; }
+    }
+    function setActiveAssessment(aid, name, target) {
+        localStorage.setItem(ACTIVE_ASSESS_KEY, JSON.stringify({ id: aid, name: name || aid, target: target || '' }));
+    }
+    function clearActiveAssessment() {
+        localStorage.removeItem(ACTIVE_ASSESS_KEY);
+    }
+
     window.refreshAssessments = async function () {
         try {
             const d = await _assessFetch('/api/assessments');
@@ -12355,7 +12619,8 @@ Reglas:
         const container = document.getElementById('assess-list');
         const empty = document.getElementById('assess-empty');
         const badge = document.getElementById('assess-summary');
-        if (badge && summary) badge.textContent = `${summary.total} total • ${summary.unique_targets} targets`;
+        const active = getActiveAssessment();
+        if (badge && summary) badge.textContent = `${summary.total} total • ${summary.unique_targets} targets` + (active ? ` • ⭐ ${esc(active.name)}` : '');
         if (empty) empty.style.display = list.length ? 'none' : '';
         if (!list.length) { if (container) container.innerHTML = ''; return; }
         container.innerHTML = list.map(a => {
@@ -12366,10 +12631,12 @@ Reglas:
                 </span>`).join('') || '<span class="text-gray-600 text-[10px] italic">no targets</span>';
             const tags = (a.tags || []).map(t => `<span class="text-[9px] text-gray-500 border border-gray-800 rounded px-1">#${esc(t)}</span>`).join(' ');
             const badgeCls = _assessStatusBadge[a.status] || _assessStatusBadge.planning;
+            const isActive = active && active.id === a.id;
             return `
-            <div class="bg-deep/50 border border-gray-800 rounded p-3 text-[11px]" data-assess-id="${esc(a.id)}">
+            <div class="bg-deep/50 border ${isActive ? 'border-yellow-500/50' : 'border-gray-800'} rounded p-3 text-[11px]" data-assess-id="${esc(a.id)}">
                 <div class="flex items-center gap-2 flex-wrap">
                     <span class="text-neon font-semibold">${esc(a.name)}</span>
+                    ${isActive ? '<span class="text-[9px] text-yellow-400 font-mono px-1 border border-yellow-500/30 rounded">⭐ Active</span>' : ''}
                     <span class="px-1.5 py-0.5 rounded border text-[9px] ${badgeCls}">${_assessStatusLabel[a.status] || ''} ${esc(a.status)}</span>
                     ${tags}
                     <span class="ml-auto text-[9px] text-gray-500 font-mono">${esc(a.updated_at || '')}</span>
@@ -12378,6 +12645,8 @@ Reglas:
                 <div class="flex flex-wrap items-center gap-1.5 mt-2">${chips}</div>
                 ${a.notes ? `<p class="text-gray-500 mt-1 italic text-[10px]">📝 ${esc(a.notes)}</p>` : ''}
                 <div class="flex items-center gap-2 mt-2 flex-wrap">
+                    <button data-action="assessment-set-active" data-aid="${esc(a.id)}" data-name="${esc(a.name)}" data-target="${esc((a.targets || [])[0] || '')}"
+                        class="text-[10px] ${isActive ? 'bg-yellow-900/15 text-yellow-400 border border-yellow-500/30' : 'bg-gray-800/50 text-gray-400 border border-gray-800 hover:text-yellow-400 hover:border-yellow-500/40'} rounded px-2 py-0.5 transition-all">${isActive ? '★ Active' : '☆ Set active'}</button>
                     <input data-aid="${esc(a.id)}" placeholder="+ add target (Enter)"
                         class="assess-add-target bg-void border border-gray-800 rounded px-2 py-0.5 text-[10px] text-gray-300 focus:outline-none focus:border-cyber/50 font-mono w-40">
                     <select data-aid="${esc(a.id)}" class="assess-status-sel bg-void border border-gray-800 rounded px-1.5 py-0.5 text-[10px] text-gray-300 focus:outline-none focus:border-neon/50 font-mono">
@@ -12432,6 +12701,19 @@ Reglas:
             if (!val) return;
             _addAssessmentTarget(aid, val);
         }
+        const activeBtn = e.target.closest('[data-action="assessment-set-active"]');
+        if (activeBtn) {
+            const cur = getActiveAssessment();
+            const aid = activeBtn.dataset.aid;
+            if (cur && cur.id === aid) {
+                clearActiveAssessment();
+                showToast('⭐ Active assessment cleared');
+            } else {
+                setActiveAssessment(aid, activeBtn.dataset.name, activeBtn.dataset.target);
+                showToast(`⭐ '${activeBtn.dataset.name}' is now the active assessment${activeBtn.dataset.target ? ' (target ' + activeBtn.dataset.target + ')' : ''}`);
+            }
+            refreshAssessments();
+        }
     });
     document.addEventListener('keydown', function (e) {
         if (e.target && e.target.classList && e.target.classList.contains('assess-add-target') && (e.key === 'Enter')) {
@@ -12460,6 +12742,77 @@ Reglas:
         });
         if (!r.ok) { showToast('⚠ status update failed'); el.value = el.dataset.old || 'planning'; }
         refreshAssessments();
+    }
+
+    // ── Assessment export / import ──
+    window.exportAssessments = async function () {
+        try {
+            const d = await _assessFetch('/api/assessments/export');
+            if (!d.ok) { showToast('⚠ export failed'); return; }
+            _downloadJson(d.rows || [], 'assessments.json');
+            showToast('📤 Exported ' + (d.rows?.length || 0) + ' assessments');
+        } catch (e) { showToast('⚠ ' + e.message); }
+    };
+    const _assessImportInput = document.getElementById('assess-import-file');
+    if (_assessImportInput) {
+        _assessImportInput.addEventListener('change', async function () {
+            const file = this.files?.[0];
+            if (!file) return;
+            try {
+                const text = await file.text();
+                const rows = JSON.parse(text);
+                if (!Array.isArray(rows)) { showToast('⚠ invalid JSON — expected array'); return; }
+                const replace = confirm('Replace all existing assessments?\n\nOK = Replace all\nCancel = Merge (skip duplicates)');
+                const d = await _assessFetch('/api/assessments/import', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ rows, replace })
+                });
+                if (!d.ok) { showToast('⚠ ' + (d.error || 'import failed')); return; }
+                showToast('📥 Imported ' + d.imported + ' assessments' + (d.skipped ? ' (' + d.skipped + ' skipped)' : ''));
+                refreshAssessments();
+            } catch (e) { showToast('⚠ import error: ' + e.message); }
+            finally { this.value = ''; }
+        });
+    }
+
+    // ── Scheduler export / import ──
+    window.exportSchedulerJobs = async function () {
+        try {
+            const d = await _assessFetch('/api/scheduler/export');
+            if (!d.ok) { showToast('⚠ export failed'); return; }
+            _downloadJson(d.rows || [], 'scheduler_jobs.json');
+            showToast('📤 Exported ' + (d.rows?.length || 0) + ' jobs');
+        } catch (e) { showToast('⚠ ' + e.message); }
+    };
+    const _schedImportInput = document.getElementById('sched-import-file');
+    if (_schedImportInput) {
+        _schedImportInput.addEventListener('change', async function () {
+            const file = this.files?.[0];
+            if (!file) return;
+            try {
+                const text = await file.text();
+                const rows = JSON.parse(text);
+                if (!Array.isArray(rows)) { showToast('⚠ invalid JSON — expected array'); return; }
+                const replace = confirm('Replace all existing scheduled jobs?\n\nOK = Replace all\nCancel = Merge (skip duplicates)');
+                const d = await _assessFetch('/api/scheduler/import', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ rows, replace })
+                });
+                if (!d.ok) { showToast('⚠ ' + (d.error || 'import failed')); return; }
+                showToast('📥 Imported ' + d.imported + ' jobs' + (d.skipped ? ' (' + d.skipped + ' skipped)' : ''));
+                refreshScheduler();
+            } catch (e) { showToast('⚠ import error: ' + e.message); }
+            finally { this.value = ''; }
+        });
+    }
+
+    function _downloadJson(data, filename) {
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(a.href);
     }
 
     // ============================================================
@@ -12493,6 +12846,72 @@ Reglas:
             renderSchedulerJobs(d.jobs || [], d.summary || {});
         } catch (e) { showToast('⚠ scheduler: ' + e.message); }
     };
+
+    // ── Campaign presets (staggered tool chains) ──
+    const CAMPAIGN_PRESETS = {
+        'full-recon': {
+            name: 'Full Recon', interval: 14400,
+            steps: [
+                { name: 'Full Recon: Nmap', tool_id: 'nmap', offset: 0 },
+                { name: 'Full Recon: Gobuster', tool_id: 'gobuster', offset: 120 },
+                { name: 'Full Recon: Nikto', tool_id: 'nikto', offset: 240 },
+                { name: 'Full Recon: WhatWeb', tool_id: 'whatweb', offset: 360 },
+            ],
+        },
+        'web-scan': {
+            name: 'Web Scan', interval: 7200,
+            steps: [
+                { name: 'Web Scan: Nikto', tool_id: 'nikto', offset: 0 },
+                { name: 'Web Scan: Gobuster', tool_id: 'gobuster', offset: 90 },
+                { name: 'Web Scan: FFuf', tool_id: 'ffuf', offset: 180 },
+            ],
+        },
+        'smb-audit': {
+            name: 'SMB Audit', interval: 14400,
+            steps: [
+                { name: 'SMB Audit: Smbclient', tool_id: 'smbclient', offset: 0 },
+                { name: 'SMB Audit: Enum4linux', tool_id: 'enum4linux', offset: 120 },
+            ],
+        },
+        'quick-recon': {
+            name: 'Quick Recon', interval: 3600,
+            steps: [
+                { name: 'Quick Recon: Nmap', tool_id: 'nmap', offset: 0 },
+                { name: 'Quick Recon: WhatWeb', tool_id: 'whatweb', offset: 60 },
+            ],
+        },
+    };
+    window.launchCampaignPreset = async function (presetId) {
+        const menu = document.getElementById('sched-preset-menu');
+        if (menu) menu.classList.add('hidden');
+        const preset = CAMPAIGN_PRESETS[presetId];
+        if (!preset) { showToast('⚠ unknown preset'); return; }
+        const target = (document.getElementById('sched-target')?.value || '').trim()
+            || (document.getElementById('target-ip')?.value || '').trim();
+        let created = 0, failed = 0;
+        for (const step of preset.steps) {
+            const r = await _assessFetch('/api/scheduler/jobs', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: step.name, tool_id: step.tool_id,
+                    interval_seconds: preset.interval, target,
+                    start_offset_seconds: step.offset,
+                })
+            });
+            if (r.ok) created++; else failed++;
+        }
+        if (created) {
+            showToast(`✅ Campaign '${preset.name}' scheduled — ${created} jobs${target ? ' on ' + target : ''}${failed ? ' (' + failed + ' failed)' : ''}`);
+        } else {
+            showToast('⚠ campaign creation failed');
+        }
+        refreshScheduler();
+    };
+    document.addEventListener('click', function (e) {
+        const menu = document.getElementById('sched-preset-menu');
+        const wrap = document.getElementById('sched-preset-wrap');
+        if (menu && wrap && !wrap.contains(e.target)) menu.classList.add('hidden');
+    });
 
     function _friendlyCountdown(sec) {
         sec = Math.max(0, Math.round(sec));
@@ -12532,6 +12951,7 @@ Reglas:
                     <button data-action="schedule-delete" data-jid="${esc(j.id)}"
                         class="ml-auto text-[10px] text-blood/70 border border-blood/30 rounded px-2 py-0.5 hover:text-blood hover:bg-blood/10 transition-all">🗑 Delete</button>
                 </div>
+                ${j.run_count > 0 ? `<div class="mt-1.5 text-[9px] text-gray-500 font-mono border-t border-gray-800/70 pt-1.5">⚙ ${j.run_count} runs • last: ${j.last_findings} findings${j.last_duration != null ? ' in ' + j.last_duration + 's' : ''}${j.last_error ? ' • <span class="text-blood/80">' + esc(j.last_error) + '</span>' : ''}</div>` : ''}
             </div>`;
         }).join('');
         document.querySelectorAll('[data-action="schedule-toggle"]').forEach(btn => {
@@ -12565,6 +12985,23 @@ Reglas:
         if (!r.ok) { showToast('⚠ delete failed'); return; }
         refreshScheduler();
     }
+
+    // Tracks a scheduled job launched from /due so finishToolOutput can
+    // report back the outcome (findings count + duration) + show a toast.
+    async function _reportScheduledRun(toolId, findings) {
+        const s = window._lastScheduledRun;
+        if (!s || !s.launched || s.reported || s.tool_id !== toolId) return;
+        s.reported = true;
+        const duration = Math.round((Date.now() - s.ts) / 1000);
+        try {
+            const d = await _assessFetch(`/api/scheduler/jobs/${encodeURIComponent(s.id)}/record`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ result: `${findings} findings captured`, findings, duration })
+            });
+            if (d.ok) showToast(`✅ Scheduled '${s.name}' finished — ${findings} findings in ${duration}s`);
+        } catch (e) { showToast('⚠ report run: ' + e.message); }
+        finally { window._lastScheduledRun = null; }
+    }
     async function schedulerPollDue() {
         try {
             const d = await _assessFetch('/api/scheduler/due');
@@ -12573,6 +13010,7 @@ Reglas:
                 jobs.forEach(j => {
                     if (j.target) { const ip = document.getElementById('target-ip'); if (ip) ip.value = j.target; }
                     showToast(`⚡ Scheduled: ${j.name} (${j.tool_id}) launching…`);
+                    window._lastScheduledRun = { id: j.id, name: j.name, tool_id: j.tool_id, ts: Date.now(), launched: true };
                     setTimeout(() => {
                         if (typeof window.launchTool === 'function') window.launchTool(j.tool_id);
                         else showToast('⚠ launchTool unavailable');

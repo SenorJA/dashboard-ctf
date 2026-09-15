@@ -82,6 +82,16 @@ class TestSchedulerCRUD:
         with pytest.raises(ValueError, match="interval_seconds"):
             create_job("X", "nmap", MAX_INTERVAL_SECONDS + 1)
 
+    def test_create_offset_staggers_next_run(self):
+        j0 = create_job("First", "nmap", 3600, start_offset_seconds=0)
+        j1 = create_job("Second", "gobuster", 3600, start_offset_seconds=120)
+        assert j0.next_run <= _now() + 1
+        assert j1.next_run >= j0.next_run + 119
+
+    def test_create_offset_negative_clamped_to_zero(self):
+        j = create_job("X", "nmap", 3600, start_offset_seconds=-50)
+        assert j.next_run <= _now() + 1
+
     def test_create_bool_interval_raises(self):
         with pytest.raises(ValueError, match="interval_seconds"):
             create_job("X", "nmap", True)  # type: ignore
@@ -284,3 +294,69 @@ class TestSchedulerEndpoint:
 
     def test_delete_not_found(self, client: TestClient):
         assert client.delete("/api/scheduler/jobs/zzzzzzzzzzzz").status_code == 404
+
+    # ── export / import / record ──
+
+    def test_export_empty(self, client: TestClient):
+        r = client.get("/api/scheduler/export")
+        assert r.status_code == 200
+        assert r.json()["ok"] is True
+        assert r.json()["rows"] == []
+
+    def test_export_roundtrip(self, client: TestClient):
+        client.post("/api/scheduler/jobs", json={
+            "name": "E1", "tool_id": "nmap", "interval_seconds": 300, "target": "10.0.0.1"
+        })
+        rows = client.get("/api/scheduler/export").json()["rows"]
+        assert len(rows) == 1
+        assert rows[0]["tool_id"] == "nmap"
+        assert "seconds_until_next" not in rows[0]
+        assert "due" not in rows[0]
+
+    def test_import_replaces(self, client: TestClient):
+        client.post("/api/scheduler/jobs", json={"name": "OLD", "tool_id": "nmap", "interval_seconds": 100})
+        rows = [{
+            "id": "abc123", "name": "NEW", "tool_id": "ffuf",
+            "interval_seconds": 60, "enabled": True, "target": "x",
+            "run_count": 2, "last_result": "ok", "last_duration": 9.5,
+        }]
+        r = client.post("/api/scheduler/import", json={"rows": rows, "replace": True})
+        assert r.status_code == 200
+        d = r.json()
+        assert d["imported"] == 1 and d["total"] == 1
+        job = client.get("/api/scheduler/jobs").json()["jobs"][0]
+        assert job["id"] == "abc123" and job["name"] == "NEW"
+        assert job["run_count"] == 2 and job["last_duration"] == 9.5
+
+    def test_import_skips_invalid(self, client: TestClient):
+        rows = [
+            {"name": "OK", "tool_id": "nmap", "interval_seconds": 60},
+            {"name": "", "tool_id": "nmap", "interval_seconds": 60},
+            {"name": "BADI", "tool_id": "", "interval_seconds": 1},
+            {"name": "DUP", "tool_id": "curl", "interval_seconds": 60},
+            {"name": "DUP", "tool_id": "curl", "interval_seconds": 60},
+        ]
+        r = client.post("/api/scheduler/import", json={"rows": rows, "replace": False})
+        d = r.json()
+        assert d["ok"] is True
+        assert d["imported"] == 3 and d["skipped"] == 2 and d["total"] == 3
+
+    def test_import_bad_payload(self, client: TestClient):
+        r = client.post("/api/scheduler/import", json={"rows": {"nope": 1}})
+        assert r.status_code == 422
+
+    def test_record_run(self, client: TestClient):
+        r = client.post("/api/scheduler/jobs", json={"name": "R", "tool_id": "nmap", "interval_seconds": 60})
+        jid = r.json()["job"]["id"]
+        r2 = client.post(f"/api/scheduler/jobs/{jid}/record",
+                         json={"result": "All hosts scanned", "findings": 4, "duration": 18.25})
+        assert r2.status_code == 200
+        job = r2.json()["job"]
+        assert job["run_count"] == 1
+        assert job["last_findings"] == 4
+        assert job["last_duration"] == 18.25
+        assert job["last_result"] == "All hosts scanned"
+
+    def test_record_run_not_found(self, client: TestClient):
+        r = client.post("/api/scheduler/jobs/zzzzzzzzzzzz/record", json={"result": "x"})
+        assert r.status_code == 404

@@ -21,7 +21,7 @@ import logging
 import urllib.request
 import urllib.error
 from datetime import datetime
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 # ── Production mode detection ──
 # If run WITHOUT --reload, we're in production mode
@@ -3394,6 +3394,16 @@ async def _record_startup():
     except Exception as e:
         logger.warning("Plugin watcher failed to start: %s", e)
 
+    # Hydrate in-memory assessment/scheduler registries from Supabase when
+    # workspace persistence is enabled (MIRV_PERSIST_WORKSPACE=1). Best-effort:
+    # both load_from_store() are safe no-ops when the feature is disabled.
+    try:
+        assess.load_from_store()
+        sched.load_from_store()
+        logger.info("Workspace-store hydration complete")
+    except Exception as e:
+        logger.warning("Workspace-store hydration failed: %s", e)
+
 
 @app.on_event("shutdown")
 async def _stop_plugin_watcher():
@@ -6577,6 +6587,20 @@ class TargetBody(BaseModel):
     target: str
 
 
+class WorkspaceImportModel(BaseModel):
+    """Body for restoring assessments or scheduler jobs from JSON."""
+    rows: List[Dict[str, Any]]
+    replace: bool = False
+
+
+class SchedulerRecordModel(BaseModel):
+    """Frontend reports back the outcome of a scheduled tool run."""
+    result: str = ""
+    findings: int = 0
+    duration: Optional[float] = None
+    error: str = ""
+
+
 @app.get("/api/assessments")
 def api_assessments_list():
     """List all assessments (newest first) + aggregate summary."""
@@ -6606,6 +6630,29 @@ def api_assessments_create(body: AssessmentCreateModel):
     except Exception:
         logger.exception("assessments create failed")
         return JSONResponse({"ok": False, "error": "create failed"}, status_code=500)
+
+
+@app.get("/api/assessments/export")
+def api_assessments_export():
+    """Download the full assessment workspace as JSON."""
+    try:
+        return JSONResponse({"ok": True, "files": "assessments.json", "rows": assess.export_state()})
+    except Exception:
+        logger.exception("assessments export failed")
+        return JSONResponse({"ok": False, "error": "export failed"}, status_code=500)
+
+
+@app.post("/api/assessments/import")
+def api_assessments_import(body: WorkspaceImportModel):
+    """Restore assessments from JSON (replace=True clears first)."""
+    try:
+        result = assess.import_state(body.rows, replace=body.replace)
+        return JSONResponse({"ok": True, **result})
+    except ValueError as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+    except Exception:
+        logger.exception("assessments import failed")
+        return JSONResponse({"ok": False, "error": "import failed"}, status_code=500)
 
 
 @app.get("/api/assessments/{aid}")
@@ -6670,6 +6717,7 @@ class SchedulerCreateModel(BaseModel):
     interval_seconds: int
     target: str = ""
     enabled: bool = True
+    start_offset_seconds: Optional[int] = None
 
 
 class SchedulerUpdateModel(BaseModel):
@@ -6698,6 +6746,7 @@ def api_scheduler_create(body: SchedulerCreateModel):
             interval_seconds=body.interval_seconds,
             target=body.target,
             enabled=body.enabled,
+            start_offset_seconds=body.start_offset_seconds,
         )
         return JSONResponse({"ok": True, "job": job.to_dict()})
     except ValueError as e:
@@ -6749,6 +6798,44 @@ def api_scheduler_due():
     except Exception:
         logger.exception("scheduler due failed")
         return JSONResponse({"ok": False, "error": "due failed"}, status_code=500)
+
+
+@app.get("/api/scheduler/export")
+def api_scheduler_export():
+    """Download all scheduled jobs as JSON."""
+    try:
+        return JSONResponse({"ok": True, "files": "scheduler_jobs.json", "rows": sched.export_state()})
+    except Exception:
+        logger.exception("scheduler export failed")
+        return JSONResponse({"ok": False, "error": "export failed"}, status_code=500)
+
+
+@app.post("/api/scheduler/import")
+def api_scheduler_import(body: WorkspaceImportModel):
+    """Restore scheduled jobs from JSON (replace=True clears first)."""
+    try:
+        result = sched.import_state(body.rows, replace=body.replace)
+        return JSONResponse({"ok": True, **result})
+    except ValueError as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+    except Exception:
+        logger.exception("scheduler import failed")
+        return JSONResponse({"ok": False, "error": "import failed"}, status_code=500)
+
+
+@app.post("/api/scheduler/jobs/{jid}/record")
+def api_scheduler_record(jid: str, body: SchedulerRecordModel):
+    """Frontend reports back the outcome of a run (result, findings, duration)."""
+    job = sched.record_run(
+        jid,
+        result=body.result,
+        findings=body.findings,
+        duration=body.duration,
+        error=body.error,
+    )
+    if job is None:
+        return JSONResponse({"ok": False, "error": "job not found"}, status_code=404)
+    return JSONResponse({"ok": True, "job": job})
 
 
 # ── System Monitor (CPU / RAM / disk + disk cleanup) ────────────────

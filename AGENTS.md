@@ -16,7 +16,7 @@ Browser → WS (localhost:8000/ws) → FastAPI → Paramiko → Kali SSH
 C:\Users\34678\Desktop\Proyecto ciber\
 ├── backend/
 │   ├── main.py              # FastAPI app (~6800 lines, 208 endpoints + assessments/scheduler routes)
-│   ├── database.py           # Supabase CRUD layer (17 tables, 99% coverage)
+│   ├── database.py           # Supabase CRUD layer (18 tables, 99% coverage)
 │   ├── exif_osint.py         # EXIF metadata extraction + GPS + reverse geocoding
 │   ├── canary_tokens.py      # Honeytoken generator (8 types) + activation tracking
 │   ├── dlp_scanner.py         # Data Loss Prevention (8 PII patterns + Luhn)
@@ -40,10 +40,13 @@ C:\Users\34678\Desktop\Proyecto ciber\
 │   ├── mission_store.py       # Self-Improvement Loop (auto-redacts on save)
 │   ├── finding_poc.py         # Reproducible Finding PoC (curl replay, markdown reports)
 │   ├── intelligence.py        # Continuous Intelligence (watch/snapshot/diff/alert)
+│   ├── assessments.py       # Assessment workspace (opt-in persistence + export/import JSON)
+│   ├── scheduler.py         # Scheduled scans (run history, presets offsets, export/import JSON)
+│   ├── workspace_store.py    # Opt-in Supabase persistence for workspace registries
 │   ├── plugins/               # Plugin directory (example_plugin/)
 │   ├── skills/                # Built-in skill playbooks (recon, webvuln, ssrf, jwt, supabase)
 │   ├── burp_plugin/           # Jython Burp Suite plugin (mirv_burp.py)
-│   ├── tests/                 # ~4640 tests across 78 test files
+│   ├── tests/                 # ~4672 tests across 79 test files
 │   ├── Dockerfile             # Container image for mirv-backend
 │   └── requirements.txt
 ├── frontend/
@@ -86,7 +89,7 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 **Tests:**
 ```bash
 cd backend
-python -m pytest tests/ -k "not test_slow_hook" -q  # ~4640 tests, ~95% coverage
+python -m pytest tests/ -k "not test_slow_hook" -q  # ~4672 tests, ~95% coverage
 ```
 
 ## Backend modules (main.py + 30 modules)
@@ -94,7 +97,7 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~4640 tests, ~95% coverage
 | File | Lines | Purpose | Tests | Coverage |
 |------|-------|---------|-------|----------|
 | `main.py` | ~5200 | FastAPI app, WebSocket SSH proxy, 170+ REST endpoints + CSP middleware | 333+295+19 | 100% |
-| `database.py` | ~1344 | Supabase CRUD (17 tables) | 196 | 100% |
+| `database.py` | ~1344 | Supabase CRUD (18 tables) | 196 | 100% |
 | `exif_osint.py` | ~812 | EXIF GPS extraction, camera metadata, reverse geocoding, Leaflet map | 21+11 | 99% |
 | `canary_tokens.py` | ~442 | 8 honeytoken types, activation tracking, expiration | 24 | 99% |
 | `dlp_scanner.py` | ~453 | 8 PII patterns, Luhn validation, risk scoring | 25 | 100% |
@@ -124,8 +127,9 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~4640 tests, ~95% coverage
 | `system_monitor.py` | ~490 | Host resource monitor — CPU/RAM/uptime, disk volumes, safe cleanup-candidate scan + delete (stdlib, psutil optional) | 29 | — |
 | `osint_recon.py` | ~1428 | Passive OSINT — 19 tools: email breach/verify, dorking, phone, reverse-image, wayback, IP geo, username, github + **Ronda #2**: dns_recon (DoH), rdap_whois (RDAP), pwned_passwords (HIBP k-anonymity), urlhaus_lookup (abuse.ch), page_snapshot (Jina Reader) + **Ronda #3**: code_search (Sourcegraph SSE), cert_transparency (crt.sh CT), sigstore_lookup (Rekor), urlscan_search (urlscan.io), mac_vendor_lookup (maclookup) — all stdlib, keyless | 159 | 100% |
 | `pc_analyzer.py` | ~530 | PC health diagnostics — deterministic checks (RAM/CPU/disk/junk/network/uptime + eventlog/updates/reboot), grade A–F, score 0–100, suggestions + confirmation-gated auto-fix (`/api/pc-analyzer/fix`) | 62 | 95% |
-| `assessments.py` | ~280 | Assessment workspace — dataclass-based in-memory registry, status lifecycle (planning→in-scope→in-progress→done→archived), target dedup, tags, notes, per-target lookup, summary stats | 30 | 100% |
-| `scheduler.py` | ~230 | Scheduled scans — job registry, interval validation (10s–7d), `due_jobs()` auto-advance single-trigger per cycle, `advance_to_now()` for run-now, toggle enable/disable, summary stats | 37 | 100% |
+| `assessments.py` | ~280 | Assessment workspace — dataclass-based in-memory registry, status lifecycle (planning→in-scope→in-progress→done→archived), target dedup, tags, notes, per-target lookup, summary stats, **opt-in Supabase persistence via `workspace_store` + export/import JSON** | 30 | 100% |
+| `scheduler.py` | ~260 | Scheduled scans — job registry, interval validation (10s–7d), `due_jobs()` auto-advance single-trigger per cycle, `advance_to_now()` for run-now, toggle enable/disable, **run history (`record_run`) + opt-in persistence + export/import JSON + `start_offset_seconds` for cascading campaign presets**, summary stats | 43 | 100% |
+| `workspace_store.py` | ~90 | Opt-in Supabase persistence layer for workspace registries (env `MIRV_PERSIST_WORKSPACE=1` + `database.is_available()`) — JSONB rows in table `workspace_state` (key/value/updated_at), process cache, fail-silent, in-memory registry stays authoritative | 22 | 100% |
 
 ## Backend quirks (main.py)
 
@@ -285,8 +289,8 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~4640 tests, ~95% coverage
 | **Intelligence** | `POST /api/intelligence/watches`, `GET /api/intelligence/watches`, `GET /api/intelligence/watches/{id}`, `PUT /api/intelligence/watches/{id}`, `DELETE /api/intelligence/watches/{id}`, `POST /api/intelligence/watches/{id}/snapshot`, `GET /api/intelligence/watches/{id}/snapshots`, `GET /api/intelligence/alerts`, `POST /api/intelligence/alerts/{id}/acknowledge`, `DELETE /api/intelligence/alerts`, `POST /api/intelligence/diff/{id}` |
 | **Sys Monitor** | `GET /api/system/stats`, `GET /api/system/disk`, `GET /api/system/cleanup`, `POST /api/system/cleanup` |
 | **PC Analyzer** | `GET /api/pc-analyzer`, `POST /api/pc-analyzer/fix` (auto-fix confirmation-gated) |
-| **Assessments** | `GET/POST /api/assessments`, `GET/PUT/DELETE /api/assessments/{aid}`, `POST /api/assessments/{aid}/targets`, `DELETE /api/assessments/{aid}/targets/{target}`, `GET /api/assessments/by-target/{target}` |
-| **Scheduler** | `GET/POST /api/scheduler/jobs`, `PUT/PATCH/DELETE /api/scheduler/jobs/{jid}`, `POST /api/scheduler/jobs/{jid}/run`, `GET /api/scheduler/due` |
+| **Assessments** | `GET/POST /api/assessments`, `GET /api/assessments/export`, `POST /api/assessments/import`, `GET/PUT/DELETE /api/assessments/{aid}`, `POST /api/assessments/{aid}/targets`, `DELETE /api/assessments/{aid}/targets/{target}`, `GET /api/assessments/by-target/{target}` |
+| **Scheduler** | `GET/POST /api/scheduler/jobs`, `PUT/PATCH/DELETE /api/scheduler/jobs/{jid}`, `POST /api/scheduler/jobs/{jid}/run`, `POST /api/scheduler/jobs/{jid}/record`, `GET/POST /api/scheduler/export`, `GET /api/scheduler/due` |
 
 ## Plugin system
 
@@ -383,7 +387,7 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~4640 tests, ~95% coverage
 | `mirv_findings_charts_open` | "1" \| "0" | Findings charts `<details>` collapsed state |
 
 ### Supabase (backend persistence)
-17 tables: `ssh_connections`, `scripts`, `reports`, `findings`, `hak5_payloads`, `app_settings`, `uploaded_files`, `credentials`, `ctf_challenges`, `ctf_solves`, `forensics_evidence`, `mobile_apks`, `mission_history`, `scope_events`, `swarm_sessions`, `mission_plans`, `app_credentials`.
+18 tables: `ssh_connections`, `scripts`, `reports`, `findings`, `hak5_payloads`, `app_settings`, `uploaded_files`, `credentials`, `ctf_challenges`, `ctf_solves`, `forensics_evidence`, `mobile_apks`, `mission_history`, `scope_events`, `swarm_sessions`, `mission_plans`, `app_credentials`, `workspace_state`.
 
 ## Notable constraints
 
@@ -419,11 +423,11 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~4640 tests, ~95% coverage
 
 ## Test summary
 
-- **78 test files** in `backend/tests/`
-- **~4640 tests** collected (296 now in `test_main_gaps.py` + 19 in `test_main_websocket_gaps.py` + 30 `test_assessments.py` + 37 `test_scheduler.py`)
+- **79 test files** in `backend/tests/`
+- **~4670 tests** collected (296 now in `test_main_gaps.py` + 19 in `test_main_websocket_gaps.py` + 30 `test_assessments.py` + 43 `test_scheduler.py` + 22 `test_workspace_store.py`)
 - **~95% coverage** across measured backend modules
 - **`backend/main.py` = 100%** (2847/2847 statements; last gaps were websocket `read_shell` break on OSError/EOFError + outer `WebSocketDisconnect`)
-- **Key test files**: test_database (196), test_api_endpoints (333), test_main_gaps (296), test_main_coverage (165), test_main_extra (120), test_crud_endpoints (67), test_deep_coverage_1/2 (205), test_compaction (63), test_burp_bridge (72), test_redact (63), test_skill_playbooks (67), test_audit_log (45), test_plugin_manager (47), test_plugin_watcher (18), test_siem (31), test_coverage (33), test_exif_osint (63), test_mobile_analyzer (54), test_canary_tokens (24), test_dlp_scanner (25), test_finding_poc (61), test_intelligence (43), test_permission_system (56), test_opsec, test_scope_guard, test_forensics, test_adb_controller, test_kali_mcp_client, test_mission_store, test_knowledgebase, test_swarm, test_assessments (30), test_scheduler (37), + scanner tools + gap files (test_*_gaps.py: redact, dlp_scanner, mission_store, dns_lookup, pdf_engine, database, finding_poc, headers_scanner, hash_cracker, adb_controller, skill_playbooks, audit_log, intelligence, opsec, scope_guard).
+- **Key test files**: test_database (196), test_api_endpoints (333), test_main_gaps (296), test_main_coverage (165), test_main_extra (120), test_crud_endpoints (67), test_deep_coverage_1/2 (205), test_compaction (63), test_burp_bridge (72), test_redact (63), test_skill_playbooks (67), test_audit_log (45), test_plugin_manager (47), test_plugin_watcher (18), test_siem (31), test_coverage (33), test_exif_osint (63), test_mobile_analyzer (54), test_canary_tokens (24), test_dlp_scanner (25), test_finding_poc (61), test_intelligence (43), test_permission_system (56), test_opsec, test_scope_guard, test_forensics, test_adb_controller, test_kali_mcp_client, test_mission_store, test_knowledgebase, test_swarm, test_assessments (30), test_scheduler (43), test_workspace_store (22), + scanner tools + gap files (test_*_gaps.py: redact, dlp_scanner, mission_store, dns_lookup, pdf_engine, database, finding_poc, headers_scanner, hash_cracker, adb_controller, skill_playbooks, audit_log, intelligence, opsec, scope_guard).
 
 ### main.py coverage tests (gaps)
 

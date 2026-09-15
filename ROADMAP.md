@@ -1,6 +1,6 @@
 # 🗺️ M.I.R.V. — Roadmap de Mejoras
 
-> Última actualización: 8 Ago 2026 — MIRV v5.0 | 30 módulos | 227 endpoints | 3834 tests | 25 tabs | main.py 100%
+> Última actualización: 15 Sep 2026 — MIRV v5.1 | workspace_state (assessments+scheduler) | 278 endpoints | 4672 tests | 31 tabs | main.py 100%
 
 ## ✅ Completado
 
@@ -233,6 +233,34 @@ real antes de cerrar.
   "flaky service, retry"; Sourcegraph → stream SSE)
 
 ---
+
+## ✅ Pack 2 — Assessments/Scheduler potenciados + prod UX (15 Sep 2026)
+
+Segunda tanda de mejoras de uso sobre el workspace de assessments/scheduler.
+
+- [x] **Persistencia Supabase (opt-in)**: tabla `workspace_state` (key/value JSONB) + capa
+  `backend/workspace_store.py` detrás de `MIRV_PERSIST_WORKSPACE=1` + `database.is_available()`
+  (cache en proceso, fail-silent; registry in-memory autoritativo). `_persist()` en cada mutación
+  de assessments/scheduler, `load_from_store()` hidratado en startup
+- [x] **Export/import JSON**: `GET /api/assessments/export`, `POST /api/assessments/import`,
+  `GET /api/scheduler/export`, `POST /api/scheduler/import` (body `{rows, replace}`,
+  merge o reemplazo, valida y salta inválidos) + `POST /api/scheduler/jobs/{jid}/record`.
+  Botones 📥/📤 en ambas tabs
+- [x] **Run history en jobs**: `run_count`, `last_result`, `last_duration`, `last_findings`,
+  `last_error` + `record_run(jid, ...)`; el frontend reporta al terminar el scan →
+  toast `✅ Scheduled 'X' finished — N findings in Ys` + tarjeta `⚙ N runs • last: K findings in Zs`
+- [x] **Presets de campaña en cadena**: dropdown 🔗 Presets (Full Recon 4/Web Scan 3/SMB Audit 2/
+  Quick Recon 2) — nuevo parámetro `start_offset_seconds` en `create_job` (None = semántica
+  histórica `now+interval`); jobs escalonados disparan en cascada vía el poll de 10 s
+- [x] **Palette global `Ctrl+K`**: modal con búsqueda en vivo sobre tabs (29), tools (50+) y
+  acciones; ↑/↓ + ↵, ⇧↵ mantiene abierto, Esc/click-outside cierra
+- [x] **Assessment activa**: botón `☆ Set active`/`★ Active` por card (localStorage
+  `mirv_active_assessment`), badge + borde ámbar; `launchTool` auto-rellena target (toast de contexto)
+- [x] **i18n completo de tabs nuevas**: 24 claves en/es + `applyLanguage()` (IDs, placeholders,
+  botones, empty-states, status labels)
+- Tests: `test_workspace_store.py` (nuevo) + endpoints en assessments/scheduler → suites:
+  **96 passed**; suite completa CI: **4672 passed** ✅. Rutas 269→**278**
+- ⬜ Manuales diferidos (ver `docs/CHECKLIST_DEPLOY_MANUAL.md`): MSI Desktop, Hito A VPS, Fase 7 Cloudflare
 
 ## ✅ Pack de 5 mejoras de uso (11 Sep 2026)
 

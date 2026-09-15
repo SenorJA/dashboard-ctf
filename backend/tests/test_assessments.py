@@ -272,3 +272,51 @@ class TestAssessmentsEndpoint:
         r = client.get("/api/assessments/by-target/x")
         assert len(r.json()["assessments"]) == 1
         assert client.get("/api/assessments/by-target/zzz").json()["assessments"] == []
+
+    # ── export / import ──
+
+    def test_export_empty(self, client: TestClient):
+        r = client.get("/api/assessments/export")
+        assert r.status_code == 200
+        assert r.json()["ok"] is True
+        assert r.json()["rows"] == []
+
+    def test_export_roundtrip(self, client: TestClient):
+        client.post("/api/assessments", json={"name": "E1", "targets": ["10.0.0.1"], "tags": ["web"]})
+        rows = client.get("/api/assessments/export").json()["rows"]
+        assert len(rows) == 1
+        assert rows[0]["name"] == "E1"
+        assert rows[0]["targets"] == ["10.0.0.1"]
+        assert "target_count" not in rows[0]
+
+    def test_import_replaces(self, client: TestClient):
+        client.post("/api/assessments", json={"name": "OLD"})
+        rows = [{
+            "id": "abc123", "name": "NEW", "description": "d",
+            "status": "in-progress", "targets": ["10.0.0.1"],
+            "tags": ["web"], "notes": "n",
+        }]
+        r = client.post("/api/assessments/import", json={"rows": rows, "replace": True})
+        assert r.status_code == 200
+        d = r.json()
+        assert d["imported"] == 1 and d["total"] == 1
+        a = client.get("/api/assessments").json()["assessments"][0]
+        assert a["id"] == "abc123" and a["name"] == "NEW"
+        assert a["status"] == "in-progress" and a["target_count"] == 1
+
+    def test_import_skips_invalid(self, client: TestClient):
+        rows = [
+            {"name": "OK", "targets": ["a"]},
+            {"name": "", "status": "x"},
+            {"name": "BAD", "status": "bogus"},
+            {"name": "DUP", "status": "planning"},
+            {"name": "DUP", "status": "planning"},
+        ]
+        r = client.post("/api/assessments/import", json={"rows": rows, "replace": False})
+        d = r.json()
+        assert d["ok"] is True
+        assert d["imported"] == 3 and d["skipped"] == 2 and d["total"] == 3
+
+    def test_import_bad_payload(self, client: TestClient):
+        r = client.post("/api/assessments/import", json={"rows": {"nope": 1}})
+        assert r.status_code == 422
