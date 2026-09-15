@@ -39,6 +39,37 @@ MIN_INTERVAL_SECONDS = 10  # small enough for tests, sane enough for prod
 MAX_INTERVAL_SECONDS = 7 * 24 * 3600  # 7 days
 MAX_JOBS = 100
 
+# ── Server-side tool dispatch ──
+# Maps frontend tool IDs to their SSH command templates.
+# ``{target}`` is replaced with the job target at dispatch time.
+_TOOL_COMMANDS: Dict[str, str] = {
+    "nmap":        "nmap -p- -sV -sC -O -A --min-rate=1000 -T4 {target}",
+    "whatweb":     "whatweb {target}",
+    "gobuster":    "gobuster dir -u http://{target} -w /usr/share/wordlists/dirb/common.txt -t 50 -q",
+    "nikto":       "nikto -h http://{target}",
+    "wpscan":      "wpscan --url http://{target} --no-update --disable-tls-checks",
+    "enum4linux":  "enum4linux -a {target}",
+    "smbclient":   "smbclient -L //{target} -N",
+    "ffuf":        "ffuf -u http://{target}/FUZZ -w /usr/share/wordlists/dirb/common.txt -mc 200,301,302,403 -t 50 -s",
+    "wfuzz":       "wfuzz -c -w /usr/share/wordlists/dirb/common.txt --hc 404 -u http://{target}/FUZZ -t 50",
+    "feroxbuster": "feroxbuster -u http://{target} -w /usr/share/wordlists/dirb/common.txt -t 50 -q",
+    "theharvester": "theHarvester -d {target} -b bing,duckduckgo,yahoo -l 100",
+    "dnsrecon":    "dnsrecon -d {target}",
+    "masscan":     "masscan {target} -p0-65535 --rate=1000 -oG -",
+    "dirb":        "dirb http://{target} /usr/share/wordlists/dirb/common.txt -r -S",
+}
+
+
+def get_command(tool_id: str, target: str) -> str:
+    """Return the SSH command string for *tool_id* aimed at *target*.
+
+    Raises ``ValueError`` if the tool is not mapped.
+    """
+    tmpl = _TOOL_COMMANDS.get(tool_id)
+    if tmpl is None:
+        raise ValueError(f"tool '{tool_id}' is not supported for server-side dispatch")
+    return tmpl.format(target=target)
+
 
 def _now() -> float:
     return time.time()
@@ -215,17 +246,33 @@ def advance_to_now(jid: str) -> Optional[Dict[str, Any]]:
     return result
 
 
-def due_jobs(now: Optional[float] = None) -> List[Dict[str, Any]]:
+def due_jobs(
+    now: Optional[float] = None,
+    include_tools: Optional[set] = None,
+    require_target: bool = False,
+) -> List[Dict[str, Any]]:
     """Return enabled jobs whose time has come, auto-advancing each one.
 
     Each returned job gets ``last_run = now`` and ``next_run = now +
     interval_seconds`` so a poll is the single trigger for its cycle.
+
+    ``include_tools`` (if given) restricts advancement to jobs whose
+    tool_id is in the set — jobs of other tools stay due for a different
+    consumer (e.g. the server-side daemon leaves browser-dispatch-only
+    tools to the browser poll). ``require_target`` skips jobs with an
+    empty target (the browser can still supply one via the active
+    assessment). Callers passing no filters keep the historical
+    "advance everything due" behaviour.
     """
     ref = now if now is not None else _now()
     out: List[Dict[str, Any]] = []
     with _lock:
         for j in _jobs.values():
             if not j.enabled or j.next_run > ref:
+                continue
+            if include_tools is not None and j.tool_id not in include_tools:
+                continue
+            if require_target and not j.target:
                 continue
             j.last_run = ref
             j.next_run = ref + j.interval_seconds

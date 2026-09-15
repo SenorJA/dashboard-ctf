@@ -1285,6 +1285,12 @@ ${bodyHtml}
             list = findings.filter(f => f.severity === filterSeverity);
         }
 
+        // Lifecycle filter
+        const lc = document.getElementById('findings-lifecycle-filter')?.value || 'all';
+        if (lc && lc !== 'all') {
+            list = list.filter(f => (f.lifecycle_status || 'open') === lc);
+        }
+
         // Text search filter
         const q = (document.getElementById('findings-search')?.value || '').toLowerCase().trim();
         if (q) {
@@ -1310,6 +1316,19 @@ ${bodyHtml}
     }
 
     // ── Render a single finding card HTML (used by renderFindings + real-time append) ──
+    const LIFECYCLE_META = {
+        open:      { label: 'Open',      color: '#facc15' },
+        confirmed: { label: 'Confirmed', color: '#60a5fa' },
+        accepted:  { label: 'Accepted',  color: '#c084fc' },
+        fixed:     { label: 'Fixed',     color: '#4ade80' },
+        verified:  { label: 'Verified',  color: '#34d399' }
+    };
+
+    function _lifecycleFind(id) {
+        if (id === undefined || id === null || id === '') return undefined;
+        return findings.find(x => String(x.id) === String(id));
+    }
+
     function _renderOneFinding(f) {
         const sev = f.severity || 'info';
         const color = severityColor(sev);
@@ -1345,6 +1364,19 @@ ${bodyHtml}
             subtitle = f.detail.substring(0, 150);
         }
         const isInfo = sev === 'info';
+        const lc = (f.lifecycle_status || 'open');
+        const lcMeta = LIFECYCLE_META[lc] || LIFECYCLE_META.open;
+        const lcOptions = Object.entries(LIFECYCLE_META).map(([k, m]) =>
+            `<option value="${k}" ${k === lc ? 'selected' : ''}>${m.label}</option>`
+        ).join('');
+        const active = typeof getActiveAssessment === 'function' ? getActiveAssessment() : null;
+        const alreadyBound = active && String(f.assessment_id || '') === String(active.id);
+        const bindBtn = active
+            ? `<button class="ml-auto px-1.5 py-0.5 rounded font-bold tracking-wider transition-all ${alreadyBound ? 'text-emerald-400 bg-emerald-400/10' : 'text-cyan-400 bg-cyan-400/10 hover:bg-cyan-400/20'}"
+                   style="border-color:${alreadyBound ? '#34d399' : '#22d3ee'}33; border:1px solid"
+                   title="${alreadyBound ? 'Bound to active assessment' : 'Bind to active assessment: ' + (active.name || active.target)}"
+                   data-i18n="findingsBindAssessment" onclick="event.stopPropagation();bindFindingToAssessment(this,'${f.id || ''}')">${alreadyBound ? '✓' : '📎'}</button>`
+            : '';
         return `
             <div class="finding-card rounded-lg border transition-all hover:brightness-110 ${isInfo ? 'p-1.5' : 'p-2.5'}"
                  style="border-color:${color}33; background:${bg};"
@@ -1362,6 +1394,15 @@ ${bodyHtml}
                             <span>${f.tool}</span>
                             <span>·</span>
                             <span class="truncate max-w-[120px]">${f.target}</span>
+                        </div>
+                        <div class="flex items-center gap-1.5 mt-1 ${isInfo ? 'text-[7px]' : 'text-[8px]'}">
+                            <span class="px-1.5 py-0.5 rounded font-bold tracking-wider flex-shrink-0"
+                                  style="background:${lcMeta.color}22; color:${lcMeta.color}">${lcMeta.label}</span>
+                            <select class="bg-deep border border-gray-800 rounded px-1 py-0.5 text-gray-300 focus:outline-none focus:border-neon/50 font-mono ${isInfo ? 'text-[7px]' : 'text-[8px]'}"
+                                    onchange="setFindingLifecycle(this.value, '${f.id || ''}')" aria-label="Set lifecycle status">
+                                ${lcOptions}
+                            </select>
+                            ${bindBtn}
                         </div>
                     </div>
                 </div>
@@ -1388,6 +1429,67 @@ ${bodyHtml}
         const el = document.getElementById('target-ip');
         return el ? el.value.trim() || 'unknown' : 'unknown';
     }
+
+    // ── Finding lifecycle (Feature B) ──
+    async function setFindingLifecycle(status, id) {
+        const valid = ['open', 'confirmed', 'accepted', 'fixed', 'verified'];
+        if (!valid.includes(status)) return;
+        const f = id ? _lifecycleFind(id) : undefined;
+        if (!f) return;
+        const prev = f.lifecycle_status || 'open';
+        f.lifecycle_status = status;
+        renderFindings(document.querySelector('.finding-filter.active')?.dataset.severity);
+        try {
+            const resp = await fetch(`/api/findings/${encodeURIComponent(id)}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ lifecycle_status: status })
+            });
+            const json = await resp.json().catch(() => ({}));
+            if (resp.ok) {
+                showToast(`✅ ${(LIFECYCLE_META[status] || {}).label || status}`);
+            } else {
+                f.lifecycle_status = prev;
+                renderFindings(document.querySelector('.finding-filter.active')?.dataset.severity);
+                showToast(`⚠ ${(json.error || 'Failed to update status')}`);
+            }
+        } catch (e) {
+            f.lifecycle_status = prev;
+            renderFindings(document.querySelector('.finding-filter.active')?.dataset.severity);
+            showToast(`⚠ Cannot reach backend: ${e.message || e}`);
+        }
+    }
+
+    async function bindFindingToAssessment(btn, id) {
+        const active = getActiveAssessment();
+        if (!active) return;
+        const f = id ? _lifecycleFind(id) : undefined;
+        if (!f) return;
+        const prev = f.assessment_id || '';
+        f.assessment_id = String(active.id);
+        if (btn) btn.textContent = '✓';
+        try {
+            const resp = await fetch(`/api/findings/${encodeURIComponent(id)}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ assessment_id: String(active.id) })
+            });
+            const json = await resp.json().catch(() => ({}));
+            if (resp.ok) {
+                showToast(`📎 Bound to ${active.name || active.target}`);
+            } else {
+                f.assessment_id = prev;
+                renderFindings(document.querySelector('.finding-filter.active')?.dataset.severity);
+                showToast(`⚠ ${(json.error || 'Failed to bind')}`);
+            }
+        } catch (e) {
+            f.assessment_id = prev;
+            renderFindings(document.querySelector('.finding-filter.active')?.dataset.severity);
+            showToast(`⚠ Cannot reach backend: ${e.message || e}`);
+        }
+    }
+    window.setFindingLifecycle = setFindingLifecycle;
+    window.bindFindingToAssessment = bindFindingToAssessment;
 
     function updateFindingsCount() {
         const el = document.getElementById('findings-count');
@@ -1567,7 +1669,7 @@ ${bodyHtml}
 
     // ── Findings search on input ──
     document.addEventListener('input', (e) => {
-        if (e.target.id === 'findings-search') {
+        if (e.target.id === 'findings-search' || e.target.id === 'findings-lifecycle-filter') {
             renderFindings(document.querySelector('.finding-filter.active')?.dataset.severity);
         }
     });
@@ -12844,7 +12946,27 @@ Reglas:
             const d = await _assessFetch('/api/scheduler/jobs');
             if (!d.ok) { showToast('⚠ ' + (d.error || 'list failed')); return; }
             renderSchedulerJobs(d.jobs || [], d.summary || {});
+            refreshSchedulerDaemon();
         } catch (e) { showToast('⚠ scheduler: ' + e.message); }
+    };
+
+    // ── Server-side daemon status badge ──
+    window.refreshSchedulerDaemon = async function () {
+        const badge = document.getElementById('sched-daemon-badge');
+        if (!badge) return;
+        try {
+            const r = await fetch('/api/scheduler/status');
+            const d = await r.json();
+            if (!d.ok || !r.ok) {
+                badge.textContent = '⚙ daemon: off';
+                badge.className = 'text-[9px] px-2 py-1 rounded bg-blood/10 border border-blood/30 text-blood font-mono';
+                return;
+            }
+            badge.textContent = `⚙ daemon: ${d.daemon_running ? 'on' : 'off'} · ${(d.mapped_tools || 0)} tools`;
+            badge.className = d.daemon_running
+                ? 'text-[9px] px-2 py-1 rounded bg-emerald-400/10 border border-emerald-400/30 text-emerald-400 font-mono'
+                : 'text-[9px] px-2 py-1 rounded bg-blood/10 border border-blood/30 text-blood font-mono';
+        } catch { /* silent */ }
     };
 
     // ── Campaign presets (staggered tool chains) ──

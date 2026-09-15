@@ -17,6 +17,7 @@ import csv
 import html
 import shlex
 import asyncio
+import time
 import logging
 import urllib.request
 import urllib.error
@@ -345,6 +346,129 @@ async def _ensure_ssh_connection(ssh_ip: str = None, ssh_user: str = None, ssh_p
     except Exception as e:
         logger.warning("Shared SSH connection failed: %s", e)
         return None
+
+
+# ── Server-side function dispatch (scheduler daemon) ──
+_MAX_TOOL_MIN = 30
+_MAX_TOOL_SECONDS = 30 * 60
+
+
+async def _exec_tool_command(tool_id: str, target: str, timeout: int = 90) -> dict:
+    """Run a tool on the Kali host via the shared SSH client.
+
+    Returns ``{"ok": True, "tool", "target", "command", "duration_ms",
+    "exit_code", "truncated_out", "out", "err"}`` with ``out`` capped at
+    ~8 KB. Connection failures return ``ok: False`` with ``error``.
+    """
+    cmd = sched.get_command(tool_id, target)
+    client = await _ensure_ssh_connection()
+    if client is None:
+        return {"ok": False, "tool": tool_id, "target": target, "command": cmd,
+                "error": "no shared SSH connection (is Kali reachable?)"}
+    start = time.monotonic()
+    try:
+        stdin, stdout, stderr = await asyncio.to_thread(
+            client.exec_command, cmd, timeout=timeout, get_pty=True
+        )
+
+        def _drain(ch: Any) -> str:
+            try:
+                return ch.read().decode("utf-8", errors="replace")
+            except Exception:
+                return ""
+
+        out = await asyncio.to_thread(_drain, stdout)
+        err = await asyncio.to_thread(_drain, stderr)
+        exit_code = stdout.channel.recv_exit_status()
+        duration_ms = int((time.monotonic() - start) * 1000)
+        truncated = len(out) > 8192
+        return {
+            "ok": True, "tool": tool_id, "target": target, "command": cmd,
+            "duration_ms": duration_ms, "exit_code": exit_code,
+            "truncated_out": truncated, "out": out[:8192], "err": err[:4096],
+        }
+    except Exception as e:
+        logger.warning("tool dispatch %s failed: %s", tool_id, e)
+        return {"ok": False, "tool": tool_id, "target": target, "command": cmd, "error": str(e)}
+
+
+def _count_findings_in_output(out: str, tool_id: str) -> int:
+    """Heuristic finding counter for server-side scheduler runs.
+
+    Parsers already exist in the browser (nmap/…); this is a cheap proxy so
+    jobs report a useful ``last_findings`` without a full finding pipeline.
+    """
+    tool = (tool_id or "").lower()
+    if tool == "nmap":
+        return sum(1 for ln in out.splitlines() if ln.startswith(("open", "filtered")) or " / " in ln and "tcp" in ln)
+    if tool in ("gobuster", "dirb", "ffuf", "wfuzz", "feroxbuster"):
+        n = 0
+        for ln in out.splitlines():
+            toks = ln.split()
+            has_status = any(t.isdigit() and len(t) == 3 for t in toks)
+            has_path = any(t.startswith("/") for t in toks)
+            if has_status and has_path:
+                n += 1
+        return n
+    if tool in ("nikto", "wpscan"):
+        return out.count("[!]") + out.count("+ ") + out.count("Info: ") + out.count("Vulnerability: ")
+    if tool == "whatweb":
+        return 1 if out.strip() else 0
+    if tool == "enum4linux":
+        return out.lower().count("found")
+    if tool == "smbclient":
+        return sum(1 for ln in out.splitlines() if "Disk" in ln or "IPC" in ln or ln.strip().startswith(r"\\"))
+    # generic: count severity-inventory markers
+    marks = [m for m in ("CRITICAL", "HIGH", "MEDIUM", "LOW", "FOUND", "VULNERABLE", "        \tNames") if m in out.upper()]
+    return len(marks)
+
+
+async def _scheduler_loop(interval_seconds: float = 5.0, max_run_seconds: int = 90) -> None:
+    """Background daemon: executes due scheduler jobs server-side.
+
+    Runs forever (until cancellation). Each cycle it advances due jobs,
+    dispatches each through the shared SSH client and records the outcome via
+    ``sched.record_run()`` — so scheduled scans work even when no browser is
+    connected. Logged entries land in the structured audit log via the
+    existing ``AuditLogHandler``.
+    """
+    logger.info("scheduler daemon started (interval=%ss)", interval_seconds)
+    while True:
+        try:
+            # Only advance+dispatch tools with a server-side mapping AND a
+            # fixed target. Tools the browser normally launches (unmapped) and
+            # jobs whose target comes from the active assessment are left due
+            # so the frontend poll can still fire them — that keeps
+            # single-trigger semantics per consumer pool.
+            due = sched.due_jobs(include_tools=set(sched._TOOL_COMMANDS), require_target=True)
+            for job in due:
+                jid = job.get("id")
+                tool_id = job.get("tool_id")
+                target = job.get("target") or ""
+                logger.info("scheduler daemon dispatching %s -> %s", tool_id, target)
+                result = await _exec_tool_command(tool_id, target, timeout=max_run_seconds)
+                if result.get("ok"):
+                    findings = _count_findings_in_output(result.get("out", ""), tool_id)
+                    sched.record_run(
+                        jid,
+                        result="success",
+                        findings=findings,
+                        duration=result.get("duration_ms", 0) / 1000.0,
+                        error="",
+                    )
+                else:
+                    sched.record_run(
+                        jid, result="error", findings=0,
+                        duration=result.get("duration_ms", 0) / 1000.0,
+                        error=result.get("error", "dispatch failed"),
+                    )
+                _fj = sched.get_job(jid)
+                logger.info("scheduler daemon %s job %s finished (%s)",
+                            tool_id, jid, (_fj or {}).get("last_result", "?"))
+        except Exception:
+            logger.exception("scheduler daemon cycle failed")
+        await asyncio.sleep(interval_seconds)
+
 
 # ── Packaging / Desktop support ──
 # Frozen (PyInstaller) detection: when packaged, static frontend assets (if
@@ -924,15 +1048,27 @@ async def api_redact_check(req: RedactRequest):
 # ════════════════════════════════════════════════════════════════
 
 @app.get("/api/findings")
-async def get_findings(target: str = "", tool: str = "", severity: str = ""):
-    """List findings with optional filters."""
+async def get_findings(target: str = "", tool: str = "", severity: str = "",
+                       lifecycle_status: str = "", assessment_id: str = ""):
+    """List findings with optional filters (target, tool, severity, lifecycle, assessment)."""
     data = db.list_findings(
         target=target or None,
         tool=tool or None,
-        severity=severity or None
+        severity=severity or None,
+        lifecycle_status=lifecycle_status or None,
+        assessment_id=assessment_id or None,
     )
     if data is None:
         # Fallback: return empty list when DB is not configured
+        return JSONResponse({"ok": True, "data": [], "fallback": True})
+    return JSONResponse({"ok": True, "data": data})
+
+
+@app.get("/api/findings/assessment/{assessment_id}")
+async def get_findings_by_assessment(assessment_id: str):
+    """Return findings bound to a given assessment (engagement)."""
+    data = db.list_findings_by_assessment(assessment_id)
+    if data is None:
         return JSONResponse({"ok": True, "data": [], "fallback": True})
     return JSONResponse({"ok": True, "data": data})
 
@@ -946,6 +1082,28 @@ async def create_finding(req: dict):
     if result is None:
         return JSONResponse({"ok": False, "error": "Database not configured"}, status_code=503)
     return JSONResponse({"ok": True, "data": result}, status_code=201)
+
+
+@app.patch("/api/findings/{finding_id}")
+async def update_finding(finding_id: str, req: dict):
+    """Partially update a finding — lifecycle_status, assessment_id, severity, etc."""
+    if not req or not isinstance(req, dict):
+        return JSONResponse({"ok": False, "error": "Empty body"}, status_code=400)
+    allowed = {
+        "tool", "target", "type", "severity", "title", "detail", "port",
+        "protocol", "service", "version", "status", "path", "raw",
+        "assessment_id", "lifecycle_status",
+    }
+    invalid = set(req.keys()) - allowed
+    if invalid:
+        return JSONResponse({"ok": False, "error": f"unknown fields: {sorted(invalid)}"}, status_code=400)
+    lifecycle = req.get("lifecycle_status")
+    if lifecycle is not None and lifecycle not in ("open", "confirmed", "accepted", "fixed", "verified"):
+        return JSONResponse({"ok": False, "error": "lifecycle_status must be one of open/confirmed/accepted/fixed/verified"}, status_code=400)
+    result = db.update_finding(finding_id, req)
+    if result is None:
+        return JSONResponse({"ok": False, "error": "finding not found or DB unavailable"}, status_code=404)
+    return JSONResponse({"ok": True, "data": result})
 
 
 @app.post("/api/findings/bulk")
@@ -3404,6 +3562,18 @@ async def _record_startup():
     except Exception as e:
         logger.warning("Workspace-store hydration failed: %s", e)
 
+    # Start the server-side scheduler daemon: due jobs run via the shared SSH
+    # client even when no browser is connected (browser polling still works
+    # for the UI). Cancelled automatically by the event loop shutdown.
+    # Idempotent: only one daemon per process (FastAPI re-runs this startup
+    # handler once per TestClient/lifespan enter).
+    existing = getattr(app, "_scheduler_task", None)
+    if existing is None or existing.done():
+        app._scheduler_task = asyncio.create_task(_scheduler_loop(interval_seconds=5.0))
+        logger.info("Server-side scheduler daemon spawned")
+    else:
+        logger.info("Server-side scheduler daemon already running")
+
 
 @app.on_event("shutdown")
 async def _stop_plugin_watcher():
@@ -3413,6 +3583,15 @@ async def _stop_plugin_watcher():
         logger.info("Plugin hot-reload watcher stopped")
     except Exception as e:
         logger.warning("Plugin watcher failed to stop: %s", e)
+    # Cancel the server-side scheduler daemon if running
+    daemon = getattr(app, "_scheduler_task", None)
+    if daemon and not daemon.done():
+        daemon.cancel()
+        try:
+            await daemon
+        except (asyncio.CancelledError, Exception):
+            pass
+        logger.info("Scheduler daemon cancelled")
 
 # ── kali-mcp API ──
 
@@ -6836,6 +7015,19 @@ def api_scheduler_record(jid: str, body: SchedulerRecordModel):
     if job is None:
         return JSONResponse({"ok": False, "error": "job not found"}, status_code=404)
     return JSONResponse({"ok": True, "job": job})
+
+
+@app.get("/api/scheduler/status")
+def api_scheduler_status():
+    """Report daemon health (server-side execution loop)."""
+    task = getattr(app, "_scheduler_task", None)
+    running = bool(task) and not task.done()
+    return JSONResponse({
+        "ok": True,
+        "daemon_running": running,
+        "mapped_tools": sorted(sched._TOOL_COMMANDS.keys()),
+        "policy": "due jobs dispatch server-side via shared SSH; browser poll still forwards for UI",
+    })
 
 
 # ── System Monitor (CPU / RAM / disk + disk cleanup) ────────────────

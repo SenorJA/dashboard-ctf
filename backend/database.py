@@ -300,6 +300,10 @@ CREATE TABLE IF NOT EXISTS workspace_state (
     value JSONB NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- ── Migration: findings lifecycle + assessment binding ──
+ALTER TABLE findings ADD COLUMN IF NOT EXISTS assessment_id TEXT DEFAULT '';
+ALTER TABLE findings ADD COLUMN IF NOT EXISTS lifecycle_status TEXT DEFAULT 'open';
 """
 
 
@@ -544,7 +548,8 @@ def delete_report(report_id: str):
 
 # ── Findings ──
 
-def list_findings(target: str = None, tool: str = None, severity: str = None, limit: int = 200):
+def list_findings(target: str = None, tool: str = None, severity: str = None,
+                  lifecycle_status: str = None, assessment_id: str = None, limit: int = 200):
     tbl = _table("findings")
     if not tbl:
         return None
@@ -556,11 +561,20 @@ def list_findings(target: str = None, tool: str = None, severity: str = None, li
             q = q.eq("tool", tool)
         if severity:
             q = q.eq("severity", severity)
+        if lifecycle_status:
+            q = q.eq("lifecycle_status", lifecycle_status)
+        if assessment_id:
+            q = q.eq("assessment_id", assessment_id)
         resp = q.limit(limit).execute()
         return resp.data
     except Exception as e:
         logger.error("list_findings: %s", e)
         return []
+
+
+def list_findings_by_assessment(assessment_id: str, limit: int = 500):
+    """Return findings bound to a given assessment id."""
+    return list_findings(assessment_id=assessment_id, limit=limit)
 
 
 def save_finding(data: dict):
@@ -582,6 +596,8 @@ def save_finding(data: dict):
             "status": data.get("status", 0),
             "path": data.get("path", ""),
             "raw": data.get("raw", ""),
+            "assessment_id": data.get("assessment_id", ""),
+            "lifecycle_status": data.get("lifecycle_status", "open"),
         }
         resp = tbl.insert(row).execute()
         return resp.data[0] if resp.data else None
@@ -612,12 +628,38 @@ def save_findings_bulk(items: list):
                 "status": data.get("status", 0),
                 "path": data.get("path", ""),
                 "raw": data.get("raw", ""),
+                "assessment_id": data.get("assessment_id", ""),
+                "lifecycle_status": data.get("lifecycle_status", "open"),
             })
         resp = tbl.insert(rows).execute()
         return len(resp.data) if resp.data else 0
     except Exception as e:
         logger.error("save_findings_bulk: %s", e)
         return 0
+
+
+def update_finding(finding_id: str, updates: dict):
+    """Partially update a finding (lifecycle_status, assessment_id, etc.)."""
+    tbl = _table("findings")
+    if not tbl:
+        return None
+    allowed = {
+        "tool", "target", "type", "severity", "title", "detail", "port",
+        "protocol", "service", "version", "status", "path", "raw",
+        "assessment_id", "lifecycle_status",
+    }
+    row = {k: v for k, v in updates.items() if k in allowed}
+    if not row:
+        return None
+    try:
+        resp = tbl.update(row).eq("id", finding_id).execute()
+        if resp.data:
+            return resp.data[0]
+        # Supabase returns [] when no row matched — translate to None
+        return None
+    except Exception as e:
+        logger.error("update_finding: %s", e)
+        return None
 
 
 def delete_finding(finding_id: str):

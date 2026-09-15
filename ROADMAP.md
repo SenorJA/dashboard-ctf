@@ -1,6 +1,6 @@
 # 🗺️ M.I.R.V. — Roadmap de Mejoras
 
-> Última actualización: 15 Sep 2026 — MIRV v5.1 | workspace_state (assessments+scheduler) | 278 endpoints | 4672 tests | 31 tabs | main.py 100%
+> Última actualización: 15 Sep 2026 — MIRV v5.1 | scheduler daemon + finding lifecycle | workspace_state (assessments+scheduler) | 278+ endpoints | 4711 tests | 31 tabs | main.py 100%
 
 ## ✅ Completado
 
@@ -233,6 +233,33 @@ real antes de cerrar.
   "flaky service, retry"; Sourcegraph → stream SSE)
 
 ---
+
+## ✅ Pack 3 — Scheduler daemon + Finding lifecycle (15 Sep 2026)
+
+Ideas A+B elegidas sobre las 7 propuestas (A scheduler servidor, B ciclo de vida findings,
+C assets, D auth, E desktop, F multi-terminal, G notificaciones).
+
+- [x] **A — Daemon server-side de scheduler**: `backend/scheduler.py` gana `_TOOL_COMMANDS`
+  (14 tools con templates `{target}`) + `get_command(tool_id, target)` + `due_jobs(include_tools=,
+  require_target=)` (solo auto-avanza jobs que un consumidor va a disparar — el daemon deja los
+  tools no mapeados y los jobs sin target fijo al poll del browser, sin romper el single-trigger).
+  `main.py`: `_exec_tool_command()` (SSH compartido, `asyncio.to_thread`, out cap 8 KB +
+  `truncated_out`), `_count_findings_in_output()` (heurísticas por familia), `_scheduler_loop()`
+  (ciclo 5 s, spawn en startup, cancel en shutdown) — los escaneos programados se ejecutan aunque
+  no haya ningún browser conectado, con `record_run()` de resultado + findings. Nuevo endpoint
+  `GET /api/scheduler/status` (daemon_running/mapped_tools) + badge ⚙ en tab Scheduler
+- [x] **B — Finding lifecycle + binding a assessment**: columnas `lifecycle_status`
+  (open/confirmed/accepted/fixed/verified) + `assessment_id` en tabla findings (migración
+  `ADD COLUMN IF NOT EXISTS` en `SCHEMA_SQL`; `save_finding`/`save_findings_bulk`/`list_findings`
+  con los campos nuevos; `database.update_finding()` con whitelist). Endpoints
+  `PATCH /api/findings/{id}` (400 lifecycle inválido o campo desconocido, 404 si no existe),
+  `GET /api/findings/assessment/{id}`, filtros `lifecycle_status`/`assessment_id` en
+  `GET /api/findings`. Frontend: badge + select de estado por finding (`setFindingLifecycle`),
+  filtro 🗂 por estado, botón 📎/✓ bind a la assessment activa (`bindFindingToAssessment`,
+  rollback optimista)
+- Tests: `test_scheduler_daemon.py` (27: mapping, exec succ/fail/truncation, conteo, loop
+  success/failure, filtros due_jobs, status) + `test_finding_lifecycle.py` (19: CRUD DB,
+  whitelist, filtros, endpoints REST). Suite completa CI: **4711 passed** ✅ (0 fallos)
 
 ## ✅ Pack 2 — Assessments/Scheduler potenciados + prod UX (15 Sep 2026)
 

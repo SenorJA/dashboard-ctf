@@ -96,7 +96,7 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~4672 tests, ~95% coverage
 
 | File | Lines | Purpose | Tests | Coverage |
 |------|-------|---------|-------|----------|
-| `main.py` | ~5200 | FastAPI app, WebSocket SSH proxy, 170+ REST endpoints + CSP middleware | 333+295+19 | 100% |
+| `main.py` | ~5200 | FastAPI app, WebSocket SSH proxy, 170+ REST endpoints + CSP middleware + **server-side scheduler daemon** (`_scheduler_loop`, `_exec_tool_command`, `_count_findings_in_output`) | 333+295+19 | 100% |
 | `database.py` | ~1344 | Supabase CRUD (18 tables) | 196 | 100% |
 | `exif_osint.py` | ~812 | EXIF GPS extraction, camera metadata, reverse geocoding, Leaflet map | 21+11 | 99% |
 | `canary_tokens.py` | ~442 | 8 honeytoken types, activation tracking, expiration | 24 | 99% |
@@ -128,7 +128,7 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~4672 tests, ~95% coverage
 | `osint_recon.py` | ~1428 | Passive OSINT — 19 tools: email breach/verify, dorking, phone, reverse-image, wayback, IP geo, username, github + **Ronda #2**: dns_recon (DoH), rdap_whois (RDAP), pwned_passwords (HIBP k-anonymity), urlhaus_lookup (abuse.ch), page_snapshot (Jina Reader) + **Ronda #3**: code_search (Sourcegraph SSE), cert_transparency (crt.sh CT), sigstore_lookup (Rekor), urlscan_search (urlscan.io), mac_vendor_lookup (maclookup) — all stdlib, keyless | 159 | 100% |
 | `pc_analyzer.py` | ~530 | PC health diagnostics — deterministic checks (RAM/CPU/disk/junk/network/uptime + eventlog/updates/reboot), grade A–F, score 0–100, suggestions + confirmation-gated auto-fix (`/api/pc-analyzer/fix`) | 62 | 95% |
 | `assessments.py` | ~280 | Assessment workspace — dataclass-based in-memory registry, status lifecycle (planning→in-scope→in-progress→done→archived), target dedup, tags, notes, per-target lookup, summary stats, **opt-in Supabase persistence via `workspace_store` + export/import JSON** | 30 | 100% |
-| `scheduler.py` | ~260 | Scheduled scans — job registry, interval validation (10s–7d), `due_jobs()` auto-advance single-trigger per cycle, `advance_to_now()` for run-now, toggle enable/disable, **run history (`record_run`) + opt-in persistence + export/import JSON + `start_offset_seconds` for cascading campaign presets**, summary stats | 43 | 100% |
+| `scheduler.py` | ~300 | Scheduled scans — job registry, interval validation (10s–7d), `due_jobs()` auto-advance single-trigger per cycle (filtros opcionales `include_tools=`/`require_target=` para daemon), `advance_to_now()` for run-now, toggle enable/disable, **run history (`record_run`) + opt-in persistence + export/import JSON + `start_offset_seconds` for cascading campaign presets** + **`_TOOL_COMMANDS` map (14 tools) + `get_command()` for headless dispatch**, summary stats | 43 + 27 | 100% |
 | `workspace_store.py` | ~90 | Opt-in Supabase persistence layer for workspace registries (env `MIRV_PERSIST_WORKSPACE=1` + `database.is_available()`) — JSONB rows in table `workspace_state` (key/value/updated_at), process cache, fail-silent, in-memory registry stays authoritative | 22 | 100% |
 
 ## Backend quirks (main.py)
@@ -221,6 +221,8 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~4672 tests, ~95% coverage
 | `renderFindingsCharts()` | Canvas charts by severity/tool/target in Findings |
 | `refreshAssessments()` / `renderAssessments()` / `createAssessment()` / `toggleAssessmentForm()` / `assessmentRemoveTarget()` / `assessmentDelete()` / `assessmentScan()` | Assessments workspace |
 | `refreshScheduler()` / `renderSchedulerJobs()` / `createScheduleJob()` / `toggleSchedulerForm()` / `_scheduleToggle()` / `_scheduleRun()` / `_scheduleDelete()` / `schedulerPollDue()` | Scheduler tab + 10s global due-polling |
+| `setFindingLifecycle(status, id)` / `bindFindingToAssessment(btn, id)` | Finding lifecycle PATCH `/api/findings/{id}` + bind a assessment activa (rollback optimista) |
+| `refreshSchedulerDaemon()` | Badge ⚙ estado del daemon server-side via `GET /api/scheduler/status` |
 
 ## Findings parsing system
 
@@ -290,7 +292,8 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~4672 tests, ~95% coverage
 | **Sys Monitor** | `GET /api/system/stats`, `GET /api/system/disk`, `GET /api/system/cleanup`, `POST /api/system/cleanup` |
 | **PC Analyzer** | `GET /api/pc-analyzer`, `POST /api/pc-analyzer/fix` (auto-fix confirmation-gated) |
 | **Assessments** | `GET/POST /api/assessments`, `GET /api/assessments/export`, `POST /api/assessments/import`, `GET/PUT/DELETE /api/assessments/{aid}`, `POST /api/assessments/{aid}/targets`, `DELETE /api/assessments/{aid}/targets/{target}`, `GET /api/assessments/by-target/{target}` |
-| **Scheduler** | `GET/POST /api/scheduler/jobs`, `PUT/PATCH/DELETE /api/scheduler/jobs/{jid}`, `POST /api/scheduler/jobs/{jid}/run`, `POST /api/scheduler/jobs/{jid}/record`, `GET/POST /api/scheduler/export`, `GET /api/scheduler/due` |
+| **Scheduler** | `GET/POST /api/scheduler/jobs`, `PUT/PATCH/DELETE /api/scheduler/jobs/{jid}`, `POST /api/scheduler/jobs/{jid}/run`, `POST /api/scheduler/jobs/{jid}/record`, `GET/POST /api/scheduler/export`, `GET /api/scheduler/due`, `GET /api/scheduler/status` (daemon health) |
+| **Findings lifecycle** | `PATCH /api/findings/{finding_id}` (lifecycle_status open/confirmed/accepted/fixed/verified + assessment_id), `GET /api/findings/assessment/{assessment_id}`, `GET /api/findings?lifecycle_status=&assessment_id=` |
 
 ## Plugin system
 
@@ -423,11 +426,11 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~4672 tests, ~95% coverage
 
 ## Test summary
 
-- **79 test files** in `backend/tests/`
-- **~4670 tests** collected (296 now in `test_main_gaps.py` + 19 in `test_main_websocket_gaps.py` + 30 `test_assessments.py` + 43 `test_scheduler.py` + 22 `test_workspace_store.py`)
+- **79 test files** in `backend/tests/` (81 counting `test_scheduler_daemon.py` + `test_finding_lifecycle.py`)
+- **~4711 tests** collected (296 now in `test_main_gaps.py` + 19 in `test_main_websocket_gaps.py` + 30 `test_assessments.py` + 43 `test_scheduler.py` + 27 `test_scheduler_daemon.py` + 19 `test_finding_lifecycle.py` + 22 `test_workspace_store.py`)
 - **~95% coverage** across measured backend modules
 - **`backend/main.py` = 100%** (2847/2847 statements; last gaps were websocket `read_shell` break on OSError/EOFError + outer `WebSocketDisconnect`)
-- **Key test files**: test_database (196), test_api_endpoints (333), test_main_gaps (296), test_main_coverage (165), test_main_extra (120), test_crud_endpoints (67), test_deep_coverage_1/2 (205), test_compaction (63), test_burp_bridge (72), test_redact (63), test_skill_playbooks (67), test_audit_log (45), test_plugin_manager (47), test_plugin_watcher (18), test_siem (31), test_coverage (33), test_exif_osint (63), test_mobile_analyzer (54), test_canary_tokens (24), test_dlp_scanner (25), test_finding_poc (61), test_intelligence (43), test_permission_system (56), test_opsec, test_scope_guard, test_forensics, test_adb_controller, test_kali_mcp_client, test_mission_store, test_knowledgebase, test_swarm, test_assessments (30), test_scheduler (43), test_workspace_store (22), + scanner tools + gap files (test_*_gaps.py: redact, dlp_scanner, mission_store, dns_lookup, pdf_engine, database, finding_poc, headers_scanner, hash_cracker, adb_controller, skill_playbooks, audit_log, intelligence, opsec, scope_guard).
+- **Key test files**: test_database (196), test_api_endpoints (333), test_main_gaps (296), test_main_coverage (165), test_main_extra (120), test_crud_endpoints (67), test_deep_coverage_1/2 (205), test_compaction (63), test_burp_bridge (72), test_redact (63), test_skill_playbooks (67), test_audit_log (45), test_plugin_manager (47), test_plugin_watcher (18), test_siem (31), test_coverage (33), test_exif_osint (63), test_mobile_analyzer (54), test_canary_tokens (24), test_dlp_scanner (25), test_finding_poc (61), test_intelligence (43), test_permission_system (56), test_opsec, test_scope_guard, test_forensics, test_adb_controller, test_kali_mcp_client, test_mission_store, test_knowledgebase, test_swarm, test_assessments (30), test_scheduler (43), test_scheduler_daemon (27), test_finding_lifecycle (19), test_workspace_store (22), + scanner tools + gap files (test_*_gaps.py: redact, dlp_scanner, mission_store, dns_lookup, pdf_engine, database, finding_poc, headers_scanner, hash_cracker, adb_controller, skill_playbooks, audit_log, intelligence, opsec, scope_guard).
 
 ### main.py coverage tests (gaps)
 

@@ -1727,9 +1727,18 @@
                 </div>
 
                 <!-- ── Search / filter ── -->
-                <div class="flex items-center gap-2 mb-3">
+                <div class="flex items-center gap-2 mb-3 flex-wrap">
                     <input type="text" id="findings-search" placeholder="🔍 Search findings by text, tool, target..."
-                        class="flex-1 bg-deep border border-gray-800 rounded px-2.5 py-1.5 text-[11px] text-gray-300 placeholder-gray-500 focus:outline-none focus:border-neon/50 font-mono" aria-label="Search findings by text, tool or target">
+                        class="flex-1 min-w-[180px] bg-deep border border-gray-800 rounded px-2.5 py-1.5 text-[11px] text-gray-300 placeholder-gray-500 focus:outline-none focus:border-neon/50 font-mono" aria-label="Search findings by text, tool or target">
+                    <select id="findings-lifecycle-filter"
+                        class="bg-void border border-gray-800 rounded px-2 py-1.5 text-[11px] text-gray-300 focus:outline-none focus:border-neon/50 font-mono" aria-label="Filter findings by lifecycle status">
+                        <option value="all">🗂 All status</option>
+                        <option value="open">Open</option>
+                        <option value="confirmed">Confirmed</option>
+                        <option value="accepted">Accepted</option>
+                        <option value="fixed">Fixed</option>
+                        <option value="verified">Verified</option>
+                    </select>
                 </div>
 
                 <!-- ── Charts overview (collapsible) ── -->
@@ -3191,6 +3200,7 @@
                         <span class="text-lg">⏰</span>
                         <h2 class="text-xl font-semibold text-neon" id="scheduler-tab-title">Scheduler</h2>
                         <span id="sched-summary" class="text-[9px] px-2 py-1 rounded bg-deep border border-gray-800 text-gray-400 font-mono"></span>
+                        <span id="sched-daemon-badge" class="text-[9px] px-2 py-1 rounded bg-gray-800/30 border border-gray-800 text-gray-500 font-mono" title="Server-side scheduler daemon status">⚙ daemon: ?</span>
                     </div>
                     <div class="flex items-center gap-1.5">
                         <button onclick="document.getElementById('sched-import-file').click()"
