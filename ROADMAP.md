@@ -1,8 +1,15 @@
 # 🗺️ M.I.R.V. — Roadmap de Mejoras
 
-> Última actualización: 15 Sep 2026 — MIRV v5.1 | scheduler daemon + finding lifecycle | workspace_state (assessments+scheduler) | 278+ endpoints | 4711 tests | 31 tabs | main.py 100%
+> Última actualización: 18 Sep 2026 — MIRV v5.2 | asset inventory por engagement | scheduler daemon + finding lifecycle | workspace_state (assessments+scheduler+assets) | 289+ endpoints | 4733+ tests | 31 tabs | main.py 100%
 
 ## ✅ Completado
+
+### Fase 7 — Mejoras (Pack 3 continuado)
+
+#### Pack 3 — Scheduler daemon + Finding lifecycle + Asset inventory (SEP 2026)
+- [x] **Feature A — Scheduler daemon server-side**: `_TOOL_COMMANDS` (14 tools con templates `{target}`) + `get_command()`; `due_jobs(include_tools=, require_target=)` filtra antes del auto-advance single-trigger; `main.py` `_exec_tool_command()` (SSH compartido, cap 8 KB), `_count_findings_in_output()`, `_scheduler_loop()` (5 s, spawn idempotente, cancel shutdown) → scans programados se ejecutan sin browser; `GET /api/scheduler/status` + badge ⚙ en tab Scheduler
+- [x] **Feature B — Finding lifecycle + binding**: columnas `lifecycle_status` (open/confirmed/accepted/fixed/verified) + `assessment_id` (migración `ADD COLUMN IF NOT EXISTS`); `PATCH /api/findings/{id}` (400/404), `GET /api/findings/assessment/{id}`, filtros; badge+select por finding, filtro 🗂, bind 📎/✓ con rollback optimista
+- [x] **Feature C — Asset inventory por engagement**: módulo `backend/assets.py` (dedup `assessment_id+kind+address`, kinds host/domain/service/endpoint/other, status active/potential/out-of-scope/infrastructure/compromised, puertos abiertos + stack + `findings_count`); `ingest_findings()` auto-popula desde findings (IP→host / hostname→domain / urlparse / ports / services / endpoint for paths); 11 endpoints REST (`GET/POST /api/assets`, `export/import`, `by-assessment`, `summary`, `ingest`, `GET/PUT/DELETE /api/assets/{id}`) + cascade al borrar assessment; panel 🖧 Asset Inventory en tab Assessments con auto-ingest debounced en `addFindings`; persistencia opt-in `workspace_state` key `assets`. Tests `test_assets.py` (22)
 
 ### Fase 1 — Terminal + Findings Panel
 - [x] Conexión SSH interactiva con `invoke_shell()` + PTY

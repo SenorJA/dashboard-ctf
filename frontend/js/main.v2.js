@@ -1261,6 +1261,7 @@ ${bodyHtml}
         const byTool = items[0].tool || 'scan';
         showToast(`🎯 +${added} ${byTool} finding${added > 1 ? 's' : ''}`);
         _debounceSync();
+        _autoIngestAssets(items);  // per-engagement asset inventory (Feature C)
     }
 
     // ── Simple string hash for stable finding IDs ──
@@ -12715,7 +12716,118 @@ Reglas:
             if (!d.ok) { showToast('⚠ ' + (d.error || 'list failed')); return; }
             renderAssessments(d.assessments || [], d.summary || {});
         } catch (e) { showToast('⚠ assessments: ' + e.message); }
+        refreshAssets();
     };
+
+    // ── Asset inventory (per engagement) ──
+    const ASSET_KIND_ICON = { host: '🖥️', domain: '🌐', service: '🔌', endpoint: '🔗', other: '📦' };
+    const ASSET_STATUS_BADGE = {
+        active: 'bg-green-900/20 text-green-400 border-green-800/40',
+        potential: 'bg-blue-900/20 text-blue-400 border-blue-800/40',
+        'out-of-scope': 'bg-gray-800/60 text-gray-400 border-gray-700/40',
+        infrastructure: 'bg-cyan-900/20 text-cyan-400 border-cyan-800/40',
+        compromised: 'bg-blood/20 text-blood border-blood/40',
+    };
+
+    async function _assetsFetch(url, options) {
+        const r = await fetch(url, options || {});
+        return r.json().catch(() => ({}));
+    }
+
+    window.refreshAssets = async function () {
+        try {
+            const active = getActiveAssessment && getActiveAssessment();
+            const url = active
+                ? `/api/assets?assessment_id=${encodeURIComponent(active.id)}`
+                : '/api/assets';
+            const d = await _assetsFetch(url);
+            if (!d.ok) { showToast('⚠ ' + (d.error || 'assets failed')); return; }
+            renderAssets(d.assets || [], d.count || 0, active);
+        } catch (e) { showToast('⚠ assets: ' + e.message); }
+    };
+
+    function renderAssets(assets, count, active) {
+        const container = document.getElementById('assets-list');
+        if (!container) return;
+        const empty = document.getElementById('assets-empty');
+        const summary = document.getElementById('assets-summary');
+        const scope = document.getElementById('assets-scope');
+        if (summary) summary.textContent = `${count} asset${count === 1 ? '' : 's'}`;
+        if (scope) {
+            if (active) { scope.classList.remove('hidden'); scope.textContent = `🎯 ${active.name || active.id}`; }
+            else scope.classList.add('hidden');
+        }
+        if (empty) empty.style.display = assets.length ? 'none' : '';
+        if (!assets.length) { if (container) container.innerHTML = ''; return; }
+        container.innerHTML = assets.map(a => {
+            const kindIcon = ASSET_KIND_ICON[a.kind] || '📦';
+            const statusCls = ASSET_STATUS_BADGE[a.status] || ASSET_STATUS_BADGE.active;
+            const portChips = (a.ports || []).map(p => {
+                const s = [p.service, p.version].filter(Boolean).join(' ');
+                return `<span class="px-1.5 py-0.5 bg-void border border-cyan-900/40 text-cyan-300/90 rounded text-[9px]" title="${esc(s || '')}">${esc(p.port)}/${esc(p.protocol || 'tcp')}${s ? ' · ' + esc(s) : ''}</span>`;
+            }).join('');
+            const svcChips = (a.services || []).filter(s => !(a.ports || []).some(p => p.service && String(s).startsWith(p.service))).map(s =>
+                `<span class="px-1.5 py-0.5 bg-void border border-purple-900/40 text-purple-300/90 rounded text-[9px]">${esc(String(s))}</span>`).join('');
+            const tags = (a.tags || []).map(t => `<span class="text-[8px] text-gray-500 border border-gray-800 rounded px-1">#${esc(t)}</span>`).join(' ');
+            return `
+            <div class="bg-deep/40 border border-gray-800 rounded px-2 py-1.5 text-[10px] font-mono">
+                <div class="flex items-center gap-1.5 flex-wrap">
+                    <span>${kindIcon}</span>
+                    <span class="text-cyber font-semibold">${esc(a.address)}</span>
+                    <span class="text-[8px] uppercase text-gray-600">${esc(a.kind)}</span>
+                    <span class="px-1.5 py-0.5 rounded border text-[8px] ${statusCls}">${esc(a.status)}</span>
+                    ${a.label ? `<span class="text-gray-400">${esc(a.label)}</span>` : ''}
+                    <span class="text-gray-600">${esc(a.source)}</span>
+                    <span class="ml-auto flex items-center gap-1.5">
+                        <span class="text-gray-500">🔎 ${a.findings_count || 0}</span>
+                        <button onclick="deleteAsset('${esc(a.id)}')" class="text-gray-600 hover:text-blood transition-colors" title="delete asset">✕</button>
+                    </span>
+                </div>
+                ${a.label || portChips || svcChips || tags ? `
+                <div class="flex items-center gap-1 flex-wrap mt-1 ${portChips || svcChips || tags ? '' : 'hidden'}">
+                    ${portChips}${svcChips}${tags}
+                </div>` : ''}
+            </div>`;
+        }).join('');
+    }
+
+    window.deleteAsset = async function (id) {
+        const d = await _assetsFetch(`/api/assets/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        if (!d.ok) showToast('⚠ ' + (d.error || 'delete failed'));
+        refreshAssets();
+    };
+
+    window.ingestAssetsFromFindings = async function () {
+        const active = getActiveAssessment && getActiveAssessment();
+        if (!active) { showToast('⚠ Set an active assessment first (⭐)' ); return; }
+        const finds = (window.findings || []).filter(f =>
+            String(f.assessment_id || '') === String(active.id) ||
+            (active.target && f.target === active.target) ||
+            (active.name && f.target === active.name));
+        if (!finds.length) { showToast('⏭ No findings to ingest for the active assessment'); return; }
+        const d = await _assetsFetch('/api/assets/ingest', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ assessment_id: active.id, findings: finds })
+        });
+        if (!d.ok) { showToast('⚠ ' + (d.error || 'ingest failed')); return; }
+        showToast(`🖧 Ingested ${d.created} assets • ${d.ports} ports • ${d.services} services`);
+        refreshAssets();
+    };
+
+    let _autoIngestTimer = null;
+    function _autoIngestAssets(items) {
+        clearTimeout(_autoIngestTimer);
+        _autoIngestTimer = setTimeout(() => {
+            const active = getActiveAssessment && getActiveAssessment();
+            if (!active || !items || !items.length) return;
+            _assetsFetch('/api/assets/ingest', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ assessment_id: active.id, findings: items })
+            }).then(() => { if (document.getElementById('tab-assessments')?.classList.contains('active')) refreshAssets(); }).catch(() => {});
+        }, 1500);
+    }
 
     function renderAssessments(list, summary) {
         const container = document.getElementById('assess-list');

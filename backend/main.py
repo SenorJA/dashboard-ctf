@@ -191,9 +191,10 @@ from backend import system_monitor as sysmon
 # ── PC Analyzer (health diagnostics, grade + suggestions) ──
 from backend import pc_analyzer as pcan
 
-# ── Assessments workspace + Scheduled scans ──
+# ── Assessments workspace + Scheduled scans + Asset inventory ──
 from backend import assessments as assess
 from backend import scheduler as sched
+from backend import assets as assetslib
 
 # ── Browser Capture (HAR import, session storage, security analysis) ──
 from backend.browser_capture import (
@@ -3558,6 +3559,7 @@ async def _record_startup():
     try:
         assess.load_from_store()
         sched.load_from_store()
+        assetslib.load_from_store()
         logger.info("Workspace-store hydration complete")
     except Exception as e:
         logger.warning("Workspace-store hydration failed: %s", e)
@@ -6863,6 +6865,7 @@ def api_assessments_delete(aid: str):
     ok = assess.delete_assessment(aid)
     if not ok:
         return JSONResponse({"ok": False, "error": "assessment not found"}, status_code=404)
+    assetslib.delete_assets_for_assessment(aid)
     return JSONResponse({"ok": True})
 
 
@@ -6886,6 +6889,153 @@ def api_assessments_remove_target(aid: str, target: str):
 @app.get("/api/assessments/by-target/{target:path}")
 def api_assessments_by_target(target: str):
     return JSONResponse({"ok": True, "assessments": assess.assessments_by_target(target)})
+
+
+# ── Asset inventory (per engagement) ──────────────────────────────────────
+
+class AssetCreateModel(BaseModel):
+    assessment_id: str
+    kind: str
+    address: str
+    label: str = ""
+    status: str = "active"
+    tags: List[str] = []
+    notes: str = ""
+
+
+class AssetUpdateModel(BaseModel):
+    label: Optional[str] = None
+    status: Optional[str] = None
+    tags: Optional[List[str]] = None
+    notes: Optional[str] = None
+    kind: Optional[str] = None
+
+
+class AssetIngestModel(BaseModel):
+    assessment_id: str
+    findings: List[Dict[str, Any]]
+
+
+@app.get("/api/assets")
+def api_assets_list(assessment_id: str = "", kind: str = "", status: str = ""):
+    """List the asset inventory (optionally filtered per assessment/kind/status)."""
+    try:
+        items = assetslib.list_assets(
+            assessment_id=assessment_id or None,
+            kind=kind or None,
+            status=status or None,
+        )
+        return JSONResponse({"ok": True, "assets": items, "count": len(items)})
+    except Exception:
+        logger.exception("assets list failed")
+        return JSONResponse({"ok": False, "error": "list failed"}, status_code=500)
+
+
+@app.post("/api/assets")
+def api_assets_create(body: AssetCreateModel):
+    try:
+        a = assetslib.create_asset(
+            body.assessment_id,
+            body.kind,
+            body.address,
+            label=body.label,
+            status=body.status,
+            tags=body.tags,
+            notes=body.notes,
+            source="manual",
+        )
+        return JSONResponse({"ok": True, "asset": a.to_dict()})
+    except ValueError as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+    except Exception:
+        logger.exception("assets create failed")
+        return JSONResponse({"ok": False, "error": "create failed"}, status_code=500)
+
+
+@app.get("/api/assets/export")
+def api_assets_export():
+    try:
+        return JSONResponse({"ok": True, "files": "assets.json", "rows": assetslib.export_state()})
+    except Exception:
+        logger.exception("assets export failed")
+        return JSONResponse({"ok": False, "error": "export failed"}, status_code=500)
+
+
+@app.post("/api/assets/import")
+def api_assets_import(body: WorkspaceImportModel):
+    try:
+        result = assetslib.import_state(body.rows, replace=body.replace)
+        return JSONResponse({"ok": True, **result})
+    except ValueError as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+    except Exception:
+        logger.exception("assets import failed")
+        return JSONResponse({"ok": False, "error": "import failed"}, status_code=500)
+
+
+@app.get("/api/assets/by-assessment/{assessment_id}")
+def api_assets_by_assessment(assessment_id: str):
+    """Inventory + summary for a single engagement."""
+    try:
+        items = assetslib.list_assets(assessment_id=assessment_id)
+        s = assetslib.summary(assessment_id=assessment_id)
+        return JSONResponse({"ok": True, "assets": items, "count": len(items), "summary": s})
+    except Exception:
+        logger.exception("assets by-assessment failed")
+        return JSONResponse({"ok": False, "error": "list failed"}, status_code=500)
+
+
+@app.get("/api/assets/summary")
+def api_assets_summary(assessment_id: str = ""):
+    try:
+        return JSONResponse({"ok": True, "summary": assetslib.summary(assessment_id=assessment_id or None)})
+    except Exception:
+        logger.exception("assets summary failed")
+        return JSONResponse({"ok": False, "error": "summary failed"}, status_code=500)
+
+
+@app.post("/api/assets/ingest")
+def api_assets_ingest(body: AssetIngestModel):
+    """Auto-populate the inventory from a batch of tool findings."""
+    try:
+        result = assetslib.ingest_findings(body.assessment_id, body.findings)
+        return JSONResponse({"ok": True, **result})
+    except ValueError as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+    except Exception:
+        logger.exception("assets ingest failed")
+        return JSONResponse({"ok": False, "error": "ingest failed"}, status_code=500)
+
+
+@app.get("/api/assets/{asset_id}")
+def api_assets_get(asset_id: str):
+    a = assetslib.get_asset(asset_id)
+    if a is None:
+        return JSONResponse({"ok": False, "error": "asset not found"}, status_code=404)
+    return JSONResponse({"ok": True, "asset": a})
+
+
+@app.put("/api/assets/{asset_id}")
+def api_assets_update(asset_id: str, body: AssetUpdateModel):
+    a = assetslib.update_asset(
+        asset_id,
+        label=body.label,
+        status=body.status,
+        tags=body.tags,
+        notes=body.notes,
+        kind=body.kind,
+    )
+    if a is None:
+        return JSONResponse({"ok": False, "error": "asset not found or invalid"}, status_code=404)
+    return JSONResponse({"ok": True, "asset": a})
+
+
+@app.delete("/api/assets/{asset_id}")
+def api_assets_delete(asset_id: str):
+    ok = assetslib.delete_asset(asset_id)
+    if not ok:
+        return JSONResponse({"ok": False, "error": "asset not found"}, status_code=404)
+    return JSONResponse({"ok": True})
 
 
 # ── Scheduled scans (in-app cron store) ─────────────────────────────────

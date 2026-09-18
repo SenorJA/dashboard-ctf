@@ -3189,6 +3189,25 @@
                 <div id="assess-list" class="space-y-2" aria-live="polite" aria-label="Assessments list">
                     <div class="text-center text-[11px] text-gray-400 py-8" id="assess-empty">No assessments yet — click <strong>+ New</strong> to start.</div>
                 </div>
+
+                <!-- Asset inventory per engagement -->
+                <div class="mt-4 border-t border-gray-800 pt-3">
+                    <div class="flex items-center gap-2 mb-2 flex-wrap">
+                        <span class="text-lg">🖧</span>
+                        <h3 class="text-sm font-semibold text-neon">Asset Inventory</h3>
+                        <span id="assets-summary" class="text-[9px] px-2 py-1 rounded bg-deep border border-gray-800 text-gray-400 font-mono"></span>
+                        <span id="assets-scope" class="text-[9px] px-2 py-1 rounded bg-yellow-900/10 border border-yellow-800/30 text-yellow-500/80 font-mono hidden"></span>
+                        <div class="ml-auto flex items-center gap-1.5">
+                            <button onclick="ingestAssetsFromFindings()"
+                                class="bg-cyber/10 hover:bg-cyber/20 text-cyber border border-cyber/30 px-2 py-1 rounded text-[10px] transition-all" title="Auto-add assets from current findings (active assessment)">⚡ Ingest findings</button>
+                            <button onclick="refreshAssets()"
+                                class="bg-gray-800/60 hover:bg-gray-800 text-gray-400 border border-gray-800 px-2 py-1 rounded text-[10px] transition-all" title="Refresh the asset inventory">🔄 Refresh</button>
+                        </div>
+                    </div>
+                    <div id="assets-list" class="space-y-1.5">
+                        <div class="text-[10px] text-gray-500 italic py-2" id="assets-empty">No assets yet — set an <strong>active assessment</strong> ⭐, run a scan, then click <strong>⚡ Ingest findings</strong> (or it runs automatically for new findings).</div>
+                    </div>
+                </div>
             </div>
 
             <!-- ════════════════════════════════════════════════════════════
