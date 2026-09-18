@@ -196,6 +196,9 @@ from backend import assessments as assess
 from backend import scheduler as sched
 from backend import assets as assetslib
 
+# ── Opt-in API token auth (/api/* guard) ──
+from backend import api_auth as apiauth
+
 # ── Browser Capture (HAR import, session storage, security analysis) ──
 from backend.browser_capture import (
     import_har as bc_import,
@@ -294,6 +297,31 @@ class NoCacheMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(NoCacheMiddleware)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+
+# ── Opt-in API token guard (Feature D) ──
+# Enabled only when MIRV_API_TOKEN (env) or backend/data/api_token.txt is set.
+# Accepts: Authorization: Bearer <token> | X-MIRV-Token: <token> | mirv_token cookie.
+# Exempt: /api/health, /api/auth/status + static assets. /ws keeps its own auth.
+class ApiTokenMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        path = request.url.path
+        if path.startswith("/api/") and not apiauth.is_exempt(path) and apiauth.is_enabled():
+            token = apiauth.request_token(request.headers, cookies=request.cookies)
+            if not apiauth.check(token):
+                return JSONResponse(
+                    {"ok": False, "error": "unauthorized: missing or invalid API token"},
+                    status_code=401,
+                    headers={
+                        "WWW-Authenticate": "Bearer",
+                        "X-MIRV-Auth": "required",
+                        "Cache-Control": "no-store",
+                    },
+                )
+        return await call_next(request)
+
+
+app.add_middleware(ApiTokenMiddleware)
 
 # ════════════════════════════════════════════════════════════════
 #  SHARED SSH CLIENT (for Mobile Lab API endpoints)
@@ -3503,6 +3531,26 @@ async def api_osint_mac(body: OsintMacRequest, request: Request):
 #  SUPABASE API ENDPOINTS
 # ════════════════════════════════════════════════════════════════
 
+@app.get("/api/auth/status")
+async def api_auth_status():
+    """Public: reports whether the opt-in API token guard is active."""
+    enabled = apiauth.is_enabled()
+    return JSONResponse({
+        "ok": True,
+        "enabled": enabled,
+        "source": apiauth.token_source() if enabled else "",
+        "masked_token": apiauth.mask(apiauth.configured_token()) if enabled else "",
+    })
+
+
+@app.get("/api/auth/token")
+async def api_auth_token():
+    """Guarded: echoes the active token (browser has it via cookie; useful
+    to copy into external tooling like Burp Bridge / curl scripts)."""
+    enabled = apiauth.is_enabled()
+    return JSONResponse({"ok": True, "enabled": enabled, "token": apiauth.configured_token() if enabled else ""})
+
+
 @app.get("/api/health")
 async def api_health():
     """Check system health — database, uptime, mode."""
@@ -4443,7 +4491,18 @@ async def set_setting(setting: SettingUpdate):
 
 @app.get("/")
 async def read_index():
-    return FileResponse(os.path.join(frontend_dir, "index.html"))
+    resp = FileResponse(os.path.join(frontend_dir, "index.html"))
+    # When the API token guard is on, drop the httpOnly cookie so the SPA
+    # (same-origin fetch/WS) keeps working with zero frontend changes.
+    if apiauth.is_enabled():
+        resp.set_cookie(
+            apiauth.COOKIE_NAME,
+            apiauth.configured_token(),
+            httponly=True,
+            samesite="lax",
+            max_age=60 * 60 * 24 * 7,
+        )
+    return resp
 
 @app.get("/favicon.ico")
 async def favicon():

@@ -11013,7 +11013,8 @@ Reglas:
             siem: '/api/siem/stats',
             sys: '/api/system/stats',
             disk: '/api/system/disk',
-            intel: '/api/intelligence/alerts?limit=1'
+            intel: '/api/intelligence/alerts?limit=1',
+            auth: '/api/auth/status'
         };
         let results = {};
         try {
@@ -11088,6 +11089,30 @@ Reglas:
         const vols = (dsk.volumes || []).filter(v => v.total > 0);
         const prim = vols.find(v => /^[A-Z]:[\\/]?$/.test(v.mount || '')) || vols[0];
         if (prim && prim.percent != null) set('home-disk', prim.percent.toFixed(0) + '% (' + (prim.free_h || '—') + ' free)');
+
+        // API token auth guard (opt-in via MIRV_API_TOKEN)
+        const auth = results.auth || {};
+        const authOn = !!auth.enabled;
+        const authDot = document.getElementById('home-auth-dot');
+        const authStatus = document.getElementById('home-auth-status');
+        if (authDot) authDot.className = 'inline-block w-2 h-2 rounded-full ' + (authOn ? 'bg-cyan-400' : 'bg-gray-700');
+        if (authStatus) {
+            authStatus.textContent = authOn ? 'enabled' : 'off';
+            authStatus.className = 'text-sm font-semibold ' + (authOn ? 'text-cyan-400' : 'text-gray-500');
+        }
+        window._apiAuthMasked = authOn ? (auth.masked_token || '') : '';
+        set('home-auth-token', authOn ? (auth.masked_token || '•••') : '—');
+    };
+
+    window.copyApiToken = async function () {
+        if (!window._apiAuthMasked) { showToast('⚠ API auth is off — set MIRV_API_TOKEN (env) or backend/data/api_token.txt'); return; }
+        try {
+            const r = await fetch('/api/auth/token', { headers: { 'Content-Type': 'application/json' } });
+            const d = await r.json().catch(() => ({}));
+            if (!r.ok || !d.token) { showToast('⚠ ' + (d.error || 'cannot read token')); return; }
+            await navigator.clipboard.writeText(d.token);
+            showToast('🔐 API token copied (' + d.token.length + ' chars)');
+        } catch (e) { showToast('⚠ clipboard unavailable: ' + (e.message || e)); }
     };
 
     // ════════════════════════════════════════════════════════════════

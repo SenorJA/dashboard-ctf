@@ -631,6 +631,14 @@
                         <div class="text-2xl font-bold text-cyber" id="home-mem">—</div>
                         <div class="text-[9px] text-gray-500 mt-1">disk <span id="home-disk" class="text-gray-400">—</span></div>
                     </div>
+                    <div class="bg-deep rounded-lg border border-gray-800 p-3">
+                        <div class="text-[9px] text-gray-500 uppercase tracking-wider mb-1">API Auth</div>
+                        <div class="flex items-center gap-2">
+                            <span id="home-auth-dot" class="inline-block w-2 h-2 rounded-full bg-gray-800"></span>
+                            <span id="home-auth-status" class="text-sm font-semibold text-gray-300">checking…</span>
+                        </div>
+                        <button onclick="copyApiToken()" class="text-[9px] text-gray-500 mt-1 hover:text-cyber transition-colors" title="Copy API token (for Burp Bridge, curl scripts…)">🔐 token <span id="home-auth-token" class="font-mono">—</span> ⧉</button>
+                    </div>
                 </div>
 
                 <!-- Quick actions -->
