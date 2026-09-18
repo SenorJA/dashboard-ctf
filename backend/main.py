@@ -199,6 +199,9 @@ from backend import assets as assetslib
 # ── Opt-in API token auth (/api/* guard) ──
 from backend import api_auth as apiauth
 
+# ── Notification hub (Telegram/Discord/Slack/Pushover/webhook) ──
+from backend import notifications as notif
+
 # ── Browser Capture (HAR import, session storage, security analysis) ──
 from backend.browser_capture import (
     import_har as bc_import,
@@ -485,6 +488,8 @@ async def _scheduler_loop(interval_seconds: float = 5.0, max_run_seconds: int = 
                         duration=result.get("duration_ms", 0) / 1000.0,
                         error="",
                     )
+                    if findings:
+                        notif.send("MIRV daemon", f"⏰ Scheduled '{jid}' ({tool_id}) finished — {findings} finding(s) in {result.get('duration_ms', 0) / 1000.0:.1f}s", level="info")
                 else:
                     sched.record_run(
                         jid, result="error", findings=0,
@@ -1110,6 +1115,8 @@ async def create_finding(req: dict):
     result = db.save_finding(req)
     if result is None:
         return JSONResponse({"ok": False, "error": "Database not configured"}, status_code=503)
+    if (req.get("severity") or "") in ("high", "critical"):
+        _notify_finding("New finding", req.get("title") or req.get("detail") or "", req.get("target"), req.get("severity"))
     return JSONResponse({"ok": True, "data": result}, status_code=201)
 
 
@@ -1149,6 +1156,9 @@ async def create_findings_bulk(req: list = Body(...)):
     count = db.save_findings_bulk(req)
     if count is None:
         return JSONResponse({"ok": False, "error": "Database not configured"}, status_code=503)
+    crit = [f for f in req if (f.get("severity") or "") in ("high", "critical")]
+    if crit:
+        _notify_finding("New findings", f"{len(crit)} high/critical finding(s) ingested", None, "high")
     return JSONResponse({"ok": True, "count": count}, status_code=201)
 
 
@@ -7223,6 +7233,7 @@ def api_scheduler_record(jid: str, body: SchedulerRecordModel):
     )
     if job is None:
         return JSONResponse({"ok": False, "error": "job not found"}, status_code=404)
+    _notify_scheduled_run(job, body)
     return JSONResponse({"ok": True, "job": job})
 
 
@@ -7237,6 +7248,104 @@ def api_scheduler_status():
         "mapped_tools": sorted(sched._TOOL_COMMANDS.keys()),
         "policy": "due jobs dispatch server-side via shared SSH; browser poll still forwards for UI",
     })
+
+
+# ── Notifications hub (Telegram / Discord / Slack / Pushover / webhook) ──
+# Providers are opt-in. With no provider configured, every send() is a no-op
+# (zero output, zero threads), so the hooks below are integration-safe.
+
+def _notify_scheduled_run(job: dict, body) -> None:
+    """Push a scheduler-run outcome to every configured notification provider."""
+    try:
+        name = job.get("name") or job.get("id") or "scheduled job"
+        tool = job.get("tool_id") or ""
+        target = job.get("target") or ""
+        loc = f" ({tool} @ {target})" if tool else " @ " + (target or "?")
+        if body.result == "success":
+            notif.send(
+                "MIRV scheduler",
+                f"⏰ '{name}' finished — {body.findings} finding(s) in {body.duration:.1f}s{loc}",
+                level="info",
+            )
+        else:
+            notif.send(
+                "MIRV scheduler",
+                f"⚠️ '{name}' FAILED{loc} — {body.error or body.result}",
+                level="high",
+            )
+    except Exception:
+        logger.exception("scheduler notification hook failed")
+
+
+def _notify_finding(kind: str, detail: str, target, severity: str) -> None:
+    """Push new high/critical findings to configured providers."""
+    try:
+        loc = f" @ {target}" if target else ""
+        notif.send("MIRV finding", f"🛡 {kind} [{severity}]{loc}: {detail}", level=severity or "high")
+    except Exception:
+        logger.exception("finding notification hook failed")
+
+
+@app.get("/api/notifications/providers")
+def api_notif_providers():
+    """List every provider with sensitive values masked."""
+    return JSONResponse({"ok": True, "providers": notif.list_providers()})
+
+
+@app.post("/api/notifications/config")
+def api_notif_config(req: dict):
+    """Register/update a provider via the API.
+
+    Body: ``{"provider": "telegram", "fields": {"bot_token": "...", "chat_id": "..."}}``
+    """
+    if not req or not isinstance(req, dict):
+        return JSONResponse({"ok": False, "error": "Empty body"}, status_code=400)
+    name = (req.get("provider") or "").strip()
+    fields = req.get("fields") or {}
+    try:
+        result = notif.configure_provider(name, fields)
+    except ValueError as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+    return JSONResponse({"ok": True, "provider": result})
+
+
+@app.delete("/api/notifications/config/{provider}")
+def api_notif_config_delete(provider: str):
+    """Remove an API-configured provider (env providers stay)."""
+    removed = notif.remove_provider(provider)
+    return JSONResponse({"ok": True, "removed": removed})
+
+
+@app.post("/api/notifications/test")
+def api_notif_test(req: dict):
+    """Send a synchronous test message (verdict is returned to the UI)."""
+    if not req or not isinstance(req, dict):
+        return JSONResponse({"ok": False, "error": "Empty body"}, status_code=400)
+    provider = (req.get("provider") or "").strip()
+    if not provider:
+        return JSONResponse({"ok": False, "error": "provider required"}, status_code=400)
+    if not notif.is_configured(provider):
+        return JSONResponse({"ok": False, "error": f"provider '{provider}' is not configured"}, status_code=400)
+    try:
+        result = notif.send_sync("MIRV test", req.get("message") or "✅ MIRV notifications are working", level="info", provider=provider)
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+    status = 200 if result["all_ok"] else 502
+    return JSONResponse({"ok": result["all_ok"], **result}, status_code=status)
+
+
+@app.post("/api/notifications/send")
+def api_notif_send(req: dict):
+    """Fire-and-forget an operator message to every configured provider."""
+    if not req or not isinstance(req, dict):
+        return JSONResponse({"ok": False, "error": "Empty body"}, status_code=400)
+    queued = notif.send(
+        title=req.get("title") or "MIRV",
+        message=req.get("message") or "",
+        level=req.get("level") or "info",
+        provider=(req.get("provider") or "").strip() or None,
+    )
+    return JSONResponse({"ok": True, "queued": queued})
 
 
 # ── System Monitor (CPU / RAM / disk + disk cleanup) ────────────────

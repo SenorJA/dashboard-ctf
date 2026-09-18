@@ -1,6 +1,6 @@
 # 🗺️ M.I.R.V. — Roadmap de Mejoras
 
-> Última actualización: 18 Sep 2026 — MIRV v5.3 | API token auth opt-in | asset inventory per engagement | scheduler daemon + finding lifecycle | 290+ endpoints | 4750+ tests | 31 tabs | main.py 100%
+> Última actualización: 18 Sep 2026 — MIRV v5.4 | notifications hub | API token auth opt-in | asset inventory per engagement | scheduler daemon + finding lifecycle | 295+ endpoints | 4790+ tests | 31 tabs | main.py 100%
 
 ## ✅ Completado
 
@@ -11,6 +11,7 @@
 - [x] **Feature B — Finding lifecycle + binding**: columnas `lifecycle_status` (open/confirmed/accepted/fixed/verified) + `assessment_id` (migración `ADD COLUMN IF NOT EXISTS`); `PATCH /api/findings/{id}` (400/404), `GET /api/findings/assessment/{id}`, filtros; badge+select por finding, filtro 🗂, bind 📎/✓ con rollback optimista
 - [x] **Feature C — Asset inventory por engagement**: módulo `backend/assets.py` (dedup `assessment_id+kind+address`, kinds host/domain/service/endpoint/other, status active/potential/out-of-scope/infrastructure/compromised, puertos abiertos + stack + `findings_count`); `ingest_findings()` auto-popula desde findings (IP→host / hostname→domain / urlparse / ports / services / endpoint for paths); 11 endpoints REST (`GET/POST /api/assets`, `export/import`, `by-assessment`, `summary`, `ingest`, `GET/PUT/DELETE /api/assets/{id}`) + cascade al borrar assessment; panel 🖧 Asset Inventory en tab Assessments con auto-ingest debounced en `addFindings`; persistencia opt-in `workspace_state` key `assets`. Tests `test_assets.py` (22)
 - [x] **Feature D — API token auth opt-in**: módulo `backend/api_auth.py` + middleware `ApiTokenMiddleware` solo `/api/*`; fuentes `Authorization: Bearer` / `X-MIRV-Token` / cookie httpOnly `mirv_token` (set al servir el SPA → frontend sin cambios); config env `MIRV_API_TOKEN` (gana) o archivo `MIRV_API_TOKEN_FILE` (default `backend/data/api_token.txt`, primera línea); comparación constante-tiempo; exempt `/api/health` + `/api/auth/status`; +2 endpoints `GET /api/auth/status` (público) y `GET /api/auth/token` (guardado). **Sin token configurado → guard OFF** (comportamiento actual intacto, tests herméticos). KPI card 🔐 API Auth en Home + `copyApiToken()`. Tests `test_api_auth.py` (17)
+- [x] **Feature G — Notifications hub**: módulo `backend/notifications.py` — proveedores Telegram/Discord/Slack/Pushover/webhook genérico; registry en memoria (API) + capa env fallback (`MIRV_NOTIFY_*`); enmascarado de tokens `mask()`, builders por proveedor (HTML-escape Telegram, form-encoded Pushover, JSON genérico webhook), truncación 4000 chars, `send()` fire-and-forget (daemon thread) + `send_sync()` bloqueante; **no-op estricto sin proveedores** (integración segura). +5 endpoints (`GET /api/notifications/providers`, `POST /config`, `DELETE /config/{p}`, `POST /test` síncrono 200/502, `POST /send`). Hooks opt-in: findings high/critical (single + bulk) y runs de scheduler (endpoint record + daemon). UI: KPI card 🔔 en Home + panel provider CRUD/test/envío manual. Tests `test_notifications.py` (37)
 
 ### Fase 1 — Terminal + Findings Panel
 - [x] Conexión SSH interactiva con `invoke_shell()` + PTY

@@ -11014,7 +11014,8 @@ Reglas:
             sys: '/api/system/stats',
             disk: '/api/system/disk',
             intel: '/api/intelligence/alerts?limit=1',
-            auth: '/api/auth/status'
+            auth: '/api/auth/status',
+            notif: '/api/notifications/providers'
         };
         let results = {};
         try {
@@ -11102,6 +11103,116 @@ Reglas:
         }
         window._apiAuthMasked = authOn ? (auth.masked_token || '') : '';
         set('home-auth-token', authOn ? (auth.masked_token || '•••') : '—');
+
+        // Notifications hub providers (opt-in)
+        const nprovs = Array.isArray(results.notif?.providers) ? results.notif.providers : [];
+        const nDot = document.getElementById('home-notif-dot');
+        const nStatus = document.getElementById('home-notif-status');
+        const nOn = nprovs.length > 0;
+        if (nDot) nDot.className = 'inline-block w-2 h-2 rounded-full ' + (nOn ? 'bg-green-500' : 'bg-gray-700');
+        if (nStatus) {
+            nStatus.textContent = nOn ? 'active' : 'off';
+            nStatus.className = 'text-sm font-semibold ' + (nOn ? 'text-green-400' : 'text-gray-500');
+        }
+        set('home-notif-providers', nprovs.length + ' provider(s) — ' + (nprovs.map(p => p.name).join(', ') || '—'));
+        window._notifCache = nprovs;
+        notifRenderList();
+    };
+
+    // ── Notifications hub (Telegram / Discord / Slack / Pushover / webhook) ──
+    function notifRenderList() {
+        const list = document.getElementById('notif-list');
+        if (!list) return;
+        const provs = window._notifCache || [];
+        if (!provs.length) {
+            list.innerHTML = '<div class="text-[10px] text-gray-500 col-span-full">No providers configured yet.</div>';
+            return;
+        }
+        list.innerHTML = provs.map(p => {
+            const cfg = p.config || {};
+            const note = cfg.chat_id ? ('chat ' + cfg.chat_id) : (cfg.url ? (cfg.source === 'env' ? 'env webhook' : 'webhook') : '');
+            return `<div class="bg-deep border border-gray-800 rounded p-2 flex items-center justify-between gap-2">
+                <div class="min-w-0">
+                    <div class="text-[10px] font-semibold text-neon">${p.name}${p.source === 'env' ? ' <span class="text-gray-500">(env)</span>' : ''}</div>
+                    <div class="text-[9px] text-gray-500 truncate font-mono">${note ? note : 'configured'}</div>
+                </div>
+                <div class="flex gap-1.5 flex-shrink-0">
+                    <button onclick="notifTest('${p.name}')" title="Send a test message" class="bg-cyber/10 hover:bg-cyber/20 text-cyber border border-cyber/30 px-2 py-1 rounded text-[9px]">Test</button>
+                    ${p.source !== 'env' ? `<button onclick="notifDelete('${p.name}')" title="Remove provider" class="bg-blood/10 hover:bg-blood/20 text-blood border border-blood/30 px-2 py-1 rounded text-[9px]">✕</button>` : ''}
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    window.notifSave = async function (type) {
+        let fields;
+        if (type === 'telegram') {
+            const token = (document.getElementById('notif-tg-token') || {}).value || '';
+            const chat = (document.getElementById('notif-tg-chat') || {}).value || '';
+            if (!token.trim() || !chat.trim()) { showToast('⚠ Telegram needs bot token + chat id'); return; }
+            fields = { bot_token: token.trim(), chat_id: chat.trim() };
+        } else {
+            const url = (document.getElementById('notif-tg-url') || {}).value || '';
+            if (!url.trim()) { showToast('⚠ Webhook URL required'); return; }
+            fields = { url: url.trim() };
+        }
+        try {
+            const r = await fetch('/api/notifications/config', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ provider: type, fields })
+            });
+            const d = await r.json().catch(() => ({}));
+            if (!r.ok || !d.ok) { showToast('⚠ ' + (d.error || 'save failed')); return; }
+            showToast('✅ ' + type + ' provider configured');
+            refreshNotifications();
+            refreshDashboard();
+        } catch (e) { showToast('⚠ ' + (e.message || e)); }
+    };
+
+    window.notifDelete = async function (name) {
+        try {
+            const r = await fetch('/api/notifications/config/' + encodeURIComponent(name), { method: 'DELETE' });
+            const d = await r.json().catch(() => ({}));
+            showToast(d.ok ? ('✅ ' + name + ' removed') : ('⚠ ' + (d.error || 'remove failed')));
+            refreshNotifications();
+            refreshDashboard();
+        } catch (e) { showToast('⚠ ' + (e.message || e)); }
+    };
+
+    window.notifTest = async function (name) {
+        try {
+            const r = await fetch('/api/notifications/test', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ provider: name, message: '✅ MIRV notifications are working' })
+            });
+            const d = await r.json().catch(() => ({}));
+            if (d.ok) showToast('✅ Test message sent via ' + name);
+            else showToast('⚠ Test failed (' + name + '): ' + (d.error || 'delivery error'));
+        } catch (e) { showToast('⚠ ' + (e.message || e)); }
+    };
+
+    window.notifSend = async function () {
+        const msg = ((document.getElementById('notif-msg') || {}).value || '').trim();
+        if (!msg) { showToast('⚠ Write a message first'); return; }
+        try {
+            const r = await fetch('/api/notifications/send', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title: 'MIRV manual', message: msg, level: 'high' })
+            });
+            const d = await r.json().catch(() => ({}));
+            if (d.ok && d.queued > 0) { showToast('✅ Alert queued to ' + d.queued + ' provider(s)'); document.getElementById('notif-msg').value = ''; }
+            else if (d.ok) showToast('⚠ No providers configured — nothing sent');
+            else showToast('⚠ ' + (d.error || 'send failed'));
+        } catch (e) { showToast('⚠ ' + (e.message || e)); }
+    };
+
+    window.refreshNotifications = async function () {
+        try {
+            const r = await fetch('/api/notifications/providers');
+            const d = await r.json().catch(() => ({}));
+            window._notifCache = Array.isArray(d.providers) ? d.providers : [];
+        } catch { window._notifCache = []; }
+        notifRenderList();
     };
 
     window.copyApiToken = async function () {

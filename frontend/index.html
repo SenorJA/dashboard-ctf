@@ -639,6 +639,14 @@
                         </div>
                         <button onclick="copyApiToken()" class="text-[9px] text-gray-500 mt-1 hover:text-cyber transition-colors" title="Copy API token (for Burp Bridge, curl scripts…)">🔐 token <span id="home-auth-token" class="font-mono">—</span> ⧉</button>
                     </div>
+                    <div class="bg-deep rounded-lg border border-gray-800 p-3">
+                        <div class="text-[9px] text-gray-500 uppercase tracking-wider mb-1">Notifications</div>
+                        <div class="flex items-center gap-2">
+                            <span id="home-notif-dot" class="inline-block w-2 h-2 rounded-full bg-gray-800"></span>
+                            <span id="home-notif-status" class="text-sm font-semibold text-gray-300">checking…</span>
+                        </div>
+                        <div class="text-[9px] text-gray-500 mt-1"><span id="home-notif-providers" class="font-mono">0 providers</span></div>
+                    </div>
                 </div>
 
                 <!-- Quick actions -->
@@ -666,6 +674,41 @@
                         <span class="text-[9px] bg-deep border border-gray-800 rounded px-2 py-1 text-gray-400">4 SIEM rules</span>
                     </div>
                 </div>
+
+                <details id="notif-panel" class="bg-void border border-gray-800 rounded-lg p-3 mb-4">
+                    <summary class="text-xs text-neon font-semibold tracking-wider cursor-pointer select-none">🔔 Notifications hub</summary>
+                    <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2" id="notif-list">
+                        <div class="text-[10px] text-gray-500 col-span-full">No providers configured yet.</div>
+                    </div>
+                    <div class="mt-4 border-t border-gray-800 pt-3">
+                        <div class="text-[10px] text-gray-500 uppercase tracking-wider mb-2">Add / update provider</div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div class="flex flex-col gap-1.5">
+                                <label class="text-[9px] text-gray-500">Telegram — bot token</label>
+                                <input id="notif-tg-token" placeholder="bot12345:ABC..." class="bg-deep border border-gray-800 rounded px-2 py-1.5 text-[10px] font-mono text-gray-300 focus:border-neon/50 outline-none"/>
+                                <label class="text-[9px] text-gray-500">Chat ID (negative for groups)</label>
+                                <input id="notif-tg-chat" placeholder="-100..." class="bg-deep border border-gray-800 rounded px-2 py-1.5 text-[10px] font-mono text-gray-300 focus:border-neon/50 outline-none"/>
+                                <button onclick="notifSave('telegram')" class="self-start bg-neon/10 hover:bg-neon/20 text-neon border border-neon/30 px-3 py-1 rounded text-[10px] transition-all">Save Telegram</button>
+                            </div>
+                            <div class="flex flex-col gap-1.5">
+                                <label class="text-[9px] text-gray-500">Webhook URL (Discord / Slack / genérico)</label>
+                                <input id="notif-tg-url" placeholder="https://hooks.example.com/xxx" class="bg-deep border border-gray-800 rounded px-2 py-1.5 text-[10px] font-mono text-gray-300 focus:border-neon/50 outline-none"/>
+                                <div class="flex gap-2 flex-wrap">
+                                    <button onclick="notifSave('discord')" class="bg-cyber/10 hover:bg-cyber/20 text-cyber border border-cyber/30 px-3 py-1 rounded text-[10px] transition-all">Save as Discord</button>
+                                    <button onclick="notifSave('slack')" class="bg-cyber/10 hover:bg-cyber/20 text-cyber border border-cyber/30 px-3 py-1 rounded text-[10px] transition-all">Save as Slack</button>
+                                    <button onclick="notifSave('webhook')" class="bg-cyber/10 hover:bg-cyber/20 text-cyber border border-cyber/30 px-3 py-1 rounded text-[10px] transition-all">Save as Webhook</button>
+                                </div>
+                            </div>
+                            <div class="flex flex-col gap-1.5 md:col-span-2">
+                                <label class="text-[9px] text-gray-500">Manual alert (sent to every configured provider)</label>
+                                <div class="flex flex-col sm:flex-row gap-2 sm:items-center">
+                                    <input id="notif-msg" placeholder="Mensaje para el operador…" class="flex-1 bg-deep border border-gray-800 rounded px-2 py-1.5 text-[10px] text-gray-300 focus:border-neon/50 outline-none"/>
+                                    <button onclick="notifSend()" class="bg-blood/10 hover:bg-blood/20 text-blood border border-blood/30 px-3 py-1.5 rounded text-[10px] transition-all">▶ Send alert</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </details>
             </div>
 
             <!-- ════════════════════════════════════════════════════════

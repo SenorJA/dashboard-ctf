@@ -3,7 +3,21 @@
 All notable changes to this project are documented in this file.
 Format based on [Keep a Changelog](https://keepachangelog.com/), auto-generated from Conventional Commits.
 
-## [Unreleased] — 18 Sep 2026
+## [Unreleased]
+## [Unreleased]
+
+### Added
+- **feat(notifications)**: hub de notificaciones multi-proveedor (Telegram/Discord/Slack/Pushover/webhook genérico).
+  - `backend/notifications.py`: registro en memoria (API) con capa de fallback por env (`MIRV_NOTIFY_*`), enmascarado de tokens
+    con `mask()`, builders de payload por proveedor (HTML-escape en Telegram, form-encoded en Pushover, JSON genérico en webhook),
+    truncación a 4000 chars, `send()` fire-and-forget en daemon thread y `send_sync()` bloqueante para el endpoint de test.
+  - Endpoints: `GET /api/notifications/providers` (masked), `POST /api/notifications/config`, `DELETE /api/notifications/config/{p}`,
+    `POST /api/notifications/test` (síncrono, 200/502) y `POST /api/notifications/send`.
+  - Hooks opt-in (no-op sin proveedores): findings high/critical (single + bulk) y runs de scheduler (endpoint record + daemon).
+  - Frontend: KPI card 🔔 Notifications en Home + panel `<details>` con alta de Telegram/webhook, test, delete y envío manual.
+  - Tests: `backend/tests/test_notifications.py` (37) — config/validación/masking, env fallback, payload builders, deliveries
+    mockeadas, `send`/`send_sync`, endpoints REST y hooks. Suite: 4787 passed, 0 failed.
+ — 18 Sep 2026
 
 ### Added
 - `feat(api-auth)` — **guard opt-in de API tokens (Feature D)**: módulo `backend/api_auth.py` — pares token aceptados `Authorization: Bearer <t>` | `X-MIRV-Token: <t>` | cookie httpOnly `mirv_token` (set al servir el SPA en `/`, el frontend no cambia); configuración vía env `MIRV_API_TOKEN` (gana) o archivo `MIRV_API_TOKEN_FILE` (default `backend/data/api_token.txt`, primera línea); comparación constante-tiempo `hmac.compare_digest`, `token_source()` env/file, `mask()`, `is_exempt()` (`/api/health`, `/api/auth/status`). Middleware `ApiTokenMiddleware` en `main.py` (solo `/api/*`, 401 con `WWW-Authenticate: Bearer` + `X-MIRV-Auth: required`). Endpoints `GET /api/auth/status` (público: enabled/source/masked_token) y `GET /api/auth/token` (guardado: echo del token para copiar en herramientas externas). **Sin token configurado → guard desactivado, comportamiento idéntico al actual** (opt-in, tests herméticos intactos); `/ws` conserva su propio handshake JSON. Frontend: KPI card 🔐 API Auth en Home (dot+status+token masked, `copyApiToken()` copia el token vía `/api/auth/token`). Tests `test_api_auth.py` (17: disabled-default, env/file/missing-file, Bearer/X-header/cookie/invalid, exempt paths, status/token endpoints, mask, env-wins).
