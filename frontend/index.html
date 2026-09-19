@@ -755,6 +755,16 @@
                     </button>
                 </div>
 
+                <!-- Multi-terminal: extra consoles (each = independent WS/SSH session) -->
+                <div class="flex items-center gap-2 flex-wrap flex-shrink-0">
+                    <button onclick="addConsole()"
+                        class="bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 px-3 py-1.5 rounded text-[11px] transition-all font-semibold"
+                        title="Open an extra SSH console — parallel session on its own WebSocket">
+                        ➕ Console
+                    </button>
+                    <div id="term-sessions" class="flex items-center gap-1.5 flex-wrap" aria-label="Open console panels"></div>
+                </div>
+
                 <!-- 📱 Command bar (separate row — works on mobile) -->
                 <div class="flex relative flex-shrink-0">
                     <input type="text" id="cmd-input" autocomplete="off" spellcheck="false"
@@ -797,6 +807,9 @@
                         <span class="text-[8px] text-gray-400">cargar texto plano a /tmp/</span>
                     </div>
                 </div>
+
+                <!-- Extra console panels (created dynamically by addConsole()) -->
+                <div id="term-consoles" class="flex flex-col gap-2 flex-shrink-0"></div>
             </div>
 
             <!-- ════════════════════════════════════════════════════════

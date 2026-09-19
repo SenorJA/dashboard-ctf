@@ -4,6 +4,17 @@ All notable changes to this project are documented in this file.
 Format based on [Keep a Changelog](https://keepachangelog.com/), auto-generated from Conventional Commits.
 
 ## [Unreleased]
+### Added
+- **feat(multi-terminal)**: Feature F — consolas extra en el tab Terminal (multi-sesión SSH paralela).
+  - Backend: cada conexión `/ws` ya spawns un shell paramiko independiente (sin estado compartido) — garantizado por nuevo
+    test `TestWebSocketMultiSession` (2 conexiones concurrentes, cada una con su canal: auth/connect por target, output
+    aislado, comandos enrutados a su canal, `invoke_shell.call_count == 2`) en `test_main_websocket_gaps.py`.
+  - Frontend (aditivo, sin tocar el terminal principal/parser): barra `➕ Console` + chips `📡 cN`; cada consola es un panel
+    autocontenido (WebSocket propio sobre el perfil de conexión activo, output ANSI-stripped, input con Enter, ▶/⏹ toggle,
+    ✕ cerrar). Limpieza automática de WS al cerrar.
+  - Frontend no-verificable en CI → todas las extensiones en JS OK via `node --check`; backend cubierto por tests
+    (`test_main_websocket_gaps.py`: 19 passed + 1 slow deselected).
+
 ## [Unreleased]
 
 ### Added

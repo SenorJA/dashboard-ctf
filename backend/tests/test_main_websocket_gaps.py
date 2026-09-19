@@ -356,6 +356,77 @@ class TestWebSocketSsh:
         ssh.close.assert_called()
 
 
+class TestWebSocketMultiSession:
+    """Two concurrent /ws connections each get an independent shell.
+
+    Feature F (terminal multi-session): the frontend can open several shells
+    at once because every connection spawns its own paramiko channel with
+    per-connection buffering — no shared mutable shell state.
+
+    ``TestClient`` only supports one open websocket per portal, so this uses
+    the direct-call pattern (as in ``test_read_shell_break_direct``): two fake
+    websockets driven concurrently through the real ``websocket_endpoint``.
+    """
+
+    @staticmethod
+    def _fake_ws(replies):
+        from starlette.websockets import WebSocketDisconnect
+        ws = MagicMock()
+        ws.accept = AsyncMock()
+        ws.send_text = AsyncMock()
+        ws.close = AsyncMock()
+        ws.out = []
+        ws.send_text.side_effect = lambda text: ws.out.append(text)
+
+        async def fake_receive():
+            if replies:
+                return replies.pop(0)
+            raise WebSocketDisconnect()
+
+        ws.receive_text = fake_receive
+        return ws
+
+    def test_two_concurrent_independent_shells(self):
+        ch_a = _ws_channel()
+        ch_a.recv_ready.side_effect = [True, False]
+        ch_a.recv.return_value = b"alpha-shell output\n"
+        ch_b = _ws_channel()
+        ch_b.recv_ready.side_effect = [True, False]
+        ch_b.recv.return_value = b"beta-shell output\n"
+        ssh = _ws_ssh(ch_a)
+        # first connection gets channel A, second gets channel B
+        ssh.invoke_shell.side_effect = [ch_a, ch_b]
+
+        ws_a = self._fake_ws([
+            json.dumps({"type": "auth", "ip": "10.0.0.1", "user": "alpha", "pass": "p"}),
+            "echo in alpha",
+        ])
+        ws_b = self._fake_ws([
+            json.dumps({"type": "auth", "ip": "10.0.0.2", "user": "beta", "pass": "p"}),
+            "echo in beta",
+        ])
+
+        with _patches(ssh):
+            async def _run_both():
+                await asyncio.gather(main.websocket_endpoint(ws_a), main.websocket_endpoint(ws_b))
+            asyncio.run(_run_both())
+
+        out_a = "\n".join(ws_a.out)
+        out_b = "\n".join(ws_b.out)
+        # each session got its own auth/connect lifecycle on its own target
+        assert "Authenticated as alpha@10.0.0.1" in out_a
+        assert "Authenticated as beta@10.0.0.2" in out_b
+        assert "alpha-shell output" in out_a
+        assert "beta-shell output" in out_b
+        # no cross-talk: session A never sees B's channel
+        assert "beta-shell output" not in out_a
+        assert "alpha-shell output" not in out_b
+        # each command routed to the matching channel
+        ch_a.send.assert_any_call("echo in alpha\n")
+        ch_b.send.assert_any_call("echo in beta\n")
+        assert ssh.invoke_shell.call_count == 2
+
+
 class TestFavicon:
     def test_svg_fallback(self):
         with patch("main.os.path.isfile", side_effect=lambda p: p.endswith("favicon.svg")):

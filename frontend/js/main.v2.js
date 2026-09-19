@@ -2832,6 +2832,134 @@ ${bodyHtml}
         }
     }
 
+    // ════════════════════════════════════════════════════════════════
+    //  MULTI-TERMINAL — extra console panels (Feature F)
+    //  Each panel is fully self-contained: its own WebSocket (one SSH
+    //  shell per /ws connection server-side), its own output and input.
+    //  The main terminal/pipeline is left untouched.
+    // ════════════════════════════════════════════════════════════════
+    const mircConsoles = [];
+
+    function consoleConnProfile() {
+        if (activeConnectionId === null || !connections[activeConnectionId]) return null;
+        const conn = connections[activeConnectionId];
+        return { name: conn.name, ip: conn.ip, port: conn.port || 22, user: conn.user, pass: conn.pass };
+    }
+
+    function consoleStripAnsi(text) {
+        return String(text)
+            .replace(/\x1B\[[0-9;?]*[A-Za-z]/g, '')
+            .replace(/\x1B\][^\x07]*(?:\x07)?/g, '')
+            .replace(/\r/g, '');
+    }
+
+    function consoleAppend(console, text) {
+        console.buf += consoleStripAnsi(text);
+        if (console.buf.length > 30000) console.buf = console.buf.slice(-30000);
+        console.outputEl.textContent = console.buf;
+        console.outputEl.scrollTop = console.outputEl.scrollHeight;
+    }
+
+    function setConsoleStatus(c, mode, label) {
+        c.dot.className = 'w-2 h-2 rounded-full ' + (mode === 'online' ? 'bg-green-500' : 'bg-gray-800');
+        c.actBtn.textContent = mode === 'online' ? '⏹' : '▶';
+        c.connEl.textContent = label;
+    }
+
+    function consoleToggle(c) {
+        if (c.ws && c.ws.readyState === WebSocket.OPEN) { c.ws.close(); return; }
+        const prof = consoleConnProfile();
+        if (!prof) {
+            consoleAppend(c, '\n[!] No connection selected — pick a target in the Connections tab first.\n');
+            return;
+        }
+        consoleAppend(c, `\n[*] Connecting to ${prof.name} (${prof.ip}:${prof.port})...\n`);
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const WS_URL = window.WS_URL || `${protocol}//${window.location.host}/ws`;
+        const ws = new WebSocket(WS_URL);
+        c.ws = ws;
+        ws.onopen = () => {
+            setConsoleStatus(c, 'online', `${prof.user}@${prof.ip}:${prof.port}`);
+            ws.send(JSON.stringify({ type: 'auth', ip: prof.ip, port: prof.port, user: prof.user, pass: prof.pass }));
+        };
+        ws.onmessage = (event) => {
+            const data = event.data;
+            if (typeof data === 'string' && data.startsWith('{') && data.includes('"type"')) {
+                try {
+                    const msg = JSON.parse(data);
+                    if (msg.type === 'connected' || msg.type === 'error') { consoleAppend(c, '\n' + (msg.message || msg.type) + '\n'); return; }
+                    if (msg.type === 'scope_block') { consoleAppend(c, '\n🔒 ' + (msg.message || 'blocked') + '\n'); return; }
+                    if (msg.type === 'scope_warn') { consoleAppend(c, '\n⚠ ' + (msg.message || 'warn') + '\n'); return; }
+                } catch {}
+                return;
+            }
+            consoleAppend(c, data);
+        };
+        ws.onclose = () => {
+            c.ws = null;
+            setConsoleStatus(c, 'offline', 'disconnected');
+        };
+    }
+
+    function consoleSend(c) {
+        if (!c.ws || c.ws.readyState !== WebSocket.OPEN) { consoleAppend(c, '\n[!] Not connected.\n'); return; }
+        const cmd = c.inputEl.value;
+        if (!cmd) return;
+        c.inputEl.value = '';
+        consoleAppend(c, '\n◆ ' + cmd + '\n');
+        c.ws.send(cmd);
+    }
+
+    window.addConsole = function () {
+        const count = mircConsoles.length + 1;
+        const id = 'console-' + Date.now();
+        const box = document.createElement('div');
+        box.className = 'bg-void border border-gray-800 rounded-lg flex flex-col overflow-hidden';
+        box.innerHTML = `
+            <div class="flex items-center gap-2 px-3 py-1.5 bg-deep border-b border-gray-800 flex-shrink-0">
+                <span class="w-2 h-2 rounded-full bg-gray-800 console-dot"></span>
+                <span class="text-[10px] text-gray-300 tracking-wider font-mono">📡 console ${count}</span>
+                <span class="text-[9px] text-gray-500 font-mono truncate flex-1" data-conn>not connected</span>
+                <button data-close title="Close console" class="text-[9px] text-gray-500 hover:text-blood">✕</button>
+            </div>
+            <pre class="terminal flex-1 overflow-y-auto text-xs text-cyber/90 whitespace-pre-wrap leading-relaxed px-3 py-2" style="max-height:220px; min-height:90px;"></pre>
+            <div class="flex items-center gap-1.5 px-3 py-1.5 bg-deep border-t border-gray-800 flex-shrink-0">
+                <button data-act class="bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 px-2 py-1 rounded text-[10px] flex-shrink-0" title="Connect / disconnect">▶</button>
+                <input data-input placeholder="$  command…" class="terminal flex-1 min-w-0 bg-void border border-gray-800 rounded px-2 py-1 text-xs text-neon placeholder-gray-500 focus:outline-none focus:border-cyan-500/50 tracking-wider"/>
+            </div>`;
+        const console = {
+            id, count, ws: null, buf: '', box,
+            dot: box.querySelector('.console-dot'),
+            connEl: box.querySelector('[data-conn]'),
+            outputEl: box.querySelector('pre'),
+            actBtn: box.querySelector('[data-act]'),
+            inputEl: box.querySelector('[data-input]'),
+        };
+        mircConsoles.push(console);
+        document.getElementById('term-consoles').appendChild(box);
+
+        const chip = document.createElement('span');
+        chip.className = 'text-[9px] bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 rounded px-2 py-1 font-mono';
+        chip.textContent = '📡 c' + count;
+        console.chip = chip;
+        document.getElementById('term-sessions').appendChild(chip);
+
+        console.actBtn.addEventListener('click', () => consoleToggle(console));
+        console.inputEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') consoleSend(console); });
+        box.querySelector('[data-close]').addEventListener('click', () => window.removeConsole(id));
+        console.inputEl.focus();
+    };
+
+    window.removeConsole = function (id) {
+        const idx = mircConsoles.findIndex(c => c.id === id);
+        if (idx === -1) return;
+        const c = mircConsoles[idx];
+        if (c.ws) { try { c.ws.close(); } catch {} }
+        if (c.chip) c.chip.remove();
+        c.box.remove();
+        mircConsoles.splice(idx, 1);
+    };
+
     // ============================================================
     //  PREDEFINED COMMANDS (arsenal)
     // ============================================================

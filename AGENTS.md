@@ -227,6 +227,7 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~4672 tests, ~95% coverage
 | `setFindingLifecycle(status, id)` / `bindFindingToAssessment(btn, id)` | Finding lifecycle PATCH `/api/findings/{id}` + bind a assessment activa (rollback optimista) |
 | `refreshSchedulerDaemon()` | Badge ⚙ estado del daemon server-side via `GET /api/scheduler/status` |
 | `refreshNotifications()` / `notifSave(type)` / `notifDelete(name)` / `notifTest(name)` / `notifSend()` | Notification hub: lista providers (masked), alta Telegram/webhook, test síncrono y envío manual |
+| `addConsole()` / `removeConsole(id)` (módulo `mircConsoles`) | Multi-terminal: consolas extra autocontenidas (WS propio por panel sobre el perfil de conexión activo) — sin tocar el pipeline del terminal principal |
 
 ## Findings parsing system
 
@@ -434,7 +435,7 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~4672 tests, ~95% coverage
 ## Test summary
 
 - **81 test files** in `backend/tests/` (84 counting `test_scheduler_daemon.py` + `test_finding_lifecycle.py` + `test_assets.py` + `test_api_auth.py`)
-- **~4790 tests** collected (296 now in `test_main_gaps.py` + 19 in `test_main_websocket_gaps.py` + 30 `test_assessments.py` + 43 `test_scheduler.py` + 27 `test_scheduler_daemon.py` + 19 `test_finding_lifecycle.py` + 22 `test_assets.py` + 17 `test_api_auth.py` + 37 `test_notifications.py` + 22 `test_workspace_store.py`)
+- **~4790 tests** collected (296 now in `test_main_gaps.py` + 20 in `test_main_websocket_gaps.py` + 30 `test_assessments.py` + 43 `test_scheduler.py` + 27 `test_scheduler_daemon.py` + 19 `test_finding_lifecycle.py` + 22 `test_assets.py` + 17 `test_api_auth.py` + 37 `test_notifications.py` + 22 `test_workspace_store.py`)
 - **~95% coverage** across measured backend modules
 - **`backend/main.py` = 100%** (2847/2847 statements; last gaps were websocket `read_shell` break on OSError/EOFError + outer `WebSocketDisconnect`)
 - **Key test files**: test_database (196), test_api_endpoints (333), test_main_gaps (296), test_main_coverage (165), test_main_extra (120), test_crud_endpoints (67), test_deep_coverage_1/2 (205), test_compaction (63), test_burp_bridge (72), test_redact (63), test_skill_playbooks (67), test_audit_log (45), test_plugin_manager (47), test_plugin_watcher (18), test_siem (31), test_coverage (33), test_exif_osint (63), test_mobile_analyzer (54), test_canary_tokens (24), test_dlp_scanner (25), test_finding_poc (61), test_intelligence (43), test_permission_system (56), test_opsec, test_scope_guard, test_forensics, test_adb_controller, test_kali_mcp_client, test_mission_store, test_knowledgebase, test_swarm, test_assessments (30), test_scheduler (43), test_scheduler_daemon (27), test_finding_lifecycle (19), test_assets (22), test_api_auth (17), test_notifications (37), test_workspace_store (22), + scanner tools + gap files (test_*_gaps.py: redact, dlp_scanner, mission_store, dns_lookup, pdf_engine, database, finding_poc, headers_scanner, hash_cracker, adb_controller, skill_playbooks, audit_log, intelligence, opsec, scope_guard).
