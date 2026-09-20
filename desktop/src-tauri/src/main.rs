@@ -131,7 +131,7 @@ fn setup_tray(app: tauri::AppHandle, quitting: Arc<AtomicBool>) -> tauri::Result
         .icon(icon)
         .tooltip("MIRV — Multi-platform Incident Response & Vulnerabilities")
         .menu(&menu)
-        .menu_on_left_click(false)
+        .show_menu_on_left_click(false)
         .on_menu_event(move |app_handle, event| match event.id.as_ref() {
             "show" => {
                 if let Some(window) = app_handle.get_webview_window("main") {
