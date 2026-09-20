@@ -108,6 +108,10 @@ npm run prebuild && npm run tauri dev
 - Config: `src-tauri/tauri.conf.json` → `plugins.updater` (pubkey + endpoint
   GitHub Releases). Código: `setup_updater()` en `src-tauri/src/main.rs`
   (check + download + install + restart en cada arranque).
+- `createUpdaterArtifacts` **NO está** en la config base: el bundler falla al
+  firmar si se activa sin clave. El workflow `desktop-build.yml` lo inyecta
+  vía `--config src-tauri/tauri.updater.json` **solo en tags `v*` que tengan
+  `TAURI_SIGNING_PRIVATE_KEY`** → los builds de `main` compilan sin firmar.
 - Firmar artefactos requiere la clave minisign. **El par vive fuera del repo**
   (`.tauri/mirv-updater.key*`; nunca commitees la privada). Para que los
   releases (tags `v*`) queden firmados, define los secrets:

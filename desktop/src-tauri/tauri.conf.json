@@ -28,7 +28,6 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "createUpdaterArtifacts": "v1Compatible",
     "externalBin": [
       "binaries/mirv-backend"
     ],

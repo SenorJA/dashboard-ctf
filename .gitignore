@@ -53,3 +53,5 @@ backend/logs/*.log
 
 # Tauri updater signing key (PRIVATE — never commit)
 desktop/.tauri/
+# Tauri updater config injected by CI only on releases (never commit)
+desktop/src-tauri/tauri.updater.json

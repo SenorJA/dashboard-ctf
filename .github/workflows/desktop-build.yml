@@ -80,6 +80,24 @@ jobs:
         with:
           workspaces: desktop/src-tauri
 
+      - name: Updater artifacts config (releases only)
+        id: updater_config
+        # createUpdaterArtifacts NO esta en tauri.conf.json a proposito: si se
+        # activa sin TAURI_SIGNING_PRIVATE_KEY el bundler falla ("public key
+        # found but no private key"). Se activa SOLO en tags v* y SOLO si el
+        # secret de firma existe -> los builds de main (verificacion) siguen
+        # verdes sin firmar.
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF -like 'refs/tags/*' -and $env:MIRV_TAURI_KEY) {
+            Set-Content -Path "desktop/src-tauri/tauri.updater.json" -Value '{"bundle":{"createUpdaterArtifacts":"v1Compatible"}}' -Encoding utf8
+            Write-Output "updater_args=--config src-tauri/tauri.updater.json" >> $env:GITHUB_OUTPUT
+          } else {
+            Write-Output "updater_args=" >> $env:GITHUB_OUTPUT
+          }
+        env:
+          MIRV_TAURI_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+
       - name: Build MSI with tauri-action
         uses: tauri-apps/tauri-action@v0
         env:
@@ -90,7 +108,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           projectPath: desktop
-          args: --bundles msi
+          args: --bundles msi ${{ steps.updater_config.outputs.updater_args }}
           tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
           releaseDraft: true
           prerelease: false

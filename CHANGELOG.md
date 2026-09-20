@@ -14,8 +14,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/), auto-generated 
     arranque contra GitHub Releases (`latest.json`). Config: `plugins.updater.pubkey` + `endpoints`, y
     `bundle.createUpdaterArtifacts: "v1Compatible"` (artefactos `.msi.zip` + `.sig`). Capability `updater:default` añadida.
   - **Signing minisign**: keypair generada (privada en `desktop/.tauri/` → gitignored; pubkey commiteada).
-    `desktop-build.yml` pasa `TAURI_SIGNING_PRIVATE_KEY` / `_PASSWORD` a `tauri-action` (secrets documentados en
-    `.github/SECRETS.md`; sin ellos el build sigue funcionando pero los artefactos salen sin firmar).
+    `desktop-build.yml` pasa `TAURI_SIGNING_PRIVATE_KEY` / `_PASSWORD` a `tauri-action`, y `createUpdaterArtifacts`
+    se inyecta vía `--config` **solo en tags `v*` + secrets** (siempre en config base el bundler falla al firmar sin
+    clave — "public key found but no private key"); builds de `main` compilan sin firmar (secrets documentados en
+    `.github/SECRETS.md`).
   - Verificación: compilación del shell Tauri vía el workflow **Desktop Build** en CI (`tauri-action --bundles msi`);
     API tray/updater contrastada contra docs.rs de Tauri 2.
 
