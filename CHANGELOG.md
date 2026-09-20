@@ -5,6 +5,21 @@ Format based on [Keep a Changelog](https://keepachangelog.com/), auto-generated 
 
 ## [Unreleased]
 ### Added
+- **feat(desktop-tray-updater)**: Feature E — calidad de vida del escritorio MIRV.
+  - **System tray** (`desktop/src-tauri/src/main.rs::setup_tray`): cerrar la ventana ahora oculta a la bandeja
+    (`CloseRequested` + `api.prevent_close()`) en lugar de salir; menú "Show MIRV" / "Quit" y left-click sobre el icono
+    restauran la ventana; "Quit" flipa un `AtomicBool` que permite la salida real (mata el sidecar). Requiere features
+    `tray-icon` + `image-png` en `tauri` (Cargo.toml).
+  - **Auto-updater** (`tauri-plugin-updater = "2"`): `setup_updater()` hace check + download + install + restart en cada
+    arranque contra GitHub Releases (`latest.json`). Config: `plugins.updater.pubkey` + `endpoints`, y
+    `bundle.createUpdaterArtifacts: "v1Compatible"` (artefactos `.msi.zip` + `.sig`). Capability `updater:default` añadida.
+  - **Signing minisign**: keypair generada (privada en `desktop/.tauri/` → gitignored; pubkey commiteada).
+    `desktop-build.yml` pasa `TAURI_SIGNING_PRIVATE_KEY` / `_PASSWORD` a `tauri-action` (secrets documentados en
+    `.github/SECRETS.md`; sin ellos el build sigue funcionando pero los artefactos salen sin firmar).
+  - Verificación: compilación del shell Tauri vía el workflow **Desktop Build** en CI (`tauri-action --bundles msi`);
+    API tray/updater contrastada contra docs.rs de Tauri 2.
+
+### Added
 - **feat(multi-terminal)**: Feature F — consolas extra en el tab Terminal (multi-sesión SSH paralela).
   - Backend: cada conexión `/ws` ya spawns un shell paramiko independiente (sin estado compartido) — garantizado por nuevo
     test `TestWebSocketMultiSession` (2 conexiones concurrentes, cada una con su canal: auth/connect por target, output

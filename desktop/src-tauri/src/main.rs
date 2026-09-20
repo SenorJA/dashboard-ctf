@@ -5,26 +5,53 @@
 //!
 //! The canonical frontend (desktop/src) talks to the backend over
 //! http://localhost:8000 / ws://localhost:8000 (wired in main.v2.js).
+//!
+//! Desktop extras (Fase 4 quality-of-life):
+//! - System tray: closing the window hides it to the tray instead of exiting;
+//!   the tray menu (or left-click) restores the window, "Quit" exits for real.
+//! - Auto-updater: on startup, checks GitHub Releases (latest.json) via
+//!   tauri-plugin-updater and installs the signed update if available.
 
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 use std::time::{Duration, Instant};
 
-use tauri::Manager;
+use tauri::{
+    menu::{Menu, MenuItem},
+    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
+    Manager, WindowEvent,
+};
 use tauri_plugin_shell::process::CommandEvent;
 use tauri_plugin_shell::ShellExt;
+use tauri_plugin_updater::UpdaterExt;
 
 /// Backend sidecar name (+ optional target triple). Tauri resolves the name
 /// to `binaries/mirv-backend[-<target-triple>][.exe]` automatically.
 const SIDECAR: &str = "mirv-backend";
 const BACKEND_URL: &str = "http://localhost:8000/api/health";
 const BACKEND_READY_TIMEOUT: Duration = Duration::from_secs(45);
+const TRAY_ID: &str = "mirv-tray";
 
 fn main() {
+    // Shared "quitting for real" flag: the tray Quit item flips it so the
+    // CloseRequested handler lets the window actually close instead of
+    // hiding-to-tray.
+    let quitting = Arc::new(AtomicBool::new(false));
+    let quitting_tray = quitting.clone();
+    let quitting_window = quitting.clone();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_process::init())
-        .setup(|app| {
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .setup(move |app| {
             let handle = app.handle().clone();
             tracing_command(&handle);
+
+            setup_tray(handle.clone(), quitting_tray)?;
+            setup_updater(&handle);
 
             // Launch the Python backend sidecar (`--tauri-mode`: no frontend
             // mount, no auto-reload, configurable port via MIRV_PORT/PORT).
@@ -57,10 +84,22 @@ fn main() {
 
             Ok(())
         })
-        .on_window_event(|window, event| {
-            // Backend sidecar is killed automatically when the webview closes.
-            if let tauri::WindowEvent::Destroyed = event {
-                window.app_handle().exit(0);
+        .on_window_event(move |window, event| {
+            // System tray UX: closing the window hides it to the tray unless
+            // the user explicitly chose Quit from the tray menu.
+            match event {
+                WindowEvent::CloseRequested { api, .. } => {
+                    if !quitting_window.load(Ordering::Relaxed) {
+                        let _ = window.hide();
+                        api.prevent_close();
+                    }
+                }
+                // Hard-destroy path (real quit) → kill the app (sidecar dies
+                // automatically when the process exits).
+                WindowEvent::Destroyed => {
+                    window.app_handle().exit(0);
+                }
+                _ => {}
             }
         })
         .run(tauri::generate_context!())
@@ -71,6 +110,102 @@ fn main() {
 fn tracing_command(_handle: &tauri::AppHandle) {
     #[cfg(debug_assertions)]
     println!("[mirv] spawning sidecar: {SIDECAR} --tauri-mode");
+}
+
+/// Build the system-tray icon + menu (Show / Quit). Left-click on the icon
+/// restores the main window; the menu is shown on right-click.
+fn setup_tray(app: tauri::AppHandle, quitting: Arc<AtomicBool>) -> tauri::Result<()> {
+    let show = MenuItem::with_id(&app, "show", "Show MIRV", true, None::<&str>)?;
+    let quit = MenuItem::with_id(&app, "quit", "Quit", true, None::<&str>)?;
+    let menu = Menu::with_items(&app, &[&show, &quit])?;
+
+    let icon = app
+        .default_window_icon()
+        .cloned()
+        .unwrap_or_else(|| {
+            tauri::image::Image::from_bytes(include_bytes!("../icons/32x32.png"))
+                .expect("valid embedded tray icon")
+        });
+
+    let _tray = TrayIconBuilder::with_id(TRAY_ID)
+        .icon(icon)
+        .tooltip("MIRV — Multi-platform Incident Response & Vulnerabilities")
+        .menu(&menu)
+        .menu_on_left_click(false)
+        .on_menu_event(move |app_handle, event| match event.id.as_ref() {
+            "show" => {
+                if let Some(window) = app_handle.get_webview_window("main") {
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                }
+            }
+            "quit" => {
+                quitting.store(true, Ordering::Relaxed);
+                app_handle.exit(0);
+            }
+            _ => {}
+        })
+        .on_tray_icon_event(|tray, event| {
+            if let TrayIconEvent::Click {
+                button: MouseButton::Left,
+                button_state: MouseButtonState::Up,
+                ..
+            } = event
+            {
+                let app_handle = tray.app_handle();
+                if let Some(window) = app_handle.get_webview_window("main") {
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                }
+            }
+        })
+        .build(&app)?;
+
+    Ok(())
+}
+
+/// Fire-and-forget updater check: download + install on startup, then restart
+/// into the fresh version. No-op/quiet when there is nothing to update or the
+/// GitHub endpoint is unreachable.
+fn setup_updater(app: &tauri::AppHandle) {
+    let handle = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let updater = match handle.updater() {
+            Ok(updater) => updater,
+            Err(e) => {
+                eprintln!("[mirv] updater unavailable: {e}");
+                return;
+            }
+        };
+        match updater.check().await {
+            Ok(Some(update)) => {
+                println!("[mirv] update available: v{}", update.version);
+                let mut downloaded = 0usize;
+                match update
+                    .download_and_install(
+                        |received, total| {
+                            downloaded = received;
+                            println!(
+                                "[mirv] downloading {}/{} bytes",
+                                received,
+                                total.unwrap_or(0)
+                            );
+                        },
+                        || {},
+                    )
+                    .await
+                {
+                    Ok(_) => {
+                        println!("[mirv] update installed ({downloaded} bytes) — restarting");
+                        handle.restart();
+                    }
+                    Err(e) => eprintln!("[mirv] update install failed: {e}"),
+                }
+            }
+            Ok(None) => println!("[mirv] no updates available"),
+            Err(e) => println!("[mirv] updater check failed (will retry next launch): {e}"),
+        }
+    });
 }
 
 /// Poll the backend health endpoint until it responds or the timeout elapses.

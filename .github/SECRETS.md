@@ -18,6 +18,8 @@
 | `VPS_SSH_KEY` | `-----BEGIN OPENSSH PRIVATE KEY-----\n...` | `ssh-keygen` on local, copy PRIVATE key here, add PUBLIC key to VPS `~/.ssh/authorized_keys` | SSH auth |
 | `VPS_PORT` | optional (default 22) | only if SSH runs on non-standard port | SSH port override |
 | `VPS_DEPLOY_PATH` | optional (default `/opt/mirv`) | path where repo is cloned on VPS | git pull target |
+| `TAURI_SIGNING_PRIVATE_KEY` | `-----BEGIN MIRV SIGNATURE PRIVATE KEY-----...` | `desktop/.tauri/mirv-updater.key` (see below) | Sign updater artifacts (Desktop .msi) |
+| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | `m1rv-d3skt0p-...` | password chosen when generating the key | Password for the signing key |
 
 ## Workflow behavior
 
@@ -26,7 +28,7 @@
 - deploy gracefully SKIPS Docker push step if `DOCKERHUB_USERNAME` var not set
 - deploy gracefully SKIPS VPS step if `VPS_HOST` secret not set (so first run just tests locally)
 
-## Current status (14 Aug 2026)
+## Current status (20 Sep 2026)
 
 | Secret / Variable | Status |
 |-------------------|--------|
@@ -36,6 +38,8 @@
 | `VPS_USER` (secret) | ⬜ Pending |
 | `VPS_SSH_KEY` (secret) | ⬜ Pending — key pair already generated (see below) |
 | `VPS_PORT` / `VPS_DEPLOY_PATH` | ⬜ Optional — set only if non-default |
+| `TAURI_SIGNING_PRIVATE_KEY` (secret) | ⬜ Pending — keypair generated 20 Sep 2026 (see below) |
+| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` (secret) | ⬜ Pending — set to the `m1rv-d3skt0p-...` password used to generate the key |
 
 > ⚠️ Until `VPS_HOST` is set, `deploy.yml` runs Docker build + push only and **gracefully skips** the VPS step.
 
@@ -48,6 +52,17 @@ Public key (mirv-deploy-ci):
 ```
 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMfYY8p9+rQyqhQ18lCL6i9ch413e95i0SMsHqreo7Hc mirv-deploy-ci
 ```
+
+### Desktop updater signing key (generated 20 Sep 2026)
+
+- **Private:** `desktop/.tauri/mirv-updater.key` — paste content as GitHub secret `TAURI_SIGNING_PRIVATE_KEY` (NEVER commit this file; `.tauri/` is gitignored)
+- **Password:** use `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` — must match the password chosen at generation time
+- **Public (pubkey — SAFE to commit, already in `tauri.conf.json`):**
+```
+dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDg1N0RFQTZEMjREMDU1MDAKUldRQVZkQWtiZXA5aGFaMC9nSm00aFRJd09sWFdBS3ZsV2RCY05wcGFuNGFlTVlKMkxsZ2x3b0kK
+```
+- Without these secrets the Desktop Build still compiles and runs, but releases (tags `v*`) produce **unsigned** updater artifacts, which Tauri's updater will reject. Set both secrets before publishing the first `v*` release.
+- Regenerate (losing any copy of the private key/password breaks future updates): `npx tauri signer generate --ci -p "PASS" -w desktop/.tauri/mirv-updater.key` and update `pubkey` in `desktop/src-tauri/tauri.conf.json`.
 
 ## Required setup steps
 

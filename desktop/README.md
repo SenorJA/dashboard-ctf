@@ -83,7 +83,11 @@ desktop/
   - `fetch('/api…')` → `http://localhost:8000/api…` (monkeypatch automático)
   - `WebSocket` → `ws://localhost:8000/ws` (`window.WS_URL`)
 - El backend se lanza con `--tauri-mode` (no sirve el SPA, no auto-reload).
-- Al cerrar la ventana, Tauri mata el sidecar.
+- Cerrar la ventana **minimiza a la bandeja del sistema** (tray); el icono del
+  tray restaura la ventana y su menú "Quit" cierra de verdad (terminando el
+  sidecar).
+- El **auto-updater** comprueba en cada arranque GitHub Releases
+  (`latest.json`, firmado con minisign) e instala la actualización si existe.
 
 ## Prueba en desarrollo (sin empaquetar)
 
@@ -99,6 +103,20 @@ npm install @tauri-apps/cli
 npm run prebuild && npm run tauri dev
 ```
 
+## Actualizaciones (updater)
+
+- Config: `src-tauri/tauri.conf.json` → `plugins.updater` (pubkey + endpoint
+  GitHub Releases). Código: `setup_updater()` en `src-tauri/src/main.rs`
+  (check + download + install + restart en cada arranque).
+- Firmar artefactos requiere la clave minisign. **El par vive fuera del repo**
+  (`.tauri/mirv-updater.key*`; nunca commitees la privada). Para que los
+  releases (tags `v*`) queden firmados, define los secrets:
+  - `TAURI_SIGNING_PRIVATE_KEY` — contenido de `mirv-updater.key`
+  - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` — contraseña de la clave
+- Sin secrets, el build sigue compilando/funcionando pero los artefactos
+  salen sin firmar y el updater los rechazará — por eso los releases deben
+  publicarse con los secrets configurados.
+
 ## Notas
 
 - **CSP**: permite `connect-src http://localhost:8000 ws://localhost:8000`
@@ -107,5 +125,5 @@ npm run prebuild && npm run tauri dev
 - **Windows redirects**: el sidecar `.exe` puede requerir el sufijo de triple
   target (`mirv-backend-x86_64-pc-windows-msvc.exe`). El `build_desktop.bat`
   copia el binario; renómbralo al sufijo target si Tauri no lo resuelve.
-- **Distribución**: subir el `.msi` a GitHub Releases; un auto-updater con
-  `tauri-plugin-updater` puede añadirse en el futuro.
+- **Distribución**: `.msi` firmado vía GitHub Releases (workflow
+  `desktop-build.yml` con `tauri-action`; tags `v*` → draft release).

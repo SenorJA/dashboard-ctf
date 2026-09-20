@@ -6,6 +6,7 @@
   "permissions": [
     "core:default",
     "process:default",
+    "updater:default",
     {
       "identifier": "shell:allow-execute",
       "allow": [

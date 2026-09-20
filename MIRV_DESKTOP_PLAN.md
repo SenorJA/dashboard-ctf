@@ -335,12 +335,12 @@ reqwest = { version = "0.12", features = ["blocking"] }
 
 | Característica | Implementación |
 |----------------|----------------|
-| **System tray** | `tauri-plugin-tray` con menú: "Abrir MIRV" / "Salir" |
-| **Auto-updater** | `tauri-plugin-updater` + GitHub Releases para distribución de updates |
-| **Splash screen** | Ventana temporal con logo mientras arranca el backend |
-| **Iconos** | Generar con `cargo tauri icon` desde un PNG 1024x1024 |
-| **Error handling** | Diálogo con `tauri::api::dialog::message()` si backend no arranca |
-| **Título dinámico** | `window.set_title("MIRV — " + target_ip)` al conectar SSH |
+| **System tray** | ✅ **Completado** — `tauri::tray::TrayIconBuilder` (feature `tray-icon`) en `src-tauri/src/main.rs::setup_tray`: menú "Show MIRV" / "Quit", left-click restaura la ventana, cerrar la ventana → ocultar a bandeja (`CloseRequested { api, .. }` + `api.prevent_close()`); botón "Quit" fija flag `AtomicBool` para permitir salida real (mata el sidecar) |
+| **Auto-updater** | ✅ **Completado** — `tauri-plugin-updater` + `createUpdaterArtifacts: "v1Compatible"`; endpoint `https://github.com/SenorJA/dashboard-ctf/releases/latest/download/latest.json`; `setup_updater()` en main.rs (check + download + install + restart en cada arranque); clave minisign generada (privada gitignored en `desktop/.tauri/`, pubkey commiteada en `tauri.conf.json`); secrets CI `TAURI_SIGNING_PRIVATE_KEY` / `_PASSWORD` (ver `.github/SECRETS.md`); `desktop-build.yml` pasa los secrets a `tauri-action` |
+| **Splash screen** | ⏳ Pendiente (opcional) |
+| **Iconos** | ✅ Ya presentes (tray usa el icono de la app / `32x32.png` embebido) |
+| **Error handling** | ✅ Health-check con timeout + log; mejora futura: `tauri-plugin-dialog` |
+| **Título dinámico** | ⏳ Pendiente (opcional — `window.set_title("MIRV — " + target_ip)`) |
 
 ---
 
@@ -415,8 +415,8 @@ Tauri busca el binario con ese naming automáticamente.
 | 1 | Backend PyInstaller | ✅ **Completado (commit `fd8aa7b`)** — `mirv-backend.spec` + `build_backend.bat`; exe validado: `/api/health` + `/api/skills` (91 skills empaquetadas) → 200 OK |
 | 2 | Frontend @ Tauri | ✅ **Completado (commit `fd8aa7b`)** — se usó detección `IS_TAURI` + `API_BASE`/`WS_URL` + monkeypatch condicional de `window.fetch` (no-op en browser) en `main.v2.js`, en vez de reescribir las 100 `fetch()` relativas |
 | 3 | Proyecto Tauri | 🧱 **Scaffold completo (`fd8aa7b`)** — `desktop/` (package.json + `sync-frontend.mjs`, src-tauri: Cargo.toml/tauri.conf.json/build.rs/src/main.rs sidecar, build_desktop.bat). ⏳ Recompilar requiere Rust + WebView2 (ver nota abajo) |
-| 4 | System tray, updater, iconos | ⏳ Pendiente |
-| 5 | Distribución (.msi, GitHub) | ⏳ Pendiente |
+| 4 | System tray + updater | ✅ **Completado (Feature E)** — tray (cerrar→bandeja, Show/Quit, left-click restaura) + auto-updater minisign (artefactos `v1Compatible` + GitHub Releases `latest.json`); secreto CI documentado |
+| 5 | Distribución (.msi, GitHub) | ✅ **Pipeline** — `desktop-build.yml` (windows-latest): sidecar PyInstaller → `tauri-action --bundles msi` → artifact; tags `v*` → Draft Release (firmada si los secrets están configurados) |
 
 > **Nota (Fase 3 — por qué no se puede compilar aquí):** el scaffold Tauri no se ha compilado porque requiere (a) **toolchain Rust/Cargo** (rustc + tauri-cli + ~500 cajas) y (b) **WebView2 Runtime / NuGet WebView2** en Windows, ninguno disponible en este entorno de build sin toolchain. El código Rust está completo y coherente, pero necesita **`cargo build` local** para generar los binarios; ver "Cómo compilar" en `desktop/README.md`.
 

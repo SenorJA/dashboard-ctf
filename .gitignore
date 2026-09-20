@@ -50,3 +50,6 @@ test-results/
 htmlcov/
 coverage.xml
 backend/logs/*.log
+
+# Tauri updater signing key (PRIVATE — never commit)
+desktop/.tauri/

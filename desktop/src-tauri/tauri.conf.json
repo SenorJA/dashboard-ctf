@@ -28,6 +28,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "createUpdaterArtifacts": "v1Compatible",
     "externalBin": [
       "binaries/mirv-backend"
     ],
@@ -42,6 +43,12 @@
   "plugins": {
     "shell": {
       "sidecar": true
+    },
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDg1N0RFQTZEMjREMDU1MDAKUldRQVZkQWtiZXA5aGFaMC9nSm00aFRJd09sWFdBS3ZsV2RCY05wcGFuNGFlTVlKMkxsZ2x3b0kK",
+      "endpoints": [
+        "https://github.com/SenorJA/dashboard-ctf/releases/latest/download/latest.json"
+      ]
     }
   }
 }
