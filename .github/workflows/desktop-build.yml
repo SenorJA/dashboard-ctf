@@ -125,3 +125,37 @@ jobs:
           name: mirv-desktop-msi
           path: desktop/src-tauri/target/release/bundle/msi/*.msi
           if-no-files-found: ignore
+
+      # ---- Updater manifest (releases only) ----
+      # El updater de Tauri v2 carga latest.json del endpoint
+      # releases/latest/download/latest.json. tauri-action no lo genera:
+      # se construye aqui (version + sha256 + signature + url) y se sube a
+      # la misma release (draft) ya creada con los artefactos firmados.
+      - name: Generate + upload latest.json (releases only)
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $msiZip = Get-ChildItem "desktop/src-tauri/target/release/bundle/msi/*.msi.zip" | Select-Object -First 1
+          $msiSig = Get-ChildItem "desktop/src-tauri/target/release/bundle/msi/*.msi.zip.sig" | Select-Object -First 1
+          $conf = Get-Content "desktop/src-tauri/tauri.conf.json" -Raw | ConvertFrom-Json
+          $version = $conf.version
+          $sha256 = (Get-FileHash -Algorithm SHA256 -Path $msiZip.FullName).Hash.ToLower()
+          $sig = (Get-Content $msiSig.FullName -Raw).Trim()
+          $pubDate = (Get-Date).ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'")
+          $name = $msiZip.Name
+          $json = @{
+            version  = $version
+            notes    = "MIRV $version release"
+            pub_date = $pubDate
+            platforms = @{
+              "windows-x86_64" = @{
+                signature = $sig
+                url       = "https://github.com/SenorJA/dashboard-ctf/releases/download/v$version/$name"
+              }
+            }
+          } | ConvertTo-Json -Depth 6
+          Set-Content -Path "desktop/latest.json" -Value $json -Encoding utf8
+          Write-Output "latest.json -> $version / $name / sha256:$sha256"
+          gh release upload "$env:GITHUB_REF_NAME" "desktop/latest.json" --clobber
