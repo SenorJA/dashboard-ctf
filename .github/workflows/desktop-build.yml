@@ -23,6 +23,10 @@ jobs:
   build-windows:
     runs-on: windows-latest
     timeout-minutes: 45
+    # Necesario para que tauri-action cree/actualice el GitHub Release (tags v*).
+    # Sin esto, GITHUB_TOKEN es read-only y el job falla al publicar el release.
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
