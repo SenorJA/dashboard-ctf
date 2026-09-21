@@ -114,6 +114,7 @@ jobs:
           projectPath: desktop
           args: --bundles msi ${{ steps.updater_config.outputs.updater_args }}
           tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
+          releaseName: ${{ startsWith(github.ref, 'refs/tags/') && format('MIRV {0}', github.ref_name) || '' }}
           releaseDraft: true
           prerelease: false
 
