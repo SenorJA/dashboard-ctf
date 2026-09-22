@@ -33,6 +33,9 @@ const SIDECAR: &str = "mirv-backend";
 const BACKEND_URL: &str = "http://localhost:8000/api/health";
 const BACKEND_READY_TIMEOUT: Duration = Duration::from_secs(45);
 const TRAY_ID: &str = "mirv-tray";
+const MAIN_WIN: &str = "main";
+const SPLASH_WIN: &str = "splash";
+const ERROR_URL: &str = "tauri://localhost/error.html";
 
 fn main() {
     // Shared "quitting for real" flag: the tray Quit item flips it so the
@@ -49,6 +52,10 @@ fn main() {
         .setup(move |app| {
             let handle = app.handle().clone();
             tracing_command(&handle);
+
+            // Título base dinámico (incluye versión); se actualiza con el
+            // estado del backend al conectar.
+            refresh_status_title(&handle, "iniciando");
 
             setup_tray(handle.clone(), quitting_tray)?;
             setup_updater(&handle);
@@ -85,19 +92,23 @@ fn main() {
             Ok(())
         })
         .on_window_event(move |window, event| {
-            // System tray UX: closing the window hides it to the tray unless
-            // the user explicitly chose Quit from the tray menu.
+            // System tray UX: closing the MAIN window hides it to the tray
+            // unless the user explicitly chose Quit from the tray menu.
+            // (La ventana splash se destruye sin pasar por esta lógica.)
             match event {
                 WindowEvent::CloseRequested { api, .. } => {
-                    if !quitting_window.load(Ordering::Relaxed) {
+                    if window.label() == MAIN_WIN && !quitting_window.load(Ordering::Relaxed) {
                         let _ = window.hide();
                         api.prevent_close();
                     }
                 }
                 // Hard-destroy path (real quit) → kill the app (sidecar dies
-                // automatically when the process exits).
+                // automatically when the process exits). Solo la main: la
+                // splash se destruye al arrancar sin matar la app.
                 WindowEvent::Destroyed => {
-                    window.app_handle().exit(0);
+                    if window.label() == MAIN_WIN {
+                        window.app_handle().exit(0);
+                    }
                 }
                 _ => {}
             }
@@ -134,7 +145,7 @@ fn setup_tray(app: tauri::AppHandle, quitting: Arc<AtomicBool>) -> tauri::Result
         .show_menu_on_left_click(false)
         .on_menu_event(move |app_handle, event| match event.id.as_ref() {
             "show" => {
-                if let Some(window) = app_handle.get_webview_window("main") {
+                if let Some(window) = app_handle.get_webview_window(MAIN_WIN) {
                     let _ = window.show();
                     let _ = window.set_focus();
                 }
@@ -153,7 +164,7 @@ fn setup_tray(app: tauri::AppHandle, quitting: Arc<AtomicBool>) -> tauri::Result
             } = event
             {
                 let app_handle = tray.app_handle();
-                if let Some(window) = app_handle.get_webview_window("main") {
+                if let Some(window) = app_handle.get_webview_window(MAIN_WIN) {
                     let _ = window.show();
                     let _ = window.set_focus();
                 }
@@ -209,22 +220,22 @@ fn setup_updater(app: &tauri::AppHandle) {
 }
 
 /// Poll the backend health endpoint until it responds or the timeout elapses.
+/// On success the splash closes and the main window shows (título dinámico);
+/// on timeout the main window loads the bundled error page instead.
 async fn wait_for_backend(handle: &tauri::AppHandle) {
     let start = Instant::now();
     let client = reqwest::Client::new();
     loop {
         if Instant::now().duration_since(start) > BACKEND_READY_TIMEOUT {
             eprintln!("[mirv] backend did not become ready in time");
-            health_failed_dialog().await;
+            show_error_page(handle).await;
             return;
         }
         match client.get(BACKEND_URL).send().await {
             Ok(resp) if resp.status().is_success() => {
                 println!("[mirv] backend ready on {BACKEND_URL}");
-                if let Some(win) = handle.get_webview_window("main") {
-                    let _ = win.show();
-                    let _ = win.set_focus();
-                }
+                refresh_status_title(handle, "backend conectado");
+                show_main_and_close_splash(handle);
                 return;
             }
             _ => tokio::time::sleep(Duration::from_millis(500)).await,
@@ -232,11 +243,41 @@ async fn wait_for_backend(handle: &tauri::AppHandle) {
     }
 }
 
-/// Show a best-effort OS error dialog if the backend can't start.
-async fn health_failed_dialog() {
-    // Keep it simple: the bundler only has the WebView; a native dialog plugin
-    // (tauri-plugin-dialog) could be added later. Log for now.
-    eprintln!("[mirv] backend unavailable — the SPA may not be functional");
+/// Dynamic window title with version + backend status.
+fn refresh_status_title(app: &tauri::AppHandle, status: &str) {
+    let version = app.package_info().version.to_string();
+    if let Some(win) = app.get_webview_window(MAIN_WIN) {
+        let _ = win.set_title(&format!("M.I.R.V. v{version} — {status}"));
+    }
+}
+
+/// Reveal the main window and drop the splash once the backend is ready.
+fn show_main_and_close_splash(app: &tauri::AppHandle) {
+    if let Some(win) = app.get_webview_window(MAIN_WIN) {
+        let _ = win.show();
+        let _ = win.set_focus();
+    }
+    dismiss_splash(app);
+}
+
+/// Best-effort error page: if the backend can't start, navigate the main
+/// window to the bundled error.html and show it (the splash closes).
+async fn show_error_page(app: &tauri::AppHandle) {
+    if let Some(win) = app.get_webview_window(MAIN_WIN) {
+        if let Ok(url) = tauri::Url::parse(ERROR_URL) {
+            let _ = win.navigate(url);
+        }
+        refresh_status_title(app, "backend caido");
+        let _ = win.show();
+        let _ = win.set_focus();
+    }
+    dismiss_splash(app);
+}
+
+fn dismiss_splash(app: &tauri::AppHandle) {
+    if let Some(splash) = app.get_webview_window(SPLASH_WIN) {
+        let _ = splash.destroy();
+    }
 }
 
 /// Forward backend sidecar stdout/stderr to the host console.

@@ -5,6 +5,21 @@ Format based on [Keep a Changelog](https://keepachangelog.com/), auto-generated 
 
 ## [Unreleased]
 ### Added
+- **feat(desktop-fase-4)**: Fase 4 del plan de escritorio — splash screen, título dinámico, página de error e iconos.
+  - **Identifier** `com.mirv.app` → `com.mirv.desktop` (elimina el warning del bundler por terminar en `.app`).
+  - **Splash screen** (`frontend/splash.html`, copiada al shell por `sync-frontend.mjs`): ventana `splash` sin
+    decoraciones, centrada, radar con sweep CSS; la ventana `main` arranca `visible: false` y solo se muestra cuando el
+    backend responde (`show_main_and_close_splash`), destruyendo la splash.
+  - **Título dinámico** `refresh_status_title()`: `M.I.R.V. v{version} — {estado}` (iniciando → backend conectado/caído).
+  - **Página de error** (`frontend/error.html`): si el backend no queda listo en 45 s, la ventana principal navega a
+    `tauri://localhost/error.html` (botón reintentar + auto-poll cada 3 s + cerrar).
+  - **Guards por ventana** en `on_window_event`: hide-to-tray y exit-on-destroy SOLO para la `main` (la splash se
+    destruye al arrancar sin matar la app).
+  - Iconos regenerados desde `frontend/img/icon-192.svg` (`npm run icons`).
+  - `desktop/src/` sigue gitignored: splash/error viven en `frontend/` y `sync-frontend.mjs` las copia (`sources`).
+  - Verificación: `cargo check` limpio + MSI construido localmente (config 2 ventanas + páginas embebidas).
+
+### Added
 - **feat(desktop-tray-updater)**: Feature E — calidad de vida del escritorio MIRV.
   - **System tray** (`desktop/src-tauri/src/main.rs::setup_tray`): cerrar la ventana ahora oculta a la bandeja
     (`CloseRequested` + `api.prevent_close()`) en lugar de salir; menú "Show MIRV" / "Quit" y left-click sobre el icono

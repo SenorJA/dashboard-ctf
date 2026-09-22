@@ -19,7 +19,7 @@ const desktopRoot = resolve(here, '..');
 const repoRoot = resolve(desktopRoot, '..');
 const srcRoot = resolve(desktopRoot, 'src');
 
-const sources = ['index.html', 'css', 'js', 'img'];
+const sources = ['index.html', 'splash.html', 'error.html', 'css', 'js', 'img'];
 const missing = [];
 
 for (const item of sources) {

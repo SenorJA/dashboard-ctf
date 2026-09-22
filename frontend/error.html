@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MIRV — error de inicio</title>
+  <style>
+    :root {
+      --gold: #d4a843;
+      --red: #c9483b;
+      --bg: #0a0a0f;
+      --card: #14141d;
+      --text: #e8e8ec;
+      --muted: rgba(232, 232, 236, 0.55);
+      --line: rgba(232, 232, 236, 0.12);
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-top: 2px solid var(--red);
+      border-radius: 10px;
+      max-width: 560px;
+      width: 100%;
+      padding: 28px 30px;
+    }
+    .kicker {
+      font-size: 11px;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--red);
+      font-weight: 600;
+    }
+    h1 { font-size: 22px; margin: 10px 0 6px; font-weight: 600; }
+    p { font-size: 13.5px; line-height: 1.6; color: var(--muted); }
+    ul { margin: 14px 0 0 18px; font-size: 12.5px; line-height: 1.75; color: var(--muted); }
+    code {
+      background: rgba(212, 168, 67, 0.12);
+      color: var(--gold);
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+    .actions { margin-top: 22px; display: flex; gap: 10px; }
+    button {
+      font: inherit;
+      font-size: 13px;
+      padding: 9px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      background: var(--gold);
+      color: #0a0a0f;
+      border: none;
+      font-weight: 600;
+    }
+    button.secondary {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--line);
+    }
+    button:hover { filter: brightness(1.08); }
+    .hint { margin-top: 14px; font-size: 11px; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="kicker">Error de inicio</div>
+    <h1>El backend no pudo arrancar</h1>
+    <p>
+      MIRV no detectó el servicio local en <code>http://localhost:8000</code>.
+      La aplicación no funcionará sin él.
+    </p>
+    <ul>
+      <li>El puerto <code>8000</code> puede estar ocupado por otro proceso.</li>
+      <li>Revisa que no haya otra instancia de MIRV abierta.</li>
+      <li>Comprueba el firewall (debe permitir el puerto local).</li>
+    </ul>
+    <div class="actions">
+      <button id="retry">Reintentar ahora</button>
+      <button id="close" class="secondary">Cerrar</button>
+    </div>
+    <div class="hint" id="hint">Reintentando automáticamente cada 3 s…</div>
+  </div>
+  <script>
+    const HEALTH = "http://localhost:8000/api/health";
+    const TIMER = 3000;
+
+    function retry() { window.location.href = "/"; }
+
+    async function poll() {
+      try {
+        const r = await fetch(HEALTH, { mode: "cors" });
+        if (r.ok) { window.location.href = "/"; }
+      } catch (_) { /* backend still down */ }
+      setTimeout(poll, TIMER);
+    }
+
+    document.getElementById("retry").addEventListener("click", retry);
+    document.getElementById("close").addEventListener("click", () => {
+      try { window.__TAURI_INTERNALS__.invoke("plugin:process|exit", { code: 1 }); } catch (_) {}
+      window.close();
+    });
+    setTimeout(poll, TIMER);
+  </script>
+</body>
+</html>

@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MIRV — iniciando</title>
+  <style>
+    :root {
+      --gold: #d4a843;
+      --gold-dim: #b8922e;
+      --teal: #3b8f8a;
+      --bg: #0a0a0f;
+      --card: #14141d;
+      --text: #e8e8ec;
+      --muted: rgba(232, 232, 236, 0.55);
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      user-select: none;
+    }
+    .shell {
+      width: 400px;
+      text-align: center;
+      padding: 16px;
+    }
+    .logo { width: 96px; height: 96px; margin: 0 auto 18px; display: block; }
+    .radar {
+      width: 110px; height: 110px; margin: 20px auto 4px;
+      border-radius: 50%;
+      border: 1px solid rgba(212, 168, 67, 0.35);
+      position: relative;
+      background:
+        radial-gradient(circle, rgba(59, 143, 138, 0.12) 0%, transparent 62%);
+    }
+    .radar::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      border: 1px solid rgba(212, 168, 67, 0.22);
+    }
+    .sweep {
+      position: absolute;
+      inset: 4px;
+      border-radius: 50%;
+      background: conic-gradient(from 0deg, rgba(212, 168, 67, 0.55), transparent 42deg, transparent 360deg);
+      transform-origin: center;
+    }
+    .dot {
+      position: absolute;
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--teal);
+      box-shadow: 0 0 10px rgba(59, 143, 138, 0.9);
+    }
+    .dot-1 { top: 26%; left: 30%; }
+    .dot-2 { top: 58%; left: 55%; width: 5px; height: 5px; background: var(--gold); }
+    h1 {
+      font-size: 20px;
+      letter-spacing: 0.18em;
+      font-weight: 600;
+    }
+    .version {
+      margin-top: 6px;
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+    }
+    .status {
+      margin-top: 16px;
+      font-size: 12.5px;
+      color: var(--muted);
+    }
+    .status b { color: var(--gold); font-weight: 600; }
+    @media (prefers-reduced-motion: no-preference) {
+      .sweep { animation: spin 1.6s linear infinite; }
+      .radar::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        box-shadow: 0 0 0 1px rgba(59, 143, 138, 0.10);
+        animation: ping 2.2s ease-out infinite;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      @keyframes ping {
+        0%   { transform: scale(0.78); opacity: 0.6; }
+        100% { transform: scale(1.05); opacity: 0; }
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <img class="logo" src="img/logo.svg" alt="MIRV" />
+    <h1>M.I.R.V.</h1>
+    <div class="version">Multi-platform Incident Response &amp; Vulnerabilities</div>
+    <div class="radar">
+      <div class="sweep"></div>
+      <div class="dot dot-1"></div>
+      <div class="dot dot-2"></div>
+    </div>
+    <div class="status">Iniciando backend <b>mirv-backend</b>…</div>
+  </div>
+  <script>
+    // Si la splash queda visible mas de 60s, el propio shell Tauri la cierra
+    // y muestra la pagina de error. Nada que hacer aqui.
+  </script>
+</body>
+</html>
