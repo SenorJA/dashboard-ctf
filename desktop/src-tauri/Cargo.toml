@@ -1,6 +1,6 @@
 [package]
 name = "mirv-desktop"
-version = "3.0.0"
+version = "3.0.1"
 description = "M.I.R.V. — Multi-platform Incident Response & Vulnerabilities"
 authors = ["SenorJA"]
 edition = "2021"
