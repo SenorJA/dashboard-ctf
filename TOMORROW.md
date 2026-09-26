@@ -191,7 +191,7 @@
 
 ## 📋 Pendiente
 
-### Pendiente actual — acciones manuales del usuario (21 Sep 2026)
+### Pendiente actual — acciones manuales del usuario (26 Sep 2026)
 
 **Deployment a VPS — pendiente** (validado el stack ya corrido en Docker local). Orden:
 1. **Contratar VPS** (Hetzner CX22/DigitalOcean/Vultr mínimo: 2 vCPU / 4 GB RAM, Ubuntu 22.04/24.04 LTS, 30–40 GB SSD, IP pública IPv4). Nota: el primer `docker compose up -d --build` necesita ~3 GB de RAM (imagen Kali).
@@ -209,7 +209,12 @@
    ```
 3. **Firewall del VPS**: abrir TCP **8000** (dashboard) y **2222** (Kali SSH).
 4. **GitHub secrets** (Settings → Secrets → Actions): `VPS_HOST` (=IP), `VPS_USER` (=root), `VPS_SSH_KEY` (=contenido de `~/.ssh/mirv_deploy` privado, con `cat`/`clip`). Opcionales: `VPS_PORT`, `VPS_DEPLOY_PATH` (default `/opt/mirv`).
-5. **Desplegar** (`workflow_dispatch` del workflow Deploy o push a main) y verificar `curl http://TU_IP:8000/api/health` + abrir `http://TU_IP:8000`.
+5. **Generar el token de login** (Pack 8) y añadirlo al `.env` del VPS antes del primer arranque:
+   ```bash
+   echo "MIRV_API_TOKEN=$(openssl rand -hex 24)" >> /opt/mirv/.env   # o añadir la línea vía scp
+   ```
+   (El `docker-compose.yml` ya reenvía esta var al contenedor; sin ella el dashboard no pide login.)
+6. **Desplegar** (`workflow_dispatch` del workflow Deploy o push a main) y verificar `curl http://TU_IP:8000/api/health` + `curl -s http://TU_IP:8000/api/auth/status` (debe decir `"enabled": true`) + abrir `http://TU_IP:8000` (debe pedir **AUTH REQUIRED**).
 
 **Otros pendientes manuales**:
 - ⬜ Decidir si conservar o revocar el PAT fine-grained (`%TEMP%\opencode\gh_token.txt`) usado para publicar releases desde CLI (revocar en https://github.com/settings/tokens).

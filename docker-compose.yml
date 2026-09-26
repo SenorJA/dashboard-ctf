@@ -51,6 +51,21 @@ services:
       - KALI_PASS=mirv
       - SUPABASE_URL=${SUPABASE_URL:-}
       - SUPABASE_KEY=${SUPABASE_KEY:-}
+      # ── Opt-in: reenviar variables del .env del host al backend ──
+      # El guard auth/login se activa con MIRV_API_TOKEN (o archivo en la imagen).
+      - MIRV_API_TOKEN=${MIRV_API_TOKEN:-}
+      - MIRV_API_TOKEN_FILE=${MIRV_API_TOKEN_FILE:-}
+      - MIRV_PERSIST_WORKSPACE=${MIRV_PERSIST_WORKSPACE:-}
+      - MIRV_ENC_KEY=${MIRV_ENC_KEY:-}
+      - MIRV_OSINT_TOKEN=${MIRV_OSINT_TOKEN:-}
+      - MIRV_URLHAUS_TOKEN=${MIRV_URLHAUS_TOKEN:-}
+      - MIRV_JINA_KEY=${MIRV_JINA_KEY:-}
+      - IG_SESSIONID=${IG_SESSIONID:-}
+      - MIRV_BURP_TOKEN=${MIRV_BURP_TOKEN:-}
+      - MIRV_AI_PROVIDER=${MIRV_AI_PROVIDER:-}
+      - MIRV_AI_KEY=${MIRV_AI_KEY:-}
+      - MIRV_AI_MODEL=${MIRV_AI_MODEL:-}
+      - OLLAMA_URL=${OLLAMA_URL:-}
       - COMPOSE_PROJECT_NAME=proyectociber
     volumes:
       - mirv-logs:/app/backend/logs

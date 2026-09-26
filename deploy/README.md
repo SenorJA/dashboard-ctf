@@ -79,6 +79,10 @@ Pon los valores reales (los sacas de https://supabase.com/dashboard/project/<tu-
 ```dotenv
 SUPABASE_URL=https://<tu-proyecto>.supabase.co
 SUPABASE_KEY=<anon/public key>
+
+# API auth / Login (Pack 8) — RECOMENDADO en producción
+# Define el token → el dashboard pide login (la password ES este token).
+MIRV_API_TOKEN=$(openssl rand -hex 24)   # genera uno único, no lo reutilices
 ```
 
 Después reinicia el stack:
@@ -89,6 +93,8 @@ docker compose -p proyectociber up -d --build
 ```
 
 > El secret key de Supabase **nunca** se commitea. Vive solo en el `.env` del VPS y en GitHub Secrets si lo usas para CI.
+>
+> 🔐 **Seguridad del puerto 8000**: aunque el dashboard tiene login (Pack 8), no lo expongas abierto a internet sin más. Lo ideal es **Hito B** (Cloudflare Tunnel) o restringir el puerto al acceso operatorio; con login activo, cualquier visitante sin el token solo ve la pantalla de AUTH.
 
 ## Paso 5 — Setear secrets en GitHub
 
@@ -122,6 +128,7 @@ gh secret set VPS_DEPLOY_PATH
 3. Comprueba en el VPS: `docker ps` muestra `mirv-kali-tools` y `mirv-backend` levantados.
 4. Abre `http://TU_VPS:8000` → dashboard de M.I.R.V.
 5. `docker compose -p proyectociber ps` → ambos servicios `healthy`.
+6. Con `MIRV_API_TOKEN` en el `.env`: `curl -s http://TU_VPS:8000/api/auth/status` debe devolver `"enabled": true` y el browser muestra la pantalla de **AUTH REQUIRED** (login con el token).
 
 Si `VPS_HOST` aún no está seteado, `deploy.yml` **salta el paso VPS** sin romper el build/push (comportamiento documentado en `.github/SECRETS.md`).
 
