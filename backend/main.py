@@ -3542,15 +3542,55 @@ async def api_osint_mac(body: OsintMacRequest, request: Request):
 # ════════════════════════════════════════════════════════════════
 
 @app.get("/api/auth/status")
-async def api_auth_status():
-    """Public: reports whether the opt-in API token guard is active."""
+async def api_auth_status(request: Request):
+    """Public: reports whether the opt-in API token guard is active and tells
+    the frontend whether the current request is already authenticated (so the
+    SPA knows when to show the login screen)."""
     enabled = apiauth.is_enabled()
     return JSONResponse({
         "ok": True,
         "enabled": enabled,
+        "authenticated": apiauth.authenticated(request.headers, request.cookies) if enabled else True,
         "source": apiauth.token_source() if enabled else "",
         "masked_token": apiauth.mask(apiauth.configured_token()) if enabled else "",
     })
+
+
+class LoginRequest(BaseModel):
+    password: str = ""
+
+
+@app.post(apiauth.LOGIN_PATH)
+async def api_auth_login(body: LoginRequest):
+    """Public: validates the operator password (== the configured API token);
+    on success drops the httpOnly mirv_token cookie so the SPA is logged in.
+    No-op response when the guard is disabled."""
+    if not apiauth.is_enabled():
+        return JSONResponse({"ok": True, "enabled": False})
+    if not apiauth.check(body.password.strip()):
+        return JSONResponse(
+            {"ok": False, "enabled": True, "error": "invalid password"},
+            status_code=401,
+            headers={"WWW-Authenticate": "Bearer", "Cache-Control": "no-store"},
+        )
+    resp = JSONResponse({"ok": True, "enabled": True, "authenticated": True})
+    resp.set_cookie(
+        apiauth.COOKIE_NAME,
+        apiauth.configured_token(),
+        httponly=True,
+        samesite="lax",
+        path="/",
+        max_age=60 * 60 * 24 * 7,
+    )
+    return resp
+
+
+@app.post(apiauth.LOGOUT_PATH)
+async def api_auth_logout():
+    """Public: clears the mirv_token cookie (works even with a stale token)."""
+    resp = JSONResponse({"ok": True})
+    resp.delete_cookie(apiauth.COOKIE_NAME, path="/")
+    return resp
 
 
 @app.get("/api/auth/token")
@@ -4501,18 +4541,11 @@ async def set_setting(setting: SettingUpdate):
 
 @app.get("/")
 async def read_index():
-    resp = FileResponse(os.path.join(frontend_dir, "index.html"))
-    # When the API token guard is on, drop the httpOnly cookie so the SPA
-    # (same-origin fetch/WS) keeps working with zero frontend changes.
-    if apiauth.is_enabled():
-        resp.set_cookie(
-            apiauth.COOKIE_NAME,
-            apiauth.configured_token(),
-            httponly=True,
-            samesite="lax",
-            max_age=60 * 60 * 24 * 7,
-        )
-    return resp
+    # Serving the SPA does NOT set the auth cookie anymore: the operator must
+    # pass the login screen first (POST /api/auth/login validates the password
+    # and drops the httpOnly mirv_token cookie). The API middleware + the /ws
+    # gate enforce access server-side.
+    return FileResponse(os.path.join(frontend_dir, "index.html"))
 
 @app.get("/favicon.ico")
 async def favicon():
@@ -4528,6 +4561,13 @@ async def favicon():
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
+    # Gate: when the API token guard is enabled, the browser must already hold
+    # a valid mirv_token cookie (set at login) before the WS handshake accepts.
+    # The middleware only covers /api/*, so /ws needs its own check.
+    if apiauth.is_enabled() and not apiauth.authenticated(headers={}, cookies=websocket.cookies):
+        await websocket.close(code=1008)
+        return
+
     await websocket.accept()
 
     ssh = paramiko.SSHClient()

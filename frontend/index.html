@@ -142,6 +142,11 @@
                 <span id="docker-dot" class="inline-block w-1.5 h-1.5 rounded-full bg-gray-700"></span>
                 <span id="docker-text">Docker...</span>
             </button>
+            <!-- Auth Button -->
+            <button id="btn-auth" data-action="auth"
+                class="hidden text-[10px] px-2 py-1 rounded border transition-all font-mono tracking-wider"
+                style="border-color:#d4a84344; color:#d4a843; background:#d4a84311;"
+                title="Authentication" aria-label="Authentication">🔒</button>
             <!-- Status -->
             <div class="flex items-center space-x-2 border-l border-gray-800 pl-3">
                 <div id="status-indicator" class="status-dot offline">
@@ -3754,6 +3759,28 @@ example.com
                 <span><span class="text-neon">↑↓</span> navigate</span>
                 <span><span class="text-neon">↵</span> run</span>
                 <span><span class="text-neon">⇧+↵</span> run + close</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== LOGIN MODAL ===== -->
+    <div id="login-modal" class="hidden fixed inset-0 z-[100000] flex items-center justify-center bg-black/80 backdrop-blur-sm"
+        style="background:rgba(4,8,20,0.92);" role="dialog" aria-modal="true" aria-labelledby="login-modal-title">
+        <div class="w-full max-w-sm flex flex-col bg-void border border-neon/30 rounded-lg overflow-hidden"
+            style="box-shadow:0 0 60px rgba(212,168,67,0.2);">
+            <div class="flex items-center justify-between px-4 py-3 border-b border-gray-800">
+                <span class="text-[12px] text-neon font-mono tracking-widest" id="login-modal-title" data-i18n="loginTitle">AUTH REQUIRED</span>
+            </div>
+            <div class="p-5 space-y-4">
+                <p class="text-[11px] text-gray-400 font-mono leading-relaxed" data-i18n="loginHint">Enter the API token to unlock the dashboard.</p>
+                <input type="password" id="login-password" placeholder="••••••••••••"
+                    class="w-full bg-deep border border-gray-800 rounded px-3 py-2 text-xs text-neon placeholder-gray-500 focus:outline-none focus:border-neon/50 focus:ring-0 font-mono tracking-wider"
+                    autocomplete="current-password" aria-label="API token">
+                <div id="login-error" class="hidden text-[10px] text-red-400 font-mono"></div>
+                <button id="login-submit" data-action="login"
+                    class="w-full text-[11px] py-2 rounded bg-neon text-void font-semibold tracking-widest hover:opacity-90 transition-opacity font-mono">
+                    <span data-i18n="loginButton">UNLOCK</span>
+                </button>
             </div>
         </div>
     </div>

@@ -39,8 +39,13 @@ _FILE_ENV = "MIRV_API_TOKEN_FILE"
 _DEFAULT_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "api_token.txt")
 COOKIE_NAME = "mirv_token"
 
-# Public endpoints that never require a token (health probe + auth status).
-EXEMPT_PATHS = ("/api/health", "/api/auth/status")
+# Public endpoints that never require a token (health probe + auth flow).
+# The login/logout endpoints handle their own credential validation (login)
+# or just clear the cookie (logout), so the middleware must let them through.
+EXEMPT_PATHS = ("/api/health", "/api/auth/status", "/api/auth/login", "/api/auth/logout")
+
+LOGIN_PATH = "/api/auth/login"
+LOGOUT_PATH = "/api/auth/logout"
 
 
 def configured_token() -> str:
@@ -89,6 +94,15 @@ def check(token: Optional[str]) -> bool:
     if not token:
         return False
     return hmac.compare_digest(token, expected)
+
+
+def authenticated(headers=None, cookies: Optional[dict] = None) -> bool:
+    """True when the request already presents a valid token (or guard is off).
+
+    Used by the public ``/api/auth/status`` endpoint so the frontend knows
+    whether it must show the login screen.
+    """
+    return check(request_token(headers or {}, cookies or {}))
 
 
 def request_token(request_headers, cookies: Optional[dict] = None) -> Optional[str]:

@@ -2,6 +2,7 @@
 
 import pytest
 from fastapi.testclient import TestClient
+from starlette.websockets import WebSocketDisconnect
 
 from backend.main import app
 
@@ -78,12 +79,81 @@ def test_invalid_token_rejected(token_env, client):
     assert r.status_code == 401
 
 
-def test_cookie_auth_after_index(token_env, client):
-    # GET / sets the httpOnly mirv_token cookie; TestClient replays it
+def test_login_sets_cookie(token_env, client):
+    # Serving the SPA does NOT drop the token automatically anymore.
     first = client.get("/")
     assert first.status_code == 200
-    assert any(c.name == "mirv_token" and c.value == "super-secret-token-123" for c in first.cookies.jar)
-    r = client.get("/api/scheduler/status")
+    assert not any(c.name == "mirv_token" for c in first.cookies.jar)
+    assert client.get("/api/scheduler/status").status_code == 401
+    # POST /api/auth/login with the right password sets the httpOnly cookie.
+    r = client.post("/api/auth/login", json={"password": "super-secret-token-123"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["enabled"] is True
+    assert any(c.name == "mirv_token" and c.value == "super-secret-token-123" and c.has_nonstandard_attr("HttpOnly") for c in r.cookies.jar)
+    assert client.get("/api/scheduler/status").status_code == 200
+
+
+def test_login_wrong_password_rejected(token_env, client):
+    r = client.post("/api/auth/login", json={"password": "wrong"})
+    assert r.status_code == 401
+    assert r.json()["error"] == "invalid password"
+    assert client.get("/api/scheduler/status").status_code == 401
+
+
+def test_login_missing_password_rejected(token_env, client):
+    r = client.post("/api/auth/login", json={})
+    assert r.status_code == 401
+
+
+def test_login_disabled_is_noop(no_token_env, client):
+    r = client.post("/api/auth/login", json={"password": "whatever"})
+    assert r.status_code == 200
+    assert r.json()["enabled"] is False
+
+
+def test_logout_clears_cookie(token_env, client):
+    client.post("/api/auth/login", json={"password": "super-secret-token-123"})
+    assert client.get("/api/scheduler/status").status_code == 200
+    r = client.post("/api/auth/logout")
+    assert r.status_code == 200
+    assert client.get("/api/scheduler/status").status_code == 401
+
+
+def test_status_reports_authenticated(token_env, client):
+    assert client.get("/api/auth/status").json()["authenticated"] is False
+    client.post("/api/auth/login", json={"password": "super-secret-token-123"})
+    assert client.get("/api/auth/status").json()["authenticated"] is True
+    # Headers also count (scripts / external tooling).
+    body = client.get("/api/auth/status", headers={"Authorization": "Bearer super-secret-token-123"}).json()
+    assert body["authenticated"] is True
+
+
+def test_ws_gated_before_login(token_env, client):
+    with pytest.raises(WebSocketDisconnect):
+        with client.websocket_connect("/ws"):
+            pass
+
+
+def test_ws_allowed_after_login(token_env, client):
+    client.post("/api/auth/login", json={"password": "super-secret-token-123"})
+    with client.websocket_connect("/ws") as ws:
+        assert "[*] Awaiting authentication" in ws.receive_text()
+        # Complete the server coroutine cleanly (invalid type → error + close).
+        ws.send_text('{"type":"not-an-auth"}')
+        assert "error" in ws.receive_text().lower()
+
+
+def test_auth_token_endpoint_guarded(token_env, client):
+    # without credentials → 401
+    assert client.get("/api/auth/token").status_code == 401
+    # after login → echoes the token
+    client.post("/api/auth/login", json={"password": "super-secret-token-123"})
+    body = client.get("/api/auth/token").json()
+    assert body["ok"] is True
+    assert body["enabled"] is True
+    assert body["token"] == "super-secret-token-123"
+    r = client.get("/api/auth/token", headers={"Authorization": "Bearer super-secret-token-123"})
     assert r.status_code == 200
 
 
@@ -135,17 +205,6 @@ def test_env_wins_over_file(monkeypatch, client, tmp_path):
     assert client.get("/api/scheduler/status", headers={"Authorization": "Bearer file-token"}).status_code == 401
 
 
-def test_auth_token_endpoint_guarded(token_env, client):
-    # without credentials → 401
-    assert client.get("/api/auth/token").status_code == 401
-    # with cookie (from /) or header → echoes the token
-    client.get("/")
-    body = client.get("/api/auth/token").json()
-    assert body["ok"] is True
-    assert body["enabled"] is True
-    assert body["token"] == "super-secret-token-123"
-    r = client.get("/api/auth/token", headers={"Authorization": "Bearer super-secret-token-123"})
-    assert r.status_code == 200
 
 
 def test_auth_token_endpoint_disabled(no_token_env, client):
@@ -153,6 +212,12 @@ def test_auth_token_endpoint_disabled(no_token_env, client):
     assert body["ok"] is True
     assert body["enabled"] is False
     assert body["token"] == ""
+
+
+def test_status_authenticated_true_when_disabled(no_token_env, client):
+    body = client.get("/api/auth/status").json()
+    assert body["enabled"] is False
+    assert body["authenticated"] is True
 
 
 # ── Utilities ──────────────────────────────────────────────────────────────

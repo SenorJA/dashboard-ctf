@@ -4395,6 +4395,8 @@ ${bodyHtml}
         'sidebar':        ()   => { if (window.toggleSidebar) toggleSidebar(); },
         'theme':          ()   => { if (window.toggleTheme) toggleTheme(); },
         'lang':           ()   => { if (window.switchLanguage) switchLanguage(); },
+        'auth':           ()   => { if (window.authToggle) authToggle(); },
+        'login':          ()   => { if (window.doLogin) doLogin(); },
         'toggle-category':(el) => { if (window.toggleCategory) toggleCategory(el); },
         'toggle-all':     ()   => { if (window.toggleAllCategories) toggleAllCategories(); },
         'run-all':        (el) => { if (window.runAllInCategory) runAllInCategory(el.dataset.category); },
@@ -7598,6 +7600,16 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         // ── Backup / Restore (localStorage) ──
         exportData:        { en: '📦 Export Data',           es: '📦 Exportar Datos' },
         importData:        { en: '📥 Import Data',           es: '📥 Importar Datos' },
+
+        // ── Auth / Login ──
+        loginTitle:        { en: 'AUTH REQUIRED',            es: 'AUTENTICACIÓN REQUERIDA' },
+        loginHint:         { en: 'Enter the API token to unlock the dashboard.', es: 'Introduce el token de API para desbloquear el panel.' },
+        loginButton:       { en: 'UNLOCK',                   es: 'DESBLOQUEAR' },
+        loginLocked:       { en: '🔒',                       es: '🔒' },
+        loginUnlocked:     { en: '🔓',                       es: '🔓' },
+        loginWrong:        { en: 'Wrong token — try again.', es: 'Token incorrecto — inténtalo de nuevo.' },
+        loginLogoutTitle:  { en: 'Logout',                   es: 'Cerrar sesión' },
+        loginLockTitle:    { en: 'Locked — click to open auth', es: 'Bloqueado — clic para autenticarse' },
     };
 
     window.currentLang = localStorage.getItem('vulnforge_lang') || 'en';
@@ -7796,6 +7808,93 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
     } else {
         document.getElementById('lang-text').textContent = 'EN';
         applyLanguage('en');
+    }
+
+    // ============================================================
+    //  AUTH GATE — /api/auth/status → lock/unlock overlay
+    // ============================================================
+    const loginModal = document.getElementById('login-modal');
+    const btnAuth = document.getElementById('btn-auth');
+    const loginPassword = document.getElementById('login-password');
+    const loginError = document.getElementById('login-error');
+    let authEnabled = false;
+    let authLocked = true;
+
+    function setLoginError(msg) {
+        if (!loginError) return;
+        if (msg) {
+            loginError.textContent = msg;
+            loginError.classList.remove('hidden');
+        } else {
+            loginError.classList.add('hidden');
+            loginError.textContent = '';
+        }
+    }
+
+    window.doLogin = async function () {
+        if (!loginPassword) return;
+        const password = loginPassword.value;
+        if (!password) { setLoginError(translations.loginWrong[window.currentLang]); return; }
+        try {
+            const resp = await fetch(API_BASE + '/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password }),
+            });
+            const json = await resp.json().catch(() => ({}));
+            if (resp.ok && json.ok) {
+                setLoginError(null);
+                location.reload();
+                return;
+            }
+            setLoginError(translations.loginWrong[window.currentLang]);
+        } catch (err) {
+            setLoginError(String(err && err.message ? err.message : err));
+        }
+    };
+
+    window.authToggle = async function () {
+        if (!authEnabled) return;
+        if (authLocked) {
+            if (loginModal) loginModal.classList.remove('hidden');
+            if (loginPassword) { loginPassword.value = ''; setLoginError(null); setTimeout(() => loginPassword.focus(), 50); }
+        } else {
+            try {
+                await fetch(API_BASE + '/api/auth/logout', { method: 'POST' });
+            } catch (e) { /* ignore network errors — reload anyway */ }
+            location.reload();
+        }
+    };
+
+    function renderAuthState(status) {
+        authEnabled = !!(status && status.enabled);
+        authLocked = authEnabled && !status.authenticated;
+        if (!authEnabled) {
+            if (btnAuth) btnAuth.classList.add('hidden');
+            return;
+        }
+        if (btnAuth) {
+            btnAuth.classList.remove('hidden');
+            btnAuth.textContent = authLocked ? translations.loginLocked[window.currentLang] : translations.loginUnlocked[window.currentLang];
+            btnAuth.title = authLocked ? translations.loginLockTitle[window.currentLang] : translations.loginLogoutTitle[window.currentLang];
+        }
+        if (authLocked && loginModal) loginModal.classList.remove('hidden');
+    }
+
+    async function runAuthGate() {
+        try {
+            const resp = await fetch(API_BASE + '/api/auth/status', { method: 'GET' });
+            const status = await resp.json().catch(() => ({}));
+            renderAuthState(status);
+        } catch (err) {
+            // Backend unreachable — do not lock the UI.
+        }
+    }
+    runAuthGate();
+    if (loginPassword) {
+        loginPassword.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); doLogin(); }
+        });
     }
 
     // ============================================================
