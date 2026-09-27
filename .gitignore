@@ -31,6 +31,8 @@ backend/data/*.db-journal
 backend/data/*.db-wal
 # Secret-store encryption key (Fernet) — NEVER commit
 backend/data/enc_secret.key
+# API token file (MIRV_API_TOKEN_FILE default) — NEVER commit
+backend/data/api_token.txt
 
 # Logs
 *.log
