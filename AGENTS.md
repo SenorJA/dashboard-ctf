@@ -73,7 +73,7 @@ C:\Users\34678\Desktop\Proyecto ciber\
 ├── framework/                  # Architecture plans per module (PLAN.md files)
 ├── .opencode/
 │   └── agents/                 # OpenCode agent definitions
-└── docs: README.md, ROADMAP.md, PRODUCTION_PLAN.md, PERSISTENCE_AUDIT.md, MIRV_DESKTOP_PLAN.md, VULNFORGE_VS_T3MP3ST.md, DOCKER_GUIDE.md, TOMORROW.md
+└── docs: README.md, ROADMAP.md, PRODUCTION_PLAN.md, PERSISTENCE_AUDIT.md, MIRV_DESKTOP_PLAN.md, VULNFORGE_VS_T3MP3ST.md, DOCKER_GUIDE.md, TOMORROW.md, MANUAL_VERIFICATION.md
 ```
 
 ## How to run
