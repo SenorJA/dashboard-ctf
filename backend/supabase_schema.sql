@@ -91,12 +91,19 @@ CREATE TABLE IF NOT EXISTS findings (
     status INTEGER DEFAULT 0,
     path TEXT DEFAULT '',
     raw TEXT DEFAULT '',
+    assessment_id TEXT DEFAULT '',   -- binding a assessment workspace (Pack Finding Lifecycle)
+    lifecycle_status TEXT DEFAULT 'open',  -- open/confirmed/accepted/fixed/verified
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+-- Migración idempotente para bases ya creadas (ejecutar también en SQL Editor)
+ALTER TABLE findings ADD COLUMN IF NOT EXISTS assessment_id TEXT DEFAULT '';
+ALTER TABLE findings ADD COLUMN IF NOT EXISTS lifecycle_status TEXT DEFAULT 'open';
 CREATE INDEX IF NOT EXISTS idx_findings_tool ON findings(tool);
 CREATE INDEX IF NOT EXISTS idx_findings_target ON findings(target);
 CREATE INDEX IF NOT EXISTS idx_findings_severity ON findings(severity);
 CREATE INDEX IF NOT EXISTS idx_findings_created ON findings(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_findings_assessment ON findings(assessment_id);
+CREATE INDEX IF NOT EXISTS idx_findings_lifecycle ON findings(lifecycle_status);
 
 -- ════════════════════════════════════════════════════════════════
 --  CREDENTIALS (discovered creds)
@@ -270,6 +277,16 @@ CREATE TABLE IF NOT EXISTS app_credentials (
     value TEXT NOT NULL,              -- encrypted value (AES-256-GCM or similar)
     description TEXT DEFAULT '',
     created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ════════════════════════════════════════════════════════════════
+--  WORKSPACE_STATE (persistencia opt-in de registries en memoria)
+--  keys: "assessments", "assets", "scheduler_jobs" (JSONB)
+-- ════════════════════════════════════════════════════════════════
+CREATE TABLE IF NOT EXISTS workspace_state (
+    key TEXT PRIMARY KEY,
+    value JSONB DEFAULT '{}',
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
