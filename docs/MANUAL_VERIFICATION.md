@@ -203,10 +203,10 @@ cd backend && pip install psycopg2-binary   # solo si no esta
 python tests/manual_schema_migrate.py       # exit 0 = aplicado; exit 2 = falta credencial
 ```
 
-> Nota honesta (28 Sep 2026): en este proyecto `/pg/query` está deshabilitado
-> (404) y el `.env` no tiene `DATABASE_URL`, por lo que la migración **no** se
-> pudo aplicar de forma remota; requiere el SQL Editor del dashboard o que añadas
-> la `DATABASE_URL` al `.env`. El helper lo detecta y te lo dice.
+> Nota (28 Sep 2026): `/pg/query` está deshabilitado en este proyecto; la
+> migración se aplicó correctamente vía **SQL Editor** (paste de
+> `supabase_schema.sql` + Run) y quedó **verificada en vivo**: `workspace_state`
+> responde 200 y el round-trip de findings devuelve 201/200/200 (abajo).
 
 Tras migrar, el round-trip de persistencia (abajo) devuelve `201`/`200`.
 
@@ -225,8 +225,9 @@ PYTHONIOENCODING=utf-8 python backend/tests/manual_e2e_supabase_roundtrip.py  # 
 El script lee el token del `.env` de la raíz del repo; no es recolectado por
 pytest (prefijo `manual_`).
 
-Validado el 28 Sep 2026 (tras corregir el esquema): creado 201, lifecycle 200,
-apparece en GET, borrado 200, assessment create/delete 200, audit actualizado.
+Validado el 28 Sep 2026 (SQL Editor aplicado + verificación en vivo): creado 201,
+lifecycle 200, apparece en GET, borrado 200, assessment create/delete 200, audit
+actualizado. `workspace_state` presente (REST 200).
 
 ## 7. Seguridad
 
