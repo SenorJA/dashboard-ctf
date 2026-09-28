@@ -186,11 +186,27 @@ CREATE TABLE IF NOT EXISTS workspace_state (
 ```
 
 Alternativa sin dashboard: añade a `.env` una `DATABASE_URL` directa de Postgres
-(*Dashboard → Connect → Connection string*, `postgresql://postgres.<ref>:<pass>@aws-0-<region>.pooler.supabase.com:6543/postgres`) y ejecuta en local:
+(*Dashboard → Connect → Connection string*,
+`postgresql://postgres.<ref>:<pass>@aws-0-<region>.pooler.supabase.com:6543/postgres`)
+y ejecuta en local:
 
 ```bash
 psql "$DATABASE_URL" -f backend/supabase_schema.sql
 ```
+
+**Opción automática (recomendado):** helper incluido que intenta `/pg/query`
+(si el proyecto lo expone), luego `DATABASE_URL` de `.env`, y si no hay credenciales
+imprime el SQL + las instrucciones:
+
+```bash
+cd backend && pip install psycopg2-binary   # solo si no esta
+python tests/manual_schema_migrate.py       # exit 0 = aplicado; exit 2 = falta credencial
+```
+
+> Nota honesta (28 Sep 2026): en este proyecto `/pg/query` está deshabilitado
+> (404) y el `.env` no tiene `DATABASE_URL`, por lo que la migración **no** se
+> pudo aplicar de forma remota; requiere el SQL Editor del dashboard o que añadas
+> la `DATABASE_URL` al `.env`. El helper lo detecta y te lo dice.
 
 Tras migrar, el round-trip de persistencia (abajo) devuelve `201`/`200`.
 
