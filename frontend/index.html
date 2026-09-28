@@ -3144,6 +3144,32 @@
                     </div>
                 </div>
 
+                <!-- Task Router -->
+                <div class="bg-deep rounded-lg border border-cyber/20 p-3 mb-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-[11px] text-cyber font-semibold tracking-wider uppercase" data-i18n="router-title">🧭 Task Router</h3>
+                        <div class="flex items-center gap-2">
+                            <span id="router-config-badge" class="text-[9px] px-2 py-1 rounded bg-void border border-gray-800 text-gray-500 font-mono"></span>
+                            <button id="router-reload-btn" class="text-[9px] px-2 py-1 rounded bg-gray-800/60 hover:bg-gray-800 text-gray-400 transition-colors" data-i18n="router-reload">🔄 Reload config</button>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 mb-2">
+                        <input id="router-hint-input" type="text" placeholder="Run a full port scan on 10.0.0.5 / Escanear la API y probar JWT..."
+                            class="flex-1 bg-void border border-gray-800 rounded px-2 py-1.5 text-[11px] text-gray-200 font-mono focus:outline-none focus:border-cyber/50" data-i18n-placeholder="router-hint" aria-label="Task hint for skill router">
+                        <button id="router-route-btn" class="bg-cyber hover:bg-neon text-white rounded px-3 py-1.5 text-[11px] font-semibold whitespace-nowrap" data-i18n="router-route-btn">🚀 Route</button>
+                    </div>
+                    <div id="router-result" class="space-y-2 text-[11px]">
+                        <div class="text-gray-500 text-center py-3 border border-dashed border-gray-800 rounded" data-i18n="router-empty">Type a task hint to get the matching playbook.</div>
+                    </div>
+                    <div id="router-index-wrap" class="mt-3 hidden">
+                        <div class="flex items-center justify-between mb-1">
+                            <h4 class="text-[10px] text-gray-500 font-semibold tracking-wider uppercase" data-i18n="router-index">Tool Index</h4>
+                            <input id="router-index-filter" type="text" placeholder="Filter" data-i18n-placeholder="router-tools-filter" class="bg-void border border-gray-800 rounded px-2 py-0.5 text-[10px] text-gray-300 font-mono w-36 focus:outline-none focus:border-cyber/50" aria-label="Filter tool index">
+                        </div>
+                        <div id="router-index-list" class="flex flex-wrap gap-1"></div>
+                    </div>
+                </div>
+
                 <!-- Create Skill -->
                 <div class="bg-deep rounded-lg border border-gray-800 p-3 mb-4">
                     <h3 class="text-[11px] text-cyber font-semibold tracking-wider uppercase mb-2" data-i18n="skills-create">Create New Skill</h3>

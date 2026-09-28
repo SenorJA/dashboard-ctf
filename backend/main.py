@@ -2665,6 +2665,83 @@ async def api_skills_create(request: Request):
 
 
 # ════════════════════════════════════════════════════════════════
+#  SKILL ROUTER
+#  Maps a free-text analyst task to a PRIMARY skill/module + tools
+#  (routing.json-driven, hot-reload). Pack 9.
+# ════════════════════════════════════════════════════════════════
+
+from backend import skill_router as routerlib
+
+
+class RouterRouteRequest(BaseModel):
+    """Request body for ``POST /api/router/route``."""
+    hint: str = Field(..., max_length=2000, description="Free-text analyst task to route.")
+    lang: str = Field("en", max_length=4)
+
+
+@app.get("/api/router/routes")
+async def api_router_routes(lang: str = "en"):
+    """List every configured routing rule (id/label/skill/module/priority)."""
+    try:
+        routerlib.load_config()
+        return JSONResponse(routerlib.list_routes((lang or "en")[:2]))
+    except Exception as e:
+        logger.error("[router routes] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/router/route")
+async def api_router_route(body: RouterRouteRequest):
+    """Route a free-text task to a PRIMARY skill/module with rationale."""
+    try:
+        return JSONResponse(routerlib.route_task(body.hint, (body.lang or "en")[:2]))
+    except Exception as e:
+        logger.error("[router route] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/router/route")
+async def api_router_route_get(hint: str, lang: str = "en"):
+    """GET variant (query string) of the routing endpoint."""
+    try:
+        return JSONResponse(routerlib.route_task(hint, (lang or "en")[:2]))
+    except Exception as e:
+        logger.error("[router route] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/router/routes/{rid}")
+async def api_router_route_detail(rid: str, lang: str = "en"):
+    """Detail (keywords + priority) for a single route id."""
+    try:
+        return JSONResponse(routerlib.route_by_id(rid, (lang or "en")[:2]))
+    except Exception as e:
+        logger.error("[router route detail] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/router/tool-index")
+async def api_router_tool_index():
+    """Detect router-relevant tools on the backend host (local ``which``)."""
+    try:
+        return JSONResponse(routerlib.detect_tools())
+    except Exception as e:
+        logger.error("[router tool-index] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/router/reload")
+async def api_router_reload():
+    """Force reload of the routing config (mtime-independent)."""
+    try:
+        routerlib.reload_config()
+        return JSONResponse({"ok": True, "source": routerlib.config_source()})
+    except Exception as e:
+        logger.error("[router reload] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+# ════════════════════════════════════════════════════════════════
 #  MULTI-AGENT ORCHESTRATOR
 #  Routes security tasks to specialist agents, each grounded in a
 #  skill playbook (the MIRV equivalent of OpenExecutive's RAG context).

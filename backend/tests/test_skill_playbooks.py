@@ -53,11 +53,14 @@ def builtin_only(monkeypatch):
     yield
 
 
-# 88 built-in skill playbooks (28 original + 60 Claude-BugHunter port)
+# 93 built-in skill playbooks (88 + 5 RE port = Pack 9 Task Router).
+# 88: 28 original + 60 Claude-BugHunter port.
 # 28 original: 5 base + 5 PentesterFlow + 1 OSINT + 1 password-audit + 10
 # defensive + 1 education + 5 red-team.
 # 60 ported: 58 hunt-* (hunting skills from public bug-bounty reports) +
 # triage-validation + evidence-hygiene (CC-BY-4.0, Sachin Sharma).
+# 5 RE (Pack 9): apk-reverse, js-reverse, malware-analysis, pwn-chain,
+# firmware-pentest (new categories mobile/reverse/malware/pwn/firmware).
 BUILTIN_NAMES = {
     "recon", "webvuln", "ssrf", "jwt", "supabase",          # original 5
     "graphql", "race", "takeover", "deserialize", "ssti",    # added 5
@@ -89,6 +92,9 @@ BUILTIN_NAMES = {
     "hunt-ssrf", "hunt-ssti", "hunt-subdomain", "hunt-tls-network",
     "hunt-websocket", "hunt-xss", "hunt-xxe",                   # hunt-* 58
     "triage-validation", "evidence-hygiene",                    # validation 2
+    # ── Pack 9 Task Router — Reverse Engineering (5) ────────────
+    "apk-reverse", "js-reverse", "malware-analysis",
+    "pwn-chain", "firmware-pentest",
 }
 
 

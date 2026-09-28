@@ -1,0 +1,203 @@
+{
+  "schemaVersion": "1.0",
+  "meta": {
+    "description": "MIRV skill router — single source of truth. Edit this file only; keep markdown docs in sync.",
+    "fallbackId": "R0",
+    "scoring": "Each keyword block that matches adds 1 point to its route. The highest-scoring route on the priority order wins; ties go to the earlier priority entry. No match -> fallbackId.",
+    "maintainers": [
+      "Format inspired by zhaoxuya520/reverse-skill (MIT). Rules curated for MIRV skills/modules, en+es."
+    ]
+  },
+  "routes": {
+    "R1": {
+      "label": { "en": "Recon / scanning", "es": "Reconocimiento / escaneo" },
+      "skill": "recon",
+      "module": "automation",
+      "tools": ["nmap", "masscan", "gobuster", "whois", "dnsrecon", "curl"],
+      "keywords": [
+        { "must": "nmap|masscan|portscan|port.?scan|subdomain|subdominio|dns.?recon|recon|fingerprint|descubri|explor|live.?host|enumeraci|enumera|hosts?|barrido", "note": "Generic recon / port-fingerprint vocabulary." }
+      ]
+    },
+    "R2": {
+      "label": { "en": "OSINT / threat intel", "es": "OSINT / inteligencia de amenazas" },
+      "skill": "osint",
+      "module": "osint_recon",
+      "tools": ["curl", "exiftool"],
+      "keywords": [
+        { "must": "osint|open.?source.?intel|threat.?intel|ioc|breach|dork|dorking|correlate|wayback|username|email.?enrich|instagram|\\bphone\\b|telefono|reverse.?image|github.?search|exif|metadata|whois.?lookup|cti", "note": "Passive intelligence gathering domains." }
+      ]
+    },
+    "R3": {
+      "label": { "en": "Web vulnerability assessment", "es": "Evaluación de vulnerabilidades web" },
+      "skill": "webvuln",
+      "module": "api_scanner",
+      "tools": ["gobuster", "dirb", "ffuf", "nikto", "whatweb", "wpscan", "sqlmap", "curl"],
+      "keywords": [
+        { "must": "web|http|https|gobuster|dirb|ffuf|wfuzz|ferox|nikto|whatweb|wpscan|idor|sqli|sql.?inject|xss|csrf|clickjacking|cors|directory|directorio|path|ruta|website|sitio|webvuln|broken.?access|verbos|headers.?secur|endpoint", "note": "Web pentest / directory busting / injection surface." }
+      ]
+    },
+    "R4": {
+      "label": { "en": "SSRF / request smuggling", "es": "SSRF / contrabando de peticiones" },
+      "skill": "ssrf",
+      "module": "api_scanner",
+      "tools": ["curl"],
+      "keywords": [
+        { "must": "ssrf|server.?side.?request|smuggling|solicitudes.?servidor|proxied.?url|fetch.?internal|imds|169\\.254\\.169\\.254", "note": "Server-side request forgery and HTTP smuggling." }
+      ]
+    },
+    "R5": {
+      "label": { "en": "JWT / tokens", "es": "JWT / tokens" },
+      "skill": "jwt",
+      "module": "api_scanner",
+      "tools": ["curl"],
+      "keywords": [
+        { "must": "jwt|json.?web.?token|token.?firma|jwt.?none|alg.?confusion|token.?expira|bearer|access.?token|id.?token", "note": "JWT signature / algorithm / claims attacks." }
+      ]
+    },
+    "R6": {
+      "label": { "en": "GraphQL API", "es": "API GraphQL" },
+      "skill": "graphql",
+      "module": "api_scanner",
+      "tools": ["curl"],
+      "keywords": [
+        { "must": "graphql|\\bgql\\b|introspection|introspection.?query|graphql.?introspeccion", "note": "GraphQL introspection / batching / traversal." }
+      ]
+    },
+    "R7": {
+      "label": { "en": "Supabase / PostgreSQL", "es": "Supabase / PostgreSQL" },
+      "skill": "supabase",
+      "module": "database",
+      "tools": ["curl"],
+      "keywords": [
+        { "must": "supabase|\\brls\\b|row.?level.?security|anon.?key|service.?role|postgres|pg_restore|sql.?dump", "note": "Supabase RLS / auth bypass / schema leaks." }
+      ]
+    },
+    "R8": {
+      "label": { "en": "SSTI / template injection", "es": "SSTI / inyección de plantillas" },
+      "skill": "ssti",
+      "module": "api_scanner",
+      "tools": ["curl"],
+      "keywords": [
+        { "must": "ssti|template.?inject|freemarker|nunjucks|jinja2|twig|velocity|ssti.?test|plantilla|template", "note": "Server-side template injection payloads." }
+      ]
+    },
+    "R9": {
+      "label": { "en": "Subdomain takeover", "es": "Toma de subdominio" },
+      "skill": "takeover",
+      "module": "osint_recon",
+      "tools": ["curl"],
+      "keywords": [
+        { "must": "takeover|subdomain.?takeover|dangling|cname.?pointing|apuntando.?cname", "note": "Dangling DNS / stale CNAME hunting." }
+      ]
+    },
+    "R10": {
+      "label": { "en": "APK / mobile reverse", "es": "Inversa de APK / móvil" },
+      "skill": "apk-reverse",
+      "module": "mobile_analyzer",
+      "tools": ["jadx", "apktool", "frida", "adb", "apksigner", "mobsf", "objection"],
+      "keywords": [
+        { "must": "apk|smali|jadx|apktool|frida|\\badb\\b|android|mobsf|objection|ipa|\\bios\\b|root.?detect|cert.?pinning|pinning|apk.?hardening|加固|mobile.?pentest|movil|móvil|android.?app|decompile.?apk|反编译", "note": "Android/iOS static+dynamic reverse workflows." }
+      ]
+    },
+    "R11": {
+      "label": { "en": "Frontend JS reverse", "es": "Inversa de JS / frontend" },
+      "skill": "js-reverse",
+      "module": "browser_capture",
+      "tools": ["node", "cdp"],
+      "keywords": [
+        { "must": "js.?reverse|webpack|cryptojs|frontend.?sign|jshook|\\bcdp\\b|encrypted.?param|js.?obfusc|javascript|前端|request.?replay|http.?capture|抓包|web.?encrypt|client.?side.?encrypt|crypto", "note": "Webpack/bundle analysis, JS deobfuscation, request replay." }
+      ]
+    },
+    "R12": {
+      "label": { "en": "Malware / YARA", "es": "Malware / YARA" },
+      "skill": "malware-analysis",
+      "module": "forensics",
+      "tools": ["yara", "strings", "capstone"],
+      "keywords": [
+        { "must": "malware|yara|ransomware|backdoor|webshell|rootkit|virus|trojan|troyano|malware.?analysis|phishing.?url|suspicious.?binary|unknown.?binary|cuckoo|cape.?sandbox|botnet|dropper|c2\\b", "note": "Static sample triage, YARA rules, sandbox triggers." }
+      ]
+    },
+    "R13": {
+      "label": { "en": "Pwn / binary exploitation", "es": "Pwn / explotación binaria" },
+      "skill": "pwn-chain",
+      "module": "finding_poc",
+      "tools": ["pwntools", "gdb", "radare2", "checksec", "ropper"],
+      "keywords": [
+        { "must": "\\bpwn\\b|rop|ret2libc|ret2win|buffer.?overflow|heap.?overflow|shellcode|exploit.?dev|pwntools|\\bgdb\\b|deserialize|deserialization|binary.?exploit|stack.?overflow|format.?string|double.?free|use.?after.?free", "note": "CTF/pwn exploit development chains." }
+      ]
+    },
+    "R14": {
+      "label": { "en": "Firmware / IoT", "es": "Firmware / IoT" },
+      "skill": "firmware-pentest",
+      "module": "mobile_analyzer",
+      "tools": ["binwalk", "strings", "objdump", "ghidra"],
+      "keywords": [
+        { "must": "firmware|binwalk|iot\\b|emba|firmadyne|router.?firmware|embedded.?device|dispositivo.?embebido|固件|camera.?firmware|tele.?vision", "note": "Firmware extraction, emulation and hardware-dependency mapping." }
+      ]
+    },
+    "R15": {
+      "label": { "en": "Digital forensics", "es": "Forense digital" },
+      "skill": "memory-forensics",
+      "module": "forensics",
+      "tools": ["volatility3", "vol3", "plaso", "autopsy", "sleuthkit"],
+      "keywords": [
+        { "must": "forensic|forense|volatility|memory.?dump|memory.?dmp|plaso|timeline|autopsy|sleuth|evidence|evidence.?chain|incident.?response|memoria|disk.?image|imagen.?disco|carving|artifact", "note": "Memory/disk timelines and evidence handling." }
+      ]
+    },
+    "R16": {
+      "label": { "en": "Credentials / password cracking", "es": "Credenciales / descifrado" },
+      "skill": "password-audit",
+      "module": "credentials",
+      "tools": ["hashcat", "john", "hydra", "cewl"],
+      "keywords": [
+        { "must": "hashcat|john.?the.?ripper|\\bjohn\\b|hydra|brute.?force|bruteforce|password.?spray|crack|contraseña|password|credencial|hash.?crack|ntlm.?hash|wordlist", "note": "Hash cracking, password spraying, wordlist generation." }
+      ]
+    },
+    "R17": {
+      "label": { "en": "Report / writeup / PoC", "es": "Informe / writeup / PoC" },
+      "skill": "evidence-hygiene",
+      "module": "finding_poc",
+      "tools": ["curl"],
+      "keywords": [
+        { "must": "report|writeup|bounty|informe|reporte|write.?report|hallazgo|finding|\\bpoc\\b|proof.?of.?concept|exploit.?report|redact|markdown", "note": "Findings → reproducible PoC → report artifacts." }
+      ]
+    },
+    "R18": {
+      "label": { "en": "SIEM / SOC detection", "es": "SIEM / detección SOC" },
+      "skill": "threat-hunting-lsass",
+      "module": "siem",
+      "tools": [],
+      "keywords": [
+        { "must": "siem|\\bsoc\\b|alert|event.?correl|log.?analysis|log.?analy|registros|deteccion|detection|blue.?team|sigma.?rule|hunting|telemetry|log.?source", "note": "Event ingestion, correlation rules and alert triage." }
+      ]
+    },
+    "R19": {
+      "label": { "en": "CTF challenges", "es": "Retos CTF" },
+      "skill": "webvuln",
+      "module": "ctf",
+      "tools": ["pwntools", "curl"],
+      "keywords": [
+        { "must": "\\bctf\\b|\\bflag\\b|bandera|awd|challenge.?web|ctf.?pwn|ctf.?web|ctf.?forensic|cripto|rev.?ctf", "note": "Competition-style CTF task triage." }
+      ]
+    },
+    "R20": {
+      "label": { "en": "Active Directory / Windows", "es": "Active Directory / Windows" },
+      "skill": "kerberoasting",
+      "module": "automation",
+      "tools": ["bloodhound", "impacket", "mimikatz", "ldapsearch", "kerbrute"],
+      "keywords": [
+        { "must": "active.?directory|\\bad\\b.?cs|bloodhound|kerberoast|kerberos|ntlm.?relay|dc.?sync|impacket|mimikatz|secretsdump|golden.?ticket|silver.?ticket|ldap|domain.?controller|dominio.?windows", "note": "AD enumeration, kerberos abuse, relay and dump chains." }
+      ]
+    },
+    "R0": {
+      "label": { "en": "General reverse engineering / analysis", "es": "Ingeniería inversa general / análisis" },
+      "skill": "c2-sliver",
+      "module": "automation",
+      "tools": ["ghidra", "radare2", "gdb"],
+      "keywords": [
+        { "must": "reverse|decompil|decompile|disassembl|desensambl|obfusc|ollvm|angr|unicorn|\\bbinary\\b|\\belf\\b|mach-?o|\\bpe\\b|dump.?bin|gadgets|anti-?debug|symbols?", "note": "Binary analysis catch-all (ELF/PE/Mach-O, obfuscated logic)." }
+      ]
+    }
+  },
+  "priority": ["R10", "R11", "R12", "R13", "R14", "R15", "R16", "R17", "R18", "R19", "R20", "R5", "R6", "R7", "R8", "R9", "R4", "R3", "R2", "R1", "R0"]
+}

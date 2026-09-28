@@ -7252,6 +7252,24 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         "skills-redteam-warning":  { en: 'These skills require explicit authorization. Configure scope before loading. Offensive techniques — use only on systems you own or have written permission to test.', es: 'Estas skills requieren autorización explícita. Configura el scope antes de cargar. Técnicas ofensivas — úsalas solo en sistemas que poseas o para los que tengas permiso por escrito.' },
         "skills-redteam-badge":    { en: '⚠️ Red Team',           es: '⚠️ Red Team' },
         "skills-redteam-scope":    { en: '⚠️ This skill requires an authorized scope. Configure scope in the Scope tab first.', es: '⚠️ Esta skill requiere un scope autorizado. Configura el scope en la pestaña Scope primero.' },
+        "router-title":            { en: '🧭 Task Router',            es: '🧭 Enrutador de Tareas' },
+        "router-hint":             { en: 'Describe the task in your own words (any language)', es: 'Describe la tarea con tus palabras (cualquier idioma)' },
+        "router-route-btn":        { en: '🚀 Route',                  es: '🚀 Enrutar' },
+        "router-primary":          { en: 'PRIMARY',                   es: 'PRINCIPAL' },
+        "router-rationale":        { en: 'Rationale',                 es: 'Razonamiento' },
+        "router-tools":            { en: 'Tools',                     es: 'Herramientas' },
+        "router-skill":            { en: 'Skill',                     es: 'Skill' },
+        "router-no-skill":         { en: '(no skill)',                es: '(sin skill)' },
+        "router-fallback":         { en: '🎲 Fallback route (no confident match)', es: '🎲 Ruta de respaldo (sin coincidencia clara)' },
+        "router-alternatives":     { en: 'Alternatives',              es: 'Alternativas' },
+        "router-open-skill":       { en: '👁 View skill',             es: '👁 Ver skill' },
+        "router-load-skill":       { en: 'Load skill',                es: 'Cargar skill' },
+        "router-index":            { en: 'Tool Index',                es: 'Índice de Herramientas' },
+        "router-reload":           { en: '🔄 Reload config',          es: '🔄 Recargar config' },
+        "router-empty":            { en: 'Type a task hint to get the matching playbook.', es: 'Escribe una pista de tarea para obtener el playbook que corresponde.' },
+        "router-error":            { en: 'Routing failed',            es: 'Fallo al enrutar' },
+        "router-tools-filter":     { en: 'Filter',                    es: 'Filtro' },
+        "router-no-skills-src":    { en: 'No route configured',       es: 'No hay ruta configurada' },
 
         // ── Canary Tokens ──
         "canary-title":          { en: '🪤 Canary Tokens',           es: '🪤 Canary Tokens' },
@@ -7654,6 +7672,14 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
 
         const cmdInput = document.getElementById('cmd-input');
         if (cmdInput) cmdInput.placeholder = translations.cmdPlaceholder[lang];
+
+        // Generic data-i18n-placeholder support (input/textarea)
+        document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+            const key = el.getAttribute('data-i18n-placeholder');
+            if (translations[key] && translations[key][lang]) {
+                el.placeholder = translations[key][lang];
+            }
+        });
 
         // Update connection selector
         const connSel = document.getElementById('conn-selector');
@@ -10995,6 +11021,7 @@ Reglas:
         const btnC = document.getElementById('skills-create-btn');
         if (btnR) btnR.addEventListener('click', refreshSkills);
         if (btnC) btnC.addEventListener('click', skillCreate);
+        _routerBindEvents();
         _skillsBound = true;
     }
 
@@ -11002,6 +11029,155 @@ Reglas:
     window.skillAction = skillAction;
     window.skillRender = skillRender;
     window.skillCreate = skillCreate;
+
+    // ────────────────────────────────────────────────────────────
+    //  TASK ROUTER (Skill Router) — network to playbook matching
+    // ────────────────────────────────────────────────────────────
+    const _esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+    async function routerRoute() {
+        const input = document.getElementById('router-hint-input');
+        const box = document.getElementById('router-result');
+        if (!input || !box) return;
+        const hint = input.value.trim();
+        if (!hint) { if (typeof showToast === 'function') showToast('⚠️ ' + _t('router-hint')); return; }
+        box.innerHTML = '<div class="text-gray-500 text-center py-3">…</div>';
+        try {
+            const r = await fetch('/api/router/route', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ hint, lang: window.currentLang || 'en' })
+            });
+            const j = await r.json();
+            if (!j.ok) { box.innerHTML = `<div class="text-blood text-center py-3">${_esc(j.error || _t('router-error'))}</div>`; return; }
+            renderRouterResult(j, box);
+        } catch (e) {
+            box.innerHTML = `<div class="text-blood text-center py-3">${_esc(_t('router-error'))}: ${_esc(e.message)}</div>`;
+        }
+    }
+
+    function renderRouterResult(j, box) {
+        const p = j.primary || {};
+        const badge = j.fallback_used
+            ? `<span class="text-[9px] px-2 py-0.5 rounded bg-blood/20 border border-blood/40 text-blood font-semibold">${_esc(_t('router-fallback'))}</span>`
+            : `<span class="text-[9px] px-2 py-0.5 rounded bg-neon/20 border border-neon/40 text-neon font-semibold">${_esc(p.id)} · ${p.priority + 1}</span>`;
+        const skill = p.skill
+            ? `<button onclick="routerOpenSkill('${_esc(p.skill)}')" class="px-2 py-0.5 rounded bg-cyber/20 hover:bg-cyber/40 text-cyber font-mono text-[10px] transition-colors">${_esc(p.skill)} · ${_esc(_t('router-open-skill'))}</button>`
+            : `<span class="text-[10px] text-gray-500 font-mono">${_esc(_t('router-no-skill'))}</span>`;
+        const matched = (p.matched && p.matched.length)
+            ? `<div class="flex flex-wrap gap-1 mt-1">${p.matched.map(m => `<span class="text-[9px] px-1.5 py-0.5 rounded bg-void border border-gray-800 text-gray-500 font-mono">${_esc(m)}</span>`).join('')}</div>`
+            : '';
+        const altHtml = (j.alternatives && j.alternatives.length)
+            ? `<div class="border-t border-gray-800 pt-2 mt-2">
+                 <p class="text-[10px] text-gray-500 font-semibold tracking-wider uppercase mb-1">${_esc(_t('router-alternatives'))}</p>
+                 <div class="flex flex-wrap gap-1">${j.alternatives.map(a =>
+                     `<span class="text-[10px] px-2 py-0.5 rounded bg-gray-800/60 text-gray-400 font-mono"${a.skill ? ` onclick="routerOpenSkill('${_esc(a.skill)}')" style="cursor:pointer" title="${_esc(a.label)}"` : ''}>${_esc(a.label)} <span class="text-gray-600">(${a.hits})</span></span>`).join('')}</div>
+               </div>`
+            : '';
+        box.innerHTML = `
+            <div class="bg-void border border-cyber/30 rounded-lg p-3">
+                <div class="flex items-center justify-between gap-2 flex-wrap mb-1">
+                    <span class="text-[10px] text-gray-500 font-semibold tracking-wider uppercase">${_esc(_t('router-primary'))}</span>
+                    ${badge}
+                </div>
+                <p class="text-[13px] text-neon font-semibold">${_esc(p.label)}</p>
+                <p class="text-[11px] text-gray-300 mt-1">${_esc(p.rationale)}</p>
+                ${matched}
+                <div class="flex items-center gap-2 mt-2 flex-wrap">
+                    <span class="text-[10px] text-gray-500 uppercase font-semibold tracking-wider">${_esc(_t('router-skill'))}:</span> ${skill}
+                </div>
+                <div class="flex items-center gap-2 mt-1 flex-wrap">
+                    <span class="text-[10px] text-gray-500 uppercase font-semibold tracking-wider">${_esc(_t('router-tools'))}:</span>
+                    ${(p.tools && p.tools.length) ? p.tools.map(t => `<span class="text-[10px] px-2 py-0.5 rounded bg-deep border border-gray-800 text-gray-300 font-mono">${_esc(t)}</span>`).join('') : `<span class="text-[10px] text-gray-600 font-mono">—</span>`}
+                </div>
+                ${altHtml}
+            </div>`;
+    }
+
+    async function routerOpenSkill(name) {
+        if (!name) return;
+        await skillRender(name);
+        try {
+            const r = await fetch('/api/skills');
+            const j = await r.json();
+            const s = (j && j.skills || []).find(x => x.name === name);
+            const isLoaded = !!(s && s.enabled && s.loaded_at);
+            if (!isLoaded) {
+                const m = (s && (s.manifest || s.info)) || {};
+                skillAction(name, 'load', !!(s && (s.requires_scope || m.requires_scope)));
+            }
+        } catch (_) { /* non-fatal */ }
+    }
+
+    async function refreshRouter() {
+        try {
+            const [rRoutes, rIdx] = await Promise.all([
+                fetch('/api/router/routes'),
+                fetch('/api/router/tool-index')
+            ]);
+            const jr = await rRoutes.json().catch(() => ({}));
+            const ji = await rIdx.json().catch(() => ({}));
+            const badge = document.getElementById('router-config-badge');
+            if (badge && jr.config_source) {
+                const meta = jr.meta || {};
+                badge.textContent = `🧭 ${jr.routes ? jr.routes.length : '?'} routes · ${(meta.fallbackId || '')} fb · ${jr.config_source}`;
+            }
+            const wrap = document.getElementById('router-index-wrap');
+            const list = document.getElementById('router-index-list');
+            if (!list) return;
+            const tools = (ji && typeof ji.tools === 'object' && ji.tools) ? ji.tools : {};
+            const detected = new Set((ji && Array.isArray(ji.detected)) ? ji.detected : []);
+            const keys = Object.keys(tools);
+            if (wrap) wrap.classList.toggle('hidden', keys.length === 0);
+            routerRenderToolIndex(tools, detected, '');
+        } catch (_) { /* non-fatal: index panel stays hidden */ }
+    }
+
+    function routerRenderToolIndex(tools, detected, filter) {
+        const list = document.getElementById('router-index-list');
+        if (!list) return;
+        const f = (filter || '').trim().toLowerCase();
+        const entries = Object.entries(tools)
+            .filter(([tool]) => !f || tool.toLowerCase().includes(f));
+        if (!entries.length) { list.innerHTML = '<span class="text-[10px] text-gray-600 font-mono">—</span>'; return; }
+        list.innerHTML = entries.map(([tool, present]) => {
+            const isDetected = present || (detected && detected.has(tool));
+            return `<span class="text-[10px] px-2 py-0.5 rounded font-mono border ${isDetected ? 'bg-neon/10 border-neon/30 text-neon' : 'bg-void/60 border-gray-800 text-gray-600'}">${_esc(tool)} ${isDetected ? '✓' : '·'}</span>`;
+        }).join('');
+    }
+
+    async function routerReload() {
+        try {
+            const r = await fetch('/api/router/reload', { method: 'POST' });
+            const j = await r.json();
+            if (typeof showToast === 'function') showToast(j && j.ok ? '✓ Router ' + (j.source || '') : '⚠️ ' + (j && j.error ? j.error : 'reload failed'));
+            refreshRouter();
+        } catch (e) {
+            if (typeof showToast === 'function') showToast('⚠️ reload failed: ' + e.message);
+        }
+    }
+
+    function _routerBindEvents() {
+        const btn = document.getElementById('router-route-btn');
+        const input = document.getElementById('router-hint-input');
+        const rbtn = document.getElementById('router-reload-btn');
+        const filt = document.getElementById('router-index-filter');
+        if (btn) btn.addEventListener('click', routerRoute);
+        if (input) input.addEventListener('keydown', e => { if (e.key === 'Enter') routerRoute(); });
+        if (rbtn) rbtn.addEventListener('click', routerReload);
+        if (filt) filt.addEventListener('input', e => {
+            fetch('/api/router/tool-index').then(r => r.json()).then(j => {
+                const tools = (j && typeof j.tools === 'object' && j.tools) ? j.tools : {};
+                const detected = new Set((j && Array.isArray(j.detected)) ? j.detected : []);
+                routerRenderToolIndex(tools, detected, e.target.value);
+            }).catch(() => {});
+        });
+    }
+
+    window.routerRoute = routerRoute;
+    window.routerOpenSkill = routerOpenSkill;
+    window.refreshRouter = refreshRouter;
+    window.routerReload = routerReload;
 
     // ============================================================
     //  TAB SWITCH WRAPPERS (auto-refresh on tab switch)
@@ -11025,6 +11201,7 @@ Reglas:
         if (name === 'skills') {
             _skillsBindEvents();
             refreshSkills();
+            refreshRouter();
         }
         if (_origSwitchTabBurpAuditSkills) _origSwitchTabBurpAuditSkills(name);
     };

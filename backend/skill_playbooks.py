@@ -63,6 +63,7 @@ _DEFAULT_VERSION = "1.0.0"
 VALID_CATEGORIES = {
     "recon", "webvuln", "ssrf", "ssti", "jwt", "graphql", "race",
     "takeover", "supabase", "deserialize", "custom",
+    "mobile", "reverse", "malware", "pwn", "firmware",
 }
 
 # Frontmatter: ---\n<yaml-ish>\n---\n<body>

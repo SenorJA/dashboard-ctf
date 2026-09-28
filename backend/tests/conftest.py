@@ -133,6 +133,22 @@ def _reset_osint_rate_limiter():
         pass
 
 
+@pytest.fixture(autouse=True)
+def _hermetic_api_token_env(monkeypatch):
+    """Neutralize the opt-in API-token guard for the whole suite.
+
+    Locally OpSec may have exported ``MIRV_API_TOKEN`` (``setx`` /
+    shell); CI never sets it. Because ``api_auth.configured_token()``
+    re-reads the environment on every request, tests that exercise the
+    guard must opt IN explicitly with ``monkeypatch.setenv`` (see
+    ``test_api_auth.py``). Leaving the host value present would make
+    every ``/api/*`` test (and the WS gate) return 401 spuriously.
+    """
+    monkeypatch.delenv("MIRV_API_TOKEN", raising=False)
+    monkeypatch.delenv("MIRV_API_TOKEN_FILE", raising=False)
+    yield
+
+
 @pytest.fixture
 def sample_png():
     """A minimal 1x1 red PNG for stego tests."""

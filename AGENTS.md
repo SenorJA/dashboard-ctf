@@ -24,6 +24,7 @@ C:\Users\34678\Desktop\Proyecto ciber\
 │   ├── plugin_manager.py      # Plugin system (hooks, hot-reload via watchdog)
 │   ├── coverage_matrix.py      # Coverage tracking matrix (endpoint×param×vuln_class)
 │   ├── skill_playbooks.py     # Markdown skill playbooks (SKILL.md frontmatter)
+│   ├── skill_router.py        # Task Router: hint→skill by keyword blocks (21 routes, hot-reload)
 │   ├── redact.py              # Global redaction (20 patterns, shape-preserving)
 │   ├── audit_log.py           # Structured JSONL audit log w/ rotation + SIEM forwarding
 │   ├── burp_bridge.py         # Burp Suite ingest server (captured requests store)
@@ -46,7 +47,7 @@ C:\Users\34678\Desktop\Proyecto ciber\
 │   ├── plugins/               # Plugin directory (example_plugin/)
 │   ├── skills/                # Built-in skill playbooks (recon, webvuln, ssrf, jwt, supabase)
 │   ├── burp_plugin/           # Jython Burp Suite plugin (mirv_burp.py)
-│   ├── tests/                 # ~4672 tests across 79 test files
+│   ├── tests/                 # ~4822 tests across 82 test files
 │   ├── Dockerfile             # Container image for mirv-backend
 │   └── requirements.txt
 ├── frontend/
@@ -92,7 +93,7 @@ cd backend
 python -m pytest tests/ -k "not test_slow_hook" -q  # ~4672 tests, ~95% coverage
 ```
 
-## Backend modules (main.py + 30 modules)
+## Backend modules (main.py + 31 modules)
 
 | File | Lines | Purpose | Tests | Coverage |
 |------|-------|---------|-------|----------|
@@ -105,6 +106,7 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~4672 tests, ~95% coverage
 | `plugin_manager.py` | ~700 | Plugin discovery, hooks, hot-reload via watchdog | 47+18+15 | 100% |
 | `coverage_matrix.py` | ~480 | Coverage matrix (endpoint×param×vuln_class), next_steps estimator | 33+17 | 99% |
 | `skill_playbooks.py` | ~450 | Markdown skill playbooks, frontmatter parser, hot-reload | 67+16 | 100% |
+| `skill_router.py` | ~453 | Task Router — hint→skill route by keyword blocks (21 routes en/es, priority tie-break, fallback), hot-reload config + embedded fallback, `detect_tools()` via `which` (45 tools) | 27 | — |
 | `redact.py` | ~430 | 20 redaction patterns, shape-preserving, AI/mission integration | 63 | 100% |
 | `secret_store.py` | ~300 | At-rest Fernet encryption (AES-128-CBC+HMAC), key mgmt (env/file, scrypt derived), legacy passthrough, fail-closed | 22 | — |
 | `audit_log.py` | ~470 | JSONL audit log, 4MB rotation, SIEM forwarding, AuditLogHandler | 45 | 100% |
@@ -228,6 +230,7 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~4672 tests, ~95% coverage
 | `refreshSchedulerDaemon()` | Badge ⚙ estado del daemon server-side via `GET /api/scheduler/status` |
 | `refreshNotifications()` / `notifSave(type)` / `notifDelete(name)` / `notifTest(name)` / `notifSend()` | Notification hub: lista providers (masked), alta Telegram/webhook, test síncrono y envío manual |
 | `addConsole()` / `removeConsole(id)` (módulo `mircConsoles`) | Multi-terminal: consolas extra autocontenidas (WS propio por panel sobre el perfil de conexión activo) — sin tocar el pipeline del terminal principal |
+| `routerRoute()` / `refreshRouter()` / `routerReload()` / `routerOpenSkill(name)` | Task Router (tab Skills): rutea hint→skill (POST `/api/router/route`), tool-index con `which` del host, reload config, open+auto-load skill |
 
 ## Findings parsing system
 
@@ -287,6 +290,7 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~4672 tests, ~95% coverage
 | **Plugin Watcher** | `POST /api/plugins/watcher/{start,stop}`, `GET /api/plugins/watcher/{events,status}` |
 | **Coverage** | `POST /api/coverage/mark`, `GET /api/coverage/{list,summary,untested,next,sessions,export,vocab}`, `DELETE /api/coverage` |
 | **Skills** | `GET /api/skills`, `GET /api/skills/{name}`, `GET /api/skills/{name}/render`, `POST /api/skills/{name}/{load,unload,enable,disable,reload}`, `POST /api/skills/create` |
+| **Skill Router** | `GET /api/router/routes`, `POST /api/router/route` (+ `GET /api/router/route?hint=`), `GET /api/router/routes/{rid}`, `GET /api/router/tool-index`, `POST /api/router/reload` |
 | **Redaction** | `POST /api/redact`, `POST /api/redact/dict`, `GET /api/redact/patterns`, `POST /api/redact/check` |
 | **Audit Log** | `GET /api/audit/logs`, `GET /api/audit/stats`, `POST /api/audit` |
 | **Burp Bridge** | `POST /api/burp/ingest`, `GET /api/burp/{requests,requests/{id},endpoints,tasks,issues}`, `POST /api/burp/{tasks,issues,finding-to-issue,raw,export-findings,snapshot}`, `PATCH /api/burp/tasks/{id}`, `DELETE /api/burp/clear`, `GET /api/burp/status` |
@@ -434,11 +438,11 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~4672 tests, ~95% coverage
 
 ## Test summary
 
-- **81 test files** in `backend/tests/` (84 counting `test_scheduler_daemon.py` + `test_finding_lifecycle.py` + `test_assets.py` + `test_api_auth.py`)
-- **~4790 tests** collected (296 now in `test_main_gaps.py` + 20 in `test_main_websocket_gaps.py` + 30 `test_assessments.py` + 43 `test_scheduler.py` + 27 `test_scheduler_daemon.py` + 19 `test_finding_lifecycle.py` + 22 `test_assets.py` + 17 `test_api_auth.py` + 37 `test_notifications.py` + 22 `test_workspace_store.py`)
+- **82 test files** in `backend/tests/` (85 counting `test_scheduler_daemon.py` + `test_finding_lifecycle.py` + `test_assets.py` + `test_api_auth.py`)
+- **~4821 tests** collected (296 now in `test_main_gaps.py` + 20 in `test_main_websocket_gaps.py` + 30 `test_assessments.py` + 43 `test_scheduler.py` + 27 `test_scheduler_daemon.py` + 19 `test_finding_lifecycle.py` + 22 `test_assets.py` + 17 `test_api_auth.py` + 37 `test_notifications.py` + 22 `test_workspace_store.py` + 27 `test_skill_router.py`)
 - **~95% coverage** across measured backend modules
 - **`backend/main.py` = 100%** (2847/2847 statements; last gaps were websocket `read_shell` break on OSError/EOFError + outer `WebSocketDisconnect`)
-- **Key test files**: test_database (196), test_api_endpoints (333), test_main_gaps (296), test_main_coverage (165), test_main_extra (120), test_crud_endpoints (67), test_deep_coverage_1/2 (205), test_compaction (63), test_burp_bridge (72), test_redact (63), test_skill_playbooks (67), test_audit_log (45), test_plugin_manager (47), test_plugin_watcher (18), test_siem (31), test_coverage (33), test_exif_osint (63), test_mobile_analyzer (54), test_canary_tokens (24), test_dlp_scanner (25), test_finding_poc (61), test_intelligence (43), test_permission_system (56), test_opsec, test_scope_guard, test_forensics, test_adb_controller, test_kali_mcp_client, test_mission_store, test_knowledgebase, test_swarm, test_assessments (30), test_scheduler (43), test_scheduler_daemon (27), test_finding_lifecycle (19), test_assets (22), test_api_auth (17), test_notifications (37), test_workspace_store (22), + scanner tools + gap files (test_*_gaps.py: redact, dlp_scanner, mission_store, dns_lookup, pdf_engine, database, finding_poc, headers_scanner, hash_cracker, adb_controller, skill_playbooks, audit_log, intelligence, opsec, scope_guard).
+- **Key test files**: test_database (196), test_api_endpoints (333), test_main_gaps (296), test_main_coverage (165), test_main_extra (120), test_crud_endpoints (67), test_deep_coverage_1/2 (205), test_compaction (63), test_burp_bridge (72), test_redact (63), test_skill_playbooks (67), test_skill_router (27), test_audit_log (45), test_plugin_manager (47), test_plugin_watcher (18), test_siem (31), test_coverage (33), test_exif_osint (63), test_mobile_analyzer (54), test_canary_tokens (24), test_dlp_scanner (25), test_finding_poc (61), test_intelligence (43), test_permission_system (56), test_opsec, test_scope_guard, test_forensics, test_adb_controller, test_kali_mcp_client, test_mission_store, test_knowledgebase, test_swarm, test_assessments (30), test_scheduler (43), test_scheduler_daemon (27), test_finding_lifecycle (19), test_assets (22), test_api_auth (17), test_notifications (37), test_workspace_store (22), + scanner tools + gap files (test_*_gaps.py: redact, dlp_scanner, mission_store, dns_lookup, pdf_engine, database, finding_poc, headers_scanner, hash_cracker, adb_controller, skill_playbooks, audit_log, intelligence, opsec, scope_guard).
 
 ### main.py coverage tests (gaps)
 
