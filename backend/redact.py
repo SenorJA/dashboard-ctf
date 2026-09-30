@@ -141,7 +141,11 @@ REDACT_PATTERNS: list[tuple[re.Pattern, Any]] = [
      '[JWT_FRAGMENT]'),
 
     # ── URL userinfo passwords: scheme://user:pass@host ─────────
-    (re.compile(r'([a-zA-Z][a-zA-Z0-9+.-]*://[^:/@\s]+):([^:/@\s]+)@'),
+    # ``[a-zA-Z][a-zA-Z0-9+.-]*`` (unbounded) causes catastrophic
+    # backtracking on long alnum runs without ``://`` (O(n²) — see
+    # regression test). Bounding the scheme to 32 chars keeps it linear
+    # and is safe: real URL schemes are short (https, ws, git+ssh, ...).
+    (re.compile(r'([a-zA-Z][a-zA-Z0-9+.-]{0,31}://[^:/@\s]+):([^:/@\s]+)@'),
      r'\1:[REDACTED]@'),
 
     # ── Generic api_key=/key=/token=/secret=/password= forms ────

@@ -4559,6 +4559,15 @@ ${bodyHtml}
         'schedule-create':       ()   => { if (window.toggleSchedulerForm) toggleSchedulerForm(true); },
         'schedule-create-save':  ()   => { if (window.createScheduleJob) createScheduleJob(); },
         'schedule-create-cancel':()   => { if (window.toggleSchedulerForm) toggleSchedulerForm(false); },
+
+        // ── Code Agent (opencode) ──
+        'opencode-refresh':      ()   => { if (window.refreshCodeAgent) refreshCodeAgent(); },
+        'opencode-run':          ()   => { if (window.codeAgentRun) codeAgentRun(); },
+        'opencode-clear':        ()   => { if (window.codeAgentClear) codeAgentClear(); },
+
+        // ── Phishing Sim ──
+        'phishing-refresh':      ()   => { if (window.refreshPhishingSim) refreshPhishingSim(); },
+        'phishing-create':       ()   => { if (window.phishingCreate) phishingCreate(); },
     };
 
     function initEventListeners() {
@@ -7614,6 +7623,20 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         pcaHealthScore:   { en: 'Health score',              es: 'Puntuación de salud' },
         pcaSuggestions:   { en: '💡 Suggested Solutions',    es: '💡 Soluciones Sugeridas' },
         pcaAIExplain:     { en: '🤖 AI Explanation',         es: '🤖 Explicación con IA' },
+
+        // ── Code Agent (opencode) ──
+        tabOpencode:      { en: '🤖 Code Agent',             es: '🤖 Agente de Código' },
+        ocSubtitle:       { en: 'Headless opencode CLI — plan/build/general tasks with redacted output.', es: 'CLI headless de opencode — tareas plan/build/general con salida redactada.' },
+        ocAgent:          { en: 'Agent',                     es: 'Agente' },
+        ocPrompt:         { en: 'Prompt',                    es: 'Prompt' },
+        ocPromptPlaceholder: { en: 'Describe the task for opencode…', es: 'Describe la tarea para opencode…' },
+        ocPure:           { en: 'pure (no context)',         es: 'pure (sin contexto)' },
+
+        // ── Phishing Sim ──
+        tabPhishing:      { en: '🎣 Phishing Sim',           es: '🎣 Simulador de Phishing' },
+        phSubtitle:       { en: 'Awareness training campaigns (training-only). No real credentials are ever stored.', es: 'Campañas de concienciación (training-only). Ninguna credencial real se almacena.' },
+        phCreate:         { en: 'New campaign',              es: 'Nueva campaña' },
+        phNamePlaceholder:{ en: 'Name',                      es: 'Nombre' },
 
         // ── Backup / Restore (localStorage) ──
         exportData:        { en: '📦 Export Data',           es: '📦 Exportar Datos' },
@@ -13809,4 +13832,151 @@ Reglas:
     if (_assessNew) _assessNew.dataset.action = 'assessment-create';
     const _schedNew = document.getElementById('sched-new-btn');
     if (_schedNew) _schedNew.dataset.action = 'schedule-create';
+
+    // ════════════════════════════════════════════════════════════════
+    //  CODE AGENT (Pack 10) — opencode bridge
+    // ════════════════════════════════════════════════════════════════
+    function _ocEsc(str) {
+        return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+    window.refreshCodeAgent = async function () {
+        try {
+            const d = await _assessFetch('/api/opencode/status');
+            const el = document.getElementById('oc-status');
+            if (!el) return;
+            let label = 'not installed';
+            let cls = 'bg-deep border border-gray-800 text-gray-400';
+            if (d && d.ok && d.installed) {
+                label = `${d.version || '?'}${d.busy ? ' · busy' : ' · idle'}`;
+                cls = d.busy ? 'bg-amber-500/10 border border-amber-500/40 text-amber-400' : 'bg-emerald-500/10 border border-emerald-500/40 text-emerald-400';
+            }
+            el.textContent = label;
+            el.className = `px-2 py-1 rounded text-[10px] font-semibold ${cls}`;
+        } catch { /* silent */ }
+    };
+    window.codeAgentRun = async function () {
+        const prompt = (document.getElementById('oc-prompt')?.value || '').trim();
+        if (!prompt) { showToast('⚠ prompt required'); return; }
+        const busy = document.getElementById('oc-busy');
+        const out = document.getElementById('oc-output');
+        try {
+            if (busy) busy.classList.remove('hidden');
+            const d = await _assessFetch('/api/opencode/run', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    prompt,
+                    agent: document.getElementById('oc-agent')?.value || 'plan',
+                    pure: !!(document.getElementById('oc-pure')?.checked),
+                    model: document.getElementById('oc-model')?.value?.trim() || undefined,
+                    cwd: document.getElementById('oc-cwd')?.value?.trim() || undefined,
+                })
+            });
+            if (out) {
+                if (!d.ok) out.textContent = '[error] ' + (d.error || 'run failed');
+                else out.textContent = d.stdout || '(empty output)';
+            }
+            showToast(d.ok ? '✅ Agent run finished' : '⚠ ' + (d.error || 'run failed'));
+            refreshCodeAgent();
+        } catch (e) {
+            if (out) out.textContent = '[exception] ' + e.message;
+        } finally {
+            if (busy) busy.classList.add('hidden');
+        }
+    };
+    window.codeAgentClear = function () {
+        const out = document.getElementById('oc-output');
+        if (out) out.textContent = '—';
+        const p = document.getElementById('oc-prompt');
+        if (p) p.value = '';
+    };
+    document.getElementById('oc-run')?.addEventListener('click', () => window.codeAgentRun && codeAgentRun());
+    document.getElementById('oc-refresh')?.addEventListener('click', () => window.refreshCodeAgent && refreshCodeAgent());
+    document.getElementById('oc-clear')?.addEventListener('click', () => window.codeAgentClear && codeAgentClear());
+
+    // ════════════════════════════════════════════════════════════════
+    //  PHISHING SIM — training-only awareness campaigns
+    // ════════════════════════════════════════════════════════════════
+    window.refreshPhishingSim = async function () {
+        try {
+            const [st, list] = await Promise.all([
+                _assessFetch('/api/phishing/stats'),
+                _assessFetch('/api/phishing/campaigns'),
+            ]);
+            const status = document.getElementById('ph-status');
+            if (status) status.textContent = `total: ${(st.stats || {}).total || 0} · ❤ ${(st.stats || {}).total_clicks || 0} · 🪝 ${(st.stats || {}).total_submissions || 0}`;
+            const wrap = document.getElementById('ph-campaigns');
+            if (!wrap) return;
+            const camps = list.campaigns || [];
+            if (!camps.length) {
+                wrap.innerHTML = '<p class="text-gray-400 text-[10px]">No campaigns yet — create one above.</p>';
+                return;
+            }
+            wrap.innerHTML = camps.map(c => {
+                const url = c.status === 'active' ? `${window.location.origin}/phishing/${c.id}` : '—';
+                const badge = c.status === 'active'
+                    ? '<span class="text-emerald-400 font-semibold">active</span>'
+                    : c.status === 'archived' ? '<span class="text-gray-500">archived</span>'
+                    : '<span class="text-amber-400">planning</span>';
+                const actions = [];
+                if (c.status === 'planning') actions.push(`<button data-ph="${c.id}" data-act="activate" class="bg-cyber hover:bg-cyan-600 text-void px-2 py-1 rounded text-[10px] font-bold">▶ Activate</button>`);
+                if (c.status === 'active') actions.push(`<button data-ph="${c.id}" data-act="archive" class="bg-deep hover:bg-gray-800 text-gray-300 border border-gray-800 px-2 py-1 rounded text-[10px]">◼ Archive</button>`);
+                actions.push(`<button data-ph="${c.id}" data-act="delete" class="bg-blood/10 hover:bg-blood/20 text-rose-400 border border-blood/30 px-2 py-1 rounded text-[10px]">🗑 Delete</button>`);
+                return `<div class="bg-deep rounded-lg border border-gray-800 p-3 flex flex-wrap items-center gap-2 text-[11px]">
+                    <div class="flex-1 min-w-52">
+                        <span class="font-semibold text-gray-100">${_ocEsc(c.name)}</span> ${badge}
+                        <span class="text-gray-500">· ${_ocEsc(c.template_id)} · target ${_ocEsc(c.target)}</span>
+                        <div class="text-[10px] text-gray-500 mt-0.5">
+                            clicks ${c.clicks || 0} · submissions ${c.submissions || 0} · hashes ${(c.hashes || []).length}
+                            <span class="text-cyber block truncate">${_ocEsc(url)}</span>
+                            <span class="text-gray-600">· autorizado por ${_ocEsc(c.authorized_by || '')}</span>
+                        </div>
+                    </div>
+                    <div class="flex gap-1.5">${actions.join('')}</div>
+                </div>`;
+            }).join('');
+        } catch { /* silent */ }
+    };
+    window.phishingCreate = async function () {
+        const name = (document.getElementById('ph-name')?.value || '').trim();
+        if (!name) { showToast('⚠ name required'); return; }
+        const d = await _assessFetch('/api/phishing/campaigns', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name,
+                template_id: document.getElementById('ph-template')?.value || 'generic_portal',
+                target: document.getElementById('ph-target')?.value?.trim() || '',
+                authorized_by: document.getElementById('ph-authorized')?.value?.trim() || '',
+                notes: document.getElementById('ph-notes')?.value?.trim() || '',
+            })
+        });
+        if (!d.ok) { showToast('⚠ ' + (d.error || 'create failed')); return; }
+        showToast('✅ Campaign created');
+        ['ph-name', 'ph-notes', 'ph-target', 'ph-authorized'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+        refreshPhishingSim();
+    };
+    window.phishingAction = async function (cid, act) {
+        const okActions = { activate: 'POST', archive: 'POST', delete: 'DELETE' };
+        if (!okActions[act]) return;
+        const d = await _assessFetch(`/api/phishing/campaigns/${encodeURIComponent(cid)}${act === 'delete' ? '' : '/' + act}`, {
+            method: okActions[act],
+            headers: { 'Content-Type': 'application/json' },
+        });
+        if (!d.ok) { showToast('⚠ ' + (d.error || 'action failed')); return; }
+        showToast(`✅ ${act} ok`);
+        refreshPhishingSim();
+    };
+    document.getElementById('ph-create')?.addEventListener('click', () => window.phishingCreate && phishingCreate());
+    document.getElementById('ph-refresh')?.addEventListener('click', () => window.refreshPhishingSim && refreshPhishingSim());
+    document.getElementById('ph-campaigns')?.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-ph][data-act]');
+        if (btn) phishingAction(btn.dataset.ph, btn.dataset.act);
+    });
+
+    // Refresh both new tabs when opened
+    const _origPack10Switch = window.switchTab;
+    window.switchTab = function (name) {
+        _origPack10Switch(name);
+        if (name === 'opencode') refreshCodeAgent();
+        if (name === 'phishing') refreshPhishingSim();
+    };
 });

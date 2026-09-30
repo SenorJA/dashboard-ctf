@@ -291,3 +291,23 @@ print(c.exec_command('nmap --version|head -1')[1].read().decode().strip())
 | Cambios de backend/frontend no se ven | `docker compose -p proyectociber up -d --build` (reconstruye la imagen). |
 | Tests locales dan 401 en masa | La suite limpia `MIRV_API_TOKEN(_FILE)` por test (autouse en conftest) → es independiente del `setx` del host. |
 | `POST /api/findings` → 503 / `PATCH lifecycle` → `PGRST204` | Esquema sin migrar: aplica la sección 6 (SQL Editor o `DATABASE_URL` + psql). Los tests no lo detectan (mockean la DB); solo aparece en E2E real. |
+
+## 11. Pack 10 — Code Agent + Phishing Sim (verificación rápida)
+
+Validado en vivo el **30 Sep 2026** (host local, opencode v1.18.33 instalado). El guard
+de `/api/*` exige token; las páginas públicas `/phishing/*` NO.
+
+```bash
+cd backend
+PYTHONIOENCODING=utf-8 python tests/manual_e2e_opencode.py        # status + run real (77% de cobertura del pack)
+PYTHONIOENCODING=utf-8 python tests/manual_e2e_supabase_roundtrip.py
+```
+
+| Endpoint | Respuesta esperada | Verificado |
+|---|---|---|
+| `GET /api/opencode/status` | 200 `{installed:true, version, allowed_agents:[...]}` | ✅ |
+| `POST /api/opencode/run {prompt,agent:'plan',pure:true}` | 200, `ok:true`, `exit_code:0`, stdout redactado/truncado | ✅ ("Hola 👋") |
+| `POST /api/findings` conceptual del submit | la subida crea finding `phishing-awareness` + evento SIEM + audit — ver `test_api_phishing_full_flow` | ✅ (TestClient) |
+| `GET /phishing/{cid}` (pública, sin token) | 200 HTML o 410 si caducó; click count += 1 | ✅ |
+| `POST /phishing/{cid}/submit` | 200 HTML de resultado; credenciales solo `sha256[:16]`, nunca en claro | ✅ |
+| Borrado limpio end-to-end | nada roto en la suite: `4850 passed, 17 failed` (los 17 son `example.com` en vivo, sin red externa) | ✅ |

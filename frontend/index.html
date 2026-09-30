@@ -563,6 +563,14 @@
                     <span class="tab-icon">🌐</span>
                     <span>Browser Capture</span>
                 </button>
+                <button class="tab-btn" id="tab-btn-opencode" data-tab="opencode" role="tab" aria-selected="false" aria-controls="tab-opencode" data-i18n="tabOpencode">
+                    <span class="tab-icon">🤖</span>
+                    <span>Code Agent</span>
+                </button>
+                <button class="tab-btn" id="tab-btn-phishing" data-tab="phishing" role="tab" aria-selected="false" aria-controls="tab-phishing" data-i18n="tabPhishing">
+                    <span class="tab-icon">🎣</span>
+                    <span>Phishing Sim</span>
+                </button>
             </nav>
 
             <!-- ── STATS BAR ── -->
@@ -3571,6 +3579,96 @@
                         </div>
                     </div>
                 </div>
+            </div>
+
+            <!-- ════════════════════════════════════════════════════════
+                 TAB: CODE AGENT (Pack 10) — headless `opencode` bridge
+                 ════════════════════════════════════════════════════════ -->
+            <div id="tab-opencode" role="tabpanel" aria-labelledby="tab-btn-opencode" class="tab-pane p-4 pt-3 overflow-y-auto">
+                <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+                    <div>
+                        <h2 class="text-lg font-bold text-neon tracking-wider">🤖 Code Agent</h2>
+                        <p class="text-[10px] text-gray-400" data-i18n="ocSubtitle">Headless opencode CLI — plan/build/general tasks with redacted output.</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span id="oc-status" class="px-2 py-1 rounded text-[10px] font-semibold bg-deep border border-gray-800 text-gray-400">unknown</span>
+                        <button data-action="opencode-refresh" class="bg-neon/10 hover:bg-neon/20 text-neon border border-neon/30 px-3 py-1.5 rounded text-[10px] font-semibold transition-all">
+                            ⟳ Refresh
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-deep rounded-lg border border-gray-800 p-4 space-y-3">
+                    <div>
+                        <label for="oc-agent" class="block text-[10px] text-gray-500 uppercase tracking-wider mb-1" data-i18n="ocAgent">Agent</label>
+                        <select id="oc-agent" class="bg-void border border-gray-800 rounded px-2 py-1 text-[11px] text-gray-300 w-64">
+                            <option value="plan">plan</option>
+                            <option value="build">build</option>
+                            <option value="general">general</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="oc-prompt" class="block text-[10px] text-gray-500 uppercase tracking-wider mb-1" data-i18n="ocPrompt">Prompt</label>
+                        <textarea id="oc-prompt" rows="5" class="w-full bg-void border border-gray-800 rounded px-2 py-2 text-[11px] text-gray-200 font-mono"
+                            data-i18n="ocPromptPlaceholder" placeholder="Describe la tarea para opencode…"></textarea>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-3">
+                        <label class="flex items-center gap-1.5 text-[10px] text-gray-400">
+                            <input type="checkbox" id="oc-pure" class="accent-cyber"> <span data-i18n="ocPure">pure (sin contexto)</span>
+                        </label>
+                        <input id="oc-model" placeholder="modelo (opcional)" class="bg-void border border-gray-800 rounded px-2 py-1 text-[10px] text-gray-300 w-48" />
+                        <input id="oc-cwd" placeholder="cwd relativo al root (opcional)" class="bg-void border border-gray-800 rounded px-2 py-1 text-[10px] text-gray-300 w-64" />
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button data-action="opencode-run" class="bg-cyber hover:bg-cyan-600 text-void px-4 py-1.5 rounded text-[10px] font-bold transition-all">
+                            ▶ Run
+                        </button>
+                        <button data-action="opencode-clear" class="bg-deep hover:bg-gray-800 text-gray-400 border border-gray-800 px-3 py-1.5 rounded text-[10px] transition-all">
+                            Clear
+                        </button>
+                        <span id="oc-busy" class="hidden text-[10px] text-amber-400 font-semibold">… working</span>
+                    </div>
+                    <pre id="oc-output" class="bg-void border border-gray-800 rounded p-3 text-[11px] text-gray-200 font-mono whitespace-pre-wrap max-h-96 overflow-y-auto min-h-24">—
+</pre>
+                </div>
+            </div>
+
+            <!-- ════════════════════════════════════════════════════════
+                 TAB: PHISHING SIM — training-only awareness campaigns
+                 ════════════════════════════════════════════════════════ -->
+            <div id="tab-phishing" role="tabpanel" aria-labelledby="tab-btn-phishing" class="tab-pane p-4 pt-3 overflow-y-auto">
+                <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+                    <div>
+                        <h2 class="text-lg font-bold text-neon tracking-wider">🎣 Phishing Sim</h2>
+                        <p class="text-[10px] text-gray-400" data-i18n="phSubtitle">Campañas de concienciación (training-only). Ninguna credencial real se almacena.</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span id="ph-status" class="px-2 py-1 rounded text-[10px] font-semibold bg-deep border border-gray-800 text-gray-400">total: 0</span>
+                        <button data-action="phishing-refresh" class="bg-neon/10 hover:bg-neon/20 text-neon border border-neon/30 px-3 py-1.5 rounded text-[10px] font-semibold transition-all">
+                            ⟳ Refresh
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Create form -->
+                <div class="bg-deep rounded-lg border border-gray-800 p-4 mb-4">
+                    <h4 class="text-[11px] text-cyber font-semibold tracking-wider uppercase mb-3" data-i18n="phCreate">Nueva campaña</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                        <input id="ph-name" placeholder="Nombre" class="bg-void border border-gray-800 rounded px-2 py-2 text-[11px] text-gray-200 col-span-2" data-i18n="phNamePlaceholder" />
+                        <select id="ph-template" class="bg-void border border-gray-800 rounded px-2 py-2 text-[11px] text-gray-300">
+                            <option value="generic_portal">Portal genérico</option>
+                            <option value="invoice_notice">Aviso de factura</option>
+                            <option value="it_password_reset">Reset de contraseña TI</option>
+                        </select>
+                        <input id="ph-target" placeholder="Target / audiencia (ej. ventas@corp)" class="bg-void border border-gray-800 rounded px-2 py-2 text-[11px] text-gray-200" />
+                        <input id="ph-authorized" placeholder="Autorizado por" class="bg-void border border-gray-800 rounded px-2 py-2 text-[11px] text-gray-200" />
+                        <input id="ph-notes" placeholder="Notas (opcional)" class="bg-void border border-gray-800 rounded px-2 py-2 text-[11px] text-gray-200 col-span-3" />
+                        <button data-action="phishing-create" class="bg-cyber hover:bg-cyan-600 text-void px-4 py-2 rounded text-[11px] font-bold transition-all">+ Create</button>
+                    </div>
+                </div>
+
+                <!-- Campaigns -->
+                <div id="ph-campaigns" class="space-y-3"></div>
             </div>
 
         </main>

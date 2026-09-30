@@ -575,3 +575,23 @@ class TestRedactEndpoints:
         body = r.json()
         assert body["sensitive"] is False
         assert body["matches"] == []
+
+    def test_redact_long_alnum_run_no_backtracking(self, client):
+        """Regression: the URL-userinfo pattern used an unbounded scheme
+        run ([a-zA-Z][a-zA-Z0-9+.-]*) which caused catastrophic O(n²)
+        backtracking on long alnum runs without '://' — a 400k-char output
+        could hang for minutes. It must complete quickly and still redact
+        genuine userinfo URLs."""
+        import time
+        payload = "A" * 200_000
+        t0 = time.time()
+        out = redact_string(payload)
+        assert time.time() - t0 < 5.0
+        # a pure alnum run is collapsed by the generic LONG_TOKEN fallback;
+        # the point is it must NOT hang (the old URL-userinfo pattern did).
+        assert out == "[LONG_TOKEN]"
+        # sanity: the URL rule still fires
+        r = client.post("/api/redact/check",
+                        json={"text": "https://user:p4ss@host:22/"})
+        assert r.status_code == 200
+        assert r.json()["sensitive"] is True

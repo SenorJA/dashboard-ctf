@@ -43,6 +43,7 @@ _BACKEND_MODULES_TO_ALIAS = [
     "hash_cracker", "stego_tool", "plugin_manager", "skill_playbooks",
     "rate_limiter", "osint_recon", "instagram_osint",
     "episodic_memory", "orchestrator", "secret_store",
+    "opencode_agent", "phishing_sim",
 ]
 for _name in _BACKEND_MODULES_TO_ALIAS:
     try:

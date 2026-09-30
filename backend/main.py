@@ -22,7 +22,7 @@ import logging
 import urllib.request
 import urllib.error
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 # ── Production mode detection ──
 # If run WITHOUT --reload, we're in production mode
@@ -47,7 +47,7 @@ if _project_root not in sys.path:
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File, Form, Request, Body, Query
 from dataclasses import asdict
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -3809,6 +3809,235 @@ async def kali_mcp_tools():
     from backend.kali_mcp_client import list_available_tools
     tools = await list_available_tools()
     return JSONResponse({"ok": True, "tools": tools})
+
+
+# ════════════════════════════════════════════════════════════════
+#  CODE AGENT (Pack 10) — headless `opencode` bridge
+# ════════════════════════════════════════════════════════════════
+
+_OPENCODE_AGENTS = ("build", "plan", "general")
+
+
+@app.get("/api/opencode/status")
+async def opencode_status():
+    """Report whether the opencode CLI is installed and idle/using it."""
+    try:
+        from backend import opencode_agent as oc
+        st = oc.status()
+        st["allowed_agents"] = list(_OPENCODE_AGENTS)
+        st["ok"] = True
+        return JSONResponse(st)
+    except Exception as e:  # pragma: no cover - defensive
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/opencode/run")
+async def opencode_run(body: dict):
+    """Run opencode headless with a prompt (build/plan/general)."""
+    prompt = (body or {}).get("prompt", "")
+    if not prompt or not str(prompt).strip():
+        return JSONResponse({"ok": False, "error": "prompt is required"}, status_code=400)
+    agent = (body or {}).get("agent", "plan")
+    if agent not in _OPENCODE_AGENTS:
+        return JSONResponse(
+            {"ok": False, "error": f"agent must be one of: {', '.join(_OPENCODE_AGENTS)}"},
+            status_code=400,
+        )
+    from backend import opencode_agent as oc
+    result = await asyncio.to_thread(
+        oc.run,
+        str(prompt),
+        agent=agent,
+        cwd=(body or {}).get("cwd"),
+        model=(body or {}).get("model"),
+        pure=bool((body or {}).get("pure", False)),
+        timeout=int((body or {}).get("timeout") or oc.DEFAULT_TIMEOUT),
+    )
+    if not result.get("available"):
+        return JSONResponse({"ok": False, "error": result.get("error", "opencode not available"),
+                             "available": False}, status_code=503)
+    code = 200 if result.get("ok") else 500
+    return JSONResponse(result, status_code=code)
+
+
+# ════════════════════════════════════════════════════════════════
+#  PHISHING SIM — training-only phishing awareness campaigns
+#  (public landings live at /phishing/{id} — outside the /api guard;
+#   credentials are NEVER stored in plaintext, only sha256 prefixes)
+# ════════════════════════════════════════════════════════════════
+
+def _ph_upgrade(cid: str) -> Tuple[Optional[object], Optional[str]]:
+    """Shared act on a campaign for public endpoints (bumps click, SIEM, audit)."""
+    from backend import phishing_sim as ps
+    camp, err = ps.record_click(cid)
+    if camp is None:
+        return None, err or "campaña no encontrada"
+    siem_ingest(
+        source="phishing",
+        severity="info",
+        title="Phishing-awareness click",
+        detail=f"Trainee opened landing of campaign '{camp.name}'",
+        tags=["phishing", "training", "click"],
+        raw_data={"campaign": camp.id},
+    )
+    al_audit("INFO", "tool", "phishing.click",
+             f"Campaign '{camp.name}' clicked", details={"campaign_id": cid})
+    return camp, None
+
+
+@app.get("/api/phishing/templates")
+async def phishing_templates():
+    from backend import phishing_sim as ps
+    return JSONResponse({"ok": True, "templates": ps.templates()})
+
+
+@app.get("/api/phishing/stats")
+async def phishing_stats():
+    from backend import phishing_sim as ps
+    return JSONResponse({"ok": True, "stats": ps.stats()})
+
+
+@app.get("/api/phishing/campaigns")
+async def phishing_campaigns():
+    from backend import phishing_sim as ps
+    return JSONResponse({"ok": True, "campaigns": ps.list_campaigns()})
+
+
+@app.get("/api/phishing/campaigns/{cid}")
+async def phishing_campaign_get(cid: str):
+    from backend import phishing_sim as ps
+    camp = ps.get_campaign(cid)
+    if not camp:
+        return JSONResponse({"ok": False, "error": "campaña no encontrada"}, status_code=404)
+    return JSONResponse({"ok": True, "campaign": camp.__dict__})
+
+
+@app.post("/api/phishing/campaigns")
+async def phishing_campaign_create(body: dict):
+    from backend import phishing_sim as ps
+    camp, err = ps.create_campaign(
+        str(body.get("name", "")),
+        str(body.get("template_id", "")),
+        str(body.get("target", "")),
+        str(body.get("authorized_by", "")),
+        notes=str(body.get("notes", "")),
+    )
+    if camp is None:
+        return JSONResponse({"ok": False, "error": err}, status_code=400)
+    al_audit("INFO", "tool", "phishing.create",
+             f"Campaign '{camp.name}' created for {camp.target}",
+             details={"campaign_id": camp.id, "template": camp.template_id})
+    return JSONResponse({"ok": True, "campaign": camp.__dict__}, status_code=201)
+
+
+@app.post("/api/phishing/campaigns/{cid}/activate")
+async def phishing_campaign_activate(cid: str):
+    from backend import phishing_sim as ps
+    camp, err = ps.activate_campaign(cid)
+    if camp is None:
+        return JSONResponse({"ok": False, "error": err}, status_code=400)
+    landing_url = f"/phishing/{cid}"
+    al_audit("INFO", "tool", "phishing.activate",
+             f"Campaign '{camp.name}' activated ({landing_url})",
+             details={"campaign_id": cid})
+    return JSONResponse({"ok": True, "campaign": camp.__dict__, "landing_url": landing_url})
+
+
+@app.post("/api/phishing/campaigns/{cid}/archive")
+async def phishing_campaign_archive(cid: str):
+    from backend import phishing_sim as ps
+    camp, err = ps.archive_campaign(cid)
+    if camp is None:
+        return JSONResponse({"ok": False, "error": err}, status_code=400)
+    al_audit("INFO", "tool", "phishing.archive",
+             f"Campaign '{camp.name}' archived", details={"campaign_id": cid})
+    return JSONResponse({"ok": True, "campaign": camp.__dict__})
+
+
+@app.delete("/api/phishing/campaigns/{cid}")
+async def phishing_campaign_delete(cid: str):
+    from backend import phishing_sim as ps
+    if not ps.delete_campaign(cid):
+        return JSONResponse({"ok": False, "error": "campaña no encontrada"}, status_code=404)
+    al_audit("INFO", "tool", "phishing.delete",
+             f"Campaign {cid} deleted", details={"campaign_id": cid})
+    return JSONResponse({"ok": True, "message": "Campaign deleted"})
+
+
+_PH_ENDED_HTML = ("<!doctype html><html lang='es'><meta charset='utf-8'>"
+                  "<meta name='viewport' content='width=device-width,initial-scale=1'>"
+                  "<body style='margin:0;background:#060a12'>"
+                  "<div style='max-width:420px;margin:60px auto;background:#0b1220;border:1px solid #1f2937;"
+                  "border-radius:10px;padding:28px;color:#e5e7eb;font-family:Segoe UI,Tahoma,sans-serif'>"
+                  "<h2 style='margin:0 0 8px;color:#f87171'>Simulación terminada</h2>"
+                  "<p style='font-size:13px;line-height:1.5'>Esta página ya no está activa en el entorno de "
+                  "formación MIRV. Contacta con tu responsable de seguridad.</p>"
+                  "</div></body></html>")
+
+
+@app.get("/phishing/{cid}")
+async def phishing_landing(cid: str, request: Request):
+    """Public landing for trainees (no API token required)."""
+    ip = request.client.host if request.client else "unknown"
+    camp, err = _ph_upgrade(cid)
+    if camp is None:
+        return HTMLResponse(_PH_ENDED_HTML, status_code=410)
+    from backend import phishing_sim as ps
+    html, _ = ps.render_landing(cid)
+    if html is None:
+        return HTMLResponse(_PH_ENDED_HTML, status_code=410)
+    siem_ingest(
+        source="phishing", severity="info",
+        title="Phishing-awareness landing served",
+        detail=f"Click tracked for campaign '{camp.name}' from {ip}",
+        tags=["phishing", "training", "click"], raw_data={"campaign": cid, "ip": ip},
+    )
+    return HTMLResponse(html)
+
+
+@app.get("/phishing/{cid}/result")
+async def phishing_result(cid: str):
+    from backend import phishing_sim as ps
+    html, err = ps.render_result(cid)
+    if html is None:
+        return JSONResponse({"ok": False, "error": err}, status_code=404)
+    return HTMLResponse(html)
+
+
+@app.post("/phishing/{cid}/submit")
+async def phishing_submit(cid: str, username: str = Form(...), password: str = Form(...),
+                          request: Request = None):
+    """Trainee submitted credentials → hashed, finding + SIEM + audit (no plaintext)."""
+    ip = request.client.host if request.client else "unknown"
+    from backend import phishing_sim as ps
+    evt, err = ps.record_submission(cid, username, password)
+    if evt is None:
+        return HTMLResponse(_PH_ENDED_HTML, status_code=410)
+    finding = {
+        "tool": "phishing-sim",
+        "target": evt["campaign_name"],
+        "type": "phishing-awareness",
+        "severity": "high",
+        "title": "Phishing training: trainee submitted credentials",
+        "detail": (f"Simulated-phishing portal capture (training). Campaign "
+                   f"{evt['campaign_id']} recorded a submission from {ip}. No real "
+                   "credentials stored."),
+        "status": "open",
+    }
+    db.save_finding(finding)
+    _notify_finding("Phishing sim", finding["detail"], evt["campaign_name"], "high")
+    siem_ingest(
+        source="phishing", severity="high",
+        title="Phishing-awareness submission",
+        detail=f"Trainee submitted credentials in campaign '{evt['campaign_name']}' from {ip}",
+        tags=["phishing", "training", "submission"],
+        raw_data={"campaign": cid, "ip": ip},
+    )
+    al_audit("WARNING", "finding", "phishing.submit",
+             f"Campaign '{evt['campaign_name']}' captured credentials (hashed) from {ip}",
+             details={"campaign_id": cid, "ip": ip})
+    html, _ = ps.render_result(cid)
+    return HTMLResponse(html or _PH_ENDED_HTML)
 
 
 # ════════════════════════════════════════════════════════════════
