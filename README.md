@@ -94,26 +94,30 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 ## ✨ Features principales
 
-26 tabs agrupados por categoría:
+33 tabs agrupados por categoría:
 
 ### Core
 | Tab | Descripción |
 |-----|-------------|
+| **Home** | Command Center: KPIs (backend, findings, targets, cobertura, SIEM, intel, CPU/RAM/disco) + quick actions. |
 | **Terminal** | Shell SSH interactivo vía WebSocket con PTY, tab-completion, historial y upload. |
 | **Reports** | Reportes de escaneo guardados con export a `.md`, `.html`, `.txt` y PDF. |
 | **Scripts** | Builder de scripts RCE con deploy a `/tmp/` vía SSH. |
-| **Findings** | Hallazgos parseados automáticamente de 10+ herramientas, con filtros por severidad. |
+| **Findings** | Hallazgos parseados automáticamente de 10+ herramientas, con filtros por severidad y ciclo de vida. |
 | **AI Writeup** | Generación de informes CTF completos en Markdown con IA multi-proveedor. |
 | **Bounty** | Generador de reportes de bug bounty con plantillas por plataforma. |
 | **Op Admiral** | Planificador de misiones asistido por IA con persistencia de planes. |
+| **Code Agent** | `opencode` CLI headless (plan/build/general): status, prompt, salida redactada/truncada. |
+| **Lab Sessions** | Máquinas → sesiones → evidencias con detección de flags, análisis IA sobre el historial completo y write-up HTML/PDF dark mode. |
 
 ### OSINT
 | Tab | Descripción |
 |-----|-------------|
-| **OSINT Recon** | 10 herramientas OSINT (TheHarvester, Mr.Holmes, Infoooze, BBOT, SpiderFoot, etc.) + 8 enlaces web. |
+| **OSINT Recon** | 19 herramientas OSINT pasivas + enlaces web. |
 | **EXIF OSINT** | Extracción de metadatos EXIF + GPS + reverse geocoding + mapa Leaflet. |
 | **Canary Tokens** | Generador de 8 tipos de honeytokens con tracking de activación. |
 | **DLP Scanner** | Detección de PII/secretos (8 patrones + validación Luhn) en texto, archivo o URL. |
+| **KnowledgeBase** | 80+ CVEs críticos + técnicas MITRE ATT&CK con búsqueda. |
 
 ### Security
 | Tab | Descripción |
@@ -122,26 +126,32 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 | **Audit Log** | Log estructurado JSONL con rotación 4MB y redacción automática de secretos. |
 | **Coverage** | Matriz de cobertura endpoint×parámetro×clase de vulnerabilidad + próximos pasos. |
 | **Plugins** | Sistema de plugins con hot-reload (watchdog) y 5 hooks. |
-| **Skills** | Playbooks de habilidades en Markdown con frontmatter YAML. |
+| **Skills** | Playbooks de habilidades en Markdown + Task Router (hint→skill). |
 | **Intelligence** | Monitorización continua de targets (headers, cert, DNS, puertos, tech stack). |
+| **Burp Bridge** | Ingest bidireccional MIRV ↔ Burp Suite (plugin Jython incluido). |
+| **Browser Capture** | Import de HAR + 10 checks de seguridad + scoring de riesgo. |
 
-### Mobile / Forensics
+### Mobile / Forensics / Labs
 | Tab | Descripción |
 |-----|-------------|
 | **Mobile** | Laboratorio APK: análisis estático (apktool, jadx, mobsf) + dinámico (ADB + Frida). |
 | **Forensics** | Forense de memoria (Volatility), disco (Sleuth Kit) y archivos (strings, binwalk). |
 | **CTF** | Challenges con categorías, dificultad, puntos, hints y tracking de flags. |
-| **KnowledgeBase** | 80+ CVEs críticos + técnicas MITRE ATT&CK con búsqueda. |
 
-### Infra
+### Operaciones / Infra
 | Tab | Descripción |
 |-----|-------------|
 | **Docker** | Control del stack Docker desde el dashboard (start/stop/clean/build + polling). |
 | **Swarm** | Pipeline multi-operador (Recon → Scanner → Exploiter → Report) con visualización. |
 | **Automation** | Integración con n8n para disparar workflows desde findings. |
-| **Browser Capture** | Import de HAR + 10 checks de seguridad + scoring de riesgo. |
-| **Burp Bridge** | Ingest bidireccional MIRV ↔ Burp Suite (plugin Jython incluido). |
 | **Credentials** | Store de credenciales descubiertas con categorización (SSH, HTTP, DB, API). |
+| **Assessments** | Workspace por engagement: estado, targets, tags, notas, export/import. |
+| **Scheduler** | Escaneos programados: countdowns, run-now, daemon server-side e historial. |
+| **Sys Monitor** | Recursos del host (CPU/RAM/uptime), volúmenes y candidatos de limpieza. |
+| **PC Analyzer** | Diagnóstico de equipo (grado A–F) + sugerencias + auto-fix confirmado. |
+| **Phishing Sim** | Campañas de concienciación (training-only): landing, clicks y submissions hasheadas. |
+
+> Además, **Payload Studio** se abre como enlace externo (editor de payloads Hak5 para 6 dispositivos).
 
 ---
 
