@@ -4568,6 +4568,10 @@ ${bodyHtml}
         // ── Phishing Sim ──
         'phishing-refresh':      ()   => { if (window.refreshPhishingSim) refreshPhishingSim(); },
         'phishing-create':       ()   => { if (window.phishingCreate) phishingCreate(); },
+
+        // ── Lab Sessions (Pack 11) ──
+        'labs-refresh':          ()   => { if (window.refreshLabs) refreshLabs(); },
+        'labs-create-machine':   ()   => { if (window.labsCreateMachine) labsCreateMachine(); },
     };
 
     function initEventListeners() {
@@ -7637,6 +7641,14 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         phSubtitle:       { en: 'Awareness training campaigns (training-only). No real credentials are ever stored.', es: 'Campañas de concienciación (training-only). Ninguna credencial real se almacena.' },
         phCreate:         { en: 'New campaign',              es: 'Nueva campaña' },
         phNamePlaceholder:{ en: 'Name',                      es: 'Nombre' },
+
+        // ── Lab Sessions (Pack 11) ──
+        tabLabs:          { en: '🧪 Lab Sessions',           es: '🧪 Sesiones de Lab' },
+        labsSubtitle:     { en: 'Document machines, sessions and evidence. Flag detection and AI dark-mode write-up.', es: 'Documenta máquinas, sesiones y evidencias. Detección de flags y write-up dark-mode con IA.' },
+        labsNewMachine:   { en: 'New machine',               es: 'Nueva máquina' },
+        labsMachineName:  { en: 'Name',                      es: 'Nombre' },
+        labsMachines:     { en: 'Machines',                  es: 'Máquinas' },
+        labsSelectHint:   { en: 'Select a machine to manage its sessions and evidence.', es: 'Selecciona una máquina para gestionar sus sesiones y evidencias.' },
 
         // ── Backup / Restore (localStorage) ──
         exportData:        { en: '📦 Export Data',           es: '📦 Exportar Datos' },
@@ -13972,11 +13984,274 @@ Reglas:
         if (btn) phishingAction(btn.dataset.ph, btn.dataset.act);
     });
 
-    // Refresh both new tabs when opened
+    // ════════════════════════════════════════════════════════════════
+    //  LAB SESSIONS (Pack 11) — machines / sessions / evidence / write-up
+    // ════════════════════════════════════════════════════════════════
+    const _labs = { machineId: null, sessionId: null, narrative: null };
+
+    function _labsFlagBadges(s) {
+        const u = s.user_flag_captured ? '<span class="text-emerald-400">user ✅</span>' : '<span class="text-gray-600">user ✗</span>';
+        const r = s.root_flag_captured ? '<span class="text-rose-400">root ✅</span>' : '<span class="text-gray-600">root ✗</span>';
+        return `${u} · ${r}`;
+    }
+
+    window.refreshLabs = async function () {
+        try {
+            const [sum, list] = await Promise.all([
+                _assessFetch('/api/labs/summary'),
+                _assessFetch('/api/labs/machines'),
+            ]);
+            const s = sum || {};
+            const st = document.getElementById('labs-status');
+            if (st) st.textContent = `🧪 ${s.machines || 0} · ▶ ${s.sessions || 0} · 🚩 ${(s.user_flags || 0) + (s.root_flags || 0)}`;
+            const wrap = document.getElementById('labs-machines');
+            if (!wrap) return;
+            const machines = (list && list.machines) || [];
+            if (!machines.length) {
+                wrap.innerHTML = '<p class="text-gray-500 text-[10px]">No machines yet.</p>';
+                return;
+            }
+            wrap.innerHTML = machines.map(m => {
+                const active = _labs.machineId === m.id;
+                return `<div data-labs-machine="${m.id}" class="cursor-pointer bg-deep rounded-lg border ${active ? 'border-neon/50' : 'border-gray-800'} p-3 text-[11px] hover:border-cyber/50">
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="font-semibold text-gray-100">${_ocEsc(m.name)}</span>
+                        <span class="text-gray-500 text-[10px]">${_ocEsc(m.operating_system)} / ${_ocEsc(m.difficulty)}</span>
+                    </div>
+                    <div class="text-[10px] text-gray-500 mt-0.5">${_ocEsc(m.ip || '—')} · sessions ${m.session_count || 0}
+                        <button data-labs-del-machine="${m.id}" class="float-right text-rose-400/70 hover:text-rose-300">🗑</button>
+                    </div>
+                </div>`;
+            }).join('');
+        } catch { /* silent */ }
+    };
+
+    window.labsCreateMachine = async function () {
+        const name = (document.getElementById('labs-m-name')?.value || '').trim();
+        if (!name) { showToast('⚠ machine name required'); return; }
+        const d = await _assessFetch('/api/labs/machines', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name,
+                ip: document.getElementById('labs-m-ip')?.value?.trim() || '',
+                operating_system: document.getElementById('labs-m-os')?.value || 'linux',
+                difficulty: document.getElementById('labs-m-diff')?.value || 'easy',
+            }),
+        });
+        if (d.error) { showToast('⚠ ' + d.error); return; }
+        ['labs-m-name', 'labs-m-ip'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+        showToast('✅ Machine created');
+        refreshLabs();
+    };
+
+    window.labsDeleteMachine = async function (mid) {
+        const d = await _assessFetch(`/api/labs/machines/${encodeURIComponent(mid)}`, { method: 'DELETE' });
+        if (d.error) { showToast('⚠ ' + d.error); return; }
+        if (_labs.machineId === mid) { _labs.machineId = null; _labs.sessionId = null; }
+        refreshLabs();
+    };
+
+    window.labsOpenMachine = async function (mid) {
+        _labs.machineId = mid; _labs.sessionId = null; _labs.narrative = null;
+        await refreshLabs();
+        try {
+            const d = await _assessFetch(`/api/labs/machines/${encodeURIComponent(mid)}/sessions`);
+            const sessions = (d && d.sessions) || [];
+            const wrap = document.getElementById('labs-workspace');
+            if (!wrap) return;
+            const rows = sessions.length ? sessions.map(s => `
+                <div data-labs-session="${s.id}" class="cursor-pointer bg-void rounded border border-gray-800 p-2 text-[11px] hover:border-cyber/50">
+                    <span class="font-semibold text-gray-100">${_ocEsc(s.title)}</span>
+                    <span class="text-gray-500 text-[10px]"> · ${_ocEsc(s.phase)} · ${_labsFlagBadges(s)} · steps ${s.step_count || 0}</span>
+                </div>`).join('') : '<p class="text-gray-500 text-[10px]">No sessions yet.</p>';
+            wrap.innerHTML = `
+                <h4 class="text-[11px] text-cyber font-semibold tracking-wider uppercase mb-2">Sessions</h4>
+                <div class="flex gap-2 mb-3">
+                    <input id="labs-s-title" placeholder="New session title" class="flex-1 bg-void border border-gray-800 rounded px-2 py-1.5 text-[11px] text-gray-200" />
+                    <button data-action="labs-create-session" class="bg-cyber hover:bg-cyan-600 text-void px-3 py-1.5 rounded text-[11px] font-bold">+ Session</button>
+                </div>
+                <div class="space-y-2">${rows}</div>`;
+        } catch { /* silent */ }
+    };
+
+    window.labsCreateSession = async function () {
+        const title = (document.getElementById('labs-s-title')?.value || '').trim();
+        if (!title) { showToast('⚠ session title required'); return; }
+        const d = await _assessFetch('/api/labs/sessions', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ machine_id: _labs.machineId, title }),
+        });
+        if (d.error) { showToast('⚠ ' + d.error); return; }
+        showToast('✅ Session created');
+        labsOpenMachine(_labs.machineId);
+    };
+
+    window.labsDeleteSession = async function (sid) {
+        const d = await _assessFetch(`/api/labs/sessions/${encodeURIComponent(sid)}`, { method: 'DELETE' });
+        if (d.error) { showToast('⚠ ' + d.error); return; }
+        if (_labs.sessionId === sid) _labs.sessionId = null;
+        labsOpenMachine(_labs.machineId);
+    };
+
+    window.labsOpenSession = async function (sid) {
+        _labs.sessionId = sid; _labs.narrative = null;
+        const wrap = document.getElementById('labs-workspace');
+        if (!wrap) return;
+        const ws = await _assessFetch(`/api/labs/sessions/${encodeURIComponent(sid)}/workspace`);
+        if (ws.error) { showToast('⚠ ' + ws.error); return; }
+        const sess = ws.session || {};
+        const steps = ws.steps || [];
+        const timeline = steps.length ? steps.map((st, i) => {
+            const flag = st.detected_flag_type;
+            const badge = flag === 'user' ? '<span class="text-emerald-400 text-[9px] border border-emerald-500/40 rounded px-1">user flag</span>'
+                : flag === 'root' ? '<span class="text-rose-400 text-[9px] border border-rose-500/40 rounded px-1">root flag</span>' : '';
+            return `<div class="bg-void rounded border border-gray-800 p-2 text-[11px]">
+                <div class="flex items-center justify-between">
+                    <span class="text-gray-400 text-[10px]">#${i + 1} ${badge}</span>
+                    <button data-labs-del-step="${st.id}" class="text-rose-400/70 hover:text-rose-300 text-[10px]">🗑</button>
+                </div>
+                <pre class="text-neon whitespace-pre-wrap break-words mt-1">${_ocEsc(st.command)}</pre>
+                <pre class="text-gray-300 whitespace-pre-wrap break-words mt-1 max-h-40 overflow-auto">${_ocEsc(st.output)}</pre>
+                ${st.notes ? `<div class="text-gray-500 text-[10px] mt-1">${_ocEsc(st.notes)}</div>` : ''}
+            </div>`;
+        }).join('') : '<p class="text-gray-500 text-[10px]">No evidence yet.</p>';
+
+        const analysis = ws.analysis;
+        const analysisHtml = analysis ? `
+            <div class="bg-void rounded border border-gray-800 p-3 text-[11px] mt-3">
+                <div class="text-cyber font-semibold mb-1">AI analysis · ${_ocEsc(analysis.current_phase)}</div>
+                <div class="text-gray-300">${_ocEsc(analysis.summary)}</div>
+                ${analysis.next_objective ? `<div class="text-gray-400 mt-1"><b>Next:</b> ${_ocEsc(analysis.next_objective)}</div>` : ''}
+                ${(analysis.safe_commands || []).length ? `<pre class="text-neon mt-1 whitespace-pre-wrap">${(analysis.safe_commands || []).map(_ocEsc).join('\n')}</pre>` : ''}
+                ${(analysis.cautions || []).length ? `<div class="text-amber-400/80 mt-1">⚠ ${(analysis.cautions || []).map(_ocEsc).join(' · ')}</div>` : ''}
+            </div>` : '';
+
+        wrap.innerHTML = `
+            <div class="flex items-center justify-between flex-wrap gap-2 mb-3">
+                <div>
+                    <span class="font-semibold text-gray-100 text-sm">${_ocEsc(sess.title)}</span>
+                    <span class="text-gray-500 text-[10px]"> · ${_ocEsc(sess.machine_name)} · ${_ocEsc(sess.operating_system)} · phase <b>${_ocEsc(sess.phase)}</b> · ${_labsFlagBadges(sess)}</span>
+                </div>
+                <button data-labs-del-session="${sid}" class="text-rose-400/70 hover:text-rose-300 text-[10px]">🗑 session</button>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                    <h4 class="text-[11px] text-cyber font-semibold tracking-wider uppercase mb-2">Add evidence</h4>
+                    <input id="labs-e-cmd" placeholder="command" class="w-full bg-void border border-gray-800 rounded px-2 py-1.5 text-[11px] text-gray-200 mb-2" />
+                    <textarea id="labs-e-out" rows="4" placeholder="output" class="w-full bg-void border border-gray-800 rounded px-2 py-1.5 text-[11px] text-gray-200 mb-2"></textarea>
+                    <input id="labs-e-notes" placeholder="notes (optional)" class="w-full bg-void border border-gray-800 rounded px-2 py-1.5 text-[11px] text-gray-200 mb-2" />
+                    <div class="flex gap-2">
+                        <button data-action="labs-add-step" class="bg-cyber hover:bg-cyan-600 text-void px-3 py-1.5 rounded text-[11px] font-bold">+ Evidence</button>
+                        <button data-action="labs-analyze" class="bg-neon/10 hover:bg-neon/20 text-neon border border-neon/30 px-3 py-1.5 rounded text-[11px] font-semibold">🧠 Analyze</button>
+                    </div>
+                    ${analysisHtml}
+                </div>
+                <div>
+                    <h4 class="text-[11px] text-cyber font-semibold tracking-wider uppercase mb-2">Timeline</h4>
+                    <div class="space-y-2 max-h-[420px] overflow-auto">${timeline}</div>
+                </div>
+            </div>
+            <div class="mt-3 flex flex-wrap items-center gap-2 border-t border-gray-800 pt-3">
+                <button data-action="labs-writeup" class="bg-cyber hover:bg-cyan-600 text-void px-3 py-1.5 rounded text-[11px] font-bold">📝 Generate write-up</button>
+                <button data-action="labs-download-html" class="bg-deep hover:bg-gray-800 text-gray-300 border border-gray-800 px-3 py-1.5 rounded text-[11px]">⬇ HTML</button>
+                <button data-action="labs-download-pdf" class="bg-deep hover:bg-gray-800 text-gray-300 border border-gray-800 px-3 py-1.5 rounded text-[11px]">⬇ PDF</button>
+                <span id="labs-writeup-status" class="text-[10px] text-gray-500"></span>
+            </div>`;
+    };
+
+    window.labsAddStep = async function () {
+        const command = (document.getElementById('labs-e-cmd')?.value || '').trim();
+        if (!command) { showToast('⚠ command required'); return; }
+        const d = await _assessFetch(`/api/labs/sessions/${encodeURIComponent(_labs.sessionId)}/steps`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                command,
+                output: document.getElementById('labs-e-out')?.value || '',
+                notes: document.getElementById('labs-e-notes')?.value || '',
+            }),
+        });
+        if (d.error) { showToast('⚠ ' + d.error); return; }
+        const step = d.step || {};
+        if (step.detected_flag_type && step.detected_flag_type !== 'none') showToast(`🚩 ${step.detected_flag_type} flag detected`);
+        labsOpenSession(_labs.sessionId);
+    };
+
+    window.labsDeleteStep = async function (stepId) {
+        const d = await _assessFetch(`/api/labs/steps/${encodeURIComponent(stepId)}`, { method: 'DELETE' });
+        if (d.error) { showToast('⚠ ' + d.error); return; }
+        labsOpenSession(_labs.sessionId);
+    };
+
+    window.labsAnalyze = async function () {
+        const status = document.getElementById('labs-writeup-status');
+        if (status) status.textContent = 'analyzing…';
+        const d = await _assessFetch(`/api/labs/sessions/${encodeURIComponent(_labs.sessionId)}/analyze`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ provider: 'local', model: (document.getElementById('labs-e-notes') ? '' : '') }),
+        });
+        if (d.error) { showToast('⚠ ' + d.error); if (status) status.textContent = ''; return; }
+        showToast('✅ Analysis ready');
+        labsOpenSession(_labs.sessionId);
+    };
+
+    window.labsWriteup = async function () {
+        const status = document.getElementById('labs-writeup-status');
+        if (status) status.textContent = 'generating narrative…';
+        const d = await _assessFetch(`/api/labs/sessions/${encodeURIComponent(_labs.sessionId)}/writeup`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ language: 'es' }),
+        });
+        if (d.error) { showToast('⚠ ' + d.error); if (status) status.textContent = ''; return; }
+        _labs.narrative = d.steps || [];
+        showToast('✅ Write-up narrative ready');
+        if (status) status.textContent = `${_labs.narrative.length} steps`;
+    };
+
+    window.labsDownload = async function (format) {
+        const r = await fetch(`/api/labs/sessions/${encodeURIComponent(_labs.sessionId)}/export`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ format, language: 'es', narrative: _labs.narrative || [] }),
+        });
+        if (!r.ok) { showToast('⚠ export failed'); return; }
+        const blob = await r.blob();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `mirv-writeup-${_labs.sessionId}.${format === 'pdf' ? 'pdf' : 'html'}`;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    };
+
+    document.getElementById('labs-workspace')?.addEventListener('click', (e) => {
+        const sess = e.target.closest('[data-labs-session]');
+        if (sess) { labsOpenSession(sess.dataset.labsSession); return; }
+        const delS = e.target.closest('[data-labs-del-session]');
+        if (delS) { e.stopPropagation(); labsDeleteSession(delS.dataset.labsDelSession); return; }
+        const delStep = e.target.closest('[data-labs-del-step]');
+        if (delStep) { labsDeleteStep(delStep.dataset.labsDelStep); return; }
+    });
+    document.getElementById('labs-machines')?.addEventListener('click', (e) => {
+        const del = e.target.closest('[data-labs-del-machine]');
+        if (del) { e.stopPropagation(); labsDeleteMachine(del.dataset.labsDelMachine); return; }
+        const item = e.target.closest('[data-labs-machine]');
+        if (item) labsOpenMachine(item.dataset.labsMachine);
+    });
+
+    const _LABS_ACTIONS = {
+        'labs-create-session': () => window.labsCreateSession && labsCreateSession(),
+        'labs-add-step':       () => window.labsAddStep && labsAddStep(),
+        'labs-analyze':        () => window.labsAnalyze && labsAnalyze(),
+        'labs-writeup':        () => window.labsWriteup && labsWriteup(),
+        'labs-download-html':  () => window.labsDownload && labsDownload('html'),
+        'labs-download-pdf':   () => window.labsDownload && labsDownload('pdf'),
+    };
+    if (typeof ACTION_MAP !== 'undefined' && ACTION_MAP) Object.assign(ACTION_MAP, _LABS_ACTIONS);
+
+    // Refresh all Pack 10/11 tabs when opened
     const _origPack10Switch = window.switchTab;
     window.switchTab = function (name) {
         _origPack10Switch(name);
         if (name === 'opencode') refreshCodeAgent();
         if (name === 'phishing') refreshPhishingSim();
+        if (name === 'labs') refreshLabs();
     };
 });

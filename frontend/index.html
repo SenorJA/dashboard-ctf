@@ -571,6 +571,10 @@
                     <span class="tab-icon">🎣</span>
                     <span>Phishing Sim</span>
                 </button>
+                <button class="tab-btn" id="tab-btn-labs" data-tab="labs" role="tab" aria-selected="false" aria-controls="tab-labs" data-i18n="tabLabs">
+                    <span class="tab-icon">🧪</span>
+                    <span>Lab Sessions</span>
+                </button>
             </nav>
 
             <!-- ── STATS BAR ── -->
@@ -3669,6 +3673,50 @@
 
                 <!-- Campaigns -->
                 <div id="ph-campaigns" class="space-y-3"></div>
+            </div>
+
+            <div id="tab-labs" role="tabpanel" aria-labelledby="tab-btn-labs" class="tab-pane p-4 pt-3 overflow-y-auto">
+                <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+                    <div>
+                        <h2 class="text-lg font-bold text-neon tracking-wider">🧪 Lab Sessions</h2>
+                        <p class="text-[10px] text-gray-400" data-i18n="labsSubtitle">Documenta máquinas, sesiones y evidencias. Detección de flags y write-up dark-mode con IA.</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span id="labs-status" class="px-2 py-1 rounded text-[10px] font-semibold bg-deep border border-gray-800 text-gray-400">0 / 0</span>
+                        <button data-action="labs-refresh" class="bg-neon/10 hover:bg-neon/20 text-neon border border-neon/30 px-3 py-1.5 rounded text-[10px] font-semibold transition-all">⟳ Refresh</button>
+                    </div>
+                </div>
+
+                <div class="bg-deep rounded-lg border border-gray-800 p-4 mb-4">
+                    <h4 class="text-[11px] text-cyber font-semibold tracking-wider uppercase mb-3" data-i18n="labsNewMachine">Nueva máquina</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
+                        <input id="labs-m-name" placeholder="Nombre" class="bg-void border border-gray-800 rounded px-2 py-2 text-[11px] text-gray-200" data-i18n="labsMachineName" />
+                        <input id="labs-m-ip" placeholder="IP / host" class="bg-void border border-gray-800 rounded px-2 py-2 text-[11px] text-gray-200" />
+                        <select id="labs-m-os" class="bg-void border border-gray-800 rounded px-2 py-2 text-[11px] text-gray-300">
+                            <option value="linux">Linux</option>
+                            <option value="windows">Windows</option>
+                        </select>
+                        <select id="labs-m-diff" class="bg-void border border-gray-800 rounded px-2 py-2 text-[11px] text-gray-300">
+                            <option value="easy">easy</option>
+                            <option value="medium">medium</option>
+                            <option value="hard">hard</option>
+                            <option value="insane">insane</option>
+                        </select>
+                        <button data-action="labs-create-machine" class="bg-cyber hover:bg-cyan-600 text-void px-4 py-2 rounded text-[11px] font-bold transition-all">+ Add</button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    <div class="lg:col-span-1">
+                        <h4 class="text-[11px] text-cyber font-semibold tracking-wider uppercase mb-2" data-i18n="labsMachines">Máquinas</h4>
+                        <div id="labs-machines" class="space-y-2"></div>
+                    </div>
+                    <div class="lg:col-span-2">
+                        <div id="labs-workspace" class="bg-deep rounded-lg border border-gray-800 p-4">
+                            <p class="text-[11px] text-gray-500" data-i18n="labsSelectHint">Selecciona una máquina para gestionar sus sesiones y evidencias.</p>
+                        </div>
+                    </div>
+                </div>
             </div>
 
         </main>

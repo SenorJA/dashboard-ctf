@@ -311,3 +311,29 @@ PYTHONIOENCODING=utf-8 python tests/manual_e2e_supabase_roundtrip.py
 | `GET /phishing/{cid}` (pública, sin token) | 200 HTML o 410 si caducó; click count += 1 | ✅ |
 | `POST /phishing/{cid}/submit` | 200 HTML de resultado; credenciales solo `sha256[:16]`, nunca en claro | ✅ |
 | Borrado limpio end-to-end | nada roto en la suite: `4850 passed, 17 failed` (los 17 son `example.com` en vivo, sin red externa) | ✅ |
+
+## 12. Pack 11 — Lab Sessions + write-up dark mode (verificación rápida)
+
+Portado de `afsh4ck/exploitpath` (máquinas→sesiones→evidencias, detección de
+flags, IA sobre el historial completo, write-up dark-mode). Todo con
+`-H "X-MIRV-Token: $TOK"`. El registro es en memoria + persistencia opt-in
+(`MIRV_PERSIST_WORKSPACE=1`, tabla `workspace_state`, clave `lab_sessions`).
+
+```bash
+cd backend
+PYTHONIOENCODING=utf-8 python -m pytest tests/test_flag_detection.py tests/test_lab_sessions.py \
+    tests/test_lab_writeup.py tests/test_labs_endpoints.py -q
+# 92 passed
+```
+
+| Paso | Petición | Respuesta esperada | Verificado |
+|---|---|---|---|
+| Crear máquina | `POST /api/labs/machines {"name":"Academy","operating_system":"linux"}` | 200 con `id`, `status:"active"` | ✅ |
+| Crear sesión | `POST /api/labs/sessions {"machine_id":…,"title":"Recon"}` | 200 con `phase:"recon"` | ✅ |
+| Añadir evidencia con flag | `POST /api/labs/sessions/{sid}/steps {"command":"cat /home/x/user.txt","output":"<32hex>"}` | `step.detected_flag_type:"user"`, `session.phase:"foothold"` | ✅ |
+| Editar evidencia (integridad) | `PUT /api/labs/steps/{id} {"command":"ls"}` | flags recomputados → `user_flag_captured:false`, análisis obsoletos invalidados | ✅ |
+| Análisis IA | `POST /api/labs/sessions/{sid}/analyze` | JSON `{analysis:{current_phase,summary,evidence,safe_commands,rationale,cautions}}` | ✅ (mock) |
+| Write-up narrado | `POST /api/labs/sessions/{sid}/writeup` | `steps:[{stepId,title,description}]` | ✅ (mock) |
+| Export HTML/PDF | `POST /api/labs/sessions/{sid}/export {"format":"html"\|"pdf","narrative":[…]}` | HTML `#090d14`/`#9FEF00` escapado · PDF `%PDF` dark con tarjetas de terminal | ✅ |
+| Export/Import estado | `GET /api/labs/export` → `POST /api/labs/import {"machines":[…],"replace":true}` | round-trip de máquinas/sesiones/evidencias/análisis | ✅ |
+| Suite completa | `pytest tests/ -k "not test_slow_hook"` | `4938 passed, 17 failed` (los 17 = `example.com` sin red) | ✅ |

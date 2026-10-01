@@ -21,7 +21,7 @@ import time
 import logging
 import urllib.request
 import urllib.error
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 # ── Production mode detection ──
@@ -201,6 +201,10 @@ from backend import api_auth as apiauth
 
 # ── Notification hub (Telegram/Discord/Slack/Pushover/webhook) ──
 from backend import notifications as notif
+
+# ── Pack 11: Lab Sessions (machines/sessions/evidence + flag detection + writeup) ──
+from backend import lab_sessions as labs
+from backend import lab_writeup as labw
 
 # ── Browser Capture (HAR import, session storage, security analysis) ──
 from backend.browser_capture import (
@@ -677,7 +681,7 @@ Based on these findings, suggest the single most impactful next step. Be concise
 
 Keep suggestions actionable and technical. Focus on the most promising attack path."""
 
-def _call_llm_sync(provider: str, api_key: str, model: str, messages: list, timeout: int = 60) -> str:
+def _call_llm_sync(provider: str, api_key: str, model: str, messages: list, timeout: int = 60, max_tokens: int = 1024) -> str:
     """Synchronous LLM API call (runs in thread via asyncio). Returns the response text."""
     if provider in ("openai", "openrouter", "deepseek", "groq"):
         # OpenAI-compatible API
@@ -701,7 +705,7 @@ def _call_llm_sync(provider: str, api_key: str, model: str, messages: list, time
             "model": model,
             "messages": messages,
             "temperature": 0.3,
-            "max_tokens": 1024
+            "max_tokens": max_tokens
         }).encode("utf-8")
         req = urllib.request.Request(url, data=body, method="POST")
         req.add_header("Content-Type", "application/json; charset=utf-8")
@@ -758,7 +762,7 @@ def _call_llm_sync(provider: str, api_key: str, model: str, messages: list, time
             "model": model,
             "messages": anthy_messages,
             "system": system,
-            "max_tokens": 1024,
+            "max_tokens": max_tokens,
             "temperature": 0.3
         }).encode("utf-8")
         req = urllib.request.Request(url, data=body, method="POST")
@@ -782,7 +786,7 @@ def _call_llm_sync(provider: str, api_key: str, model: str, messages: list, time
             "model": model,
             "messages": messages,
             "temperature": 0.3,
-            "max_tokens": 1024
+            "max_tokens": max_tokens
         }).encode("utf-8")
         req = urllib.request.Request(url, data=body, method="POST")
         req.add_header("Content-Type", "application/json; charset=utf-8")
@@ -3735,6 +3739,7 @@ async def _record_startup():
         assess.load_from_store()
         sched.load_from_store()
         assetslib.load_from_store()
+        labs.load_from_store()
         logger.info("Workspace-store hydration complete")
     except Exception as e:
         logger.warning("Workspace-store hydration failed: %s", e)
@@ -4038,6 +4043,339 @@ async def phishing_submit(cid: str, username: str = Form(...), password: str = F
              details={"campaign_id": cid, "ip": ip})
     html, _ = ps.render_result(cid)
     return HTMLResponse(html or _PH_ENDED_HTML)
+
+
+# ════════════════════════════════════════════════════════════════
+#  PACK 11 — LAB SESSIONS (machines / sessions / evidence / writeup)
+#  Ported from afsh4ck/exploitpath (machines→sessions→steps model,
+#  context-aware flag detection, AI over full history, dark write-up).
+# ════════════════════════════════════════════════════════════════
+
+class LabMachineRequest(BaseModel):
+    name: str = ""
+    ip: str = ""
+    operating_system: str = "linux"
+    difficulty: str = "easy"
+    status: str = "active"
+
+
+class LabSessionRequest(BaseModel):
+    machine_id: str = ""
+    title: str = ""
+
+
+class LabStepRequest(BaseModel):
+    command: str = ""
+    output: str = ""
+    notes: str = ""
+
+
+class LabAiRequest(BaseModel):
+    provider: str = "openai"
+    api_key: str = ""
+    model: str = ""
+    language: str = "es"
+
+
+class LabExportRequest(BaseModel):
+    format: str = "html"
+    language: str = "es"
+    narrative: list = []
+
+
+_LAB_SYSTEM_PROMPT = (
+    "Eres un mentor de ciberseguridad para laboratorios AUTORIZADOS (Hack The Box y "
+    "similares). Analizas el historial COMPLETO de comandos y salidas de UNA máquina, no "
+    "solo el último paso. Todas las recomendaciones deben ser de bajo impacto, orientadas "
+    "al aprendizaje, comprobables y limitadas al objetivo autorizado. No propongas "
+    "ingeniería social, persistencia, borrado, evasión de defensas, propagación, "
+    "exfiltración ni acceso fuera del objetivo. No generes payloads destructivos. Si "
+    "faltan pruebas, recomienda enumerar o validar antes que suponer. No inventes "
+    "credenciales, vulnerabilidades ni resultados. Devuelve EXCLUSIVAMENTE el JSON "
+    "solicitado, sin texto adicional."
+)
+
+_LAB_WRITEUP_SYSTEM_PROMPT = (
+    "Eres un redactor técnico de write-ups para laboratorios de ciberseguridad "
+    "autorizados. Documenta únicamente la evidencia proporcionada. No inventes resultados, "
+    "credenciales ni vulnerabilidades. No añadas nuevos comandos ni instrucciones de "
+    "explotación. No repitas valores de flags, contraseñas, claves ni tokens; descríbelos "
+    "como hallazgos redactados. Devuelve EXCLUSIVAMENTE el JSON solicitado."
+)
+
+
+def _labs_parse_json(text: str) -> dict:
+    """Extract and parse the first JSON object from an LLM response text."""
+    if not text:
+        raise ValueError("respuesta IA vacía")
+    t = text.strip()
+    if t.startswith("```"):
+        t = t.strip("`").strip()
+        if t[:4].lower() == "json":
+            t = t[4:]
+    start, end = t.find("{"), t.rfind("}")
+    if start == -1 or end == -1 or end < start:
+        raise ValueError("la respuesta IA no contiene un objeto JSON")
+    return json.loads(t[start:end + 1])
+
+
+def _labs_history(steps: list, compact: bool = False) -> str:
+    """Render steps as a chronological history block for the LLM."""
+    parts = []
+    for i, st in enumerate(steps):
+        output = st.get("output") or ""
+        if compact and len(output) > 7000:
+            output = f"{output[:5000]}\n\n[... salida recortada ...]\n\n{output[-1500:]}"
+        block = f"### Paso {i + 1} (ID {st.get('id')})\nComando:\n{st.get('command')}\n\nSalida:\n{output}"
+        if st.get("notes"):
+            block += f"\n\nNotas:\n{st['notes']}"
+        parts.append(block)
+    return "\n\n---\n\n".join(parts)
+
+
+def _labs_platform_guide(workspace: dict) -> str:
+    os_name = (workspace.get("session") or {}).get("operating_system")
+    if os_name == "windows":
+        return ("La máquina es Windows. Prioriza validación de SMB/WinRM/RDP/IIS, usuarios y "
+                "grupos locales, privilegios de token, servicios y tareas programadas.")
+    return ("La máquina es Linux. Prioriza servicios expuestos, permisos y propietarios, sudo, "
+            "capabilities, tareas programadas, servicios y rutas de aplicaciones.")
+
+
+@app.get("/api/labs/machines")
+async def labs_list_machines():
+    return {"machines": labs.list_machines()}
+
+
+@app.post("/api/labs/machines")
+async def labs_create_machine(req: LabMachineRequest):
+    try:
+        m = labs.create_machine(
+            req.name, req.ip, req.operating_system, req.difficulty, req.status,
+        )
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    return m.to_dict()
+
+
+@app.get("/api/labs/machines/{mid}")
+async def labs_get_machine(mid: str):
+    m = labs.get_machine(mid)
+    if not m:
+        return JSONResponse({"error": "machine not found"}, status_code=404)
+    return m
+
+
+@app.put("/api/labs/machines/{mid}")
+async def labs_update_machine(mid: str, req: LabMachineRequest):
+    fields = req.model_dump(exclude_unset=True)
+    updated = labs.update_machine(mid, **fields)
+    if not updated:
+        return JSONResponse({"error": "machine not found or invalid"}, status_code=404)
+    return updated
+
+
+@app.delete("/api/labs/machines/{mid}")
+async def labs_delete_machine(mid: str):
+    if not labs.delete_machine(mid):
+        return JSONResponse({"error": "machine not found"}, status_code=404)
+    return {"ok": True}
+
+
+@app.get("/api/labs/machines/{mid}/sessions")
+async def labs_machine_sessions(mid: str):
+    if not labs.get_machine(mid):
+        return JSONResponse({"error": "machine not found"}, status_code=404)
+    return {"sessions": labs.list_sessions(mid)}
+
+
+@app.post("/api/labs/sessions")
+async def labs_create_session(req: LabSessionRequest):
+    try:
+        s = labs.create_session(req.machine_id, req.title)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    return s.to_dict()
+
+
+@app.get("/api/labs/sessions/{sid}")
+async def labs_get_session(sid: str):
+    s = labs.get_session(sid)
+    if not s:
+        return JSONResponse({"error": "session not found"}, status_code=404)
+    return s
+
+
+@app.put("/api/labs/sessions/{sid}")
+async def labs_update_session(sid: str, req: LabSessionRequest):
+    updated = labs.update_session(sid, req.title)
+    if not updated:
+        return JSONResponse({"error": "session not found"}, status_code=404)
+    return updated
+
+
+@app.delete("/api/labs/sessions/{sid}")
+async def labs_delete_session(sid: str):
+    if not labs.delete_session(sid):
+        return JSONResponse({"error": "session not found"}, status_code=404)
+    return {"ok": True}
+
+
+@app.get("/api/labs/sessions/{sid}/workspace")
+async def labs_workspace(sid: str):
+    ws = labs.get_workspace(sid)
+    if not ws:
+        return JSONResponse({"error": "session not found"}, status_code=404)
+    return ws
+
+
+@app.post("/api/labs/sessions/{sid}/steps")
+async def labs_add_step(sid: str, req: LabStepRequest):
+    if not labs.get_session(sid):
+        return JSONResponse({"error": "session not found"}, status_code=404)
+    step = labs.add_step(sid, req.command, req.output, req.notes)
+    if not step:
+        return JSONResponse({"error": "command is required or limit reached"}, status_code=400)
+    return {"step": step, "session": labs.get_session(sid)}
+
+
+@app.put("/api/labs/steps/{step_id}")
+async def labs_update_step(step_id: str, req: LabStepRequest):
+    fields = req.model_dump(exclude_unset=True)
+    step = labs.update_step(step_id, **fields)
+    if not step:
+        return JSONResponse({"error": "step not found or invalid"}, status_code=404)
+    return {"step": step, "session": labs.get_session(step["session_id"])}
+
+
+@app.delete("/api/labs/steps/{step_id}")
+async def labs_delete_step(step_id: str):
+    if not labs.delete_step(step_id):
+        return JSONResponse({"error": "step not found"}, status_code=404)
+    return {"ok": True}
+
+
+@app.post("/api/labs/sessions/{sid}/analyze")
+async def labs_analyze(sid: str, req: LabAiRequest):
+    ws = labs.get_workspace(sid)
+    if not ws:
+        return JSONResponse({"error": "session not found"}, status_code=404)
+    if not ws["steps"]:
+        return JSONResponse({"error": "añade al menos una evidencia antes de analizar"}, status_code=400)
+    session = ws["session"]
+    language = "inglés" if req.language == "en" else "español"
+    user_prompt = (
+        f"Objetivo autorizado: máquina de laboratorio \"{session.get('machine_name')}\" "
+        f"({session.get('machine_ip')}), dificultad {session.get('difficulty')}.\n"
+        f"Sistema operativo: {session.get('operating_system')}.\n"
+        f"{_labs_platform_guide(ws)}\n\n"
+        f"Flags ya detectadas: user={'sí' if session.get('user_flag_captured') else 'no'}, "
+        f"root={'sí' if session.get('root_flag_captured') else 'no'}.\n\n"
+        f"Historial completo de la sesión:\n{_labs_history(ws['steps'])}\n\n"
+        "Analiza las pruebas acumuladas. Propón el siguiente objetivo y un máximo de 4 "
+        "comandos seguros, de solo enumeración/validación o explotación de laboratorio de "
+        "alcance mínimo. Si una flag root ya está capturada, marca complete y sugiere "
+        "documentar, no más acceso. Escribe los campos narrativos en " + language + ". "
+        "Responde SOLO con este JSON: "
+        '{"currentPhase":"recon|foothold|privesc|complete","summary":"...",'
+        '"evidence":["..."],"nextObjective":"...","safeCommands":["..."],'
+        '"rationale":"...","cautions":["..."]}'
+    )
+    try:
+        raw = await asyncio.to_thread(
+            _call_llm_sync, req.provider, req.api_key, req.model,
+            [{"role": "system", "content": _LAB_SYSTEM_PROMPT},
+             {"role": "user", "content": user_prompt}],
+            120, 1400,
+        )
+        data = _labs_parse_json(raw)
+    except Exception as e:
+        return JSONResponse({"error": f"AI analysis failed: {e}"}, status_code=502)
+    data["model"] = req.model or req.provider
+    saved = labs.save_analysis(sid, data)
+    return {"analysis": saved, "session": labs.get_session(sid)}
+
+
+@app.post("/api/labs/sessions/{sid}/writeup")
+async def labs_writeup(sid: str, req: LabAiRequest):
+    ws = labs.get_workspace(sid)
+    if not ws:
+        return JSONResponse({"error": "session not found"}, status_code=404)
+    if not ws["steps"]:
+        return JSONResponse({"error": "añade evidencias antes de generar el write-up"}, status_code=400)
+    session = ws["session"]
+    language = "English" if req.language == "en" else "español"
+    user_prompt = (
+        f"Máquina: {session.get('machine_name')} ({session.get('operating_system')}, "
+        f"{session.get('difficulty')}). Sesión: {session.get('title')}.\n\n"
+        "Para CADA paso, devuelve un objeto con su stepId original, un título breve y una "
+        "descripción de 2 a 4 frases. Explica el objetivo metodológico del comando, qué "
+        "evidencia relevante produjo y cómo se relaciona con el paso siguiente. Si fue un "
+        "intento fallido, dilo sin atribuirle un resultado inexistente. Redacta en "
+        f"{language}. Conserva nombres técnicos, rutas y servicios, pero no copies secretos "
+        "ni valores de flags.\n\n"
+        "Responde SOLO con este JSON: "
+        '{"steps":[{"stepId":<int>,"title":"...","description":"..."}]}\n\n'
+        f"HISTORIAL ORDENADO:\n{_labs_history(ws['steps'], compact=True)}"
+    )
+    try:
+        raw = await asyncio.to_thread(
+            _call_llm_sync, req.provider, req.api_key, req.model,
+            [{"role": "system", "content": _LAB_WRITEUP_SYSTEM_PROMPT},
+             {"role": "user", "content": user_prompt}],
+            150, 3000,
+        )
+        data = _labs_parse_json(raw)
+    except Exception as e:
+        return JSONResponse({"error": f"write-up generation failed: {e}"}, status_code=502)
+    steps = data.get("steps") or []
+    return {
+        "model": req.model or req.provider,
+        "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
+        "steps": steps,
+    }
+
+
+@app.post("/api/labs/sessions/{sid}/export")
+async def labs_export(sid: str, req: LabExportRequest):
+    ws = labs.get_workspace(sid)
+    if not ws:
+        return JSONResponse({"error": "session not found"}, status_code=404)
+    fmt = (req.format or "html").lower()
+    if fmt == "pdf":
+        pdf = labw.build_writeup_pdf(ws, req.narrative, req.language)
+        return Response(
+            content=pdf,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="mirv-writeup-{sid}.pdf"'},
+        )
+    if fmt != "html":
+        return JSONResponse({"error": "format must be html or pdf"}, status_code=400)
+    doc = labw.build_writeup_html(ws, req.narrative, req.language)
+    return HTMLResponse(doc)
+
+
+@app.get("/api/labs/summary")
+async def labs_summary():
+    return labs.summary()
+
+
+@app.get("/api/labs/export")
+async def labs_export_state():
+    return {"machines": labs.export_state()}
+
+
+@app.post("/api/labs/import")
+async def labs_import_state(payload: dict = Body(...)):
+    machines = payload.get("machines") if isinstance(payload, dict) else None
+    if machines is None:
+        return JSONResponse({"error": "se esperaba {\"machines\": [...]}"}, status_code=400)
+    replace = bool(payload.get("replace", False))
+    try:
+        result = labs.import_state(machines, replace=replace)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    return result
 
 
 # ════════════════════════════════════════════════════════════════
