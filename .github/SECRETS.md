@@ -64,6 +64,17 @@ dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDg1N0RFQTZEMjREMDU1MDAKUldR
 - Without these secrets the Desktop Build still compiles and runs, but releases (tags `v*`) produce **unsigned** updater artifacts, which Tauri's updater will reject. Set both secrets before publishing the first `v*` release.
 - Regenerate (losing any copy of the private key/password breaks future updates): `npx tauri signer generate --ci -p "PASS" -w desktop/.tauri/mirv-updater.key` and update `pubkey` in `desktop/src-tauri/tauri.conf.json`.
 
+> ⚠️ **Formato exacto de `TAURI_SIGNING_PRIVATE_KEY` (causa de `failed to decode secret key: Invalid padding`).**
+> El valor debe ser el contenido **completo y sin recortar** de `desktop/.tauri/mirv-updater.key`:
+> es una única línea base64 que **termina en `=`** (padding). Si falta el `=` final (o se
+> añaden espacios/saltos extra), `tauri-action` falla con `Invalid padding`.
+>
+> Verifica antes de pegarlo:
+> ```bash
+> python -c "s=open('desktop/.tauri/mirv-updater.key').read().strip(); print(len(s), len(s)%4)"  # debe imprimir ... 0
+> ```
+> Si `len % 4 != 0`, la clave está truncada: **no la pegues**, regenérala y actualiza la `pubkey`.
+
 ## Required setup steps
 
 ### 1. Create Docker Hub access token
