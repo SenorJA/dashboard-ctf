@@ -1183,3 +1183,57 @@ body.light .hover\:bg-gray-700:hover { background: rgba(31,36,48,0.08) !importan
 /* 5. border-gray-700 + #docker-dot (same buttons + Docker status dot) */
 body.light .border-gray-700 { border-color: var(--light-border) !important; }
 body.light #docker-dot { background: var(--light-text-dim) !important; }
+
+/* ================================================================
+   RESPONSIVE HARDENING (mobile fit)
+   Fixes the classic "app doesn't fit / doesn't line up" flexbox issue:
+   flex children default to min-width:auto, so any wide child (table,
+   long path, terminal output) forces the whole layout wider than the
+   viewport → horizontal scroll and clipped UI. Forcing min-width:0
+   lets the panes shrink and scroll internally instead.
+   ================================================================ */
+
+main,
+.tab-pane {
+    min-width: 0;
+    min-height: 0;
+}
+
+/* Direct children of a pane must be allowed to shrink too */
+.tab-pane > * {
+    min-width: 0;
+}
+
+/* Media never overflows its container */
+main img,
+main video,
+main canvas {
+    max-width: 100%;
+}
+
+/* Dynamic viewport unit: avoids the mobile URL bar clipping the bottom */
+@supports (height: 100dvh) {
+    body {
+        height: 100dvh !important;
+    }
+}
+
+/* ── Small screens: header wraps instead of overflowing horizontally ── */
+@media (max-width: 640px) {
+    header {
+        flex-wrap: wrap;
+        row-gap: 6px;
+    }
+    header > div:last-child {
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        row-gap: 6px;
+    }
+    /* Keep every tab pane within the viewport width */
+    .tab-pane {
+        width: 100%;
+    }
+    .tab-pane table {
+        min-width: 0;
+    }
+}
