@@ -282,7 +282,10 @@ CREATE TABLE IF NOT EXISTS app_credentials (
 
 -- ════════════════════════════════════════════════════════════════
 --  WORKSPACE_STATE (persistencia opt-in de registries en memoria)
---  keys: "assessments", "assets", "scheduler_jobs" (JSONB)
+--  keys: "assessments", "assets", "scheduler", "phishing" (Pack 10),
+--        "lab_sessions" (Pack 11) (JSONB)
+--  Opt-in: MIRV_PERSIST_WORKSPACE=1 + Supabase disponible.
+--  No requiere tabla nueva para features nuevas: cada registry usa una key.
 -- ════════════════════════════════════════════════════════════════
 CREATE TABLE IF NOT EXISTS workspace_state (
     key TEXT PRIMARY KEY,
