@@ -323,7 +323,7 @@ flags, IA sobre el historial completo, write-up dark-mode). Todo con
 cd backend
 PYTHONIOENCODING=utf-8 python -m pytest tests/test_flag_detection.py tests/test_lab_sessions.py \
     tests/test_lab_writeup.py tests/test_labs_endpoints.py -q
-# 92 passed
+# 89 passed
 ```
 
 | Paso | Petición | Respuesta esperada | Verificado |

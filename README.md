@@ -6,10 +6,10 @@
 
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-latest-009688?logo=fastapi)](https://fastapi.tiangolo.com)
-[![Endpoints](https://img.shields.io/badge/endpoints-238-9cf)](#-api-resumen)
-[![Tests](https://img.shields.io/badge/tests-4164_✔️-2ea44f?logo=pytest)](#-testing)
-[![Coverage](https://img.shields.io/badge/coverage-~97%25-2ea44f)](#-testing)
-[![Tabs](https://img.shields.io/badge/frontend%20tabs-26-9cf)](#-features-principales)
+[![Endpoints](https://img.shields.io/badge/endpoints-330-9cf)](#-api-resumen)
+[![Tests](https://img.shields.io/badge/tests-4955_✔️-2ea44f?logo=pytest)](#-testing)
+[![Coverage](https://img.shields.io/badge/coverage-~95%25-2ea44f)](#-testing)
+[![Tabs](https://img.shields.io/badge/frontend%20tabs-33-9cf)](#-features-principales)
 [![Kali](https://img.shields.io/badge/Kali-Linux-557C94?logo=kalilinux)](https://kali.org)
 [![CI/CD](https://img.shields.io/github/actions/workflow/status/SenorJA/dashboard-ctf/ci.yml?label=CI%2FCD&logo=githubactions)](https://github.com/SenorJA/dashboard-ctf/actions)
 
@@ -43,14 +43,17 @@
 M.I.R.V. es una **plataforma modular todo-en-uno** para operaciones de ciberseguridad ofensiva y defensiva. Combina:
 
 - **Terminal SSH interactivo** vía WebSocket (navegador → Kali Linux)
-- **238 endpoints REST** contra Supabase (PostgreSQL)
-- **33 módulos backend** con ~97% de cobertura de tests
-- **26 tabs frontend** en una SPA vanilla JS + Tailwind
-- **IA multi-proveedor** para informes, sugerencias y chat
+- **330 endpoints REST** (327 `/api/*` + 3 landing pages públicas) contra Supabase (PostgreSQL)
+- **56 módulos backend** con ~95% de cobertura de tests (`main.py` al 100%)
+- **33 tabs frontend** en una SPA vanilla JS + Tailwind
+- **IA multi-proveedor** para informes, sugerencias, chat, análisis de laboratorios y **write-ups dark-mode** (HTML/PDF)
+- **Lab Sessions** (Pack 11): máquinas → sesiones → evidencias con **detección determinista de flags** user/root y análisis IA sobre el historial completo
+- **Code Agent** (Pack 10): puente headless al CLI `opencode` (plan/build/general) con salida redactada
+- **Phishing Sim** (Pack 10): simulador de concienciación *training-only* (solo hashes, sin credenciales reales)
 - **Análisis forense** (memoria, disco, archivos) y **móvil** (APK estático + dinámico con Frida)
 - **Swarm multi-operador**, **CTF mode**, **OPSEC Levels**, **Self-Improvement Loop**
 
-> **Versión:** v3.0
+> **Versión:** v3.3.0 · Releases de escritorio firmadas (Tauri + updater `latest.json`)
 
 ---
 
@@ -62,20 +65,20 @@ M.I.R.V. es una **plataforma modular todo-en-uno** para operaciones de cibersegu
 │  (SPA + JS)  │ ◄──────────── │  (main.py)   │ ◄───────────── │  (50+ tools) │
 └──────┬───────┘               └──────┬───────┘                └──────────────┘
        │                              │
-       │  fetch() /api/* (238)        │  CRUD
+       │  fetch() /api/* (330)        │  CRUD
        ▼                              ▼
 ┌──────────────────────────────────────────┐
 │              Supabase (PostgreSQL)        │
-│              17 tablas + Storage          │
+│              18 tablas + Storage          │
 └──────────────────────────────────────────┘
 ```
 
 **Flujo de datos:**
 1. **Frontend SPA** (HTML + vanilla JS + Tailwind CDN) — sin bundler, sin build step.
 2. **WebSocket** (`/ws`) proxy SSH bidireccional: navegador ↔ FastAPI ↔ Kali (Paramiko).
-3. **API REST** (`/api/*`) 238 endpoints para operaciones CRUD y análisis.
-4. **Supabase** (PostgreSQL) con 17 tablas + Storage bucket para archivos.
-5. **Módulos del backend** (33 archivos) operan vía SSH sobre Kali o vía HTTP directo.
+3. **API REST** (`/api/*` + landings públicas) ~330 endpoints para operaciones CRUD y análisis.
+4. **Supabase** (PostgreSQL) con 18 tablas + Storage bucket para archivos (+ `workspace_state` JSONB para registros opt-in).
+5. **Módulos del backend** (56 archivos) operan vía SSH sobre Kali o vía HTTP directo.
 
 ---
 
@@ -193,7 +196,7 @@ Ver auditoría: [`docs/SECURITY_AUDIT_OSINT_2026-08-15.md`](docs/SECURITY_AUDIT_
 
 ## 📡 API resumen
 
-238 endpoints agrupados por categoría. **Documentación interactiva (Swagger):**
+~330 endpoints agrupados por categoría. **Documentación interactiva (Swagger):**
 ```
 http://localhost:8000/docs      # Swagger UI
 http://localhost:8000/redoc     # ReDoc
@@ -203,40 +206,44 @@ http://localhost:8000/redoc     # ReDoc
 |-----------|:---------:|---------|
 | WebSocket | 1 | `GET /ws` (proxy SSH) |
 | AI | 2 | `POST /api/ai/chat`, `POST /api/suggest` |
-| OSINT | 10 | Headers/Secrets/Port/Subdomain/DNS/Hash/Stego/News/API scanners |
+| OSINT Recon | 19 | email, dork, DNS/DoH, RDAP, CT (crt.sh), urlscan, HIBP, urlhaus, code_search… |
 | EXIF OSINT | 5 | `POST /api/exif/analyze` |
 | Canary Tokens | 5 | `POST /api/canary/token` |
 | DLP Scanner | 3 | `POST /api/dlp/scan` |
-| SIEM | 8 | `POST /api/siem/event`, `GET /api/siem/alerts` |
+| SIEM | 9 | `POST /api/siem/event`, `GET /api/siem/alerts`, webhook |
 | Audit Log | 3 | `GET /api/audit/logs` |
 | Plugins | 8 | `GET /api/plugins`, watcher control |
 | Coverage | 8 | `POST /api/coverage/mark`, export |
-| Skills | 7 | `GET /api/skills`, render markdown |
+| Skills + Router | 11 | `GET /api/skills`, `POST /api/router/route` |
 | Redaction | 4 | `POST /api/redact`, `GET /api/redact/patterns` |
 | Burp Bridge | 14 | `POST /api/burp/ingest`, finding-to-issue |
 | Browser Capture | 10 | `POST /api/browser-capture/import` |
 | Finding PoC | 7 | `POST /api/poc/build`, `replay` |
 | Permissions | 7 | `POST /api/permissions/classify` |
 | Intelligence | 11 | watches, snapshots, alerts, diff |
+| **Lab Sessions (Pack 11)** | 20 | `POST /api/labs/sessions/{sid}/analyze` (IA sobre historial), `writeup`, `export` html/pdf |
+| **Code Agent (Pack 10)** | 2 | `GET /api/opencode/status`, `POST /api/opencode/run` |
+| **Phishing Sim (Pack 10)** | 13 | `POST /api/phishing/campaigns` + landings públicas `/phishing/{cid}` |
+| Assessments / Assets | 20 | `GET /api/assessments`, `POST /api/assets/ingest` |
+| Scheduler | 10 | `GET /api/scheduler/jobs`, daemon `status`, `record` |
+| Notifications | 4 | `POST /api/notifications/send`, Telegram/Discord/Slack/webhook |
+| Auth (login) | 4 | `GET /api/auth/status`, `POST /api/auth/login` (guard token opt-in) |
+| Findings lifecycle | 3 | `PATCH /api/findings/{id}`, filtros por assessment/estado |
 | Connections | 3 | `/api/connections` |
 | Reports | 5 | `POST /api/report/generate`, PDF |
 | Scripts | 3 | `/api/scripts` |
-| Findings | 6 | `POST /api/findings/bulk`, stats |
+| Findings | 6 | `POST /api/findings/bulk`, stats, export csv/sarif/html |
 | Credentials | 4 | `/api/credentials` |
 | CTF | 5 | `/api/ctf/challenges`, score |
 | Forensics | 3 | `/api/forensics/upload` |
 | Mobile | 6 | `/api/mobile/upload`, frida |
 | KnowledgeBase | 3 | `/api/knowledgebase/search` |
-| Swarm | 6 | `POST /api/swarm/start`, report |
-| Swarm Sessions | 4 | `/api/swarm/sessions` |
-| Scope | 5 | `POST /api/scope/validate` |
-| OPSEC | 2 | `/api/opsec/apply` |
-| Missions | 4 | `/api/missions/save` |
-| Mission Plans | 3 | `/api/plans` |
-| Secrets | 3 | `/api/credentials/secrets` |
-| Docker | 6 | `POST /api/docker/start` |
-| kali-mcp | 3 | `/api/kali-mcp/exec` |
-| Health/Settings/Upload/n8n | 7 | `/api/health`, `/api/upload` |
+| Swarm | 10 | `POST /api/swarm/start`, sessions, report |
+| Scope / OPSEC | 7 | `POST /api/scope/validate`, `POST /api/opsec/apply` |
+| Missions / Plans | 7 | `POST /api/missions/save`, `/api/plans` |
+| Secrets | 3 | `/api/credentials/secrets` (Fernet at-rest) |
+| Docker / kali-mcp / n8n | 12 | `POST /api/docker/start`, `POST /api/kali-mcp/exec` |
+| Health/Settings/Upload | 4 | `/api/health`, `/api/settings`, `/api/upload` |
 
 ---
 
@@ -244,13 +251,15 @@ http://localhost:8000/redoc     # ReDoc
 
 ```bash
 cd backend
-python -m pytest tests/ -q --timeout=60 -m "not slow" -k "not test_slow_hook"
-# 4086 passed, 78 deselected
+python -m pytest tests/ -k "not test_slow_hook" -q
+# 4938 passed, 17 failed (los 17 = tests de red en vivo contra example.com,
+#                         pasan en CI con internet)  ·  1 deselected
 ```
 
-- **76 archivos de test**, **4164 tests** (~97% cobertura)
-- `main.py` = **100%** de cobertura (2847/2847 statements)
-- Usa `unittest.mock` + `TestClient(app)` para endpoints
+- **107 archivos de test**, **4955 tests** recolectados (~95% cobertura)
+- `main.py` = **100%** de cobertura (statement-level)
+- Pack 11 (Lab Sessions + flags + write-up): **89 tests nuevos** — detección de flags user/root (incl. transcripciones SSH y falsos positivos), recomputado al editar/borrar, invalidación de análisis obsoletos, escape XSS del HTML dark-mode, endpoints
+- Usa `unittest.mock` + `TestClient(app)` para endpoints; hermético (sin red/DB real)
 - CI corre bandit (security) + safety check además de pytest
 
 ---
@@ -304,7 +313,7 @@ Sí. Crea un directorio en `backend/plugins/<nombre>/` con `plugin.json` + `plug
 Crea un `SKILL.md` con frontmatter YAML (`name`, `description`, `category`, `allowed_tools`) en `backend/skills/`, `./.mirv/skills/`, o `~/.mirv/skills/`. Hot-reload automático. Ver skills built-in: recon, webvuln, ssrf, jwt, supabase, graphql, race, takeover, deserialize, ssti.
 
 **¿Qué gestor de paquetes usa el frontend?**
-**pnpm** (obligatorio, `.npmrc` bloquea npm). Actívalo con `corepack enable`. Los tests E2E usan Playwright.
+Ninguno. El frontend es **vanilla JS sin build step**: un solo `index.html` (~3960 líneas) + `js/main.v2.js` (~14.000 líneas), Tailwind vía CDN. No hay `package.json` ni bundler. Solo el **desktop** (Tauri, `desktop/`) usa npm.
 
 **¿Cómo configuro la IA?**
 Cualquier endpoint compatible con OpenAI: Ollama local (gratis), OpenRouter, OpenAI, Anthropic, etc. Configúralo desde el tab **AI Writeup** o vía localStorage (`mirv_ai_endpoint`, `mirv_ai_model`).
@@ -315,18 +324,19 @@ Cualquier endpoint compatible con OpenAI: Ollama local (gratis), OpenRouter, Ope
 
 ```
 mirv/
-├── backend/          # FastAPI + 33 módulos (main.py, database.py, opsec.py, ...)
+├── backend/          # FastAPI + 56 módulos (main.py ~8280 líneas, database.py, opsec.py, ...)
 │   ├── plugins/      # Sistema de plugins (hot-reload)
 │   ├── skills/       # Skill playbooks (Markdown + frontmatter)
 │   ├── burp_plugin/  # Plugin Jython para Burp Suite
-│   └── tests/        # 76 archivos, 4164 tests (~97% cobertura)
-├── frontend/         # SPA vanilla JS + Tailwind CDN (26 tabs)
-│   ├── index.html    # SPA principal (~2694 líneas)
-│   └── js/           # main.v2.js (~8700 líneas), dataservice, mobile, forensics, swarm
+│   └── tests/        # 107 archivos, 4955 tests (~95% cobertura)
+├── frontend/         # SPA vanilla JS + Tailwind CDN (33 tabs)
+│   ├── index.html    # SPA principal (~3960 líneas)
+│   └── js/           # main.v2.js (~14.000 líneas), dataservice, mobile, forensics, swarm
+├── desktop/          # App de escritorio (Tauri v2 + sidecar PyInstaller + updater firmado)
 ├── deploy/           # VPS bootstrap + Cloudflare Tunnel setup
 ├── docker/           # Dockerfiles (mirv-backend, kali-tools)
-├── docs/             # Auditorías, guías, status
-├── .github/          # CI/CD workflows (ci.yml, deploy.yml)
+├── docs/             # Auditorías, guías, runbook de verificación manual
+├── .github/          # CI/CD workflows (ci.yml, deploy.yml, desktop-build.yml)
 ├── docker-compose.yml
 ├── AGENTS.md         # Doc técnica para agentes IA
 ├── ROADMAP.md        # Roadmap de desarrollo
@@ -358,6 +368,7 @@ mirv/
 |---------|-----------|
 | [`AGENTS.md`](AGENTS.md) | Documentación técnica completa para agentes IA (arquitectura, módulos, API) |
 | [`TOMORROW.md`](TOMORROW.md) | Postmortems, siguientes pasos, lecciones aprendidas |
+| [`docs/MANUAL_VERIFICATION.md`](docs/MANUAL_VERIFICATION.md) | Runbook de verificación manual E2E (Supabase, Docker, Packs 10/11) |
 | [`PRODUCTION_PLAN.md`](PRODUCTION_PLAN.md) | Plan de despliegue en producción (VPS + Cloudflare) |
 | [`ROADMAP.md`](ROADMAP.md) | Roadmap de desarrollo por fases |
 | [`DOCKER_GUIDE.md`](DOCKER_GUIDE.md) | Guía técnica completa del stack Docker |
@@ -387,7 +398,7 @@ M.I.R.V. está diseñado para:
 
 <div align="center">
 
-**M.I.R.V. v3.0** — 238 endpoints · 4164 tests · ~97% cobertura · 26 tabs
+**M.I.R.V. v3.3.0** — 330 endpoints · 4955 tests · ~95% cobertura · 33 tabs · 56 módulos
 
 [Reportar bug](https://github.com/SenorJA/dashboard-ctf/issues) · [Sugerir mejora](https://github.com/SenorJA/dashboard-ctf/issues) · [Documentación técnica](AGENTS.md)
 

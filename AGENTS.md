@@ -8,7 +8,7 @@ Two-tier app: **FastAPI backend** serves static frontend + WebSocket SSH proxy +
 Browser → WS (localhost:8000/ws) → FastAPI → Paramiko → Kali SSH
          ↑
    serves /static/* from frontend/
-   REST API (227 endpoints) → Supabase (PostgreSQL)
+   REST API (330 endpoints) → Supabase (PostgreSQL)
    Plugin system (hot-reload) + Burp Bridge + Browser Capture + Structured Audit Log + Continuous Intelligence
 ```
 
@@ -47,11 +47,11 @@ C:\Users\34678\Desktop\Proyecto ciber\
 │   ├── plugins/               # Plugin directory (example_plugin/)
 │   ├── skills/                # Built-in skill playbooks (recon, webvuln, ssrf, jwt, supabase)
 │   ├── burp_plugin/           # Jython Burp Suite plugin (mirv_burp.py)
-│   ├── tests/                 # ~4822 tests across 82 test files
+│   ├── tests/                 # ~4955 tests across 107 test files
 │   ├── Dockerfile             # Container image for mirv-backend
 │   └── requirements.txt
 ├── frontend/
-│   ├── index.html            # SPA (Tailwind CDN, 31 tabs, ~3600 lines)
+│   ├── index.html            # SPA (Tailwind CDN, 33 tabs, ~3960 lines)
 │   ├── css/
 │   │   └── style.css          # Signal Intelligence + Monochrome theme (~873 lines)
 │   ├── img/
@@ -93,11 +93,11 @@ cd backend
 python -m pytest tests/ -k "not test_slow_hook" -q  # ~4672 tests, ~95% coverage
 ```
 
-## Backend modules (main.py + 34 modules)
+## Backend modules (main.py + 55 modules)
 
 | File | Lines | Purpose | Tests | Coverage |
 |------|-------|---------|-------|----------|
-| `main.py` | ~5200 | FastAPI app, WebSocket SSH proxy, 170+ REST endpoints + CSP middleware + **server-side scheduler daemon** (`_scheduler_loop`, `_exec_tool_command`, `_count_findings_in_output`) | 333+295+19 | 100% |
+| `main.py` | ~8280 | FastAPI app, WebSocket SSH proxy, 330 REST endpoints + CSP middleware + **server-side scheduler daemon** (`_scheduler_loop`, `_exec_tool_command`, `_count_findings_in_output`) | 333+295+19 | 100% |
 | `database.py` | ~1344 | Supabase CRUD (18 tables) | 196 | 100% |
 | `exif_osint.py` | ~812 | EXIF GPS extraction, camera metadata, reverse geocoding, Leaflet map | 21+11 | 99% |
 | `canary_tokens.py` | ~442 | 8 honeytoken types, activation tracking, expiration | 24 | 99% |
@@ -137,7 +137,7 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~4672 tests, ~95% coverage
 | `notifications.py` | ~230 | Notification hub (Telegram/Discord/Slack/Pushover/webhook) — in-memory provider registry (API) + env fallback layer (`MIRV_NOTIFY_*`), masked listing, per-provider payload builders, truncation, `send()` fire-and-forget daemon thread, `send_sync()` for test verdict, strict no-op when nothing configured | 37 | — |
 | `opencode_agent.py` | ~180 | **Pack 10** Code Agent bridge — headless `opencode` CLI (plan/build/general): `status()/version()` cached, `run()` via `subprocess.run` (list argv, never shell, no `--auto`), cwd constrained to repo root (`MIRV_OPENCODE_ROOT`), non-blocking busy lock, timeout 600s, `MAX_OUTPUT=400_000` redacted via `redact_string` (truncate-first; the unbounded scheme regex backtracking bug is fixed in `redact.py`), `ALLOWED_AGENTS=('build','plan','general')` | 20 | — |
 | `phishing_sim.py` | ~340 | **Pack 10** phishing **awareness simulation** (training-only, NOT credential theft): 3 generic branded-neutral templates, `PhishingCampaign` dataclass registry + lock, credentials stored **only as sha256[:16] hashes**, landings served only while `active`, status lifecycle (planning→active→archived), opt-in `workspace_store` persistence (key `phishing`, lazy hydrate), CI/CD-safe | 22 | — |
-| `flag_detection.py` | ~170 | **Pack 11** deterministic user/root **flag detection** (ported from afsh4ck/exploitpath `server/db.ts`) — `detect_flag(command, output, prior_history)` uses prior history only to infer *type*; patterns: explicit `cat/type/get-content (user\|root).txt`, labeled `user/root flag:`/`=`, `Content:` + accumulated root context, strict `[a-f0-9]{32}` fallback; strips ANSI/CR; no false positives from hashes or bare path refs. `derive_session_state(detections, latest_analysis_phase)` folds flags→phase (recon/foothold/privesc/complete, root wins). `normalize_detection()` bounds values | 24 | — |
+| `flag_detection.py` | ~170 | **Pack 11** deterministic user/root **flag detection** (ported from afsh4ck/exploitpath `server/db.ts`) — `detect_flag(command, output, prior_history)` uses prior history only to infer *type*; patterns: explicit `cat/type/get-content (user\|root).txt`, labeled `user/root flag:`/`=`, `Content:` + accumulated root context, strict `[a-f0-9]{32}` fallback; strips ANSI/CR; no false positives from hashes or bare path refs. `derive_session_state(detections, latest_analysis_phase)` folds flags→phase (recon/foothold/privesc/complete, root wins). `normalize_detection()` bounds values | 21 | — |
 | `lab_sessions.py` | ~560 | **Pack 11** Lab Sessions workspace — `machines→sessions→steps→analyses` thread-safe registry (ported from exploitpath data model). Deterministic flag detection on every step; **edit/delete recomputes flags+phase and invalidates stale AI analyses**; `get_workspace()` joins machine fields; structured `save_analysis()` (phase/summary/evidence/next_objective/safe_commands/rationale/cautions); `summary`, `export_state`/`import_state` (nested), opt-in `workspace_store` persistence (key `lab_sessions`) | 38 | — |
 | `lab_writeup.py` | ~330 | **Pack 11** dark-mode write-up renderers (ported from exploitpath `exportWriteup.ts`) — `build_writeup_html()` single self-contained HTML (`#090d14`/`#9FEF00`, `color-scheme:dark`, no remote deps, everything escaped, narrative *before* each command); `build_writeup_pdf()` ReportLab dark PDF with terminal cards + interleaved narrative; `es`/`en` labels | 8 | — |
 
@@ -156,7 +156,7 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~4672 tests, ~95% coverage
 - **Audit log auto-init** on startup + existing `logger` wired with `AuditLogHandler`.
 - **Swarm sessions route** registered BEFORE `/api/swarm/{session_id}` to avoid catch-all collision.
 
-## Frontend structure (31 tabs)
+## Frontend structure (33 tabs)
 
 | Tab | ID | Purpose |
 |-----|----|---------| 
@@ -453,11 +453,11 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~4672 tests, ~95% coverage
 
 ## Test summary
 
-- **86 test files** in `backend/tests/` (90 counting `test_scheduler_daemon.py` + `test_finding_lifecycle.py` + `test_assets.py` + `test_api_auth.py`)
-- **~4950 tests** collected (296 now in `test_main_gaps.py` + 20 in `test_main_websocket_gaps.py` + 30 `test_assessments.py` + 43 `test_scheduler.py` + 27 `test_scheduler_daemon.py` + 19 `test_finding_lifecycle.py` + 22 `test_assets.py` + 17 `test_api_auth.py` + 37 `test_notifications.py` + 22 `test_workspace_store.py` + 27 `test_skill_router.py` + 20 `test_opencode_agent.py` + 22 `test_phishing_sim.py` + 64 `test_redact.py` + 24 `test_flag_detection.py` + 38 `test_lab_sessions.py` + 8 `test_lab_writeup.py` + 22 `test_labs_endpoints.py`)
+- **107 test files** in `backend/tests/`
+- **~4955 tests** collected (4938 passing locally + 17 network-only `example.com` tests that pass in CI; 296 now in `test_main_gaps.py` + 20 in `test_main_websocket_gaps.py` + 30 `test_assessments.py` + 43 `test_scheduler.py` + 27 `test_scheduler_daemon.py` + 19 `test_finding_lifecycle.py` + 22 `test_assets.py` + 17 `test_api_auth.py` + 37 `test_notifications.py` + 22 `test_workspace_store.py` + 27 `test_skill_router.py` + 20 `test_opencode_agent.py` + 22 `test_phishing_sim.py` + 64 `test_redact.py` + 21 `test_flag_detection.py` + 38 `test_lab_sessions.py` + 8 `test_lab_writeup.py` + 22 `test_labs_endpoints.py`)
 - **~95% coverage** across measured backend modules
 - **`backend/main.py` = 100%** (2847/2847 statements; last gaps were websocket `read_shell` break on OSError/EOFError + outer `WebSocketDisconnect`)
-- **Key test files**: test_database (196), test_api_endpoints (333), test_main_gaps (296), test_main_coverage (165), test_main_extra (120), test_crud_endpoints (67), test_deep_coverage_1/2 (205), test_compaction (63), test_burp_bridge (72), test_redact (63), test_skill_playbooks (67), test_skill_router (27), test_audit_log (45), test_plugin_manager (47), test_plugin_watcher (18), test_siem (31), test_coverage (33), test_exif_osint (63), test_mobile_analyzer (54), test_canary_tokens (24), test_dlp_scanner (25), test_finding_poc (61), test_intelligence (43), test_permission_system (56), test_opsec, test_scope_guard, test_forensics, test_adb_controller, test_kali_mcp_client, test_mission_store, test_knowledgebase, test_swarm, test_assessments (30), test_scheduler (43), test_scheduler_daemon (27), test_finding_lifecycle (19), test_assets (22), test_api_auth (17), test_notifications (37), test_workspace_store (22), test_opencode_agent (20), test_phishing_sim (22), test_flag_detection (24), test_lab_sessions (38), test_lab_writeup (8), test_labs_endpoints (22), + scanner tools + gap files (test_*_gaps.py: redact, dlp_scanner, mission_store, dns_lookup, pdf_engine, database, finding_poc, headers_scanner, hash_cracker, adb_controller, skill_playbooks, audit_log, intelligence, opsec, scope_guard).
+- **Key test files**: test_database (196), test_api_endpoints (333), test_main_gaps (296), test_main_coverage (165), test_main_extra (120), test_crud_endpoints (67), test_deep_coverage_1/2 (205), test_compaction (63), test_burp_bridge (72), test_redact (63), test_skill_playbooks (67), test_skill_router (27), test_audit_log (45), test_plugin_manager (47), test_plugin_watcher (18), test_siem (31), test_coverage (33), test_exif_osint (63), test_mobile_analyzer (54), test_canary_tokens (24), test_dlp_scanner (25), test_finding_poc (61), test_intelligence (43), test_permission_system (56), test_opsec, test_scope_guard, test_forensics, test_adb_controller, test_kali_mcp_client, test_mission_store, test_knowledgebase, test_swarm, test_assessments (30), test_scheduler (43), test_scheduler_daemon (27), test_finding_lifecycle (19), test_assets (22), test_api_auth (17), test_notifications (37), test_workspace_store (22), test_opencode_agent (20), test_phishing_sim (22), test_flag_detection (21), test_lab_sessions (38), test_lab_writeup (8), test_labs_endpoints (22), + scanner tools + gap files (test_*_gaps.py: redact, dlp_scanner, mission_store, dns_lookup, pdf_engine, database, finding_poc, headers_scanner, hash_cracker, adb_controller, skill_playbooks, audit_log, intelligence, opsec, scope_guard).
 
 ### main.py coverage tests (gaps)
 
