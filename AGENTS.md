@@ -176,7 +176,7 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~4672 tests, ~95% coverage
 | CTF | `tab-ctf` | CTF challenges with flag tracking |
 | Mobile | `tab-mobile` | APK analysis lab (static + dynamic) |
 | Forensics | `tab-forensics` | Digital forensics lab |
-| Payload Studio | (external link) | Hak5 payload editor (opens new tab) — 6 devices: Bunny, OMG, M5, Shark Jack, Packet Squirrel Mark II, Shark Jack Display |
+| Payload Studio | `tab-hak5` | Hak5 payload editor (also external launcher) — **12 devices**: Bunny, OMG Cable, M5 Stack, Shark Jack, Packet Squirrel Mark II, Shark Jack Display, LAN Turtle Hub, WiFi Pineapple, WiFi Pineapple Pager, Key Croc, Screen Crab, O.MG UnBlocker |
 | EXIF OSINT | `tab-exif` | EXIF metadata + GPS map (Leaflet) |
 | Canary Tokens | `tab-canary` | Honeytoken generator + activation log |
 | DLP Scanner | `tab-dlp` | PII/secret detection (text/file/URL) |
@@ -199,7 +199,7 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~4672 tests, ~95% coverage
 - **Single HTML file** (`index.html`, ~3600 lines) — no build step, no bundler, no framework.
 - **Tailwind via CDN** (`https://cdn.tailwindcss.com`). Custom colors: `neon`, `cyber`, `deep`, `void`, `blood`.
 - **All JS in one file** (`main.v2.js`, ~12500 lines) — DOMContentLoaded closure, functions on `window.*`.
-- **i18n**: 170+ entries (en/es), `data-i18n` attributes, `applyLanguage()`.
+- **i18n**: 360+ entries (en/es, including full coverage of audit/burp/canary/coverage/dlp/exif/opd/osint/plugins/router/skills/Hak5 tabs), `data-i18n` + `data-i18n-placeholder` attributes, `applyLanguage()`. Default `en`; switch via `switchLanguage()`.
 - **Vanilla JS**, no router, no package.json for frontend.
 
 ## Key JS globals (window.*)
@@ -411,7 +411,7 @@ python -m pytest tests/ -k "not test_slow_hook" -q  # ~4672 tests, ~95% coverage
 | `mirv_ai_endpoint` / `mirv_ai_key` / `mirv_ai_model` | string | AI API config |
 | `mirv_theme` | "neon" \| "mono" | Color theme |
 | `mirv_lang` | "en" \| "es" | Language |
-| `vulnforge_hak5_{bunny,omg,m5,shack,squirrel,shark}` | JSON array | Hak5 payloads per device (Bash Bunny, OMG Cable, M5 Stack, Shark Jack, Packet Squirrel Mark II, Shark Jack Display) |
+| `vulnforge_hak5_{bunny,omg,m5,shack,squirrel,shark,turtle,pineapple,pager,keycroc,crab,unblocker}` | JSON array | Hak5 payloads per device (Bash Bunny, OMG Cable, M5 Stack, Shark Jack, Packet Squirrel Mark II, Shark Jack Display, LAN Turtle Hub, WiFi Pineapple, WiFi Pineapple Pager, Key Croc, Screen Crab, O.MG UnBlocker) |
 | `mirv_ps_creds` | JSON object | Payload Studio credentials |
 | `mirv_opsec` | "silent" \| "covert" \| "loud" | OPSEC level |
 | `mirv_cmd_history` | JSON array | Terminal command history (persisted, max 100) |
