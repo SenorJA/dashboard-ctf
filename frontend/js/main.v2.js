@@ -7630,7 +7630,8 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
 
         // ── Code Agent (opencode) ──
         tabOpencode:      { en: '🤖 Code Agent',             es: '🤖 Agente de Código' },
-        ocSubtitle:       { en: 'Headless opencode CLI — plan/build/general tasks with redacted output.', es: 'CLI headless de opencode — tareas plan/build/general con salida redactada.' },
+        ocSubtitle:       { en: 'Headless coding agents (opencode · Claude Code) with redacted output.', es: 'Agentes de código headless (opencode · Claude Code) con salida redactada.' },
+        ocProvider:       { en: 'Provider',                  es: 'Proveedor' },
         ocAgent:          { en: 'Agent',                     es: 'Agente' },
         ocPrompt:         { en: 'Prompt',                    es: 'Prompt' },
         ocPromptPlaceholder: { en: 'Describe the task for opencode…', es: 'Describe la tarea para opencode…' },
@@ -13853,15 +13854,23 @@ Reglas:
     }
     window.refreshCodeAgent = async function () {
         try {
-            const d = await _assessFetch('/api/opencode/status');
+            const d = await _assessFetch('/api/agents/status');
             const el = document.getElementById('oc-status');
             if (!el) return;
+            const provider = document.getElementById('oc-provider')?.value || 'opencode';
+            const ps = (d && d.providers) || {};
+            const st = ps[provider] || {};
             let label = 'not installed';
             let cls = 'bg-deep border border-gray-800 text-gray-400';
-            if (d && d.ok && d.installed) {
-                label = `${d.version || '?'}${d.busy ? ' · busy' : ' · idle'}`;
-                cls = d.busy ? 'bg-amber-500/10 border border-amber-500/40 text-amber-400' : 'bg-emerald-500/10 border border-emerald-500/40 text-emerald-400';
+            if (st.installed) {
+                label = `${provider} · ${st.version || '?'}${st.busy ? ' · busy' : ' · idle'}`;
+                cls = st.busy ? 'bg-amber-500/10 border border-amber-500/40 text-amber-400' : 'bg-emerald-500/10 border border-emerald-500/40 text-emerald-400';
+            } else {
+                label = `${provider} · not installed`;
             }
+            // Append availability of the other providers
+            const others = Object.keys(ps).filter(p => p !== provider && ps[p].installed);
+            if (others.length) label += ` (+${others.join(', ')})`;
             el.textContent = label;
             el.className = `px-2 py-1 rounded text-[10px] font-semibold ${cls}`;
         } catch { /* silent */ }
@@ -13873,9 +13882,10 @@ Reglas:
         const out = document.getElementById('oc-output');
         try {
             if (busy) busy.classList.remove('hidden');
-            const d = await _assessFetch('/api/opencode/run', {
+            const d = await _assessFetch('/api/agents/run', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                    provider: document.getElementById('oc-provider')?.value || 'opencode',
                     prompt,
                     agent: document.getElementById('oc-agent')?.value || 'plan',
                     pure: !!(document.getElementById('oc-pure')?.checked),
@@ -13904,6 +13914,7 @@ Reglas:
     document.getElementById('oc-run')?.addEventListener('click', () => window.codeAgentRun && codeAgentRun());
     document.getElementById('oc-refresh')?.addEventListener('click', () => window.refreshCodeAgent && refreshCodeAgent());
     document.getElementById('oc-clear')?.addEventListener('click', () => window.codeAgentClear && codeAgentClear());
+    document.getElementById('oc-provider')?.addEventListener('change', () => window.refreshCodeAgent && refreshCodeAgent());
 
     // ════════════════════════════════════════════════════════════════
     //  PHISHING SIM — training-only awareness campaigns

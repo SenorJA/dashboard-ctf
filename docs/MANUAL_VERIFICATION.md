@@ -337,3 +337,25 @@ PYTHONIOENCODING=utf-8 python -m pytest tests/test_flag_detection.py tests/test_
 | Export HTML/PDF | `POST /api/labs/sessions/{sid}/export {"format":"html"\|"pdf","narrative":[…]}` | HTML `#090d14`/`#9FEF00` escapado · PDF `%PDF` dark con tarjetas de terminal | ✅ |
 | Export/Import estado | `GET /api/labs/export` → `POST /api/labs/import {"machines":[…],"replace":true}` | round-trip de máquinas/sesiones/evidencias/análisis | ✅ |
 | Suite completa | `pytest tests/ -k "not test_slow_hook"` | `4938 passed, 17 failed` (los 17 = `example.com` sin red) | ✅ |
+## 13. Pack 12 — Code Agent multi-proveedor (opencode · Claude Code)
+
+Puente headless multi-agente (`backend/agent_bridge.py`). La imagen
+`mirv-backend` instala **opencode** y **Claude Code** (nativos, fail-safe).
+
+```bash
+TOK=$(grep '^MIRV_API_TOKEN=' .env | cut -d= -f2-)
+curl -s -H "X-MIRV-Token: $TOK" localhost:8000/api/agents/status | python -m json.tool
+```
+
+| Paso | Petición | Respuesta esperada | Verificado |
+|---|---|---|---|
+| Estado multi-proveedor | `GET /api/agents/status` | `providers.{opencode,claude,codex}` con `installed`/`version`/`busy` | ✅ |
+| Run opencode | `POST /api/agents/run {"provider":"opencode","prompt":"…","agent":"plan"}` | 200 `ok:true`, `exit_code:0`, stdout redactado | ✅ ("ok opencode") |
+| Run Claude Code | `POST /api/agents/run {"provider":"claude","prompt":"…","timeout":30}` | 200 si hay `ANTHROPIC_API_KEY`; si no, `exit_code:1` + `"Not logged in"` (degradación limpia) | ⚠️ requiere `ANTHROPIC_API_KEY` |
+| codex (reservado) | `POST /api/agents/run {"provider":"codex"}` | error `not implemented` | ✅ |
+| prompt vacío | `POST /api/agents/run {"prompt":""}` | 400 | ✅ |
+| cwd fuera del root | `{"cwd":"/etc"}` | error `cwd escapes MIRV_OPENCODE_ROOT` | ✅ |
+| Tests | `pytest tests/test_agent_bridge.py -q` | `24 passed` | ✅ |
+
+> Claude Code en Docker: define `ANTHROPIC_API_KEY` en `.env` (la suscripción
+> Pro/Max no se puede hornear en la imagen). `docker-compose.yml` ya la reenvía.

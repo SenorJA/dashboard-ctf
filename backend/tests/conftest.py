@@ -44,7 +44,7 @@ _BACKEND_MODULES_TO_ALIAS = [
     "rate_limiter", "osint_recon", "instagram_osint",
     "episodic_memory", "orchestrator", "secret_store",
     "opencode_agent", "phishing_sim",
-    "flag_detection", "lab_sessions",
+    "flag_detection", "lab_sessions", "agent_bridge",
 ]
 for _name in _BACKEND_MODULES_TO_ALIAS:
     try:

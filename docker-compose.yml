@@ -66,6 +66,11 @@ services:
       - MIRV_AI_KEY=${MIRV_AI_KEY:-}
       - MIRV_AI_MODEL=${MIRV_AI_MODEL:-}
       - OLLAMA_URL=${OLLAMA_URL:-}
+      # ── Code Agent multi-proveedor (Pack 12) ──
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - MIRV_OPENCODE_ROOT=${MIRV_OPENCODE_ROOT:-}
+      - MIRV_CLAUDE_BIN=${MIRV_CLAUDE_BIN:-}
+      - MIRV_CODEX_BIN=${MIRV_CODEX_BIN:-}
       - COMPOSE_PROJECT_NAME=proyectociber
     volumes:
       - mirv-logs:/app/backend/logs

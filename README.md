@@ -6,7 +6,7 @@
 
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-latest-009688?logo=fastapi)](https://fastapi.tiangolo.com)
-[![Endpoints](https://img.shields.io/badge/endpoints-330-9cf)](#-api-resumen)
+[![Endpoints](https://img.shields.io/badge/endpoints-332-9cf)](#-api-resumen)
 [![Tests](https://img.shields.io/badge/tests-4955_✔️-2ea44f?logo=pytest)](#-testing)
 [![Coverage](https://img.shields.io/badge/coverage-~95%25-2ea44f)](#-testing)
 [![Tabs](https://img.shields.io/badge/frontend%20tabs-33-9cf)](#-features-principales)
@@ -43,12 +43,12 @@
 M.I.R.V. es una **plataforma modular todo-en-uno** para operaciones de ciberseguridad ofensiva y defensiva. Combina:
 
 - **Terminal SSH interactivo** vía WebSocket (navegador → Kali Linux)
-- **330 endpoints REST** (327 `/api/*` + 3 landing pages públicas) contra Supabase (PostgreSQL)
-- **56 módulos backend** con ~95% de cobertura de tests (`main.py` al 100%)
+- **332 endpoints REST** (329 `/api/*` + 3 landing pages públicas) contra Supabase (PostgreSQL)
+- **57 módulos backend** con ~95% de cobertura de tests (`main.py` al 100%)
 - **33 tabs frontend** en una SPA vanilla JS + Tailwind
 - **IA multi-proveedor** para informes, sugerencias, chat, análisis de laboratorios y **write-ups dark-mode** (HTML/PDF)
 - **Lab Sessions** (Pack 11): máquinas → sesiones → evidencias con **detección determinista de flags** user/root y análisis IA sobre el historial completo
-- **Code Agent** (Pack 10): puente headless al CLI `opencode` (plan/build/general) con salida redactada
+- **Code Agent** (Pack 10/12): puente headless multi-proveedor (**opencode · Claude Code · codex** a futuro) con salida redactada
 - **Phishing Sim** (Pack 10): simulador de concienciación *training-only* (solo hashes, sin credenciales reales)
 - **Análisis forense** (memoria, disco, archivos) y **móvil** (APK estático + dinámico con Frida)
 - **Swarm multi-operador**, **CTF mode**, **OPSEC Levels**, **Self-Improvement Loop**
@@ -65,7 +65,7 @@ M.I.R.V. es una **plataforma modular todo-en-uno** para operaciones de cibersegu
 │  (SPA + JS)  │ ◄──────────── │  (main.py)   │ ◄───────────── │  (50+ tools) │
 └──────┬───────┘               └──────┬───────┘                └──────────────┘
        │                              │
-       │  fetch() /api/* (330)        │  CRUD
+       │  fetch() /api/* (332)        │  CRUD
        ▼                              ▼
 ┌──────────────────────────────────────────┐
 │              Supabase (PostgreSQL)        │
@@ -76,7 +76,7 @@ M.I.R.V. es una **plataforma modular todo-en-uno** para operaciones de cibersegu
 **Flujo de datos:**
 1. **Frontend SPA** (HTML + vanilla JS + Tailwind CDN) — sin bundler, sin build step.
 2. **WebSocket** (`/ws`) proxy SSH bidireccional: navegador ↔ FastAPI ↔ Kali (Paramiko).
-3. **API REST** (`/api/*` + landings públicas) ~330 endpoints para operaciones CRUD y análisis.
+3. **API REST** (`/api/*` + landings públicas) ~332 endpoints para operaciones CRUD y análisis.
 4. **Supabase** (PostgreSQL) con 18 tablas + Storage bucket para archivos (+ `workspace_state` JSONB para registros opt-in).
 5. **Módulos del backend** (56 archivos) operan vía SSH sobre Kali o vía HTTP directo.
 
@@ -196,7 +196,7 @@ Ver auditoría: [`docs/SECURITY_AUDIT_OSINT_2026-08-15.md`](docs/SECURITY_AUDIT_
 
 ## 📡 API resumen
 
-~330 endpoints agrupados por categoría. **Documentación interactiva (Swagger):**
+~332 endpoints agrupados por categoría. **Documentación interactiva (Swagger):**
 ```
 http://localhost:8000/docs      # Swagger UI
 http://localhost:8000/redoc     # ReDoc
@@ -222,7 +222,7 @@ http://localhost:8000/redoc     # ReDoc
 | Permissions | 7 | `POST /api/permissions/classify` |
 | Intelligence | 11 | watches, snapshots, alerts, diff |
 | **Lab Sessions (Pack 11)** | 20 | `POST /api/labs/sessions/{sid}/analyze` (IA sobre historial), `writeup`, `export` html/pdf |
-| **Code Agent (Pack 10)** | 2 | `GET /api/opencode/status`, `POST /api/opencode/run` |
+| **Code Agent (Pack 10/12)** | 4 | `GET /api/agents/status`, `POST /api/agents/run` (provider: opencode/claude/codex) + `/api/opencode/*` |
 | **Phishing Sim (Pack 10)** | 13 | `POST /api/phishing/campaigns` + landings públicas `/phishing/{cid}` |
 | Assessments / Assets | 20 | `GET /api/assessments`, `POST /api/assets/ingest` |
 | Scheduler | 10 | `GET /api/scheduler/jobs`, daemon `status`, `record` |
@@ -256,7 +256,7 @@ python -m pytest tests/ -k "not test_slow_hook" -q
 #                         pasan en CI con internet)  ·  1 deselected
 ```
 
-- **107 archivos de test**, **4955 tests** recolectados (~95% cobertura)
+- **108 archivos de test**, **4979 tests** recolectados (~95% cobertura)
 - `main.py` = **100%** de cobertura (statement-level)
 - Pack 11 (Lab Sessions + flags + write-up): **89 tests nuevos** — detección de flags user/root (incl. transcripciones SSH y falsos positivos), recomputado al editar/borrar, invalidación de análisis obsoletos, escape XSS del HTML dark-mode, endpoints
 - Usa `unittest.mock` + `TestClient(app)` para endpoints; hermético (sin red/DB real)
@@ -324,11 +324,11 @@ Cualquier endpoint compatible con OpenAI: Ollama local (gratis), OpenRouter, Ope
 
 ```
 mirv/
-├── backend/          # FastAPI + 56 módulos (main.py ~8280 líneas, database.py, opsec.py, ...)
+├── backend/          # FastAPI + 57 módulos (main.py ~8280 líneas, database.py, opsec.py, ...)
 │   ├── plugins/      # Sistema de plugins (hot-reload)
 │   ├── skills/       # Skill playbooks (Markdown + frontmatter)
 │   ├── burp_plugin/  # Plugin Jython para Burp Suite
-│   └── tests/        # 107 archivos, 4955 tests (~95% cobertura)
+│   └── tests/        # 108 archivos, 4979 tests (~95% cobertura)
 ├── frontend/         # SPA vanilla JS + Tailwind CDN (33 tabs)
 │   ├── index.html    # SPA principal (~3960 líneas)
 │   └── js/           # main.v2.js (~14.000 líneas), dataservice, mobile, forensics, swarm
@@ -398,7 +398,7 @@ M.I.R.V. está diseñado para:
 
 <div align="center">
 
-**M.I.R.V. v3.3.0** — 330 endpoints · 4955 tests · ~95% cobertura · 33 tabs · 56 módulos
+**M.I.R.V. v3.3.0** — 332 endpoints · 4979 tests · ~95% cobertura · 33 tabs · 57 módulos
 
 [Reportar bug](https://github.com/SenorJA/dashboard-ctf/issues) · [Sugerir mejora](https://github.com/SenorJA/dashboard-ctf/issues) · [Documentación técnica](AGENTS.md)
 

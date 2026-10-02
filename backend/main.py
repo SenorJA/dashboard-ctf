@@ -3866,6 +3866,45 @@ async def opencode_run(body: dict):
 
 
 # ════════════════════════════════════════════════════════════════
+#  CODE AGENT (Pack 12) — multi-provider bridge (opencode | claude | codex)
+# ════════════════════════════════════════════════════════════════
+
+@app.get("/api/agents/status")
+async def agents_status():
+    """Status of every Code Agent provider (installed/version/busy)."""
+    try:
+        from backend import agent_bridge as ab
+        return JSONResponse(ab.status_all())
+    except Exception as e:  # pragma: no cover - defensive
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/agents/run")
+async def agents_run(body: dict):
+    """Run a headless agent session with the selected provider."""
+    body = body or {}
+    provider = str(body.get("provider") or "opencode").strip().lower()
+    prompt = str(body.get("prompt") or "")
+    if not prompt.strip():
+        return JSONResponse({"ok": False, "error": "prompt is required"}, status_code=400)
+    from backend import agent_bridge as ab
+    timeout = int(body.get("timeout") or 0) or None
+    result = await asyncio.to_thread(
+        ab.run,
+        provider,
+        prompt,
+        agent=str(body.get("agent") or "plan"),
+        cwd=body.get("cwd"),
+        model=body.get("model"),
+        pure=bool(body.get("pure", False)),
+        timeout=timeout,
+    )
+    if not result.get("available"):
+        return JSONResponse(result, status_code=503)
+    return JSONResponse(result, status_code=200 if result.get("ok") else 500)
+
+
+# ════════════════════════════════════════════════════════════════
 #  PHISHING SIM — training-only phishing awareness campaigns
 #  (public landings live at /phishing/{id} — outside the /api guard;
 #   credentials are NEVER stored in plaintext, only sha256 prefixes)

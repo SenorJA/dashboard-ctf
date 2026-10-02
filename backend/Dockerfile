@@ -34,6 +34,13 @@ RUN curl -fsSL https://opencode.ai/install | bash \
     && opencode --version \
     || echo "WARN: opencode not installed (Code Agent disabled)"
 
+# Code Agent (Pack 12) — Claude Code native CLI (no Node).
+# Auth at runtime via ANTHROPIC_API_KEY (subscription login can't be baked).
+RUN curl -fsSL https://claude.ai/install.sh | bash \
+    && ln -sf /root/.local/bin/claude /usr/local/bin/claude \
+    && claude --version \
+    || echo "WARN: claude not installed (Claude Code provider disabled)"
+
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
