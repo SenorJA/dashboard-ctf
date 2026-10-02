@@ -26,6 +26,14 @@ COPY scripts/ /app/scripts/
 # Install Python deps
 RUN pip install --no-cache-dir -r /app/backend/requirements.txt
 
+# Code Agent (Pack 10) — headless `opencode` CLI (standalone binary, no Node).
+# Fail-safe: if the CDN is unreachable at build time, continue without it
+# (the app works; only /api/opencode/* reports installed:false).
+RUN curl -fsSL https://opencode.ai/install | bash \
+    && ln -sf /root/.opencode/bin/opencode /usr/local/bin/opencode \
+    && opencode --version \
+    || echo "WARN: opencode not installed (Code Agent disabled)"
+
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
