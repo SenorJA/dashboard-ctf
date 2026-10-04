@@ -6,7 +6,7 @@
     "scoring": "Each keyword block that matches adds 1 point to its route. The highest-scoring route on the priority order wins; ties go to the earlier priority entry. No match -> fallbackId.",
     "maintainers": [
       "Format inspired by zhaoxuya520/reverse-skill (MIT). Rules curated for MIRV skills/modules, en+es.",
-      "24 routes (R0-R23). Regression corpus in benchmarks.json: GET /api/router/benchmark or pytest test_skill_router.py."
+      "27 routes (R0-R26). Regression corpus in benchmarks.json: GET /api/router/benchmark or pytest test_skill_router.py."
     ]
   },
   "routes": {
@@ -97,7 +97,7 @@
       "module": "mobile_analyzer",
       "tools": ["jadx", "apktool", "frida", "adb", "apksigner", "mobsf", "objection"],
       "keywords": [
-        { "must": "apk|smali|jadx|apktool|frida|\\badb\\b|android|mobsf|objection|ipa|\\bios\\b|root.?detect|cert.?pinning|pinning|apk.?hardening|加固|mobile.?pentest|movil|móvil|android.?app|decompile.?apk|反编译", "note": "Android/iOS static+dynamic reverse workflows." }
+        { "must": "apk|smali|jadx|apktool|frida|\\badb\\b|android|mobsf|root.?detect|cert.?pinning|pinning|apk.?hardening|加固|mobile.?pentest|movil|móvil|android.?app|decompile.?apk|反编译", "note": "Android APK static+dynamic reverse workflows (iOS/Apple → R25)." }
       ]
     },
     "R11": {
@@ -191,12 +191,12 @@
       ]
     },
     "R21": {
-      "label": { "en": "Binary reverse (IDA / radare2 / Ghidra)", "es": "Inversa de binario (IDA / radare2 / Ghidra)" },
+      "label": { "en": "Binary reverse (radare2 / Ghidra / gdb)", "es": "Inversa de binario (radare2 / Ghidra / gdb)" },
       "skill": "binary-reverse",
       "module": "finding_poc",
-      "tools": ["ida", "radare2", "ghidra", "gdb", "objdump", "strings", "angr", "capa", "strace"],
+      "tools": ["radare2", "ghidra", "gdb", "objdump", "strings", "angr", "capa", "strace"],
       "keywords": [
-        { "must": "decompile|decompil|disassembl|反编译|反汇编|\\bida\\b|radare|ghidra|objdump|\\bcapa\\b|\\bstrace\\b|\\bangr\\b|unicorn|ollvm|obfusc|control.?flow.?flatt|anti-?debug|anti.?debug|symbols?|\\.so\\b|\\.elf\\b|mach-?o|\\.dll\\b|\\.exe\\b|\\.bin\\b|native.?code|native.?library|call.?conv|dump.?bin", "note": "Static binary analysis (ELF/PE/Mach-O), obfuscation recovery, debugger-driven triage." }
+        { "must": "decompile|decompil|disassembl|反编译|反汇编|radare|ghidra|objdump|\\bcapa\\b|\\bstrace\\b|\\bangr\\b|unicorn|ollvm|obfusc|control.?flow.?flatt|anti-?debug|anti.?debug|symbols?|\\.so\\b|\\.elf\\b|mach-?o|\\.dll\\b|\\.exe\\b|\\.bin\\b|native.?code|native.?library|call.?conv|dump.?bin", "note": "Static binary analysis (ELF/PE/Mach-O), obfuscation recovery, debugger-driven triage (IDA-heavy → R24)." }
       ]
     },
     "R22": {
@@ -217,6 +217,33 @@
         { "must": "pcap|pcap-?ng|wireshark|tshark|tcpdump|protobuf|grpc\\b|custom.?protocol|protocol.?reverse|dissector|流量|traffic.?analy|traffic.?capture|http.?capture|request.?replay|replay.?request", "note": "Packet-capture dissection, protobuf/grpc schemas and HTTP request replay." }
       ]
     },
+    "R24": {
+      "label": { "en": "IDA Pro binary reverse", "es": "Inversa binaria con IDA Pro" },
+      "skill": "ida-reverse",
+      "module": "finding_poc",
+      "tools": ["ida", "idat", "idapro", "hex-rays", "bindiff", "qiling", "frida"],
+      "keywords": [
+        { "must": "\\bida\\b|idat|idapro|\\.idb\\b|idatabase|hex-?rays|pseudo-?code|graph\\.?view|call\\.?graph|xrefs?|demangle|demangler|\\bf5\\b|decompiler", "note": "IDA database-driven static depth: graft/xref analysis, FLIRT, pseudocode, demangling." }
+      ]
+    },
+    "R25": {
+      "label": { "en": "Mobile reverse (iOS / Apple)", "es": "Inversa móvil (iOS / Apple)" },
+      "skill": "mobile-reverse",
+      "module": "mobile_analyzer",
+      "tools": ["objection", "ipatool", "idevice_id", "iproxy", "class-dump", "class_dump", "libimobiledevice", "frida", "otool", "jtool2"],
+      "keywords": [
+        { "must": "\\bios\\b|\\bipa\\b|iphone|ipad|darwin|objc|objective-?c|class-?dump|keychain-?dump|jailbreak|越狱|\\bobjection\\b|idevice|ipatool|mobile.?reverse|apple.?app|swiftui|app.?store.?connect", "note": "iOS/Apple app reverse: ipa unpack, class-dump/Mach-O frameworks, frida/objection dynamic, keychain." }
+      ]
+    },
+    "R26": {
+      "label": { "en": "Patch diff / N-day exploitation", "es": "Diferencia de parches / explotación N-day" },
+      "skill": "patch-diff-exploit",
+      "module": "finding_poc",
+      "tools": ["bindiff", "diaphora", "radiff2", "git", "patch", "patchelf", "ida", "ghidra"],
+      "keywords": [
+        { "must": "patch-?diff|diff-?patch|bindiff|diaphora|radiff2|n-?day|nday|vendor.?patch|security.?patch|cve-?patch|\\bcve\\b|binary.?diff|symbol.?migration|parche|parcheado|parche.?seguridad|diff.?binario|version.?diff", "note": "Vendor patch diffing → vulnerability pinpointing → N-day PoC (BinDiff/Diaphora/radiff2)." }
+      ]
+    },
     "R0": {
       "label": { "en": "General analysis (fallback)", "es": "Análisis general (respaldo)" },
       "skill": null,
@@ -227,5 +254,5 @@
       ]
     }
   },
-  "priority": ["R10", "R11", "R12", "R22", "R21", "R13", "R14", "R15", "R16", "R17", "R18", "R19", "R20", "R23", "R5", "R6", "R7", "R8", "R9", "R4", "R3", "R2", "R1", "R0"]
+  "priority": ["R25", "R10", "R11", "R12", "R22", "R24", "R21", "R26", "R13", "R14", "R15", "R16", "R17", "R18", "R19", "R20", "R23", "R5", "R6", "R7", "R8", "R9", "R4", "R3", "R2", "R1", "R0"]
 }

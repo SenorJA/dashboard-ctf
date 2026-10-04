@@ -278,7 +278,8 @@ def test_api_router_reload(client):
 
 
 # ════════════════════════════════════════════════════════════════
-#  New reverse-skill routes: binary / dotnet / protocol (Pack 13)
+#  New reverse-skill routes: binary / dotnet / protocol / ida /
+#  mobile / patch-diff (Packs 13 & 14)
 # ════════════════════════════════════════════════════════════════
 
 def test_route_binary_reverse_elf():
@@ -303,6 +304,52 @@ def test_route_protocol_pcap():
     assert r["primary"]["id"] == "R23"
     assert r["primary"]["skill"] == "protocol-reverse"
     assert "wireshark" in r["primary"]["tools"]
+
+
+def test_route_ida_pro_database():
+    from backend.skill_router import route_task
+    r = route_task("open the ida database and recover pseudo-code for the x64 call graph", "en")
+    assert r["primary"]["id"] == "R24"
+    assert r["primary"]["skill"] == "ida-reverse"
+    assert "ida" in r["primary"]["tools"]
+    assert "hex-rays" in r["primary"]["tools"]
+
+
+def test_route_ida_hint_not_generic_binary():
+    from backend.skill_router import route_task
+    r = route_task("abre el binario en ida pro y examina el graph view con xrefs", "es")
+    assert r["primary"]["id"] == "R24"
+    assert r["primary"]["skill"] == "ida-reverse"
+
+
+def test_route_mobile_ios_prefers_mobile_over_apk():
+    from backend.skill_router import route_task
+    r = route_task("objection on the iphone app: bypass cert pinning and dump the keychain", "en")
+    assert r["primary"]["id"] == "R25"
+    assert r["primary"]["skill"] == "mobile-reverse"
+    assert "objection" in r["primary"]["tools"]
+
+
+def test_route_mobile_ios_es():
+    from backend.skill_router import route_task
+    r = route_task("analiza el ipa de ios con ipatool e idevice", "es")
+    assert r["primary"]["id"] == "R25"
+    assert r["primary"]["skill"] == "mobile-reverse"
+
+
+def test_route_patch_diff_nday():
+    from backend.skill_router import route_task
+    r = route_task("diff the vendor security patch and turn it into an N-day exploit", "en")
+    assert r["primary"]["id"] == "R26"
+    assert r["primary"]["skill"] == "patch-diff-exploit"
+    assert "bindiff" in r["primary"]["tools"]
+
+
+def test_route_binary_without_ida_stays_generic():
+    from backend.skill_router import route_task
+    r = route_task("decompile este .so y revisa los symbols con ghidra", "es")
+    assert r["primary"]["id"] == "R21"
+    assert r["primary"]["skill"] == "binary-reverse"
 
 
 def test_route_fallback_is_general_not_c2():

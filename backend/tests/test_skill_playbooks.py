@@ -97,6 +97,8 @@ BUILTIN_NAMES = {
     "pwn-chain", "firmware-pentest",
     # ── Pack 13 Task Router — RE routes (reverse-skill, 3) ─────
     "binary-reverse", "dotnet-reverse", "protocol-reverse",
+    # ── Pack 14 Task Router — RE/PE routes (reverse-skill, 3) ───
+    "ida-reverse", "mobile-reverse", "patch-diff-exploit",
 }
 
 

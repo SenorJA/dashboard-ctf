@@ -55,9 +55,15 @@ DEFAULT_TOOL_INDEX: list[str] = [
     # mobile / APK
     "jadx", "apktool", "frida", "adb", "apksigner", "mobsf", "objection",
     "java", "node", "python3",
+    # mobile / iOS + Apple
+    "ipatool", "idevice_id", "iproxy", "class-dump", "class_dump",
+    "libimobiledevice", "otool", "jtool2", "lipo",
     # reverse / binary
     "ghidra", "radare2", "r2", "gdb", "objdump", "strings", "angr",
     "capa", "strace", "dnspy", "de4dot", "ilspy", "mono",
+    # reverse / IDA + patch diff
+    "ida", "idat", "idapro", "hex-rays", "qiling", "bindiff", "diaphora",
+    "radiff2", "patchelf", "lief",
     # traffic / protocol
     "wireshark", "tshark", "tcpdump", "protoc", "grpcurl",
     # malware / firmware / forensics

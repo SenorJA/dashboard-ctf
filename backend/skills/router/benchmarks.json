@@ -34,7 +34,7 @@
     { "hint": "reverse this APK, check certificate pinning and root detection with frida", "lang": "en", "expected": "R10" },
     { "hint": "analiza el certificate pinning del apk con jadx", "lang": "es", "expected": "R10" },
     { "hint": "frida hook en el apk para saltar el root detect", "lang": "es", "expected": "R10" },
-    { "hint": "objection sobre el ipa de ios para mobile reverse", "lang": "en", "expected": "R10" },
+    { "hint": "objection sobre el ipa de ios para mobile reverse", "lang": "en", "expected": "R25" },
 
     { "hint": "recover the frontend webpack JS signing logic and replay the request", "lang": "en", "expected": "R11" },
     { "hint": "js reverse para recuperar el param cifrado del frontend", "lang": "es", "expected": "R11" },
@@ -76,6 +76,18 @@
 
     { "hint": "analyze the pcap protobuf traffic in wireshark", "lang": "en", "expected": "R23" },
     { "hint": "replay de la peticion capturada con tshark del trafico grpc", "lang": "es", "expected": "R23" },
+
+    { "hint": "open the ida database and recover pseudo-code for the x64 call graph", "lang": "en", "expected": "R24" },
+    { "hint": "abre el binario en ida pro y examina el graph view con xrefs", "lang": "es", "expected": "R24" },
+    { "hint": "demangle los symbols del .idb con idat", "lang": "es", "expected": "R24" },
+
+    { "hint": "objection on the iphone app: bypass cert pinning and dump the keychain", "lang": "en", "expected": "R25" },
+    { "hint": "ios: class-dump y frida para analizar el ipa en el iphone", "lang": "es", "expected": "R25" },
+    { "hint": "analiza el ipa de ios con ipatool e idevice", "lang": "es", "expected": "R25" },
+
+    { "hint": "diff the vendor security patch and turn it into an N-day exploit", "lang": "en", "expected": "R26" },
+    { "hint": "bindiff entre versiones del binario parcheado para el cve", "lang": "es", "expected": "R26" },
+    { "hint": "radiff2 y diaphora para localizar el parche de seguridad", "lang": "es", "expected": "R26" },
 
     { "hint": "hola que tal como ha ido el dia", "lang": "es", "expected": "R0" },
     { "hint": "just a random everyday message", "lang": "en", "expected": "R0" }
