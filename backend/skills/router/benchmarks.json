@@ -1,0 +1,83 @@
+{
+  "schemaVersion": "1.0",
+  "description": "MIRV skill-router regression benchmark. Adapation of reverse-skill's test-routing corpus (hint → expected PRIMARY route id). Run via run_benchmarks() / pytest parametrization / GET /api/router/benchmark. If a case regresses, the router behavior changed — review routing.json, never silently delete a case.",
+  "cases": [
+    { "hint": "nmap scan the target and enumerate subdomains", "lang": "en", "expected": "R1" },
+    { "hint": "haz un escaneo de puertos con nmap a la subred y descubre servicios", "lang": "es", "expected": "R1" },
+    { "hint": "nmap de la subred y descubrir subdominios", "lang": "es", "expected": "R1" },
+
+    { "hint": "run OSINT on the email and correlate usernames", "lang": "en", "expected": "R2" },
+    { "hint": "haz dorking y osint del correo con github", "lang": "es", "expected": "R2" },
+
+    { "hint": "test the web endpoint for IDOR, XSS and SQL injection", "lang": "en", "expected": "R3" },
+    { "hint": "prueba gobuster y ffuf en el sitio web por directorios", "lang": "es", "expected": "R3" },
+    { "hint": "IDOR en el endpoint de usuario, prueba gobuster y ffuf", "lang": "es", "expected": "R3" },
+
+    { "hint": "server side request forgery via the proxied fetch URL to 169.254.169.254", "lang": "en", "expected": "R4" },
+    { "hint": "prueba ssrf con la url del fetch interno", "lang": "es", "expected": "R4" },
+
+    { "hint": "JWT alg confusion on the bearer id_token", "lang": "en", "expected": "R5" },
+    { "hint": "jwt alg confusion en el id_token bearer", "lang": "es", "expected": "R5" },
+
+    { "hint": "graphql introspection query to dump the schema", "lang": "en", "expected": "R6" },
+    { "hint": "explota la introspeccion de graphql", "lang": "es", "expected": "R6" },
+
+    { "hint": "supabase anon key with broken RLS policies", "lang": "en", "expected": "R7" },
+    { "hint": "prueba la rls de supabase con la service role", "lang": "es", "expected": "R7" },
+
+    { "hint": "SSTI in the jinja2 template rendering", "lang": "en", "expected": "R8" },
+    { "hint": "inyeccion de plantillas ssti en velocity", "lang": "es", "expected": "R8" },
+
+    { "hint": "dangling cname subdomain takeover", "lang": "en", "expected": "R9" },
+    { "hint": "subdominios con fallo de takeover", "lang": "es", "expected": "R9" },
+
+    { "hint": "reverse this APK, check certificate pinning and root detection with frida", "lang": "en", "expected": "R10" },
+    { "hint": "analiza el certificate pinning del apk con jadx", "lang": "es", "expected": "R10" },
+    { "hint": "frida hook en el apk para saltar el root detect", "lang": "es", "expected": "R10" },
+    { "hint": "objection sobre el ipa de ios para mobile reverse", "lang": "en", "expected": "R10" },
+
+    { "hint": "recover the frontend webpack JS signing logic and replay the request", "lang": "en", "expected": "R11" },
+    { "hint": "js reverse para recuperar el param cifrado del frontend", "lang": "es", "expected": "R11" },
+
+    { "hint": "analyze this webshell with yara rules and extract IOCs", "lang": "en", "expected": "R12" },
+    { "hint": "he encontrado un troyano en memoria, genera reglas yara", "lang": "es", "expected": "R12" },
+    { "hint": "encontramos una webshell en memoria", "lang": "es", "expected": "R12" },
+
+    { "hint": "build a ret2libc exploit with pwntools and ROP gadgets", "lang": "en", "expected": "R13" },
+    { "hint": "exploit de buffer overflow con ret2win y checksec", "lang": "es", "expected": "R13" },
+    { "hint": "exploit ret2libc con pwntools para el service", "lang": "es", "expected": "R13" },
+
+    { "hint": "extract the router firmware with binwalk and emulate with emba", "lang": "en", "expected": "R14" },
+    { "hint": "extrae el firmware del dispositivo iot con binwalk", "lang": "es", "expected": "R14" },
+
+    { "hint": "run volatility on the memory dump and build a timeline", "lang": "en", "expected": "R15" },
+    { "hint": "analisis forense del memory dump con plaso", "lang": "es", "expected": "R15" },
+
+    { "hint": "crack the ntlm hash with hashcat using a wordlist", "lang": "en", "expected": "R16" },
+    { "hint": "haz hydra brute force al login con contraseñas", "lang": "es", "expected": "R16" },
+
+    { "hint": "generate a markdown writeup with a reproducible PoC for the finding", "lang": "en", "expected": "R17" },
+    { "hint": "genera el informe markdown del hallazgo con su poc", "lang": "es", "expected": "R17" },
+
+    { "hint": "create a sigma rule for this telemetry in the SOC", "lang": "en", "expected": "R18" },
+    { "hint": "crea una regla sigma de deteccion para el siem", "lang": "es", "expected": "R18" },
+
+    { "hint": "help me find the flag in this CTF challenge", "lang": "en", "expected": "R19" },
+    { "hint": "necesito la bandera del reto awd del ctf", "lang": "es", "expected": "R19" },
+
+    { "hint": "kerberoasting with bloodhound and impacket against the domain", "lang": "en", "expected": "R20" },
+    { "hint": "cazando kerberoast en el active directory", "lang": "es", "expected": "R20" },
+
+    { "hint": "decompile this .so and analyze the native library symbols", "lang": "en", "expected": "R21" },
+    { "hint": "analiza el binario .elf con ghidra y dump los symbols", "lang": "es", "expected": "R21" },
+
+    { "hint": "deobfuscate the .NET binary with dnspy and de4dot", "lang": "en", "expected": "R22" },
+    { "hint": "abre el binario .net en ilspy para revisar csharp", "lang": "es", "expected": "R22" },
+
+    { "hint": "analyze the pcap protobuf traffic in wireshark", "lang": "en", "expected": "R23" },
+    { "hint": "replay de la peticion capturada con tshark del trafico grpc", "lang": "es", "expected": "R23" },
+
+    { "hint": "hola que tal como ha ido el dia", "lang": "es", "expected": "R0" },
+    { "hint": "just a random everyday message", "lang": "en", "expected": "R0" }
+  ]
+}

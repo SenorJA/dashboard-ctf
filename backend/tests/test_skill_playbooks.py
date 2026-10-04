@@ -95,6 +95,8 @@ BUILTIN_NAMES = {
     # ── Pack 9 Task Router — Reverse Engineering (5) ────────────
     "apk-reverse", "js-reverse", "malware-analysis",
     "pwn-chain", "firmware-pentest",
+    # ── Pack 13 Task Router — RE routes (reverse-skill, 3) ─────
+    "binary-reverse", "dotnet-reverse", "protocol-reverse",
 }
 
 

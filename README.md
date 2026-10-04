@@ -6,7 +6,7 @@
 
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-latest-009688?logo=fastapi)](https://fastapi.tiangolo.com)
-[![Endpoints](https://img.shields.io/badge/endpoints-332-9cf)](#-api-resumen)
+[![Endpoints](https://img.shields.io/badge/endpoints-333-9cf)](#-api-resumen)
 [![Tests](https://img.shields.io/badge/tests-4955_✔️-2ea44f?logo=pytest)](#-testing)
 [![Coverage](https://img.shields.io/badge/coverage-~95%25-2ea44f)](#-testing)
 [![Tabs](https://img.shields.io/badge/frontend%20tabs-33-9cf)](#-features-principales)
@@ -43,7 +43,7 @@
 M.I.R.V. es una **plataforma modular todo-en-uno** para operaciones de ciberseguridad ofensiva y defensiva. Combina:
 
 - **Terminal SSH interactivo** vía WebSocket (navegador → Kali Linux)
-- **332 endpoints REST** (329 `/api/*` + 3 landing pages públicas) contra Supabase (PostgreSQL)
+- **333 endpoints REST** (330 `/api/*` + 3 landing pages públicas) contra Supabase (PostgreSQL)
 - **57 módulos backend** con ~95% de cobertura de tests (`main.py` al 100%)
 - **33 tabs frontend** en una SPA vanilla JS + Tailwind
 - **IA multi-proveedor** para informes, sugerencias, chat, análisis de laboratorios y **write-ups dark-mode** (HTML/PDF)
@@ -65,7 +65,7 @@ M.I.R.V. es una **plataforma modular todo-en-uno** para operaciones de cibersegu
 │  (SPA + JS)  │ ◄──────────── │  (main.py)   │ ◄───────────── │  (50+ tools) │
 └──────┬───────┘               └──────┬───────┘                └──────────────┘
        │                              │
-       │  fetch() /api/* (332)        │  CRUD
+       │  fetch() /api/* (333)        │  CRUD
        ▼                              ▼
 ┌──────────────────────────────────────────┐
 │              Supabase (PostgreSQL)        │
@@ -76,7 +76,7 @@ M.I.R.V. es una **plataforma modular todo-en-uno** para operaciones de cibersegu
 **Flujo de datos:**
 1. **Frontend SPA** (HTML + vanilla JS + Tailwind CDN) — sin bundler, sin build step.
 2. **WebSocket** (`/ws`) proxy SSH bidireccional: navegador ↔ FastAPI ↔ Kali (Paramiko).
-3. **API REST** (`/api/*` + landings públicas) ~332 endpoints para operaciones CRUD y análisis.
+3. **API REST** (`/api/*` + landings públicas) ~333 endpoints para operaciones CRUD y análisis.
 4. **Supabase** (PostgreSQL) con 18 tablas + Storage bucket para archivos (+ `workspace_state` JSONB para registros opt-in).
 5. **Módulos del backend** (56 archivos) operan vía SSH sobre Kali o vía HTTP directo.
 
@@ -196,7 +196,7 @@ Ver auditoría: [`docs/SECURITY_AUDIT_OSINT_2026-08-15.md`](docs/SECURITY_AUDIT_
 
 ## 📡 API resumen
 
-~332 endpoints agrupados por categoría. **Documentación interactiva (Swagger):**
+~333 endpoints agrupados por categoría. **Documentación interactiva (Swagger):**
 ```
 http://localhost:8000/docs      # Swagger UI
 http://localhost:8000/redoc     # ReDoc
@@ -214,7 +214,7 @@ http://localhost:8000/redoc     # ReDoc
 | Audit Log | 3 | `GET /api/audit/logs` |
 | Plugins | 8 | `GET /api/plugins`, watcher control |
 | Coverage | 8 | `POST /api/coverage/mark`, export |
-| Skills + Router | 11 | `GET /api/skills`, `POST /api/router/route` |
+| Skills + Router | 11 | `GET /api/skills`, `POST /api/router/route`, `GET /api/router/benchmark` |
 | Redaction | 4 | `POST /api/redact`, `GET /api/redact/patterns` |
 | Burp Bridge | 14 | `POST /api/burp/ingest`, finding-to-issue |
 | Browser Capture | 10 | `POST /api/browser-capture/import` |
@@ -398,7 +398,7 @@ M.I.R.V. está diseñado para:
 
 <div align="center">
 
-**M.I.R.V. v3.3.0** — 332 endpoints · 4979 tests · ~95% cobertura · 33 tabs · 57 módulos
+**M.I.R.V. v3.3.0** — 333 endpoints · 4979 tests · ~95% cobertura · 33 tabs · 57 módulos
 
 [Reportar bug](https://github.com/SenorJA/dashboard-ctf/issues) · [Sugerir mejora](https://github.com/SenorJA/dashboard-ctf/issues) · [Documentación técnica](AGENTS.md)
 

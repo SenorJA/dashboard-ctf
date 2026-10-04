@@ -5,7 +5,8 @@
     "fallbackId": "R0",
     "scoring": "Each keyword block that matches adds 1 point to its route. The highest-scoring route on the priority order wins; ties go to the earlier priority entry. No match -> fallbackId.",
     "maintainers": [
-      "Format inspired by zhaoxuya520/reverse-skill (MIT). Rules curated for MIRV skills/modules, en+es."
+      "Format inspired by zhaoxuya520/reverse-skill (MIT). Rules curated for MIRV skills/modules, en+es.",
+      "24 routes (R0-R23). Regression corpus in benchmarks.json: GET /api/router/benchmark or pytest test_skill_router.py."
     ]
   },
   "routes": {
@@ -189,15 +190,42 @@
         { "must": "active.?directory|\\bad\\b.?cs|bloodhound|kerberoast|kerberos|ntlm.?relay|dc.?sync|impacket|mimikatz|secretsdump|golden.?ticket|silver.?ticket|ldap|domain.?controller|dominio.?windows", "note": "AD enumeration, kerberos abuse, relay and dump chains." }
       ]
     },
-    "R0": {
-      "label": { "en": "General reverse engineering / analysis", "es": "Ingeniería inversa general / análisis" },
-      "skill": "c2-sliver",
-      "module": "automation",
-      "tools": ["ghidra", "radare2", "gdb"],
+    "R21": {
+      "label": { "en": "Binary reverse (IDA / radare2 / Ghidra)", "es": "Inversa de binario (IDA / radare2 / Ghidra)" },
+      "skill": "binary-reverse",
+      "module": "finding_poc",
+      "tools": ["ida", "radare2", "ghidra", "gdb", "objdump", "strings", "angr", "capa", "strace"],
       "keywords": [
-        { "must": "reverse|decompil|decompile|disassembl|desensambl|obfusc|ollvm|angr|unicorn|\\bbinary\\b|\\belf\\b|mach-?o|\\bpe\\b|dump.?bin|gadgets|anti-?debug|symbols?", "note": "Binary analysis catch-all (ELF/PE/Mach-O, obfuscated logic)." }
+        { "must": "decompile|decompil|disassembl|反编译|反汇编|\\bida\\b|radare|ghidra|objdump|\\bcapa\\b|\\bstrace\\b|\\bangr\\b|unicorn|ollvm|obfusc|control.?flow.?flatt|anti-?debug|anti.?debug|symbols?|\\.so\\b|\\.elf\\b|mach-?o|\\.dll\\b|\\.exe\\b|\\.bin\\b|native.?code|native.?library|call.?conv|dump.?bin", "note": "Static binary analysis (ELF/PE/Mach-O), obfuscation recovery, debugger-driven triage." }
+      ]
+    },
+    "R22": {
+      "label": { "en": ".NET reverse", "es": "Inversa .NET" },
+      "skill": "dotnet-reverse",
+      "module": "finding_poc",
+      "tools": ["dnspy", "de4dot", "ilspy", "monodis", "dnlib", "dotnet"],
+      "keywords": [
+        { "must": "\\.net\\b|dotnet|dnspy|de4dot|ilspy|monodis|c#|csharp|confuserex|dnlib|il2cpp|unity", "note": ".NET/C# assembly analysis: IL inspection, deobfuscation (de4dot) and Unity/IL2CPP." }
+      ]
+    },
+    "R23": {
+      "label": { "en": "Protocol / traffic reverse", "es": "Inversa de protocolo / tráfico" },
+      "skill": "protocol-reverse",
+      "module": "browser_capture",
+      "tools": ["wireshark", "tshark", "tcpdump", "protoc", "grpcurl", "curl"],
+      "keywords": [
+        { "must": "pcap|pcap-?ng|wireshark|tshark|tcpdump|protobuf|grpc\\b|custom.?protocol|protocol.?reverse|dissector|流量|traffic.?analy|traffic.?capture|http.?capture|request.?replay|replay.?request", "note": "Packet-capture dissection, protobuf/grpc schemas and HTTP request replay." }
+      ]
+    },
+    "R0": {
+      "label": { "en": "General analysis (fallback)", "es": "Análisis general (respaldo)" },
+      "skill": null,
+      "module": "automation",
+      "tools": [],
+      "keywords": [
+        { "must": "analy|analiz|task|hint|scan|probe|general", "note": "Catch-all vocabulary; also the meta.fallbackId target when no rule matches." }
       ]
     }
   },
-  "priority": ["R10", "R11", "R12", "R13", "R14", "R15", "R16", "R17", "R18", "R19", "R20", "R5", "R6", "R7", "R8", "R9", "R4", "R3", "R2", "R1", "R0"]
+  "priority": ["R10", "R11", "R12", "R22", "R21", "R13", "R14", "R15", "R16", "R17", "R18", "R19", "R20", "R23", "R5", "R6", "R7", "R8", "R9", "R4", "R3", "R2", "R1", "R0"]
 }

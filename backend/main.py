@@ -2745,6 +2745,17 @@ async def api_router_reload():
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 
 
+@app.get("/api/router/benchmark")
+async def api_router_benchmark(lang: str = ""):
+    """Run the routing regression corpus (hint → expected PRIMARY). gate: failed == 0."""
+    try:
+        lang = (lang or "").strip()[:2] or None
+        return JSONResponse(routerlib.run_benchmarks(lang))
+    except Exception as e:
+        logger.error("[router benchmark] %s", e)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
 # ════════════════════════════════════════════════════════════════
 #  MULTI-AGENT ORCHESTRATOR
 #  Routes security tasks to specialist agents, each grounded in a

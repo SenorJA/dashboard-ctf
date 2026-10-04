@@ -38,6 +38,7 @@ _logger = logging.getLogger("vulnforge.router")
 
 _BACKEND_DIR = Path(__file__).resolve().parent
 _SHIPPED_CONFIG = _BACKEND_DIR / "skills" / "router" / "routing.json"
+_SHIPPED_BENCHMARKS = _BACKEND_DIR / "skills" / "router" / "benchmarks.json"
 
 _LOCK = threading.Lock()
 _CACHE: dict[str, Any] = {"mtime": None, "data": None, "source": None}
@@ -56,6 +57,9 @@ DEFAULT_TOOL_INDEX: list[str] = [
     "java", "node", "python3",
     # reverse / binary
     "ghidra", "radare2", "r2", "gdb", "objdump", "strings", "angr",
+    "capa", "strace", "dnspy", "de4dot", "ilspy", "mono",
+    # traffic / protocol
+    "wireshark", "tshark", "tcpdump", "protoc", "grpcurl",
     # malware / firmware / forensics
     "yara", "binwalk", "volatility3", "vol3", "plaso", "autopsy",
     "hashcat", "john", "hydra", "cewl", "pwntools", "checksec", "ropper",
@@ -450,4 +454,87 @@ def detect_tools(
         "missing": missing,
         "total": len(result),
         "detected_count": len(present),
+    }
+
+
+# =====================================================================
+#  Regression benchmarks (hint → expected PRIMARY route)
+#  Adapted from reverse-skill's ``test-routing``: a JSON corpus drives a
+#  deterministic gate so routing changes are verified, not just eyeballed.
+# =====================================================================
+
+def _benchmark_path() -> Path:
+    """Benchmark corpus path (env ``MIRV_ROUTER_BENCHMARKS`` overrides)."""
+    override = os.getenv("MIRV_ROUTER_BENCHMARKS", "").strip()
+    return Path(override) if override else _SHIPPED_BENCHMARKS
+
+
+def load_benchmarks(path: str | Path | None = None) -> list[dict[str, Any]]:
+    """Load the routing regression corpus. Returns [] on any invalid input."""
+    p = Path(path) if path else _benchmark_path()
+    try:
+        raw = json.loads(p.read_text(encoding="utf-8"))
+    except Exception as exc:
+        _logger.warning("[router] cannot read benchmarks %s: %s", p, exc)
+        return []
+    if not isinstance(raw, dict):
+        return []
+    cases = raw.get("cases")
+    if not isinstance(cases, list):
+        return []
+    out: list[dict[str, Any]] = []
+    for idx, c in enumerate(cases):
+        if (
+            isinstance(c, dict)
+            and isinstance(c.get("hint"), str)
+            and c.get("hint")
+            and isinstance(c.get("expected"), str)
+            and c["expected"]
+        ):
+            out.append({
+                "index": idx,
+                "hint": c["hint"],
+                "lang": str(c.get("lang") or "en")[:2],
+                "expected": c["expected"],
+            })
+    return out
+
+
+def run_benchmarks(lang: str | None = None, path: str | Path | None = None) -> dict[str, Any]:
+    """
+    Run every benchmark case through :func:`route_task` and report the score.
+
+    ``lang`` optionally filters to a single corpus language (e.g. "es").
+    Returns a summary with the full list of failures (case → expected vs
+    actual) so the pipeline/UI can point at exactly what regressed.
+    """
+    cases = load_benchmarks(path)
+    if lang and lang not in ("en", "es"):
+        lang = None
+    selected = [c for c in cases if not lang or c["lang"] == lang]
+    failures: list[dict[str, Any]] = []
+    for c in selected:
+        try:
+            res = route_task(c["hint"], c["lang"])
+            primary = res.get("primary") if isinstance(res, dict) else None
+            actual = primary.get("id") if isinstance(primary, dict) else None
+        except Exception as exc:  # a routing crash is a failure, never a 500
+            failures.append({
+                **c,
+                "actual": None,
+                "error": str(exc),
+            })
+            continue
+        if actual != c["expected"]:
+            failures.append({
+                **c,
+                "actual": actual,
+            })
+    return {
+        "ok": True,
+        "total": len(selected),
+        "passed": len(selected) - len(failures),
+        "failed": len(failures),
+        "failures": failures,
+        "config_source": _CACHE.get("source") or "embedded",
     }

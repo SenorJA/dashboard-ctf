@@ -275,3 +275,111 @@ def test_api_router_reload(client):
     r = client.post("/api/router/reload")
     assert r.status_code == 200
     assert r.json()["ok"] is True
+
+
+# ════════════════════════════════════════════════════════════════
+#  New reverse-skill routes: binary / dotnet / protocol (Pack 13)
+# ════════════════════════════════════════════════════════════════
+
+def test_route_binary_reverse_elf():
+    from backend.skill_router import route_task
+    r = route_task("decompile this .so and analyze the native library symbols", "en")
+    assert r["primary"]["id"] == "R21"
+    assert r["primary"]["skill"] == "binary-reverse"
+    assert "ghidra" in r["primary"]["tools"]
+    assert r["fallback_used"] is False
+
+
+def test_route_dotnet_has_priority_over_generic_binary():
+    from backend.skill_router import route_task
+    r = route_task("deobfuscate the .NET binary with dnspy and de4dot", "en")
+    assert r["primary"]["id"] == "R22"
+    assert r["primary"]["skill"] == "dotnet-reverse"
+
+
+def test_route_protocol_pcap():
+    from backend.skill_router import route_task
+    r = route_task("analyze the pcap protobuf traffic in wireshark", "en")
+    assert r["primary"]["id"] == "R23"
+    assert r["primary"]["skill"] == "protocol-reverse"
+    assert "wireshark" in r["primary"]["tools"]
+
+
+def test_route_fallback_is_general_not_c2():
+    from backend.skill_router import route_task
+    r = route_task("hola que tal como ha ido el dia", "es")
+    assert r["primary"]["id"] == "R0"
+    assert r["primary"]["skill"] is None
+    assert r["fallback_used"] is True
+
+
+# ════════════════════════════════════════════════════════════════
+#  Regression benchmark corpus (reverse-skill "test-routing" parity)
+# ════════════════════════════════════════════════════════════════
+
+from backend.skill_router import load_benchmarks, run_benchmarks
+
+
+def _benchmark_cases():
+    from backend.skill_router import load_config
+    load_config(force=True)
+    return load_benchmarks()
+
+
+@pytest.mark.parametrize("case", _benchmark_cases(), ids=lambda c: f"{c['lang']}-{c['index']}-{c['expected']}")
+def test_benchmark_case_routes(case):
+    from backend.skill_router import route_task
+    res = route_task(case["hint"], case["lang"])
+    assert res["primary"]["id"] == case["expected"], (
+        f"case {case['index']} [{case['lang']}] expected {case['expected']} "
+        f"got {res['primary']['id']}: {case['hint']!r}"
+    )
+
+
+def test_run_benchmarks_all_pass():
+    out = run_benchmarks()
+    assert out["ok"] and out["failed"] == 0, [
+        f"{f['lang']} {f['expected']}!={f.get('actual')} :: {f['hint']}" for f in out["failures"]
+    ]
+    assert out["passed"] == out["total"] and out["total"] >= 40
+
+
+def test_run_benchmarks_es_filter():
+    out = run_benchmarks(lang="es")
+    assert out["failed"] == 0 and out["total"] > 0
+    assert all(not c["lang"].startswith("en") for c in out["failures"])
+
+
+def test_run_benchmarks_detects_mismatch(tmp_path):
+    from backend.skill_router import route_task
+    bogus = tmp_path / "benchmarks.json"
+    bogus.write_text(json.dumps({
+        "schemaVersion": "1.0",
+        "cases": [
+            {"hint": "nmap scan the target and enumerate subdomains", "lang": "en", "expected": "R999"},
+            {"hint": "analyze the pcap protobuf traffic in wireshark", "lang": "en", "expected": "R23"},
+        ],
+    }), encoding="utf-8")
+    out = run_benchmarks(path=bogus)
+    assert out["total"] == 2 and out["passed"] == 1 and out["failed"] == 1
+    assert out["failures"][0]["expected"] == "R999"
+    assert out["failures"][0]["actual"] == "R1"
+
+
+def test_load_benchmarks_invalid_file_returns_empty(tmp_path):
+    from backend.skill_router import load_benchmarks
+    bad = tmp_path / "bad.json"
+    bad.write_text("{not json", encoding="utf-8")
+    assert load_benchmarks(path=bad) == []
+    bad2 = tmp_path / "nok.json"
+    bad2.write_text(json.dumps({"cases": [{"hint": "x"}]}), encoding="utf-8")
+    assert load_benchmarks(path=bad2) == []
+
+
+def test_api_router_benchmark(client):
+    r = client.get("/api/router/benchmark")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["ok"] and body["failed"] == 0 and body["total"] >= 40
+    es = client.get("/api/router/benchmark", params={"lang": "es"}).json()
+    assert es["failed"] == 0 and es["total"] > 0
