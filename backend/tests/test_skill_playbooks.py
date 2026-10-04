@@ -99,6 +99,10 @@ BUILTIN_NAMES = {
     "binary-reverse", "dotnet-reverse", "protocol-reverse",
     # ── Pack 14 Task Router — RE/PE routes (reverse-skill, 3) ───
     "ida-reverse", "mobile-reverse", "patch-diff-exploit",
+    # ── Pack 15 Task Router — all remaining reverse-skill modules (8) ─
+    "dsl-vm-reverse", "edr-bypass-re", "binary-ninja-reverse",
+    "attack-chain", "supply-chain-security", "api-security",
+    "llm-security", "browser-automation",
 }
 
 

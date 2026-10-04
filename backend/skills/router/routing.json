@@ -6,7 +6,7 @@
     "scoring": "Each keyword block that matches adds 1 point to its route. The highest-scoring route on the priority order wins; ties go to the earlier priority entry. No match -> fallbackId.",
     "maintainers": [
       "Format inspired by zhaoxuya520/reverse-skill (MIT). Rules curated for MIRV skills/modules, en+es.",
-      "27 routes (R0-R26). Regression corpus in benchmarks.json: GET /api/router/benchmark or pytest test_skill_router.py."
+      "35 routes (R0-R34). Regression corpus in benchmarks.json: GET /api/router/benchmark or pytest test_skill_router.py."
     ]
   },
   "routes": {
@@ -232,7 +232,7 @@
       "module": "mobile_analyzer",
       "tools": ["objection", "ipatool", "idevice_id", "iproxy", "class-dump", "class_dump", "libimobiledevice", "frida", "otool", "jtool2"],
       "keywords": [
-        { "must": "\\bios\\b|\\bipa\\b|iphone|ipad|darwin|objc|objective-?c|class-?dump|keychain-?dump|jailbreak|越狱|\\bobjection\\b|idevice|ipatool|mobile.?reverse|apple.?app|swiftui|app.?store.?connect", "note": "iOS/Apple app reverse: ipa unpack, class-dump/Mach-O frameworks, frida/objection dynamic, keychain." }
+        { "must": "\\bios\\b|\\bipa\\b|iphone|ipad|darwin|objc|objective-?c|class-?dump|keychain-?dump|越狱|\\bobjection\\b|idevice|ipatool|mobile.?reverse|apple.?app|swiftui|app.?store.?connect", "note": "iOS/Apple app reverse: ipa unpack, class-dump/Mach-O frameworks, frida/objection dynamic, keychain." }
       ]
     },
     "R26": {
@@ -242,6 +242,78 @@
       "tools": ["bindiff", "diaphora", "radiff2", "git", "patch", "patchelf", "ida", "ghidra"],
       "keywords": [
         { "must": "patch-?diff|diff-?patch|bindiff|diaphora|radiff2|n-?day|nday|vendor.?patch|security.?patch|cve-?patch|\\bcve\\b|binary.?diff|symbol.?migration|parche|parcheado|parche.?seguridad|diff.?binario|version.?diff", "note": "Vendor patch diffing → vulnerability pinpointing → N-day PoC (BinDiff/Diaphora/radiff2)." }
+      ]
+    },
+    "R27": {
+      "label": { "en": "DSL / custom VM reverse", "es": "Inversa de VM/DSL custom" },
+      "skill": "dsl-vm-reverse",
+      "module": "finding_poc",
+      "tools": ["node", "python3", "js-beautify", "radare2"],
+      "keywords": [
+        { "must": "dsl.?vm|custom.?vm|opcode.?vm|js.?vm|bytecode.?vm|jsvmp|wz.?vm|obfuscator.?vm|v8.?bytecode|jsc.?bytecode|opcode.?handler|vm.?dispatcher|vm.?obfusc|vm.?protect|evm.?bytecode|bytecode.?handler|handler.?dispatch", "note": "Custom opcode/bytecode virtual machines (JS/wASM/EVM obfuscation): recover the handler dispatch table and per-opcode semantics." }
+      ]
+    },
+    "R28": {
+      "label": { "en": "EDR / AV evasion (reverse)", "es": "Evasión de EDR/AV (inversa)" },
+      "skill": "edr-bypass-re",
+      "module": "finding_poc",
+      "tools": ["pe-sieve", "pe-sieve64", "pe-bear", "mona", "x64dbg", "windbg", "hyperdbg", "frida", "radare2"],
+      "keywords": [
+        { "must": "edr.?bypass|edr.?evasion|av.?bypass|bypass.?av|antivirus.?bypass|amsi.?bypass|amsi.?patch|etw.?patch|unhooking|hot.?patch.?hook|direct.?syscall|syscall.?stub|reflective.?dll|process.?hollowing|sacrificial.?process|sleep.?obfuscation|self.?injector|import.?address.?table|iat.?hook|ntdll.?restore|defender.?excl", "note": "Bypass EDR/AV telemetry via user-mode hook RE: restore ntdll, direct syscalls, AMSI/ETW patching." }
+      ]
+    },
+    "R29": {
+      "label": { "en": "Binary Ninja reverse", "es": "Inversa con Binary Ninja" },
+      "skill": "binary-ninja-reverse",
+      "module": "finding_poc",
+      "tools": ["binaryninja", "bn", "python3", "radare2"],
+      "keywords": [
+        { "must": "binary.?ninja|\\bbinja\\b|hlil|mlil|llil|low.?level.?il|medium.?level.?il|high.?level.?il|bn.?plugin|bn.?script|il.?lifters?|bn.?headless|bn.?api", "note": "Binary Ninja HLIL/MLIL/LLIL workflows, IL lifters and plugin scripting." }
+      ]
+    },
+    "R30": {
+      "label": { "en": "Attack chain orchestration", "es": "Orquestación de cadena de ataque" },
+      "skill": "attack-chain",
+      "module": "swarm",
+      "tools": ["nmap", "nuclei", "crackmapexec", "metasploit", "bloodhound", "impacket", "mimikatz", "sliver", "chisel", "ligolo", "beacon"],
+      "keywords": [
+        { "must": "attack.?chain|kill.?chain|red.?team|\\brto\\b|cadena.?de.?ataque|campaña.?roja|adversary.?emul|breach.?and.?attack|full.?chain|lateral.?movement|post.?exploit|oper.?plan|chain.?attack|campaign.?plan|escalat.?chain|exfiltrat.?chain|double.?hop|pivot.?in|pivoting", "note": "Full offensive orchestration (recon→delivery→exploit→privesc→lateral→C2→exfil) as one campaign." }
+      ]
+    },
+    "R31": {
+      "label": { "en": "Supply chain / SBOM security", "es": "Seguridad de cadena de suministro / SBOM" },
+      "skill": "supply-chain-security",
+      "module": "automation",
+      "tools": ["syft", "grype", "trivy", "cosign", "slsa-verifier", "cdxgen", "npm", "pip", "git"],
+      "keywords": [
+        { "must": "sbom|software.?bill.?of.?materials|dependency.?confusion|typosquat|namespace.?confus|supply.?chain|own.?package.?attack|provenance|cosign|slsa|transitive.?depend|lockfile.?check|registry.?tamper|malicious.?package|publish.?signed|repo.?confus|package.?manager.?attack", "note": "SBOM generation, dependency/typosquatting/registry attacks, provenance & signing (cosign/SLSA)." }
+      ]
+    },
+    "R32": {
+      "label": { "en": "API security (OAuth / logic)", "es": "Seguridad de API (OAuth / lógica)" },
+      "skill": "api-security",
+      "module": "api_scanner",
+      "tools": ["curl", "wfuzz", "jwt_tool", "mitmproxy"],
+      "keywords": [
+        { "must": "\\bapi\\b|oauth|oidc|openid.?connect|authorization.?code|token.?reuse|token.?replay|scope.?escal|mass.?assignment|rate.?limit|business.?logic|double.?spend|wallet.?balance|uuid.?enum|id.?oracle|api.?gateway|shadow.?api|unauth.?api|401.?bypass|403.?bypass|http.?param.?pollut|path.?normaliz|api.?version", "note": "API-layer security: OAuth/OIDC flows, mass assignment, business logic, rate limits, shadow APIs." }
+      ]
+    },
+    "R33": {
+      "label": { "en": "LLM / AI security", "es": "Seguridad de LLM / IA" },
+      "skill": "llm-security",
+      "module": "automation",
+      "tools": ["python3", "curl", "garak", "promptfoo"],
+      "keywords": [
+        { "must": "jailbreak|prompt.?inject|prompt.?leak|prompt.?exfil|jailbreak.?prompt|llm.?jailbreak|guardrail.?bypass|rag.?poison|rag.?inject|training.?data.?extract|model.?extraction|model.?theft|system.?prompt.?leak|llm.?pentest|ai.?pentest|ai.?agent.?security|mcp.?prompt|chatbot.?manipul|chain.?of.?thought.?leak", "note": "LLM application security: prompt injection/leak, RAG poisoning, model extraction, guardrail bypass." }
+      ]
+    },
+    "R34": {
+      "label": { "en": "Browser / desktop automation", "es": "Automatización de navegador / escritorio" },
+      "skill": "browser-automation",
+      "module": "browser_capture",
+      "tools": ["playwright", "puppeteer", "selenium", "chromium", "chromedriver", "pywinauto", "uiautomation"],
+      "keywords": [
+        { "must": "playwright|puppeteer|selenium|browser.?automation|browser.?auto|web.?driv|chromedriver|uia.?automation|desktop.?automation|pywinauto|headless.?browser|page.?script|browser.?orchestr|capturar.?flujo.?web", "note": "Automate browser/desktop flows (Playwright, Puppeteer, Selenium, UIA) for app-level testing." }
       ]
     },
     "R0": {
@@ -254,5 +326,5 @@
       ]
     }
   },
-  "priority": ["R25", "R10", "R11", "R12", "R22", "R24", "R21", "R26", "R13", "R14", "R15", "R16", "R17", "R18", "R19", "R20", "R23", "R5", "R6", "R7", "R8", "R9", "R4", "R3", "R2", "R1", "R0"]
+  "priority": ["R25", "R28", "R10", "R11", "R12", "R34", "R22", "R24", "R27", "R21", "R26", "R29", "R13", "R14", "R15", "R16", "R17", "R18", "R19", "R20", "R30", "R31", "R32", "R33", "R23", "R5", "R6", "R7", "R8", "R9", "R4", "R3", "R2", "R1", "R0"]
 }

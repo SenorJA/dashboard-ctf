@@ -89,6 +89,38 @@
     { "hint": "bindiff entre versiones del binario parcheado para el cve", "lang": "es", "expected": "R26" },
     { "hint": "radiff2 y diaphora para localizar el parche de seguridad", "lang": "es", "expected": "R26" },
 
+    { "hint": "recover the handler dispatch of this custom JS VM bytecode", "lang": "en", "expected": "R27" },
+    { "hint": "analiza la dsl vm del js con bytecode custom", "lang": "es", "expected": "R27" },
+    { "hint": "identifica los opcode handlers de la vm obfuscada", "lang": "es", "expected": "R27" },
+
+    { "hint": "bypass the EDR by restoring ntdll and using direct syscalls", "lang": "en", "expected": "R28" },
+    { "hint": "evasion de edr: unhook ntdll y amsi patch", "lang": "es", "expected": "R28" },
+    { "hint": "bypass del antivirus con reflective dll y process hollowing", "lang": "es", "expected": "R28" },
+
+    { "hint": "analyze with Binary Ninja using HLIL and custom BN plugins", "lang": "en", "expected": "R29" },
+    { "hint": "binary ninja: script en bn aprovechando el mlil", "lang": "es", "expected": "R29" },
+    { "hint": "usa el headless de binja para el low level il del binario", "lang": "es", "expected": "R29" },
+
+    { "hint": "plan a full red team operation and emulate the attack chain", "lang": "en", "expected": "R30" },
+    { "hint": "campaña roja: cadena de ataque completa con chisel para doble salto", "lang": "es", "expected": "R30" },
+    { "hint": "adversary emulation: kill chain y oper post explotacion con pivoting", "lang": "es", "expected": "R30" },
+
+    { "hint": "generate an SBOM with syft and verify provenance with cosign", "lang": "en", "expected": "R31" },
+    { "hint": "revisa la cadena de suministro: typosquatting y dependency confusion", "lang": "es", "expected": "R31" },
+    { "hint": "sbom y slsa del proyecto npm con grype", "lang": "es", "expected": "R31" },
+
+    { "hint": "test the shopping API for mass assignment and OAuth scope escalation", "lang": "en", "expected": "R32" },
+    { "hint": "business logic en la api: double spend y rate limit", "lang": "es", "expected": "R32" },
+    { "hint": "revisa el oidc y el authorization code flow de la api gateway", "lang": "es", "expected": "R32" },
+
+    { "hint": "prompt injection against the AI agent to leak the system prompt", "lang": "en", "expected": "R33" },
+    { "hint": "jailbreak del llm para extraer el modelo", "lang": "es", "expected": "R33" },
+    { "hint": "rag poison en la app de ia con guardrail bypass", "lang": "es", "expected": "R33" },
+
+    { "hint": "automate the checkout flow with Playwright and save a HAR", "lang": "en", "expected": "R34" },
+    { "hint": "automatiza el flujo del navegador con selenium", "lang": "es", "expected": "R34" },
+    { "hint": "pywinauto para automatizar la app de escritorio", "lang": "es", "expected": "R34" },
+
     { "hint": "hola que tal como ha ido el dia", "lang": "es", "expected": "R0" },
     { "hint": "just a random everyday message", "lang": "en", "expected": "R0" }
   ]

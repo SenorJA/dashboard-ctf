@@ -63,7 +63,16 @@ DEFAULT_TOOL_INDEX: list[str] = [
     "capa", "strace", "dnspy", "de4dot", "ilspy", "mono",
     # reverse / IDA + patch diff
     "ida", "idat", "idapro", "hex-rays", "qiling", "bindiff", "diaphora",
-    "radiff2", "patchelf", "lief",
+    "radiff2", "patchelf", "lief", "binaryninja", "bn",
+    # reverse / EDR evasion + custom VM
+    "pe-sieve", "pe-sieve64", "pe-bear", "x64dbg", "hyperdbg", "windbg",
+    "mona", "js-beautify",
+    # offsec / attack chain + supply chain + api + llm + browser
+    "nuclei", "crackmapexec", "metasploit", "sliver", "chisel", "ligolo",
+    "beacon", "syft", "grype", "trivy", "cosign", "slsa-verifier", "cdxgen",
+    "jwt_tool", "mitmproxy", "garak", "promptfoo",
+    "playwright", "puppeteer", "selenium", "chromedriver", "pywinauto",
+    "uiautomation",
     # traffic / protocol
     "wireshark", "tshark", "tcpdump", "protoc", "grpcurl",
     # malware / firmware / forensics

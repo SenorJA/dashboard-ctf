@@ -64,6 +64,7 @@ VALID_CATEGORIES = {
     "recon", "webvuln", "ssrf", "ssti", "jwt", "graphql", "race",
     "takeover", "supabase", "deserialize", "custom",
     "mobile", "reverse", "malware", "pwn", "firmware",
+    "red-team", "supply-chain", "llm", "automation",
 }
 
 # Frontmatter: ---\n<yaml-ish>\n---\n<body>

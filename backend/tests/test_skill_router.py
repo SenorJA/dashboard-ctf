@@ -352,6 +352,72 @@ def test_route_binary_without_ida_stays_generic():
     assert r["primary"]["skill"] == "binary-reverse"
 
 
+def test_route_dsl_vm_reverse():
+    from backend.skill_router import route_task
+    r = route_task("identifica los opcode handlers de la vm obfuscada", "es")
+    assert r["primary"]["id"] == "R27"
+    assert r["primary"]["skill"] == "dsl-vm-reverse"
+
+
+def test_route_edr_bypass():
+    from backend.skill_router import route_task
+    r = route_task("bypass the EDR by restoring ntdll and using direct syscalls", "en")
+    assert r["primary"]["id"] == "R28"
+    assert r["primary"]["skill"] == "edr-bypass-re"
+    assert "pe-sieve" in r["primary"]["tools"]
+
+
+def test_route_binary_ninja():
+    from backend.skill_router import route_task
+    r = route_task("analyze with Binary Ninja using HLIL and custom BN plugins", "en")
+    assert r["primary"]["id"] == "R29"
+    assert r["primary"]["skill"] == "binary-ninja-reverse"
+
+
+def test_route_attack_chain():
+    from backend.skill_router import route_task
+    r = route_task("plan a full red team operation and emulate the attack chain", "en")
+    assert r["primary"]["id"] == "R30"
+    assert r["primary"]["skill"] == "attack-chain"
+    assert "chisel" in r["primary"]["tools"]
+
+
+def test_route_supply_chain():
+    from backend.skill_router import route_task
+    r = route_task("generate an SBOM with syft and verify provenance with cosign", "en")
+    assert r["primary"]["id"] == "R31"
+    assert r["primary"]["skill"] == "supply-chain-security"
+
+
+def test_route_api_security():
+    from backend.skill_router import route_task
+    r = route_task("test the shopping API for mass assignment and OAuth scope escalation", "en")
+    assert r["primary"]["id"] == "R32"
+    assert r["primary"]["skill"] == "api-security"
+
+
+def test_route_llm_security():
+    from backend.skill_router import route_task
+    r = route_task("prompt injection against the AI agent to leak the system prompt", "en")
+    assert r["primary"]["id"] == "R33"
+    assert r["primary"]["skill"] == "llm-security"
+
+
+def test_route_llm_jailbreak_not_mobile():
+    from backend.skill_router import route_task
+    r = route_task("jailbreak del llm para extraer el modelo", "es")
+    assert r["primary"]["id"] == "R33"
+    assert r["primary"]["skill"] == "llm-security"
+
+
+def test_route_browser_automation():
+    from backend.skill_router import route_task
+    r = route_task("automate the checkout flow with Playwright and save a HAR", "en")
+    assert r["primary"]["id"] == "R34"
+    assert r["primary"]["skill"] == "browser-automation"
+    assert "playwright" in r["primary"]["tools"]
+
+
 def test_route_fallback_is_general_not_c2():
     from backend.skill_router import route_task
     r = route_task("hola que tal como ha ido el dia", "es")
