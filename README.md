@@ -129,7 +129,7 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 | **Audit Log** | Log estructurado JSONL con rotación 4MB y redacción automática de secretos. |
 | **Coverage** | Matriz de cobertura endpoint×parámetro×clase de vulnerabilidad + próximos pasos. |
 | **Plugins** | Sistema de plugins con hot-reload (watchdog) y 5 hooks. |
-| **Skills** | Playbooks de habilidades en Markdown + Task Router (hint→skill). |
+| **Skills** | **112 playbooks** de habilidades en Markdown + **Task Router** de 39 rutas en/es (hint→skill) con benchmark de regresión de 99 casos. |
 | **Intelligence** | Monitorización continua de targets (headers, cert, DNS, puertos, tech stack). |
 | **Burp Bridge** | Ingest bidireccional MIRV ↔ Burp Suite (plugin Jython incluido). |
 | **Browser Capture** | Import de HAR + 10 checks de seguridad + scoring de riesgo. |
@@ -214,7 +214,7 @@ http://localhost:8000/redoc     # ReDoc
 | Audit Log | 3 | `GET /api/audit/logs` |
 | Plugins | 8 | `GET /api/plugins`, watcher control |
 | Coverage | 8 | `POST /api/coverage/mark`, export |
-| Skills + Router | 11 | `GET /api/skills`, `POST /api/router/route`, `GET /api/router/benchmark` |
+| Skills + Router | 16 | `GET /api/skills`, `POST /api/router/route`, `GET /api/router/routes`, `GET /api/router/tool-index`, `GET /api/router/benchmark` |
 | Redaction | 4 | `POST /api/redact`, `GET /api/redact/patterns` |
 | Burp Bridge | 14 | `POST /api/burp/ingest`, finding-to-issue |
 | Browser Capture | 10 | `POST /api/browser-capture/import` |
@@ -252,11 +252,11 @@ http://localhost:8000/redoc     # ReDoc
 ```bash
 cd backend
 python -m pytest tests/ -k "not test_slow_hook" -q
-# 4938 passed, 17 failed (los 17 = tests de red en vivo contra example.com,
-#                         pasan en CI con internet)  ·  1 deselected
+# 5106 passed, 2 failed (los 2 = fallos preexistentes por persistencia real de
+#                       workspace, pasan con el env limpio / en CI)  ·  1 deselected
 ```
 
-- **108 archivos de test**, **4979 tests** recolectados (~95% cobertura)
+- **108 archivos de test**, **5109 tests** recolectados (~95% cobertura)
 - `main.py` = **100%** de cobertura (statement-level)
 - Pack 11 (Lab Sessions + flags + write-up): **89 tests nuevos** — detección de flags user/root (incl. transcripciones SSH y falsos positivos), recomputado al editar/borrar, invalidación de análisis obsoletos, escape XSS del HTML dark-mode, endpoints
 - Usa `unittest.mock` + `TestClient(app)` para endpoints; hermético (sin red/DB real)
@@ -310,7 +310,17 @@ Sí, con `MIRV_OSINT_TOKEN` + rate limiting + HTTPS (Cloudflare Tunnel). El back
 Sí. Crea un directorio en `backend/plugins/<nombre>/` con `plugin.json` + `plugin.py` implementando los 5 hooks (`on_startup`, `on_shutdown`, `on_tool_result`, `on_finding`, `on_event`). Hot-reload automático. Por defecto `auto_load_new=False` por seguridad — debes cargarlo manualmente desde el tab **Plugins**.
 
 **¿Cómo añado un skill playbook?**
-Crea un `SKILL.md` con frontmatter YAML (`name`, `description`, `category`, `allowed_tools`) en `backend/skills/`, `./.mirv/skills/`, o `~/.mirv/skills/`. Hot-reload automático. Ver skills built-in: recon, webvuln, ssrf, jwt, supabase, graphql, race, takeover, deserialize, ssti.
+Crea un `SKILL.md` con frontmatter YAML (`name`, `description`, `category`, `allowed_tools`) en `backend/skills/`, `./.mirv/skills/`, o `~/.mirv/skills/`. Hot-reload automático. Hay **112 built-in**, entre ellos: recon, webvuln, ssrf, jwt, supabase, graphql, race, takeover, deserialize, ssti, binary-reverse, ida-reverse, mobile-reverse, patch-diff-exploit, dsl-vm-reverse, edr-bypass-re, attack-chain, supply-chain-security, api-security, llm-security, browser-automation, case-review, docs-generator, diagram-generator y field-journal.
+
+**¿Cómo funciona el Task Router?**
+`backend/skills/router/routing.json` define **39 rutas bilingües** (`R0`–`R38`). Cada ruta agrupa bloques de keywords (`must` / `mustAll` / `exclude`); un bloque que acierta suma un hit, gana la ruta con más hits y los empates los resuelve el array `priority`. Sin coincidencias cae al fallback `R0`. El corpus `benchmarks.json` (**99 casos** hint→ruta esperada, en+es) acts como gate de regresión:
+
+```bash
+cd backend
+python -c "from backend.skill_router import run_benchmarks as r; print(r())"
+```
+
+`GET /api/router/benchmark` devuelve lo mismo por HTTP, y `GET /api/router/tool-index` lista las **108 herramientas** detectadas en el host con `which`.
 
 **¿Qué gestor de paquetes usa el frontend?**
 Ninguno. El frontend es **vanilla JS sin build step**: un solo `index.html` (~3960 líneas) + `js/main.v2.js` (~14.000 líneas), Tailwind vía CDN. No hay `package.json` ni bundler. Solo el **desktop** (Tauri, `desktop/`) usa npm.
@@ -326,7 +336,7 @@ Cualquier endpoint compatible con OpenAI: Ollama local (gratis), OpenRouter, Ope
 mirv/
 ├── backend/          # FastAPI + 57 módulos (main.py ~8280 líneas, database.py, opsec.py, ...)
 │   ├── plugins/      # Sistema de plugins (hot-reload)
-│   ├── skills/       # Skill playbooks (Markdown + frontmatter)
+│   ├── skills/       # 112 skill playbooks (Markdown + frontmatter) + router/ (routing.json, benchmarks.json)
 │   ├── burp_plugin/  # Plugin Jython para Burp Suite
 │   └── tests/        # 108 archivos, 4979 tests (~95% cobertura)
 ├── frontend/         # SPA vanilla JS + Tailwind CDN (33 tabs)
@@ -393,12 +403,13 @@ M.I.R.V. está diseñado para:
 - Desarrollado por [SenorJA](https://github.com/SenorJA)
 - Stack: [FastAPI](https://fastapi.tiangolo.com) · [Paramiko](https://www.paramiko.org) · [Supabase](https://supabase.com) · [Tailwind CSS](https://tailwindcss.com)
 - Inspirado en centros de operaciones Signal Intelligence
+- Task Router y varios playbooks de reversing adaptados de [reverse-skill](https://github.com/zhaoxuya520/reverse-skill) (MIT)
 
 ---
 
 <div align="center">
 
-**M.I.R.V. v3.3.0** — 333 endpoints · 4979 tests · ~95% cobertura · 33 tabs · 57 módulos
+**M.I.R.V. v3.3.0** — 333 endpoints · 5109 tests · ~95% cobertura · 33 tabs · 57 módulos
 
 [Reportar bug](https://github.com/SenorJA/dashboard-ctf/issues) · [Sugerir mejora](https://github.com/SenorJA/dashboard-ctf/issues) · [Documentación técnica](AGENTS.md)
 
