@@ -103,6 +103,8 @@ BUILTIN_NAMES = {
     "dsl-vm-reverse", "edr-bypass-re", "binary-ninja-reverse",
     "attack-chain", "supply-chain-security", "api-security",
     "llm-security", "browser-automation",
+    # ── Pack 16 — case/review/docs/diagrams/journal (4) ───────────
+    "case-review", "docs-generator", "diagram-generator", "field-journal",
 }
 
 

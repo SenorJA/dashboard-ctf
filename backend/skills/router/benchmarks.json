@@ -122,6 +122,30 @@
     { "hint": "pywinauto para automatizar la app de escritorio", "lang": "es", "expected": "R34" },
 
     { "hint": "hola que tal como ha ido el dia", "lang": "es", "expected": "R0" },
-    { "hint": "just a random everyday message", "lang": "en", "expected": "R0" }
+    { "hint": "just a random everyday message", "lang": "en", "expected": "R0" },
+
+    { "hint": "validate evidence traceability and chain of custody for this case", "lang": "en", "expected": "R35" },
+
+    { "hint": "revisa la trazabilidad evidence→finding→path y los hashes", "lang": "es", "expected": "R15" },
+
+    { "hint": "case review: comprueba fixity de artifacts y timeline", "lang": "es", "expected": "R35" },
+
+    { "hint": "generate the final pentest report with executive summary and appendix", "lang": "en", "expected": "R36" },
+
+    { "hint": "genera el informe técnico con tabla de hallazgos y evidencias", "lang": "es", "expected": "R36" },
+
+    { "hint": "docs generator: escribe el writeup del ctf con TOC", "lang": "es", "expected": "R36" },
+
+    { "hint": "create an attack flow diagram in mermaid for this breach", "lang": "en", "expected": "R37" },
+
+    { "hint": "genera un diagrama de secuencia y call graph en mermaid", "lang": "es", "expected": "R37" },
+
+    { "hint": "diagram generator: topologia con trust boundaries", "lang": "es", "expected": "R37" },
+
+    { "hint": "start a field journal for this engagement with timestamps and hashes", "lang": "en", "expected": "R38" },
+
+    { "hint": "actualiza la bitácora del engagement con decisiones y pivotes", "lang": "es", "expected": "R38" },
+
+    { "hint": "field journal: registra evidencia redacted por cada paso", "lang": "es", "expected": "R38" }
   ]
 }

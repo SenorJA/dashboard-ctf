@@ -418,6 +418,48 @@ def test_route_browser_automation():
     assert "playwright" in r["primary"]["tools"]
 
 
+def test_route_case_review():
+    from backend.skill_router import route_task
+    r = route_task("case review: comprueba fixity de artifacts y timeline", "es")
+    assert r["primary"]["id"] == "R35"
+    assert r["primary"]["skill"] == "case-review"
+    assert r["primary"]["module"] == "finding_poc"
+
+
+def test_route_docs_generator():
+    from backend.skill_router import route_task
+    r = route_task("docs generator: escribe el writeup del ctf con TOC", "es")
+    assert r["primary"]["id"] == "R36"
+    assert r["primary"]["skill"] == "docs-generator"
+
+
+def test_route_docs_generator_not_poc_report():
+    from backend.skill_router import route_task
+    r = route_task("generate a markdown writeup with a reproducible PoC for the finding", "en")
+    assert r["primary"]["id"] == "R17"
+
+
+def test_route_diagram_generator():
+    from backend.skill_router import route_task
+    r = route_task("create an attack flow diagram in mermaid for this breach", "en")
+    assert r["primary"]["id"] == "R37"
+    assert r["primary"]["skill"] == "diagram-generator"
+    assert r["primary"]["module"] == "automation"
+
+
+def test_route_diagram_not_ida_callgraph():
+    from backend.skill_router import route_task
+    r = route_task("open the ida database and recover pseudo-code for the x64 call graph", "en")
+    assert r["primary"]["id"] == "R24"
+
+
+def test_route_field_journal():
+    from backend.skill_router import route_task
+    r = route_task("start a field journal for this engagement with timestamps and hashes", "en")
+    assert r["primary"]["id"] == "R38"
+    assert r["primary"]["skill"] == "field-journal"
+
+
 def test_route_fallback_is_general_not_c2():
     from backend.skill_router import route_task
     r = route_task("hola que tal como ha ido el dia", "es")
