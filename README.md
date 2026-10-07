@@ -6,10 +6,10 @@
 
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-latest-009688?logo=fastapi)](https://fastapi.tiangolo.com)
-[![Endpoints](https://img.shields.io/badge/endpoints-333-9cf)](#-api-resumen)
-[![Tests](https://img.shields.io/badge/tests-4955_✔️-2ea44f?logo=pytest)](#-testing)
+[![Endpoints](https://img.shields.io/badge/endpoints-345-9cf)](#-api-resumen)
+[![Tests](https://img.shields.io/badge/tests-5167_✔️-2ea44f?logo=pytest)](#-testing)
 [![Coverage](https://img.shields.io/badge/coverage-~95%25-2ea44f)](#-testing)
-[![Tabs](https://img.shields.io/badge/frontend%20tabs-33-9cf)](#-features-principales)
+[![Tabs](https://img.shields.io/badge/frontend%20tabs-35-9cf)](#-features-principales)
 [![Kali](https://img.shields.io/badge/Kali-Linux-557C94?logo=kalilinux)](https://kali.org)
 [![CI/CD](https://img.shields.io/github/actions/workflow/status/SenorJA/dashboard-ctf/ci.yml?label=CI%2FCD&logo=githubactions)](https://github.com/SenorJA/dashboard-ctf/actions)
 
@@ -43,9 +43,9 @@
 M.I.R.V. es una **plataforma modular todo-en-uno** para operaciones de ciberseguridad ofensiva y defensiva. Combina:
 
 - **Terminal SSH interactivo** vía WebSocket (navegador → Kali Linux)
-- **333 endpoints REST** (330 `/api/*` + 3 landing pages públicas) contra Supabase (PostgreSQL)
+- **345 endpoints REST** (337 `/api/*` + 8 landings/estáticas) contra Supabase (PostgreSQL)
 - **57 módulos backend** con ~95% de cobertura de tests (`main.py` al 100%)
-- **33 tabs frontend** en una SPA vanilla JS + Tailwind
+- **35 tabs frontend** en una SPA vanilla JS + Tailwind
 - **IA multi-proveedor** para informes, sugerencias, chat, análisis de laboratorios y **write-ups dark-mode** (HTML/PDF)
 - **Lab Sessions** (Pack 11): máquinas → sesiones → evidencias con **detección determinista de flags** user/root y análisis IA sobre el historial completo
 - **Code Agent** (Pack 10/12): puente headless multi-proveedor (**opencode · Claude Code · codex** a futuro) con salida redactada
@@ -65,7 +65,7 @@ M.I.R.V. es una **plataforma modular todo-en-uno** para operaciones de cibersegu
 │  (SPA + JS)  │ ◄──────────── │  (main.py)   │ ◄───────────── │  (50+ tools) │
 └──────┬───────┘               └──────┬───────┘                └──────────────┘
        │                              │
-       │  fetch() /api/* (333)        │  CRUD
+       │  fetch() /api/* (337)        │  CRUD
        ▼                              ▼
 ┌──────────────────────────────────────────┐
 │              Supabase (PostgreSQL)        │
@@ -76,9 +76,9 @@ M.I.R.V. es una **plataforma modular todo-en-uno** para operaciones de cibersegu
 **Flujo de datos:**
 1. **Frontend SPA** (HTML + vanilla JS + Tailwind CDN) — sin bundler, sin build step.
 2. **WebSocket** (`/ws`) proxy SSH bidireccional: navegador ↔ FastAPI ↔ Kali (Paramiko).
-3. **API REST** (`/api/*` + landings públicas) ~333 endpoints para operaciones CRUD y análisis.
+3. **API REST** (`/api/*` + landings públicas) ~345 endpoints para operaciones CRUD y análisis.
 4. **Supabase** (PostgreSQL) con 18 tablas + Storage bucket para archivos (+ `workspace_state` JSONB para registros opt-in).
-5. **Módulos del backend** (56 archivos) operan vía SSH sobre Kali o vía HTTP directo.
+5. **Módulos del backend** (57 archivos) operan vía SSH sobre Kali o vía HTTP directo.
 
 ---
 
@@ -97,7 +97,7 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 ## ✨ Features principales
 
-33 tabs agrupados por categoría:
+35 tabs agrupados por categoría:
 
 ### Core
 | Tab | Descripción |
@@ -112,6 +112,7 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 | **Op Admiral** | Planificador de misiones asistido por IA con persistencia de planes. |
 | **Code Agent** | `opencode` CLI headless (plan/build/general): status, prompt, salida redactada/truncada. |
 | **Lab Sessions** | Máquinas → sesiones → evidencias con detección de flags, análisis IA sobre el historial completo y write-up HTML/PDF dark mode. |
+| **AI Personas** | 39 personas de experto (security/testing/engineering/specialized): detalle, build de prompt por tarea, crear/borrar personalizadas, export JSON; el campo `agent` del chat IA inyecta la persona como system prompt. |
 
 ### OSINT
 | Tab | Descripción |
@@ -196,7 +197,7 @@ Ver auditoría: [`docs/SECURITY_AUDIT_OSINT_2026-08-15.md`](docs/SECURITY_AUDIT_
 
 ## 📡 API resumen
 
-~333 endpoints agrupados por categoría. **Documentación interactiva (Swagger):**
+~345 endpoints agrupados por categoría. **Documentación interactiva (Swagger):**
 ```
 http://localhost:8000/docs      # Swagger UI
 http://localhost:8000/redoc     # ReDoc
@@ -224,6 +225,7 @@ http://localhost:8000/redoc     # ReDoc
 | **Lab Sessions (Pack 11)** | 20 | `POST /api/labs/sessions/{sid}/analyze` (IA sobre historial), `writeup`, `export` html/pdf |
 | **Code Agent (Pack 10/12)** | 4 | `GET /api/agents/status`, `POST /api/agents/run` (provider: opencode/claude/codex) + `/api/opencode/*` |
 | **Phishing Sim (Pack 10)** | 13 | `POST /api/phishing/campaigns` + landings públicas `/phishing/{cid}` |
+| **AI Personas (Pack 17)** | 9 | `GET /api/personas`, `GET /api/personas/{slug}`, `POST /api/personas/{slug}/prompt` |
 | Assessments / Assets | 20 | `GET /api/assessments`, `POST /api/assets/ingest` |
 | Scheduler | 10 | `GET /api/scheduler/jobs`, daemon `status`, `record` |
 | Notifications | 4 | `POST /api/notifications/send`, Telegram/Discord/Slack/webhook |
@@ -252,11 +254,11 @@ http://localhost:8000/redoc     # ReDoc
 ```bash
 cd backend
 python -m pytest tests/ -k "not test_slow_hook" -q
-# 5106 passed, 2 failed (los 2 = fallos preexistentes por persistencia real de
+# 5164 passed, 2 failed (los 2 = fallos preexistentes por persistencia real de
 #                       workspace, pasan con el env limpio / en CI)  ·  1 deselected
 ```
 
-- **108 archivos de test**, **5109 tests** recolectados (~95% cobertura)
+- **110 archivos de test**, **5167 tests** recolectados (~95% cobertura)
 - `main.py` = **100%** de cobertura (statement-level)
 - Pack 11 (Lab Sessions + flags + write-up): **89 tests nuevos** — detección de flags user/root (incl. transcripciones SSH y falsos positivos), recomputado al editar/borrar, invalidación de análisis obsoletos, escape XSS del HTML dark-mode, endpoints
 - Usa `unittest.mock` + `TestClient(app)` para endpoints; hermético (sin red/DB real)
@@ -338,9 +340,9 @@ mirv/
 │   ├── plugins/      # Sistema de plugins (hot-reload)
 │   ├── skills/       # 112 skill playbooks (Markdown + frontmatter) + router/ (routing.json, benchmarks.json)
 │   ├── burp_plugin/  # Plugin Jython para Burp Suite
-│   └── tests/        # 108 archivos, 4979 tests (~95% cobertura)
-├── frontend/         # SPA vanilla JS + Tailwind CDN (33 tabs)
-│   ├── index.html    # SPA principal (~3960 líneas)
+│   └── tests/        # 110 archivos, 5167 tests (~95% cobertura)
+├── frontend/         # SPA vanilla JS + Tailwind CDN (35 tabs)
+│   ├── index.html    # SPA principal (~4065 líneas)
 │   └── js/           # main.v2.js (~14.000 líneas), dataservice, mobile, forensics, swarm
 ├── desktop/          # App de escritorio (Tauri v2 + sidecar PyInstaller + updater firmado)
 ├── deploy/           # VPS bootstrap + Cloudflare Tunnel setup
@@ -409,7 +411,7 @@ M.I.R.V. está diseñado para:
 
 <div align="center">
 
-**M.I.R.V. v3.3.0** — 333 endpoints · 5109 tests · ~95% cobertura · 33 tabs · 57 módulos
+**M.I.R.V. v3.3.0** — 345 endpoints · 5167 tests · ~95% cobertura · 35 tabs · 57 módulos
 
 [Reportar bug](https://github.com/SenorJA/dashboard-ctf/issues) · [Sugerir mejora](https://github.com/SenorJA/dashboard-ctf/issues) · [Documentación técnica](AGENTS.md)
 

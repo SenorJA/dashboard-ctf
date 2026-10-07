@@ -567,6 +567,10 @@
                     <span class="tab-icon">🤖</span>
                     <span>Code Agent</span>
                 </button>
+                <button class="tab-btn" id="tab-btn-personas" data-tab="personas" role="tab" aria-selected="false" aria-controls="tab-personas" data-i18n="tabPersonas">
+                    <span class="tab-icon">🎭</span>
+                    <span>AI Personas</span>
+                </button>
                 <button class="tab-btn" id="tab-btn-phishing" data-tab="phishing" role="tab" aria-selected="false" aria-controls="tab-phishing" data-i18n="tabPhishing">
                     <span class="tab-icon">🎣</span>
                     <span>Phishing Sim</span>
@@ -3659,6 +3663,80 @@
                     </div>
                     <pre id="oc-output" class="bg-void border border-gray-800 rounded p-3 text-[11px] text-gray-200 font-mono whitespace-pre-wrap max-h-96 overflow-y-auto min-h-24">—
 </pre>
+                </div>
+            </div>
+
+            <!-- ════════════════════════════════════════════════════════
+                 TAB: AI PERSONAS (Pack 17) — agency_agents registry
+                 ════════════════════════════════════════════════════════ -->
+            <div id="tab-personas" role="tabpanel" aria-labelledby="tab-btn-personas" class="tab-pane p-4 pt-3 overflow-y-auto">
+                <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+                    <div>
+                        <h2 class="text-lg font-bold text-neon tracking-wider">🎭 AI Personas</h2>
+                        <p class="text-[10px] text-gray-400" data-i18n="personasSubtitle">Specialist expert identities injected as the AI system prompt.</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span id="ps-count" class="px-2 py-1 rounded text-[10px] font-semibold bg-deep border border-gray-800 text-gray-400">—</span>
+                        <button data-action="personas-refresh" class="bg-neon/10 hover:bg-neon/20 text-neon border border-neon/30 px-3 py-1.5 rounded text-[10px] font-semibold transition-all" data-i18n="personasRefresh">⟳ Refresh</button>
+                        <button data-action="personas-export" class="bg-deep hover:bg-gray-800 text-gray-400 border border-gray-800 px-3 py-1.5 rounded text-[10px] transition-all" data-i18n="personasExport">⭳ Export</button>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2 mb-3 flex-wrap">
+                    <input id="ps-search" type="search" class="bg-void border border-gray-800 rounded px-2 py-1 text-[11px] text-gray-300 flex-1 min-w-48"
+                        data-i18n-placeholder="personasSearchPlaceholder" placeholder="buscar persona…" />
+                    <select id="ps-division" class="bg-void border border-gray-800 rounded px-2 py-1 text-[11px] text-gray-300">
+                        <option value="" data-i18n="personasAllDivisions">todas las divisiones</option>
+                    </select>
+                    <button data-action="personas-create" class="bg-cyber hover:bg-cyan-600 text-void px-3 py-1.5 rounded text-[10px] font-bold transition-all" data-i18n="personasCreate">+ Nueva</button>
+                </div>
+
+                <div id="ps-create-form" class="hidden bg-deep rounded-lg border border-gray-800 p-4 mb-3 space-y-2">
+                    <div class="flex flex-wrap gap-2">
+                        <input id="psc-slug" placeholder="slug (kebab-case)" class="bg-void border border-gray-800 rounded px-2 py-1 text-[11px] text-gray-300 w-48" />
+                        <input id="psc-name" placeholder="Nombre visible" class="bg-void border border-gray-800 rounded px-2 py-1 text-[11px] text-gray-300 w-48" />
+                        <input id="psc-emoji" placeholder="emoji" class="bg-void border border-gray-800 rounded px-2 py-1 text-[11px] text-gray-300 w-16" />
+                        <select id="psc-division" class="bg-void border border-gray-800 rounded px-2 py-1 text-[11px] text-gray-300">
+                            <option value="custom">custom</option>
+                            <option value="security">security</option>
+                            <option value="testing">testing</option>
+                            <option value="engineering">engineering</option>
+                            <option value="specialized">specialized</option>
+                        </select>
+                    </div>
+                    <input id="psc-description" placeholder="descripción corta" class="w-full bg-void border border-gray-800 rounded px-2 py-1 text-[11px] text-gray-300" />
+                    <textarea id="psc-body" rows="5" placeholder="# Mi persona&#10;&#10;Misión, reglas duras, entregables…" class="w-full bg-void border border-gray-800 rounded px-2 py-2 text-[11px] text-gray-200 font-mono"></textarea>
+                    <div class="flex items-center gap-2">
+                        <button data-action="personas-save" class="bg-cyber hover:bg-cyan-600 text-void px-3 py-1.5 rounded text-[10px] font-bold transition-all" data-i18n="personasSave">💾 Save</button>
+                        <button data-action="personas-cancel" class="bg-deep hover:bg-gray-800 text-gray-400 border border-gray-800 px-3 py-1.5 rounded text-[10px] transition-all" data-i18n="personasCancel">Cancel</button>
+                    </div>
+                </div>
+
+                <div id="ps-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    <div class="text-[11px] text-gray-500 col-span-full">—</div>
+                </div>
+
+                <div id="ps-detail" class="hidden mt-4 bg-deep rounded-lg border border-gray-800 p-4">
+                    <div class="flex items-start justify-between gap-3 flex-wrap">
+                        <div>
+                            <h3 id="psd-name" class="text-sm font-bold text-gray-100">—</h3>
+                            <p id="psd-meta" class="text-[10px] text-gray-500 font-mono">—</p>
+                            <p id="psd-vibe" class="text-[11px] text-gray-400 italic mt-1">—</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button data-action="personas-prompt" class="bg-neon/10 hover:bg-neon/20 text-neon border border-neon/30 px-3 py-1.5 rounded text-[10px] font-semibold transition-all" data-i18n="personasBuildPrompt">Build prompt</button>
+                            <button data-action="personas-copy" class="bg-deep hover:bg-gray-800 text-gray-400 border border-gray-800 px-3 py-1.5 rounded text-[10px] transition-all" data-i18n="personasCopy">⧉ Copy</button>
+                            <button id="psd-delete" class="hidden bg-blood/20 hover:bg-blood/40 text-blood border border-blood/40 px-3 py-1.5 rounded text-[10px] transition-all" data-i18n="personasDelete">🗑 Delete</button>
+                            <button data-action="personas-close" class="bg-deep hover:bg-gray-800 text-gray-500 border border-gray-800 px-3 py-1.5 rounded text-[10px] transition-all">✕</button>
+                        </div>
+                    </div>
+                    <p id="psd-desc" class="text-[11px] text-gray-300 mt-2">—</p>
+                    <div class="flex items-center gap-2 mt-3 flex-wrap">
+                        <input id="psd-task" class="bg-void border border-gray-800 rounded px-2 py-1 text-[11px] text-gray-300 flex-1 min-w-48"
+                            data-i18n-placeholder="personasTaskPlaceholder" placeholder="tarea / enfoque para construir el prompt (opcional)" />
+                    </div>
+                    <pre id="psd-body" class="bg-void border border-gray-800 rounded p-3 text-[11px] text-gray-300 font-mono whitespace-pre-wrap max-h-80 overflow-y-auto mt-3">—</pre>
+                    <pre id="psd-prompt" class="hidden bg-void border border-neon/30 rounded p-3 text-[11px] text-neon font-mono whitespace-pre-wrap max-h-80 overflow-y-auto mt-3">—</pre>
                 </div>
             </div>
 

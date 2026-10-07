@@ -4565,6 +4565,17 @@ ${bodyHtml}
         'opencode-run':          ()   => { if (window.codeAgentRun) codeAgentRun(); },
         'opencode-clear':        ()   => { if (window.codeAgentClear) codeAgentClear(); },
 
+        // ── AI Personas (Pack 17) ──
+        'personas-refresh':      ()   => { if (window.refreshPersonas) refreshPersonas(); },
+        'personas-export':       ()   => { if (window.personaExport) personaExport(); },
+        'personas-create':       ()   => { if (window.personaToggleForm) personaToggleForm(true); },
+        'personas-cancel':       ()   => { if (window.personaToggleForm) personaToggleForm(false); },
+        'personas-save':         ()   => { if (window.personaSave) personaSave(); },
+        'personas-close':        ()   => { if (window.personaClose) personaClose(); },
+        'personas-buildprompt':  ()   => { if (window.personaBuildPrompt) personaBuildPrompt(); },
+        'personas-prompt':       ()   => { if (window.personaBuildPrompt) personaBuildPrompt(); },
+        'personas-copy':         ()   => { if (window.personaCopy) personaCopy(); },
+
         // ── Phishing Sim ──
         'phishing-refresh':      ()   => { if (window.refreshPhishingSim) refreshPhishingSim(); },
         'phishing-create':       ()   => { if (window.phishingCreate) phishingCreate(); },
@@ -7691,6 +7702,21 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         ocPrompt:         { en: 'Prompt',                    es: 'Prompt' },
         ocPromptPlaceholder: { en: 'Describe the task for opencode…', es: 'Describe la tarea para opencode…' },
         ocPure:           { en: 'pure (no context)',         es: 'pure (sin contexto)' },
+
+        // ── AI Personas (Pack 17) ──
+        tabPersonas:      { en: '🎭 AI Personas',            es: '🎭 Personas IA' },
+        personasSubtitle: { en: 'Specialist expert identities injected as the AI system prompt.', es: 'Identidades de experto especialista inyectadas como prompt de sistema de la IA.' },
+        personasRefresh:  { en: '⟳ Refresh',                 es: '⟳ Actualizar' },
+        personasExport:   { en: '⭳ Export',                  es: '⭳ Exportar' },
+        personasSearchPlaceholder: { en: 'search persona…',  es: 'buscar persona…' },
+        personasAllDivisions: { en: 'all divisions',         es: 'todas las divisiones' },
+        personasCreate:   { en: '+ New',                     es: '+ Nueva' },
+        personasSave:     { en: '💾 Save',                   es: '💾 Guardar' },
+        personasCancel:   { en: 'Cancel',                    es: 'Cancelar' },
+        personasBuildPrompt: { en: 'Build prompt',           es: 'Construir prompt' },
+        personasCopy:     { en: '⧉ Copy',                    es: '⧉ Copiar' },
+        personasDelete:   { en: '🗑 Delete',                 es: '🗑 Eliminar' },
+        personasTaskPlaceholder: { en: 'task / focus for the prompt (optional)', es: 'tarea / enfoque para el prompt (opcional)' },
 
         // ── Phishing Sim ──
         tabPhishing:      { en: '🎣 Phishing Sim',           es: '🎣 Simulador de Phishing' },
@@ -14097,6 +14123,7 @@ Reglas:
     window.switchTab = function (name) {
         _origAssessSwitch(name);
         if (name === 'assessments') refreshAssessments();
+        if (name === 'personas' && window.refreshPersonas) refreshPersonas();
         if (name === 'scheduler') refreshScheduler();
     };
     // CRUD actions for these panes (delegated via ACTION_MAP data-action)
@@ -14174,6 +14201,201 @@ Reglas:
     document.getElementById('oc-refresh')?.addEventListener('click', () => window.refreshCodeAgent && refreshCodeAgent());
     document.getElementById('oc-clear')?.addEventListener('click', () => window.codeAgentClear && codeAgentClear());
     document.getElementById('oc-provider')?.addEventListener('change', () => window.refreshCodeAgent && refreshCodeAgent());
+
+    // ════════════════════════════════════════════════════════════════
+    //  AI PERSONAS (Pack 17) — agency_agents registry
+    // ════════════════════════════════════════════════════════════════
+    let _psList = [];
+    let _psCurrent = null;
+    let _psPrompt = '';
+
+    function _psEsc(str) {
+        return String(str == null ? '' : str)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+    function _psColor(c) {
+        const v = String(c || '');
+        return /^#[0-9a-fA-F]{3,8}$/.test(v) ? v : '#64748b';
+    }
+
+    function _psRender() {
+        const grid = document.getElementById('ps-grid');
+        if (!grid) return;
+        const q = (document.getElementById('ps-search')?.value || '').trim().toLowerCase();
+        const div = document.getElementById('ps-division')?.value || '';
+        const items = _psList.filter(a => {
+            if (div && a.division !== div) return false;
+            if (!q) return true;
+            const hay = (a.name + ' ' + a.slug + ' ' + (a.description || '') + ' ' + (a.vibe || '')).toLowerCase();
+            return hay.includes(q);
+        });
+        const cnt = document.getElementById('ps-count');
+        if (cnt) cnt.textContent = items.length === _psList.length
+            ? _psList.length + ' personas'
+            : items.length + ' / ' + _psList.length;
+        if (!items.length) {
+            grid.innerHTML = '<div class="text-[11px] text-gray-500 col-span-full">—</div>';
+            return;
+        }
+        grid.innerHTML = items.map(a => {
+            const col = _psColor(a.color);
+            return `<button type="button" class="ps-card text-left bg-void border border-gray-800 hover:border-neon/40 rounded-lg p-3 transition-all cursor-pointer" data-ps-slug="${_psEsc(a.slug)}">
+                <div class="flex items-center justify-between gap-2">
+                    <span class="text-sm font-bold text-gray-200 truncate">${_psEsc(a.emoji || '🎭')} ${_psEsc(a.name)}</span>
+                    <span class="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-mono border border-gray-700" style="color:${col};border-color:${col}55">${_psEsc(a.division)}</span>
+                </div>
+                <p class="text-[10px] text-gray-400 mt-1">${_psEsc(a.description || '')}</p>
+                <div class="flex items-center justify-between mt-2 text-[9px] font-mono text-gray-600">
+                    <span>${Number(a.chars || 0).toLocaleString()} chars</span>
+                    <span>${a.editable ? '✎ custom' : '🔒 bundled'}</span>
+                </div>
+            </button>`;
+        }).join('');
+    }
+
+    function _psFillDivisions() {
+        const sel = document.getElementById('ps-division');
+        if (!sel) return;
+        const current = sel.value;
+        const counts = {};
+        _psList.forEach(a => { counts[a.division] = (counts[a.division] || 0) + 1; });
+        sel.innerHTML = '<option value="" data-i18n="personasAllDivisions">all divisions</option>' +
+            Object.keys(counts).sort().map(d => `<option value="${_psEsc(d)}">${_psEsc(d)} (${counts[d]})</option>`).join('');
+        if (current && counts[current] != null) sel.value = current;
+    }
+
+    window.refreshPersonas = async function () {
+        try {
+            const d = await _assessFetch('/api/personas');
+            _psList = (d && d.agents) || [];
+            _psFillDivisions();
+            _psRender();
+        } catch (e) {
+            const grid = document.getElementById('ps-grid');
+            if (grid) grid.innerHTML = `<div class="text-[11px] text-blood">⚠ ${_psEsc(e.message)}</div>`;
+        }
+    };
+
+    window.personaOpen = async function (slug) {
+        try {
+            const d = await _assessFetch('/api/personas/' + encodeURIComponent(slug));
+            if (!d || !d.ok) { showToast('⚠ ' + ((d && d.error) || 'unknown persona')); return; }
+            const a = d.agent || {};
+            _psCurrent = a.slug || slug;
+            _psPrompt = '';
+            const set = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+            set('psd-name', (a.emoji ? a.emoji + ' ' : '') + (a.name || _psCurrent));
+            set('psd-meta', `${_psCurrent} · ${a.division || '-'} · ${Number(a.chars || 0).toLocaleString()} chars · ${a.editable ? 'custom' : 'bundled'}`);
+            set('psd-vibe', a.vibe || '');
+            set('psd-desc', a.description || '');
+            set('psd-body', a.body || '');
+            const promptEl = document.getElementById('psd-prompt');
+            if (promptEl) { promptEl.classList.add('hidden'); promptEl.textContent = '—'; }
+            const del = document.getElementById('psd-delete');
+            if (del) del.classList.toggle('hidden', !a.editable);
+            const detail = document.getElementById('ps-detail');
+            if (detail) detail.classList.remove('hidden');
+        } catch (e) { showToast('⚠ ' + e.message); }
+    };
+
+    window.personaClose = function () {
+        const detail = document.getElementById('ps-detail');
+        if (detail) detail.classList.add('hidden');
+        _psCurrent = null;
+        _psPrompt = '';
+    };
+
+    window.personaBuildPrompt = async function () {
+        if (!_psCurrent) { showToast('⚠ select a persona first'); return; }
+        try {
+            const task = (document.getElementById('psd-task')?.value || '').trim();
+            const d = await _assessFetch('/api/personas/' + encodeURIComponent(_psCurrent) + '/prompt', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ task }),
+            });
+            if (!d || !d.ok) { showToast('⚠ ' + ((d && d.error) || 'prompt failed')); return; }
+            _psPrompt = d.prompt || '';
+            const el = document.getElementById('psd-prompt');
+            if (el) { el.textContent = _psPrompt; el.classList.remove('hidden'); }
+            showToast('✅ prompt built (' + Number(d.chars || 0).toLocaleString() + ' chars)');
+        } catch (e) { showToast('⚠ ' + e.message); }
+    };
+
+    window.personaCopy = async function () {
+        if (!_psCurrent) { showToast('⚠ select a persona first'); return; }
+        const text = _psPrompt || (document.getElementById('psd-body')?.textContent || '');
+        try {
+            await navigator.clipboard.writeText(text);
+            showToast('✅ copied to clipboard');
+        } catch { showToast('⚠ clipboard unavailable'); }
+    };
+
+    window.personaToggleForm = function (show) {
+        const form = document.getElementById('ps-create-form');
+        if (!form) return;
+        form.classList.toggle('hidden', !show);
+        if (show) {
+            ['psc-slug', 'psc-name', 'psc-emoji', 'psc-description', 'psc-body'].forEach(id => {
+                const el = document.getElementById(id); if (el) el.value = '';
+            });
+            document.getElementById('psc-slug')?.focus();
+        }
+    };
+
+    window.personaSave = async function () {
+        const slug = (document.getElementById('psc-slug')?.value || '').trim();
+        const name = (document.getElementById('psc-name')?.value || '').trim();
+        const body = (document.getElementById('psc-body')?.value || '').trim();
+        if (!slug || !name || !body) { showToast('⚠ slug, name and body are required'); return; }
+        try {
+            const d = await _assessFetch('/api/personas', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    slug, name, body,
+                    emoji: (document.getElementById('psc-emoji')?.value || '').trim(),
+                    division: document.getElementById('psc-division')?.value || 'custom',
+                    description: (document.getElementById('psc-description')?.value || '').trim(),
+                }),
+            });
+            if (!d || !d.ok) { showToast('⚠ ' + ((d && d.error) || 'create failed')); return; }
+            personaToggleForm(false);
+            await refreshPersonas();
+            showToast('✅ persona created: ' + slug);
+            personaOpen(slug);
+        } catch (e) { showToast('⚠ ' + e.message); }
+    };
+
+    window.personaExport = async function () {
+        try {
+            const d = await _assessFetch('/api/personas/export');
+            if (!d || !d.agents) { showToast('⚠ export failed'); return; }
+            _downloadJson(d, 'mirv-personas.json');
+            showToast('✅ exported ' + (d.agents.length || 0) + ' personas');
+        } catch (e) { showToast('⚠ ' + e.message); }
+    };
+
+    window.personaDelete = async function (slug) {
+        if (!slug) return;
+        if (!confirm('Delete custom persona "' + slug + '"?')) return;
+        try {
+            const d = await _assessFetch('/api/personas/' + encodeURIComponent(slug), { method: 'DELETE' });
+            if (!d || !d.ok) { showToast('⚠ ' + ((d && d.error) || 'delete failed')); return; }
+            personaClose();
+            await refreshPersonas();
+            showToast('🗑 deleted ' + slug);
+        } catch (e) { showToast('⚠ ' + e.message); }
+    };
+
+    document.getElementById('ps-grid')?.addEventListener('click', (ev) => {
+        const card = ev.target.closest ? ev.target.closest('.ps-card') : null;
+        if (card && card.dataset.psSlug) personaOpen(card.dataset.psSlug);
+    });
+    document.getElementById('ps-search')?.addEventListener('input', () => _psRender());
+    document.getElementById('ps-division')?.addEventListener('change', () => _psRender());
+    document.getElementById('psd-delete')?.addEventListener('click', () => {
+        if (_psCurrent) window.personaDelete(_psCurrent);
+    });
 
     // ════════════════════════════════════════════════════════════════
     //  PHISHING SIM — training-only awareness campaigns

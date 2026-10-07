@@ -980,6 +980,12 @@ class AIChatRequest(BaseModel):
     api_key: str = ""
     model: str = ""
     messages: list = []  # [{"role":"user"/"assistant"/"system","content":"..."}]
+    # Pack 17 — optional AI persona (agency_agents registry). When a valid
+    # slug is supplied, its prompt is injected as a leading system message
+    # (redacted like every other message by _prepare_chat_messages).
+    agent: str = ""
+    agent_task: str = ""
+    agent_body_limit: int = 0
 
 @app.post("/api/ai/chat")
 async def ai_chat(req: AIChatRequest):
@@ -1004,12 +1010,30 @@ async def ai_chat(req: AIChatRequest):
         if not req.api_key and req.provider != "local":
             return JSONResponse({"ok": False, "error": "API key is required"}, status_code=400)
 
-        # ── Prompt-cache friendly restructuring ────────────────────
+        # ── Pack 17: AI persona (agency_agents) ───────────────────
+        # An unknown slug is ignored on purpose so a stale frontend
+        # selection never breaks the chat endpoint.
+        messages = req.messages
+        if req.agent:
+            try:
+                from backend import agency_agents as aa
+                persona_prompt = aa.build_persona_prompt(
+                    req.agent,
+                    task=req.agent_task,
+                    body_limit=req.agent_body_limit or aa.DEFAULT_PROMPT_CHARS,
+                )
+            except Exception as e:  # pragma: no cover - defensive
+                logger.warning("agent persona build failed: %s", e)
+                persona_prompt = None
+            if persona_prompt:
+                messages = [{"role": "system", "content": persona_prompt}] + list(messages or [])
+
+        # ── Prompt-cache friendly restructuring ───────────────────
         # 1. Pull every system message out, concatenate into one block,
         #    and place it at index 0. Non-system messages keep order.
         # 2. For anthropic + a long system, format the system content as
         #    an Anthropic content-blocks list with cache_control.
-        safe_messages = _prepare_chat_messages(req.messages, req.provider)
+        safe_messages = _prepare_chat_messages(messages, req.provider)
 
         result = await asyncio.to_thread(
             _call_llm_sync, req.provider, req.api_key, req.model, safe_messages, 60
@@ -3913,6 +3937,128 @@ async def agents_run(body: dict):
     if not result.get("available"):
         return JSONResponse(result, status_code=503)
     return JSONResponse(result, status_code=200 if result.get("ok") else 500)
+
+
+# ════════════════════════════════════════════════════════════════
+#  AI PERSONAS (Pack 17) — agency_agents registry
+#  (distinct namespace from /api/agents/* = headless code agents)
+# ════════════════════════════════════════════════════════════════
+
+@app.get("/api/personas")
+async def personas_list(division: str = "", q: str = ""):
+    """List AI personas (metadata), filtered by division and/or free text."""
+    try:
+        from backend import agency_agents as aa
+        agents = aa.list_agents(division=division or None, q=q or "")
+        return JSONResponse({"ok": True, "count": len(agents), "agents": agents})
+    except Exception as e:  # pragma: no cover - defensive
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/personas/divisions")
+async def personas_divisions():
+    """Divisions with their persona counts."""
+    try:
+        from backend import agency_agents as aa
+        return JSONResponse({"ok": True, "divisions": aa.list_divisions()})
+    except Exception as e:  # pragma: no cover - defensive
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/personas/summary")
+async def personas_summary():
+    """Registry totals + discovery directories."""
+    try:
+        from backend import agency_agents as aa
+        return JSONResponse(aa.summary())
+    except Exception as e:  # pragma: no cover - defensive
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/personas/export")
+async def personas_export(division: str = ""):
+    """Export personas (metadata + body) as portable JSON."""
+    try:
+        from backend import agency_agents as aa
+        return JSONResponse(aa.export_registry(division=division or None))
+    except Exception as e:  # pragma: no cover - defensive
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/personas/import")
+async def personas_import(body: dict):
+    """Import personas exported by ``/api/personas/export``."""
+    body = body or {}
+    try:
+        from backend import agency_agents as aa
+        result = aa.import_registry(body, overwrite=bool(body.get("overwrite", False)))
+        code = 200 if not result.get("errors") else 400
+        return JSONResponse(result, status_code=code)
+    except Exception as e:  # pragma: no cover - defensive
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/personas")
+async def personas_create(body: dict):
+    """Create a custom persona in the project agents directory."""
+    body = body or {}
+    try:
+        from backend import agency_agents as aa
+        agent, err = aa.create_agent(body)
+        if agent is None:
+            return JSONResponse({"ok": False, "error": err}, status_code=400)
+        al_audit("INFO", "persona", "persona.create",
+                 "Custom persona created: %s" % agent.get("slug", ""))
+        return JSONResponse({"ok": True, "agent": agent})
+    except Exception as e:  # pragma: no cover - defensive
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/personas/{slug}")
+async def personas_get(slug: str):
+    """One persona including its full Markdown body."""
+    try:
+        from backend import agency_agents as aa
+        agent = aa.get_agent(slug)
+        if agent is None:
+            return JSONResponse({"ok": False, "error": "unknown persona"}, status_code=404)
+        return JSONResponse({"ok": True, "agent": agent})
+    except Exception as e:  # pragma: no cover - defensive
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/personas/{slug}/prompt")
+async def personas_prompt(slug: str, body: dict):
+    """Compose the system prompt for a persona (task/context aware)."""
+    body = body or {}
+    try:
+        from backend import agency_agents as aa
+        prompt = aa.build_persona_prompt(
+            slug,
+            task=str(body.get("task") or ""),
+            context=str(body.get("context") or ""),
+            body_limit=int(body.get("body_limit") or 0) or aa.DEFAULT_PROMPT_CHARS,
+        )
+        if prompt is None:
+            return JSONResponse({"ok": False, "error": "unknown persona"}, status_code=404)
+        return JSONResponse({"ok": True, "slug": slug, "prompt": prompt, "chars": len(prompt)})
+    except Exception as e:  # pragma: no cover - defensive
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.delete("/api/personas/{slug}")
+async def personas_delete(slug: str):
+    """Delete a custom persona (bundled personas are protected)."""
+    try:
+        from backend import agency_agents as aa
+        ok, err = aa.delete_agent(slug)
+        if not ok:
+            return JSONResponse({"ok": False, "error": err}, status_code=400)
+        al_audit("INFO", "persona", "persona.delete",
+                 "Custom persona deleted: %s" % slug)
+        return JSONResponse({"ok": True, "deleted": slug})
+    except Exception as e:  # pragma: no cover - defensive
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 
 
 # ════════════════════════════════════════════════════════════════
