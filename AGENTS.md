@@ -8,14 +8,14 @@ Two-tier app: **FastAPI backend** serves static frontend + WebSocket SSH proxy +
 Browser → WS (localhost:8000/ws) → FastAPI → Paramiko → Kali SSH
          ↑
    serves /static/* from frontend/
-   REST API (337 endpoints /api/* + 8 landings/static = 345 HTTP) → Supabase (PostgreSQL)
+   REST API (344 endpoints /api/* + 8 landings/static = 352 HTTP) → Supabase (PostgreSQL)
    Plugin system (hot-reload) + Burp Bridge + Browser Capture + Structured Audit Log + Continuous Intelligence
 ```
 
 ```
 C:\Users\34678\Desktop\Proyecto ciber\
 ├── backend/
-│   ├── main.py              # FastAPI app (~8477 lines, 337 endpoints /api/* + CSP middleware + scheduler daemon)
+│   ├── main.py              # FastAPI app (~8678 lines, 344 endpoints /api/* + CSP middleware + scheduler daemon)
 │   ├── database.py           # Supabase CRUD layer (18 tables, 99% coverage)
 │   ├── exif_osint.py         # EXIF metadata extraction + GPS + reverse geocoding
 │   ├── canary_tokens.py      # Honeytoken generator (8 types) + activation tracking
@@ -99,7 +99,7 @@ cd backend
 
 | File | Lines | Purpose | Tests | Coverage |
 |------|-------|---------|-------|----------|
-| `main.py` | ~8477 | FastAPI app, WebSocket SSH proxy, 337 REST endpoints `/api/*` + CSP middleware + **server-side scheduler daemon** (`_scheduler_loop`, `_exec_tool_command`, `_count_findings_in_output`) | 333+295+19 | 100% |
+| `main.py` | ~8678 | FastAPI app, WebSocket SSH proxy, 344 REST endpoints `/api/*` + CSP middleware + **server-side scheduler daemon** (`_scheduler_loop`, `_exec_tool_command`, `_count_findings_in_output`) | 333+295+19 | 100% |
 | `database.py` | ~1344 | Supabase CRUD (18 tables) | 196 | 100% |
 | `exif_osint.py` | ~812 | EXIF GPS extraction, camera metadata, reverse geocoding, Leaflet map | 21+11 | 99% |
 | `canary_tokens.py` | ~442 | 8 honeytoken types, activation tracking, expiration | 24 | 99% |
