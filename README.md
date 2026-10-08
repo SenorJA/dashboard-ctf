@@ -6,10 +6,10 @@
 
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-latest-009688?logo=fastapi)](https://fastapi.tiangolo.com)
-[![Endpoints](https://img.shields.io/badge/endpoints-345-9cf)](#-api-resumen)
-[![Tests](https://img.shields.io/badge/tests-5184_✔️-2ea44f?logo=pytest)](#-testing)
+[![Endpoints](https://img.shields.io/badge/endpoints-352-9cf)](#-api-resumen)
+[![Tests](https://img.shields.io/badge/tests-5232_✔️-2ea44f?logo=pytest)](#-testing)
 [![Coverage](https://img.shields.io/badge/coverage-~95%25-2ea44f)](#-testing)
-[![Tabs](https://img.shields.io/badge/frontend%20tabs-35-9cf)](#-features-principales)
+[![Tabs](https://img.shields.io/badge/frontend%20tabs-36-9cf)](#-features-principales)
 [![Kali](https://img.shields.io/badge/Kali-Linux-557C94?logo=kalilinux)](https://kali.org)
 [![CI/CD](https://img.shields.io/github/actions/workflow/status/SenorJA/dashboard-ctf/ci.yml?label=CI%2FCD&logo=githubactions)](https://github.com/SenorJA/dashboard-ctf/actions)
 
@@ -43,13 +43,14 @@
 M.I.R.V. es una **plataforma modular todo-en-uno** para operaciones de ciberseguridad ofensiva y defensiva. Combina:
 
 - **Terminal SSH interactivo** vía WebSocket (navegador → Kali Linux)
-- **345 endpoints REST** (337 `/api/*` + 8 landings/estáticas) contra Supabase (PostgreSQL)
-- **57 módulos backend** con ~95% de cobertura de tests (`main.py` al 100%)
-- **35 tabs frontend** en una SPA vanilla JS + Tailwind
+- **352 endpoints REST** (344 `/api/*` + 8 landings/estáticas) contra Supabase (PostgreSQL)
+- **58 módulos backend** con ~95% de cobertura de tests (`main.py` al 100%)
+- **36 tabs frontend** en una SPA vanilla JS + Tailwind
 - **IA multi-proveedor** para informes, sugerencias, chat, análisis de laboratorios y **write-ups dark-mode** (HTML/PDF)
 - **Lab Sessions** (Pack 11): máquinas → sesiones → evidencias con **detección determinista de flags** user/root y análisis IA sobre el historial completo
 - **Code Agent** (Pack 10/12): puente headless multi-proveedor (**opencode · Claude Code · codex** a futuro) con salida redactada
 - **Phishing Sim** (Pack 10): simulador de concienciación *training-only* (solo hashes, sin credenciales reales)
+- **LLM Security Scanner** (Pack 18, port de praetorian-inc/augustus): 23 probes jailbreak/inject + 22 detectores deterministas + 8 buffs encoder + **Crescendo-lite multi-turn**; veredicto por attempt y push de findings a DB/SIEM/audit/notify
 - **Análisis forense** (memoria, disco, archivos) y **móvil** (APK estático + dinámico con Frida)
 - **Swarm multi-operador**, **CTF mode**, **OPSEC Levels**, **Self-Improvement Loop**
 
@@ -76,7 +77,7 @@ M.I.R.V. es una **plataforma modular todo-en-uno** para operaciones de cibersegu
 **Flujo de datos:**
 1. **Frontend SPA** (HTML + vanilla JS + Tailwind CDN) — sin bundler, sin build step.
 2. **WebSocket** (`/ws`) proxy SSH bidireccional: navegador ↔ FastAPI ↔ Kali (Paramiko).
-3. **API REST** (`/api/*` + landings públicas) ~345 endpoints para operaciones CRUD y análisis.
+3. **API REST** (`/api/*` + landings públicas) ~352 endpoints para operaciones CRUD y análisis.
 4. **Supabase** (PostgreSQL) con 18 tablas + Storage bucket para archivos (+ `workspace_state` JSONB para registros opt-in).
 5. **Módulos del backend** (57 archivos) operan vía SSH sobre Kali o vía HTTP directo.
 
@@ -97,7 +98,7 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 ## ✨ Features principales
 
-35 tabs agrupados por categoría:
+36 tabs agrupados por categoría:
 
 ### Core
 | Tab | Descripción |
@@ -134,6 +135,7 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 | **Intelligence** | Monitorización continua de targets (headers, cert, DNS, puertos, tech stack). |
 | **Burp Bridge** | Ingest bidireccional MIRV ↔ Burp Suite (plugin Jython incluido). |
 | **Browser Capture** | Import de HAR + 10 checks de seguridad + scoring de riesgo. |
+| **LLM Security** | Escáner de seguridad de LLMs (port de Augustus): 23 probes jailbreak/inject, 22 detectores deterministas, 8 buffs encoder y Crescendo-lite multi-turn; veredicto por attempt con push de findings a DB/SIEM/audit. |
 
 ### Mobile / Forensics / Labs
 | Tab | Descripción |
@@ -197,7 +199,7 @@ Ver auditoría: [`docs/SECURITY_AUDIT_OSINT_2026-08-15.md`](docs/SECURITY_AUDIT_
 
 ## 📡 API resumen
 
-~345 endpoints agrupados por categoría. **Documentación interactiva (Swagger):**
+~352 endpoints agrupados por categoría. **Documentación interactiva (Swagger):**
 ```
 http://localhost:8000/docs      # Swagger UI
 http://localhost:8000/redoc     # ReDoc
@@ -226,6 +228,7 @@ http://localhost:8000/redoc     # ReDoc
 | **Code Agent (Pack 10/12)** | 4 | `GET /api/agents/status`, `POST /api/agents/run` (provider: opencode/claude/codex) + `/api/opencode/*` |
 | **Phishing Sim (Pack 10)** | 13 | `POST /api/phishing/campaigns` + landings públicas `/phishing/{cid}` |
 | **AI Personas (Pack 17)** | 9 | `GET /api/personas`, `GET /api/personas/{slug}`, `POST /api/personas/{slug}/prompt` |
+| **LLM Security (Pack 18)** | 7 | `POST /api/llm/scan` (23 probes), `POST /api/llm/probe`, `GET /api/llm/results/{id}`, `POST /api/llm/results/{id}/findings` |
 | Assessments / Assets | 20 | `GET /api/assessments`, `POST /api/assets/ingest` |
 | Scheduler | 10 | `GET /api/scheduler/jobs`, daemon `status`, `record` |
 | Notifications | 4 | `POST /api/notifications/send`, Telegram/Discord/Slack/webhook |
@@ -254,13 +257,13 @@ http://localhost:8000/redoc     # ReDoc
 ```bash
 cd backend
 python -m pytest tests/ -k "not test_slow_hook" -q
-# 5164 passed, 2 failed (los 2 = fallos preexistentes por persistencia real de
-#                       workspace, pasan con el env limpio / en CI)  ·  1 deselected
+# 5231 passed, 1 deselected  (~462s, ~95% cobertura)
 ```
 
-- **111 archivos de test**, **5184 tests** recolectados (~95% cobertura)
+- **113 archivos de test**, **5232 tests** recolectados (~95% cobertura)
 - `main.py` = **100%** de cobertura (statement-level)
 - Pack 11 (Lab Sessions + flags + write-up): **89 tests nuevos** — detección de flags user/root (incl. transcripciones SSH y falsos positivos), recomputado al editar/borrar, invalidación de análisis obsoletos, escape XSS del HTML dark-mode, endpoints
+- Pack 18 (LLM Security Scanner): **48 tests nuevos** — 23 probes, detectores (DAN/refusal, goodside/WhoIsRiley, leak/ApiKey, DoNotAnswer, Crescendo-lite con topic/refusal), 8 buffs, resolution de prompts (prefix 220, hijack 15), pureza del módulo (sin `backend.database`/red), veredicto max elemento-wise y endpoints (`mode=stub` + patches de `db.save_finding`/`siem`/`audit`/`notify`)
 - Usa `unittest.mock` + `TestClient(app)` para endpoints; hermético (sin red/DB real)
 - CI corre bandit (security) + safety check además de pytest
 
@@ -336,12 +339,12 @@ Cualquier endpoint compatible con OpenAI: Ollama local (gratis), OpenRouter, Ope
 
 ```
 mirv/
-├── backend/          # FastAPI + 57 módulos (main.py ~8280 líneas, database.py, opsec.py, ...)
+├── backend/          # FastAPI + 58 módulos (main.py ~8500 líneas, database.py, opsec.py, ...)
 │   ├── plugins/      # Sistema de plugins (hot-reload)
 │   ├── skills/       # 112 skill playbooks (Markdown + frontmatter) + router/ (routing.json, benchmarks.json)
 │   ├── burp_plugin/  # Plugin Jython para Burp Suite
-│   └── tests/        # 111 archivos, 5184 tests (~95% cobertura)
-├── frontend/         # SPA vanilla JS + Tailwind CDN (35 tabs)
+│   └── tests/        # 113 archivos, 5232 tests (~95% cobertura)
+├── frontend/         # SPA vanilla JS + Tailwind CDN (36 tabs)
 │   ├── index.html    # SPA principal (~4065 líneas)
 │   └── js/           # main.v2.js (~14.000 líneas), dataservice, mobile, forensics, swarm
 ├── desktop/          # App de escritorio (Tauri v2 + sidecar PyInstaller + updater firmado)
