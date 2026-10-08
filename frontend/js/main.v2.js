@@ -7732,6 +7732,42 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         labsMachines:     { en: 'Machines',                  es: 'Máquinas' },
         labsSelectHint:   { en: 'Select a machine to manage its sessions and evidence.', es: 'Selecciona una máquina para gestionar sus sesiones y evidencias.' },
 
+        // ── LLM Security Scanner (Pack 18) ──
+        tabLlms:          { en: '🤖 LLM',                    es: '🤖 LLM' },
+        llmTitle:         { en: '🤖 LLM Security Scanner',   es: '🤖 Escáner de Seguridad LLM' },
+        llmTarget:        { en: 'Target LLM',                es: 'LLM objetivo' },
+        llmMode:          { en: 'Mode',                      es: 'Modo' },
+        llmModeSelf:      { en: 'self (local AI config)',    es: 'self (config AI local)' },
+        llmModeOpenai:    { en: 'openai (custom base)',      es: 'openai (base personalizada)' },
+        llmModeStub:      { en: 'stub (dry-run)',            es: 'stub (prueba)' },
+        llmProvider:      { en: 'Provider (self)',           es: 'Proveedor (self)' },
+        llmApiKey:        { en: 'API Key',                   es: 'API Key' },
+        llmModel:         { en: 'Model',                     es: 'Modelo' },
+        llmBaseUrl:       { en: 'Base URL (openai mode)',    es: 'Base URL (modo openai)' },
+        llmProbes:        { en: 'Probes',                    es: 'Probes' },
+        llmAll:           { en: 'select all',                es: 'seleccionar todo' },
+        llmBuffs:         { en: 'Buffs (input encodings)',   es: 'Buffs (codificaciones de entrada)' },
+        llmOptions:       { en: 'Options',                   es: 'Opciones' },
+        llmLimit:         { en: 'Limit / probe',             es: 'Límite / probe' },
+        llmMaxTurns:      { en: 'Crescendo turns',           es: 'Turnos Crescendo' },
+        llmTopic:         { en: 'Topic (crescendo)',         es: 'Tema (crescendo)' },
+        llmObjective:     { en: 'Objective (crescendo)',     es: 'Objetivo (crescendo)' },
+        llmCreateFindings:{ en: 'Push vulnerable attempts as findings (DB + SIEM + audit)', es: 'Enviar intentos vulnerables como findings (DB + SIEM + audit)' },
+        llmScanBtn:       { en: '▶ Run Scan',                es: '▶ Ejecutar Scan' },
+        llmProbeBtn:      { en: 'Single probe',              es: 'Probe individual' },
+        llmSummary:       { en: 'Summary',                   es: 'Resumen' },
+        llmTotal:         { en: 'Total',                     es: 'Total' },
+        llmVulnerable:    { en: 'Vulnerable',                es: 'Vulnerables' },
+        llmSafe:          { en: 'Safe',                      es: 'Seguros' },
+        llmErrors:        { en: 'Errors',                    es: 'Errores' },
+        llmMaxScore:      { en: 'Max score',                 es: 'Score máx' },
+        llmPush:          { en: 'Push findings',             es: 'Enviar findings' },
+        llmDetect:        { en: 'Expand',                    es: 'Expandir' },
+        llmClear:         { en: 'Clear results',             es: 'Borrar resultados' },
+        llmNoReports:     { en: 'No scans yet — configure a target and run a scan.', es: 'Aún no hay scans — configura un objetivo y ejecuta un scan.' },
+        llmRunErr:        { en: 'LLM scan failed',           es: 'El scan LLM falló' },
+        llmProbeErr:      { en: 'Single-probe run failed',   es: 'Falló el probe individual' },
+
         // ── Backup / Restore (localStorage) ──
         exportData:        { en: '📦 Export Data',           es: '📦 Exportar Datos' },
         importData:        { en: '📥 Import Data',           es: '📥 Importar Datos' },
@@ -14118,6 +14154,198 @@ Reglas:
     // Poll every 10s for due jobs (lightweight GET)
     setInterval(schedulerPollDue, 10000);
 
+    // ════════════════════════════════════════════════════════════════
+    //  LLM SECURITY SCANNER (Pack 18) — probes / buffs / scans / reports
+    // ════════════════════════════════════════════════════════════════
+    function _llmEsc(str) {
+        return String(str == null ? '' : str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+    function _llmState() {
+        const ids = [];
+        document.querySelectorAll('#llm-probe-boxes input[data-probe]:checked')
+            .forEach(ch => ids.push(ch.dataset.probe));
+        return {
+            ids,
+            buffs: Array.from(document.querySelectorAll('#llm-buffs option:checked')).map(o => o.value),
+            target: {
+                mode: document.getElementById('llm-mode')?.value || 'stub',
+                provider: document.getElementById('llm-provider')?.value || 'openai',
+                api_key: document.getElementById('llm-api-key')?.value || '',
+                model: document.getElementById('llm-model')?.value || '',
+                base_url: document.getElementById('llm-base-url')?.value || '',
+            },
+            limit: parseInt(document.getElementById('llm-limit')?.value || '0', 10) || 0,
+            max_turns: parseInt(document.getElementById('llm-max-turns')?.value || '4', 10) || 4,
+            topic: document.getElementById('llm-topic')?.value || '',
+            objective: document.getElementById('llm-objective')?.value || '',
+        };
+    }
+    window.llmSelectAll = function () {
+        const boxes = document.querySelectorAll('#llm-probe-boxes input[data-probe]');
+        const want = !(window.__llmAllOn);
+        boxes.forEach(ch => { ch.checked = want; });
+        window.__llmAllOn = want;
+    };
+    async function _llmRun(probeSingle) {
+        const s = _llmState();
+        const loading = document.getElementById('llm-loading');
+        const err = document.getElementById('llm-error');
+        err?.classList.add('hidden');
+        loading?.classList.remove('hidden');
+        try {
+            const payload = {
+                target: s.target,
+                buffs: s.buffs,
+                model_name: s.target.model || 'assistant',
+                limit: probeSingle ? 0 : s.limit,
+                max_turns: s.max_turns,
+                topic: s.topic,
+                objective: s.objective,
+                probe_ids: s.ids,
+                create_findings: document.getElementById('llm-create-findings')?.checked === true,
+            };
+            if (probeSingle) payload.probe_ids = s.ids.slice(0, 1);
+            const url = probeSingle ? '/api/llm/probe' : '/api/llm/scan';
+            const d = await _assessFetch(url, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            if (!d.ok) {
+                if (err) { err.textContent = (d.error || 'run failed'); err.classList.remove('hidden'); }
+                else showToast('⚠ ' + (d.error || 'run failed'));
+                return;
+            }
+            showToast(probeSingle
+                ? `Single probe: ${d.report.probes[0]?.verdict ? 'vulnerable' : 'safe'} (score ${d.report.probes[0]?.max_score})`
+                : `Scan done: ${d.report.summary.vulnerable_probes}/${d.report.summary.total_probes} vulnerable`);
+            if (!probeSingle) refreshLLM();
+        } catch (e) {
+            showToast('⚠ LLM scan failed: ' + (e.message || e));
+        } finally {
+            loading?.classList.add('hidden');
+        }
+    }
+    window.llmRunScan = function () { _llmRun(false); };
+    window.llmRunProbe = function () { _llmRun(true); };
+
+    window.llmPushFindings = async function (id) {
+        try {
+            const d = await _assessFetch(`/api/llm/results/${encodeURIComponent(id)}/findings`, { method: 'POST' });
+            if (!d.ok) { showToast('⚠ ' + (d.error || 'push failed')); return; }
+            showToast(`✅ Pushed ${d.pushed} finding(s) (SIEM ${d.siem_events})`);
+            refreshLLM();
+        } catch (e) { showToast('⚠ ' + (e.message || e)); }
+    };
+    window.llmClearResults = async function () {
+        await _assessFetch('/api/llm/results', { method: 'DELETE' });
+        showToast('🗑 LLM results cleared');
+        refreshLLM();
+    };
+
+    function _llmBadge(verdict) {
+        return verdict
+            ? '<span class="px-2 py-0.5 rounded text-xs font-bold bg-blood/20 text-blood border border-blood/40">VULN</span>'
+            : '<span class="px-2 py-0.5 rounded text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">safe</span>';
+    }
+    function _llmAttemptRow(a) {
+        const chip = (t) => '<span class="inline-block px-1.5 py-0.5 rounded bg-deep border border-cyber text-[10px] text-gray-400 font-mono">' + _llmEsc(t) + '</span>';
+        const matches = (a.matched || []).map(chip).join(' ');
+        const buff = a.buff ? '<span class="text-[10px] text-amber-400 font-mono">[' + _llmEsc(a.buff) + ']</span> ' : '';
+        const status = a.vulnerable ? '<span class="font-bold text-blood">1.0</span>' : `<span class="text-gray-400">${Number(a.score).toFixed(2)}</span>`;
+        return '<div class="border-t border-cyber/30 pt-2 pb-2">'
+            + '<div class="flex items-center justify-between gap-2">'
+            + '<div class="text-[11px] text-gray-500 font-mono">' + buff + _llmEsc(String(a.prompt || '').slice(0, 160)) + '</div>'
+            + '<div class="shrink-0 text-xs font-mono">' + status + '</div>'
+            + '</div>'
+            + (a.output ? '<div class="text-[11px] text-gray-400 mt-1 font-mono whitespace-pre-wrap break-words">→ ' + _llmEsc(String(a.output).slice(0, 220)) + '</div>' : '')
+            + (matches ? '<div class="mt-1 flex flex-wrap gap-1">' + matches + '</div>' : '')
+            + '</div>';
+    }
+    function _llmReportCard(r) {
+        const attemptCount = (r.probes || []).reduce((n, p) => n + (p.attempts || []).length, 0);
+        let cards = (r.probes || []).map(p => {
+            const safe = !p.verdict;
+            const border = p.verdict ? 'border-blood/40' : 'border-cyber/30';
+            const sev = p.severity || 'medium';
+            const sevCls = sev === 'critical' ? 'text-blood' : sev === 'high' ? 'text-orange-400' : 'text-yellow-400';
+            const attempts = (p.attempts || []).slice(0, 40).map(_llmAttemptRow).join('');
+            return '<div class="bg-deep/30 rounded-lg border ' + border + ' p-3">'
+                + '<div class="flex items-center justify-between gap-2">'
+                + '<div class="min-w-0">'
+                + '<div class="font-mono text-sm text-white truncate">' + _llmEsc(p.id || p.name) + '</div>'
+                + '<div class="text-[10px] text-gray-500 font-mono">' + _llmEsc(p.family || '') + ' · ' + _llmEsc(p.detector || '') + '</div>'
+                + '</div>'
+                + '<div class="flex items-center gap-2 shrink-0">'
+                + _llmBadge(p.verdict)
+                + '<span class="text-[10px] text-gray-500">' + Number(p.max_score || 0).toFixed(2) + '</span>'
+                + '<span class="text-[10px] font-bold ' + sevCls + '">' + _llmEsc(sev) + '</span>'
+                + '</div>'
+                + '</div>'
+                + '<div class="text-[10px] text-gray-500 mt-1">' + _llmEsc(p.goal || '') + '</div>'
+                + '<details class="mt-2"><summary class="text-[11px] text-gray-500 cursor-pointer hover:text-neon">'
+                + (p.attempts || []).length + ' attempt(s)</summary>' + attempts + '</details>'
+                + '</div>';
+        }).join('');
+        return '<div class="bg-deep/50 rounded-xl border border-cyber p-4">'
+            + '<div class="flex items-center justify-between mb-2">'
+            + '<div class="font-mono text-sm text-neon">' + _llmEsc(r.id) + '</div>'
+            + '<div class="flex items-center gap-2">'
+            + '<span class="text-[10px] text-gray-500">' + _llmEsc(r.created_at || '') + ' · ' + _llmEsc(r.target || '') + (r.buffs && r.buffs.length ? ' · buffs[' + r.buffs.join(',') + ']' : '') + '</span>'
+            + '<button onclick="llmPushFindings(\'' + _llmEsc(r.id) + '\')" class="px-2 py-1 text-[11px] bg-cyber hover:bg-neon text-white rounded transition-colors">Push findings</button>'
+            + '</div>'
+            + '</div>'
+            + '<div class="text-[11px] text-gray-500 mb-2">' + attemptCount + ' attempts · max score '
+            + Number(r.summary?.max_score ?? 0).toFixed(2) + '</div>'
+            + '<div class="space-y-2">' + cards + '</div>'
+            + '</div>';
+    }
+    window.refreshLLM = async function () {
+        try {
+            const [cat, res] = await Promise.all([
+                _assessFetch('/api/llm/probes'),
+                _assessFetch('/api/llm/results'),
+            ]);
+            const status = document.getElementById('llm-status-badge');
+            if (status) status.textContent = `probes ${cat.total || 0} · reports ${(res.reports || []).length}`;
+
+            const box = document.getElementById('llm-probe-boxes');
+            if (box) {
+                const singles = (cat.probes || []).map(p =>
+                    '<label class="flex items-center gap-2 text-xs text-gray-300 cursor-pointer">'
+                    + '<input type="checkbox" data-probe="' + _llmEsc(p.id) + '" class="accent-neon"> '
+                    + _llmEsc(p.id) + '</label>'
+                ).join('');
+                box.innerHTML = singles;
+            }
+
+            const list = document.getElementById('llm-reports-list');
+            const summary = document.getElementById('llm-summary');
+            const reports = (res.reports || []).slice().reverse();
+            if (list) {
+                list.innerHTML = reports.length
+                    ? reports.map(_llmReportCard).join('')
+                    : '<div class="text-sm text-gray-500 py-4 text-center">No scans yet — configure a target and run a scan.</div>';
+            }
+            if (summary) {
+                const s = reports[0]?.summary;
+                if (s) {
+                    summary.classList.remove('hidden');
+                    const cell = (label, val, cls) => '<div class="bg-deep rounded-lg p-3 border border-cyber text-center">'
+                        + '<div class="text-2xl font-bold ' + cls + '">' + val + '</div>'
+                        + '<div class="text-xs text-gray-500">' + label + '</div></div>';
+                    summary.innerHTML = cell('Total', s.total_probes, 'text-neon')
+                        + cell('Vulnerable', s.vulnerable_probes, 'text-blood')
+                        + cell('Safe', s.safe_probes, 'text-emerald-400')
+                        + cell('Errors', s.errors, 'text-amber-400')
+                        + cell('Max score', Number(s.max_score ?? 0).toFixed(2), 'text-yellow-400');
+                } else {
+                    summary.classList.add('hidden');
+                    summary.innerHTML = '';
+                }
+            }
+        } catch { /* silent reload */ }
+    };
+
     // Register tab-switch refreshers for the two new tabs
     const _origAssessSwitch = window.switchTab;
     window.switchTab = function (name) {
@@ -14125,6 +14353,7 @@ Reglas:
         if (name === 'assessments') refreshAssessments();
         if (name === 'personas' && window.refreshPersonas) refreshPersonas();
         if (name === 'scheduler') refreshScheduler();
+        if (name === 'llm' && window.refreshLLM) refreshLLM();
     };
     // CRUD actions for these panes (delegated via ACTION_MAP data-action)
     const _assessNew = document.getElementById('assess-new-btn');

@@ -523,6 +523,10 @@
                     <span class="tab-icon">🛡️</span>
                     <span>DLP</span>
                 </button>
+                <button class="tab-btn" id="tab-btn-llm" data-tab="llm" role="tab" aria-selected="false" aria-controls="tab-llm" data-i18n="tabLlms">
+                    <span class="tab-icon">🤖</span>
+                    <span>LLM</span>
+                </button>
                 <button class="tab-btn" id="tab-btn-siem" data-tab="siem" role="tab" aria-selected="false" aria-controls="tab-siem" data-i18n="tabSiem">
                     <span class="tab-icon">📊</span>
                     <span>SIEM</span>
@@ -2731,6 +2735,123 @@
 
               <!-- Error -->
               <div id="dlp-error" class="hidden bg-blood/10 border border-blood rounded-lg p-4 text-blood text-sm mt-4"></div>
+            </div>
+
+            <!-- ════════════════════════════════════════════════════════
+                 TAB: LLM SECURITY SCANNER (Pack 18)
+                 ════════════════════════════════════════════════════════ -->
+            <div id="tab-llm" role="tabpanel" aria-labelledby="tab-btn-llm" class="tab-pane p-4 pt-3 overflow-y-auto">
+              <div class="flex items-center justify-between mb-6">
+                <h2 class="text-xl font-semibold text-neon" data-i18n="llm-title">🤖 LLM Security Scanner</h2>
+                <span id="llm-status-badge" class="px-3 py-1 rounded-full text-xs bg-void border border-cyber text-gray-400" data-i18n="dlp-ready">Ready</span>
+              </div>
+
+              <!-- Target config -->
+              <div class="bg-deep/50 rounded-xl border border-cyber p-4 mb-4">
+                <h3 class="text-sm font-semibold text-gray-400 mb-3" data-i18n="llm-target">Target LLM</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <label class="flex flex-col text-xs text-gray-400">
+                    <span data-i18n="llm-mode">Mode</span>
+                    <select id="llm-mode" class="mt-1 bg-deep border border-cyber rounded px-2 py-1.5 text-white text-sm font-mono focus:border-neon outline-none">
+                      <option value="self" data-i18n="llm-mode-self">self (local AI config)</option>
+                      <option value="openai" data-i18n="llm-mode-openai">openai (custom base)</option>
+                      <option value="stub" data-i18n="llm-mode-stub">stub (dry-run)</option>
+                    </select>
+                  </label>
+                  <label class="flex flex-col text-xs text-gray-400">
+                    <span data-i18n="llm-provider">Provider (self)</span>
+                    <select id="llm-provider" class="mt-1 bg-deep border border-cyber rounded px-2 py-1.5 text-white text-sm font-mono focus:border-neon outline-none">
+                      <option value="openai">openai</option>
+                      <option value="openrouter">openrouter</option>
+                      <option value="deepseek">deepseek</option>
+                      <option value="groq">groq</option>
+                      <option value="gemini">gemini</option>
+                      <option value="anthropic">anthropic</option>
+                    </select>
+                  </label>
+                  <label class="flex flex-col text-xs text-gray-400">
+                    <span data-i18n="llm-api-key">API Key</span>
+                    <input type="password" id="llm-api-key" class="mt-1 bg-deep border border-cyber rounded px-2 py-1.5 text-white text-sm font-mono focus:border-neon outline-none" placeholder="sk-...">
+                  </label>
+                  <label class="flex flex-col text-xs text-gray-400">
+                    <span data-i18n="llm-model">Model</span>
+                    <input type="text" id="llm-model" class="mt-1 bg-deep border border-cyber rounded px-2 py-1.5 text-white text-sm font-mono focus:border-neon outline-none" placeholder="gpt-4o / claude">
+                  </label>
+                  <label class="flex flex-col text-xs text-gray-400 md:col-span-2">
+                    <span data-i18n="llm-base-url">Base URL (openai mode)</span>
+                    <input type="text" id="llm-base-url" class="mt-1 bg-deep border border-cyber rounded px-2 py-1.5 text-white text-sm font-mono focus:border-neon outline-none" placeholder="https://api.openai.com/v1">
+                  </label>
+                </div>
+              </div>
+
+              <!-- Probes + options -->
+              <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+                <div class="bg-deep/50 rounded-xl border border-cyber p-4">
+                  <div class="flex items-center justify-between mb-2">
+                    <h3 class="text-sm font-semibold text-gray-400" data-i18n="llm-probes">Probes</h3>
+                    <button id="llm-select-all" onclick="llmSelectAll()" class="px-2 py-0.5 text-xs bg-cyber hover:bg-neon text-white rounded transition-colors" data-i18n="llm-all">select all</button>
+                  </div>
+                  <div id="llm-probe-boxes" class="grid grid-cols-2 gap-x-3 gap-y-1 max-h-64 overflow-y-auto pr-1"></div>
+                  <label class="flex flex-col text-xs text-gray-400 mt-3">
+                    <span data-i18n="llm-buffs">Buffs (input encodings)</span>
+                    <select id="llm-buffs" multiple class="mt-1 bg-deep border border-cyber rounded px-2 py-1.5 text-white text-sm font-mono focus:border-neon outline-none h-16">
+                      <option value="base64">base64</option>
+                      <option value="base32">base32</option>
+                      <option value="hex">hex</option>
+                      <option value="rot13">rot13</option>
+                      <option value="atbash">atbash</option>
+                      <option value="leet">leet</option>
+                      <option value="morse">morse</option>
+                      <option value="charcode">charcode</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="bg-deep/50 rounded-xl border border-cyber p-4">
+                  <h3 class="text-sm font-semibold text-gray-400 mb-2" data-i18n="llm-options">Options</h3>
+                  <div class="grid grid-cols-2 gap-3">
+                    <label class="flex flex-col text-xs text-gray-400">
+                      <span data-i18n="llm-limit">Limit / probe</span>
+                      <input type="number" id="llm-limit" value="0" min="0" class="mt-1 bg-deep border border-cyber rounded px-2 py-1.5 text-white text-sm font-mono focus:border-neon outline-none">
+                    </label>
+                    <label class="flex flex-col text-xs text-gray-400">
+                      <span data-i18n="llm-max-turns">Crescendo turns</span>
+                      <input type="number" id="llm-max-turns" value="4" min="1" max="4" class="mt-1 bg-deep border border-cyber rounded px-2 py-1.5 text-white text-sm font-mono focus:border-neon outline-none">
+                    </label>
+                    <label class="flex flex-col text-xs text-gray-400 col-span-2">
+                      <span data-i18n="llm-topic">Topic (crescendo)</span>
+                      <input type="text" id="llm-topic" class="mt-1 bg-deep border border-cyber rounded px-2 py-1.5 text-white text-sm font-mono focus:border-neon outline-none" placeholder="e.g. physical security">
+                    </label>
+                    <label class="flex flex-col text-xs text-gray-400 col-span-2">
+                      <span data-i18n="llm-objective">Objective (crescendo)</span>
+                      <input type="text" id="llm-objective" class="mt-1 bg-deep border border-cyber rounded px-2 py-1.5 text-white text-sm font-mono focus:border-neon outline-none">
+                    </label>
+                  </div>
+                  <label class="flex items-center gap-2 text-xs text-gray-300 mt-3">
+                    <input type="checkbox" id="llm-create-findings" class="accent-neon">
+                    <span data-i18n="llm-create-findings">Push vulnerable attempts as findings (DB + SIEM + audit)</span>
+                  </label>
+                  <div class="flex gap-2 mt-3">
+                    <button id="llm-run-scan" onclick="llmRunScan()" class="flex-1 px-4 py-2 bg-neon hover:bg-neon/80 text-deep rounded font-mono text-sm font-bold transition-colors" data-i18n="llm-scan-btn">▶ Run Scan</button>
+                    <button id="llm-run-probe" onclick="llmRunProbe()" class="px-4 py-2 bg-cyber hover:bg-neon text-white rounded font-mono text-sm transition-colors" data-i18n="llm-probe-btn">Single probe</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Loading -->
+              <div id="llm-loading" class="hidden text-center py-4">
+                <div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-neon mx-auto mb-2"></div>
+                <p class="text-gray-400 text-sm" data-i18n="dlp-scanning">Scanning...</p>
+              </div>
+
+              <!-- Results -->
+              <div id="llm-results" class="space-y-5" aria-live="polite" aria-label="LLM scan results">
+                <div id="llm-summary" class="hidden grid grid-cols-2 md:grid-cols-5 gap-3"></div>
+                <div id="llm-reports-list" class="space-y-4"></div>
+              </div>
+
+              <!-- Error -->
+              <div id="llm-error" class="hidden bg-blood/10 border border-blood rounded-lg p-4 text-blood text-sm mt-4"></div>
             </div>
 
             <!-- ════════════════════════════════════════════════════════

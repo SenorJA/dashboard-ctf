@@ -49,11 +49,11 @@ C:\Users\34678\Desktop\Proyecto ciber\
 │   ├── skills/                # Built-in skill playbooks (recon, webvuln, ssrf, jwt, supabase)
 │   ├── agents/                # 39 vendored AI personas (MIT, agency-agents) + ATTRIBUTION.md
 │   ├── burp_plugin/           # Jython Burp Suite plugin (mirv_burp.py)
-│   ├── tests/                 # ~5184 tests across 111 test files
+│   ├── tests/                 # ~5232 tests across 113 test files
 │   ├── Dockerfile             # Container image for mirv-backend
 │   └── requirements.txt
 ├── frontend/
-│   ├── index.html            # SPA (Tailwind CDN, 35 tabs, ~4065 lines)
+│   ├── index.html            # SPA (Tailwind CDN, 36 tabs, ~4065 lines)
 │   ├── css/
 │   │   └── style.css          # Signal Intelligence + Monochrome theme (~873 lines)
 │   ├── img/
@@ -92,7 +92,7 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 **Tests:**
 ```bash
 cd backend
- python -m pytest tests/ -k "not test_slow_hook" -q  # ~5184 tests, ~95% coverage
+ python -m pytest tests/ -k "not test_slow_hook" -q  # ~5232 tests, ~95% coverage
  ```
 
 ## Backend modules (main.py + 57 modules)
@@ -143,6 +143,7 @@ cd backend
 | `flag_detection.py` | ~170 | **Pack 11** deterministic user/root **flag detection** (ported from afsh4ck/exploitpath `server/db.ts`) — `detect_flag(command, output, prior_history)` uses prior history only to infer *type*; patterns: explicit `cat/type/get-content (user\|root).txt`, labeled `user/root flag:`/`=`, `Content:` + accumulated root context, strict `[a-f0-9]{32}` fallback; strips ANSI/CR; no false positives from hashes or bare path refs. `derive_session_state(detections, latest_analysis_phase)` folds flags→phase (recon/foothold/privesc/complete, root wins). `normalize_detection()` bounds values | 21 | — |
 | `lab_sessions.py` | ~560 | **Pack 11** Lab Sessions workspace — `machines→sessions→steps→analyses` thread-safe registry (ported from exploitpath data model). Deterministic flag detection on every step; **edit/delete recomputes flags+phase and invalidates stale AI analyses**; `get_workspace()` joins machine fields; structured `save_analysis()` (phase/summary/evidence/next_objective/safe_commands/rationale/cautions); `summary`, `export_state`/`import_state` (nested), opt-in `workspace_store` persistence (key `lab_sessions`) | 38 | — |
 | `lab_writeup.py` | ~330 | **Pack 11** dark-mode write-up renderers (ported from exploitpath `exportWriteup.ts`) — `build_writeup_html()` single self-contained HTML (`#090d14`/`#9FEF00`, `color-scheme:dark`, no remote deps, everything escaped, narrative *before* each command); `build_writeup_pdf()` ReportLab dark PDF with terminal cards + interleaved narrative; `es`/`en` labels | 8 | — |
+| `llm_scanner.py` | ~1500 | **Pack 18** LLM Security Scanner (port of praetorian-inc/augustus) — solo-stdlib: 23 probes (goodside/dan/promptinject/prefix/donotanswer/continuation/leak/glitch/crescendo), 22 detectores (substring/word/regex/inversión mitigation, plain-json, markdown-exfil, token-smuggling, glitch, crescendo-judge), 8 buffs encoder (base64/base32/hex/rot13/atbash/leet/morse/charcode), generators hijack/prefix/continuation, **Crescendo-lite multi-turn determinista** (CONTEXT→MECHANISMS→FAILURE_MODES→OFFENSIVE_APPLICATION), `OpenAICompatClient/CallableClient/StubClient/build_client`, `LLMScanRegistry` LRU (20), `RunReport` verbedict max element-wise (primary+secondary), `finding_from_attempt` → payload `db.save_finding` (`tool=llm-scanner`, `service=llm`, severidad según probe) | 48 (37 module + 11 endpoints) | — |
 | `agency_agents.py` | ~577 | **Pack 17** AI Personas registry — vendored `backend/agents/{security,testing,engineering,specialized}/*.md` (39 personas, MIT, agency-agents) + custom override dirs (`.mirv/agents/`, env `MIRV_AGENTS_WRITE_DIR`, `MIRV_AGENTS_DIRS`); discovery order `MIRV_AGENTS_DIRS` → `backend/agents` → `.mirv/agents` → `~/.mirv/agents` → write-dir (last wins), mtime cache + `threading.Lock`, `AgentPersona` dataclass (slug/division/name/description/emoji/color/vibe/body/editable), `build_persona_prompt()` (identity + vibe + mandate + body truncated to `DEFAULT_PROMPT_CHARS`), `create_agent()`/`delete_agent()` (bundled read-only), `export_registry()`/`import_registry()`, `summary()` | 38 | — |
 
 ## Backend quirks (main.py)
@@ -160,7 +161,7 @@ cd backend
 - **Audit log auto-init** on startup + existing `logger` wired with `AuditLogHandler`.
 - **Swarm sessions route** registered BEFORE `/api/swarm/{session_id}` to avoid catch-all collision.
 
-## Frontend structure (35 tabs)
+## Frontend structure (36 tabs)
 
 | Tab | ID | Purpose |
 |-----|----|---------| 
@@ -199,6 +200,7 @@ cd backend
 | Phishing Sim | `tab-phishing` | Training-only awareness campaigns: create/activate/archive/delete, landing URL + click/submission stats |
 | Lab Sessions | `tab-labs` | Machines → sessions → evidence timeline, deterministic flag detection, AI analysis over full history, dark-mode HTML/PDF write-up |
 | AI Personas | `tab-personas` | 39 vendored AI personas (divisions security/testing/engineering/specialized): search + division filter, detail view (vibe/description/body), Build prompt (task-aware), Copy, custom persona create/delete, JSON export; `agent` field in `/api/ai/chat` injects the persona as system message |
+| LLM Security | `tab-llm` | LLM Security Scanner (Pack 18): target config (self/openai/stub), probe selector por familia (23 probes), buffs (8 encoders), run scan / single probe, KPIs resumen + report cards con attempts + Push findings; resultados en memoria (registry LRU 20) |
 
 - **Single HTML file** (`index.html`, ~4065 lines) — no build step, no bundler, no framework.
 - **Tailwind via CDN** (`https://cdn.tailwindcss.com`). Custom colors: `neon`, `cyber`, `deep`, `void`, `blood`.
@@ -247,6 +249,7 @@ cd backend
 | `refreshPhishingSim()` / `phishingCreate()` / `phishingAction(cid, act)` | Phishing Sim tab: stats + campañas (create/activate/archive/delete) + landing URL |
 | `refreshLabs()` / `labsCreateMachine()` / `labsOpenMachine(mid)` / `labsCreateSession()` / `labsOpenSession(sid)` / `labsAddStep()` / `labsDeleteStep(id)` / `labsDeleteMachine(mid)` / `labsDeleteSession(sid)` | Lab Sessions tab: máquinas→sesiones→evidencias, flag badges, timeline |
 | `labsAnalyze()` / `labsWriteup()` / `labsDownload(format)` | Lab Sessions IA: análisis estructurado sobre historial, narrativa por paso, export HTML/PDF dark mode |
+| `refreshLLM()` / `llmRunScan()` / `llmRunProbe()` / `llmPushFindings(id)` / `llmClearResults()` / `llmSelectAll()` | LLM Security tab: listado probes + resultados (registry), scan/single-probe contra self/openai/stub, push de findings vuln a DB+SIEM+audit, clear |
 | `addConsole()` / `removeConsole(id)` (módulo `mircConsoles`) | Multi-terminal: consolas extra autocontenidas (WS propio por panel sobre el perfil de conexión activo) — sin tocar el pipeline del terminal principal |
 | `routerRoute()` / `refreshRouter()` / `routerReload()` / `routerOpenSkill(name)` | Task Router (tab Skills): rutea hint→skill (POST `/api/router/route`), tool-index con `which` del host, reload config, open+auto-load skill |
 
@@ -326,6 +329,7 @@ cd backend
 | **AI Personas** | `GET /api/personas` (q, division), `GET /api/personas/divisions`, `GET /api/personas/summary`, `GET /api/personas/export`, `POST /api/personas/import`, `POST /api/personas`, `GET /api/personas/{slug}`, `POST /api/personas/{slug}/prompt`, `DELETE /api/personas/{slug}` (bundled read-only) |
 | **Phishing Sim** | `GET /api/phishing/templates`, `GET /api/phishing/stats`, `GET /api/phishing/campaigns`, `GET /api/phishing/campaigns/{cid}`, `POST /api/phishing/campaigns`, `POST /api/phishing/campaigns/{cid}/{activate,archive}`, `DELETE /api/phishing/campaigns/{cid}` + **públicas top-level** (fuera del guard): `GET/POST /phishing/{cid}` (landing click-track + `/submit` hashed → finding high + SIEM + audit + notify), `GET /phishing/{cid}/result`. SIEM source `phishing` añadido a `_VALID_SOURCES` |
 | **Lab Sessions** | `GET/POST /api/labs/machines`, `GET/PUT/DELETE /api/labs/machines/{mid}`, `GET /api/labs/machines/{mid}/sessions`, `POST /api/labs/sessions`, `GET/PUT/DELETE /api/labs/sessions/{sid}`, `GET /api/labs/sessions/{sid}/workspace`, `POST /api/labs/sessions/{sid}/steps`, `PUT/DELETE /api/labs/steps/{step_id}`, `POST /api/labs/sessions/{sid}/analyze` (IA JSON estructurada sobre historial completo), `POST /api/labs/sessions/{sid}/writeup` (narrativa por paso), `POST /api/labs/sessions/{sid}/export` (html/pdf dark mode con narrativa), `GET /api/labs/summary`, `GET/POST /api/labs/{export,import}` |
+| **LLM Security** | `GET /api/llm/probes` (catálogo 23 probes + familias), `POST /api/llm/probe` (single probe, sin guardar), `POST /api/llm/scan` (batería → registry LRU 20 + opcional `create_findings`→findings+SIEM+audit+notify), `GET /api/llm/results`, `GET /api/llm/results/{report_id}`, `DELETE /api/llm/results`, `POST /api/llm/results/{report_id}/findings`. `mode=self` reutiliza `_call_llm_sync`; `mode=openai`→`build_client`; `mode=stub` dry-run. SIEM source `llm` añadido a `_VALID_SOURCES` |
 | **Scheduler** | `GET/POST /api/scheduler/jobs`, `PUT/PATCH/DELETE /api/scheduler/jobs/{jid}`, `POST /api/scheduler/jobs/{jid}/run`, `POST /api/scheduler/jobs/{jid}/record`, `GET/POST /api/scheduler/export`, `GET /api/scheduler/due`, `GET /api/scheduler/status` (daemon health) |
 | **Findings lifecycle** | `PATCH /api/findings/{finding_id}` (lifecycle_status open/confirmed/accepted/fixed/verified + assessment_id), `GET /api/findings/assessment/{assessment_id}`, `GET /api/findings?lifecycle_status=&assessment_id=` |
 
@@ -462,8 +466,8 @@ cd backend
 
 ## Test summary
 
-- **111 test files** in `backend/tests/`
-- **~5184 tests** collected (**5183 passing locally**, + 17 network-only `example.com` tests that pass in CI; 296 now in `test_main_gaps.py` + 20 in `test_main_websocket_gaps.py` + 30 `test_assessments.py` + 43 `test_scheduler.py` + 27 `test_scheduler_daemon.py` + 19 `test_finding_lifecycle.py` + 22 `test_assets.py` + 17 `test_api_auth.py` + 37 `test_notifications.py` + 22 `test_workspace_store.py` + 144 `test_skill_router.py` (incl. 99 benchmark cases) + 20 `test_opencode_agent.py` + 24 `test_agent_bridge.py` + 22 `test_phishing_sim.py` + 64 `test_redact.py` + 21 `test_flag_detection.py` + 38 `test_lab_sessions.py` + 8 `test_lab_writeup.py` + 22 `test_labs_endpoints.py` + 38 `test_agency_agents.py` + 20 `test_personas_endpoints.py` + 17 `test_pack_purity.py`)
+- **113 test files** in `backend/tests/`
+- **~5232 tests** collected (**5231 passing locally**, + 17 network-only `example.com` tests that pass in CI; 296 now in `test_main_gaps.py` + 20 in `test_main_websocket_gaps.py` + 30 `test_assessments.py` + 43 `test_scheduler.py` + 27 `test_scheduler_daemon.py` + 19 `test_finding_lifecycle.py` + 22 `test_assets.py` + 17 `test_api_auth.py` + 37 `test_notifications.py` + 22 `test_workspace_store.py` + 144 `test_skill_router.py` (incl. 99 benchmark cases) + 20 `test_opencode_agent.py` + 24 `test_agent_bridge.py` + 22 `test_phishing_sim.py` + 64 `test_redact.py` + 21 `test_flag_detection.py` + 38 `test_lab_sessions.py` + 8 `test_lab_writeup.py` + 22 `test_labs_endpoints.py` + 38 `test_agency_agents.py` + 20 `test_personas_endpoints.py` + 17 `test_pack_purity.py` **+ 37 `test_llm_scanner.py` + 11 `test_llm_endpoints.py` (Pack 18)**)
 - **~95% coverage** across measured backend modules
 - **`backend/main.py` = 100%** (2847/2847 statements; last gaps were websocket `read_shell` break on OSError/EOFError + outer `WebSocketDisconnect`)
 - **Key test files**: test_database (196), test_api_endpoints (333), test_main_gaps (296), test_main_coverage (165), test_main_extra (120), test_crud_endpoints (67), test_deep_coverage_1/2 (205), test_compaction (63), test_burp_bridge (72), test_redact (63), test_skill_playbooks (67), test_skill_router (144), test_agency_agents (38), test_personas_endpoints (20), test_pack_purity (17), test_audit_log (45), test_plugin_manager (47), test_plugin_watcher (18), test_siem (31), test_coverage (33), test_exif_osint (63), test_mobile_analyzer (54), test_canary_tokens (24), test_dlp_scanner (25), test_finding_poc (61), test_intelligence (43), test_permission_system (56), test_opsec, test_scope_guard, test_forensics, test_adb_controller, test_kali_mcp_client, test_mission_store, test_knowledgebase, test_swarm, test_assessments (30), test_scheduler (43), test_scheduler_daemon (27), test_finding_lifecycle (19), test_assets (22), test_api_auth (17), test_notifications (37), test_workspace_store (22), test_opencode_agent (20), test_agent_bridge (24), test_phishing_sim (22), test_flag_detection (21), test_lab_sessions (38), test_lab_writeup (8), test_labs_endpoints (22), + scanner tools + gap files (test_*_gaps.py: redact, dlp_scanner, mission_store, dns_lookup, pdf_engine, database, finding_poc, headers_scanner, hash_cracker, adb_controller, skill_playbooks, audit_log, intelligence, opsec, scope_guard).

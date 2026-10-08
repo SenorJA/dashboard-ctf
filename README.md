@@ -53,7 +53,7 @@ M.I.R.V. es una **plataforma modular todo-en-uno** para operaciones de cibersegu
 - **Análisis forense** (memoria, disco, archivos) y **móvil** (APK estático + dinámico con Frida)
 - **Swarm multi-operador**, **CTF mode**, **OPSEC Levels**, **Self-Improvement Loop**
 
-> **Versión:** v3.4.0 · Releases de escritorio firmadas (Tauri + updater `latest.json`)
+> **Versión:** v3.5.0 · Releases de escritorio firmadas (Tauri + updater `latest.json`)
 
 ---
 
@@ -411,7 +411,7 @@ M.I.R.V. está diseñado para:
 
 <div align="center">
 
-**M.I.R.V. v3.4.0** — 345 endpoints · 5184 tests · ~95% cobertura · 35 tabs · 57 módulos
+**M.I.R.V. v3.5.0** — 352 endpoints · 5232 tests · ~95% cobertura · 36 tabs · 58 módulos
 
 [Reportar bug](https://github.com/SenorJA/dashboard-ctf/issues) · [Sugerir mejora](https://github.com/SenorJA/dashboard-ctf/issues) · [Documentación técnica](AGENTS.md)
 

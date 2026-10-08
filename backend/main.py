@@ -206,6 +206,9 @@ from backend import notifications as notif
 from backend import lab_sessions as labs
 from backend import lab_writeup as labw
 
+# ── Pack 18: LLM Security Scanner (port of praetorian-inc/augustus) ──
+from backend import llm_scanner as llms
+
 # ── Browser Capture (HAR import, session storage, security analysis) ──
 from backend.browser_capture import (
     import_har as bc_import,
@@ -2033,6 +2036,204 @@ async def api_dlp_scan_url(url: str = ""):
         })
     except Exception as e:
         return JSONResponse({"ok": False, "error": str(e)}, status_code=502)
+
+
+# ════════════════════════════════════════════════════════════════
+#  LLM Security Scanner (Pack 18 — port of praetorian-inc/augustus)
+# ════════════════════════════════════════════════════════════════
+
+class LLMTargetSpec(BaseModel):
+    mode: str = "self"              # self | openai | stub
+    provider: str = "openai"        # used when mode=self (openai/openrouter/deepseek/groq/gemini/anthropic)
+    api_key: str = ""
+    model: str = ""
+    base_url: str = ""              # used when mode=openai
+    timeout: int = llms.DEFAULT_TIMEOUT
+    max_tokens: int = llms.DEFAULT_MAX_TOKENS
+
+
+class LLMScanRequest(BaseModel):
+    target: LLMTargetSpec = LLMTargetSpec()
+    probe_ids: list[str] = []
+    families: list[str] = []
+    all_probes: bool = False
+    buffs: list[str] = []
+    model_name: str = "assistant"
+    limit: int = 0
+    max_turns: int = 4
+    topic: str = ""
+    objective: str = ""
+    create_findings: bool = False
+
+
+def _llm_resolve_probe_ids(req: LLMScanRequest) -> list[str]:
+    ids: list[str] = []
+    if req.all_probes:
+        ids = list(llms.PROBES)
+    for pid in req.probe_ids or []:
+        if pid in llms.PROBES and pid not in ids:
+            ids.append(pid)
+    for fam in req.families or []:
+        for pid, probe in llms.PROBES.items():
+            if probe["family"] == fam and pid not in ids:
+                ids.append(pid)
+    return ids
+
+
+def _llm_client_for(target: LLMTargetSpec) -> Any:
+    spec = {
+        "base_url": target.base_url,
+        "model": target.model,
+        "api_key": target.api_key,
+        "timeout": int(target.timeout or llms.DEFAULT_TIMEOUT),
+        "max_tokens": int(target.max_tokens or llms.DEFAULT_MAX_TOKENS),
+    }
+    if target.mode == "self":
+        if not target.api_key:
+            raise llms.LLMClientError("mode=self requires api_key — reuse your AI tab configuration")
+        provider = (target.provider or "openai").lower().strip()
+        model = (target.model or "").strip()
+
+        def _fn(messages):
+            return _call_llm_sync(provider, target.api_key, model, messages,
+                                  int(spec["timeout"]), int(spec["max_tokens"]))
+
+        return llms.CallableClient(_fn, model=model or provider)
+    if target.mode == "openai" or target.mode == "stub":
+        return llms.build_client(target.mode, spec)
+    raise llms.LLMClientError(f"unknown target mode: {target.mode!r}")
+
+
+def _llm_push_findings(report: llms.ScanReport) -> dict:
+    """Push vulnerable attempts → findings (DB on open/{x}; SIEM + audit always)."""
+    pushed, skipped_db, siem_events = 0, 0, 0
+    for probe in report.probes:
+        if not probe.verdict:
+            continue
+        for attempt in probe.attempts:
+            if not attempt.vulnerable:
+                continue
+            finding = llms.finding_from_attempt(probe, attempt, report.target)
+            created = db.save_finding(finding) if db.is_available() else None
+            if created:
+                pushed += 1
+            else:
+                skipped_db += 1
+            severity = finding["severity"] if finding["severity"] in LLM_SEVERITY_SET else "medium"
+            try:
+                siem_ingest(
+                    "llm", severity, finding["title"],
+                    finding["detail"][:500], {"probe": probe.id, "score": attempt.score},
+                    tags=["llm-scanner", probe.family],
+                )
+                siem_events += 1
+            except Exception as e:
+                logger.warning("[llm findings] siem ingest failed: %s", e)
+            al_audit("INFO", "llm", "llm-finding",
+                     f"{finding['title']} on {report.target} (score {attempt.score:.2f})",
+                     target=report.target, details={"probe": probe.id, "severity": severity})
+            if severity in ("high", "critical"):
+                _notify_finding("LLM finding", finding["title"], report.target, severity)
+    return {"pushed": pushed, "skipped_db": skipped_db, "siem_events": siem_events}
+
+
+LLM_SEVERITY_SET = {"info", "low", "medium", "high", "critical"}
+
+
+@app.get("/api/llm/probes")
+async def api_llm_probes():
+    """Return the probe catalog (families + count + previews)."""
+    try:
+        return JSONResponse({"ok": True, **llms.public_catalog()})
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/llm/probe")
+async def api_llm_probe(req: LLMScanRequest):
+    """Run a single probe against the target (results are returned, not stored)."""
+    try:
+        ids = _llm_resolve_probe_ids(req)
+        if not ids:
+            return JSONResponse({"ok": False, "error": "no probes selected (probe_ids / families / all_probes)"}, status_code=422)
+        if len(ids) > 1:
+            ids = ids[:1]
+        client = await asyncio.to_thread(_llm_client_for, req.target)
+        report = await asyncio.to_thread(
+            llms.run_scan, client, ids, req.buffs, req.model_name,
+            req.limit, req.max_turns, req.topic, req.objective,
+        )
+        return JSONResponse({"ok": True, "report": report.to_dict()})
+    except llms.LLMClientError as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/llm/scan")
+async def api_llm_scan(req: LLMScanRequest):
+    """Run a battery of probes against the target LLM and store the report."""
+    try:
+        ids = _llm_resolve_probe_ids(req)
+        if not ids:
+            return JSONResponse({"ok": False, "error": "no probes selected (probe_ids / families / all_probes)"}, status_code=422)
+        client = await asyncio.to_thread(_llm_client_for, req.target)
+        report = await asyncio.to_thread(
+            llms.run_scan, client, ids, req.buffs, req.model_name,
+            req.limit, req.max_turns, req.topic, req.objective,
+        )
+        llms.registry.add(report)
+        push = {}
+        if req.create_findings:
+            push = _llm_push_findings(report)
+        al_audit("INFO", "llm", "llm-scan",
+                 f"LLM scan {report.id}: {len(report.probes)} probes on {report.target}",
+                 target=report.target, details={"vulnerable": report.summary()["vulnerable_probes"]})
+        return JSONResponse({
+            "ok": True,
+            "report": report.to_dict(),
+            "findings": push,
+        })
+    except llms.LLMClientError as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/llm/results")
+async def api_llm_results():
+    """List stored scans (summary only)."""
+    return JSONResponse({"ok": True, "reports": llms.registry.list(),
+                         "max_reports": llms.MAX_REPORTS})
+
+
+@app.get("/api/llm/results/{report_id}")
+async def api_llm_result(report_id: str):
+    """Fetch one stored scan report in full."""
+    report = llms.registry.get(report_id)
+    if not report:
+        return JSONResponse({"ok": False, "error": "report not found"}, status_code=404)
+    return JSONResponse({"ok": True, "report": report.to_dict()})
+
+
+@app.delete("/api/llm/results")
+async def api_llm_results_clear():
+    """Drop all stored reports."""
+    n = llms.registry.clear()
+    return JSONResponse({"ok": True, "cleared": n})
+
+
+@app.post("/api/llm/results/{report_id}/findings")
+async def api_llm_results_push_findings(report_id: str):
+    """Push vulnerable attempts of a stored scan into findings + SIEM + audit."""
+    report = llms.registry.get(report_id)
+    if not report:
+        return JSONResponse({"ok": False, "error": "report not found"}, status_code=404)
+    try:
+        result = _llm_push_findings(report)
+        return JSONResponse({"ok": True, **result})
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 
 
 # ════════════════════════════════════════════════════════════════

@@ -167,7 +167,7 @@ _init_default_rules()
 #  Helpers
 # ════════════════════════════════════════════════════════════════
 
-_VALID_SOURCES = {"ssh", "docker", "api", "canary", "dlp", "firewall", "system", "phishing"}
+_VALID_SOURCES = {"ssh", "docker", "api", "canary", "dlp", "firewall", "system", "phishing", "llm"}
 _VALID_SEVERITIES = {"info", "low", "medium", "high", "critical"}
 _VALID_CONDITIONS = {"brute-force", "port-scan", "canary-trigger", "dlp-leak", "custom"}
 

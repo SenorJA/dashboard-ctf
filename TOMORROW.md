@@ -200,6 +200,15 @@
 
 ## 📋 Pendiente
 
+### Pack 18 — LLM Security Scanner (8 Oct 2026) ✅
+- [x] ~~Análisis de los 3 repos candidatos~~ (e2e / rea / praetorian-inc **augustus**) → decisión: **Pack 18 = LLM Security Scanner (port de Augustus)**. Análisis en `docs/REPO_ANALYSIS_2026-10-08.md`. e2e/rea quedan descartados.
+- [x] ~~`backend/llm_scanner.py`~~ — 23 probes, 22 detectores, 8 buffs encrypt, Crescendo-lite determinista, registry LRU 20, `finding_from_attempt`. Solo-stdlib (`urllib`), sin `backend.database`.
+- [x] ~~SIEM~~ — source `llm` añadido a `_VALID_SOURCES`.
+- [x] ~~Endpoints~~ — `/api/llm/probes`, `/probe`, `/scan` (+`create_findings`), `/results`, `/results/{id}`, `DELETE /results`, `/results/{id}/findings` (push → findings+SIEM+audit+notify).
+- [x] ~~Tests~~ — `test_llm_scanner.py` (37) + `test_llm_endpoints.py` (11) → suite **5231 passed, 1 deselected**.
+- [x] ~~Frontend~~ — tab `LLM Security` (`tab-llm`), i18n es/en, hook en `switchTab`, report cards con attempts + Push findings.
+- [x] ~~Docs/bump~~ — AGENTS.md, README v3.5.0, desktop 3.5.0 (tauri/pkg/cargo/lock/msi), TOMORROW.
+
 ### Pendiente actual — acciones manuales del usuario (26 Sep 2026)
 
 **Deployment a VPS — pendiente** (validado el stack ya corrido en Docker local). Orden:

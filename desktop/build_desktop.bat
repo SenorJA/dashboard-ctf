@@ -65,7 +65,7 @@ if errorlevel 1 goto :fail
 
 echo.
 echo [OK] MIRV Desktop installer:
-echo   src-tauri\target\release\bundle\msi\MIRV_3.4.0_x64_en-US.msi
+echo   src-tauri\target\release\bundle\msi\MIRV_3.5.0_x64_en-US.msi
 exit /b 0
 
 :fail
