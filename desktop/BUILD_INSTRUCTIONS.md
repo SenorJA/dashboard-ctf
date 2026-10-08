@@ -57,23 +57,21 @@ cd desktop
 .\build_desktop.bat
 ```
 
-Genera `desktop/src-tauri/target/release/bundle/msi/MIRV_3.0.0_x64_en-US.msi`.
+Genera `desktop/src-tauri/target/release/bundle/msi/MIRV_3.4.0_x64_en-US.msi`.
 
 ### Opción B — Manual paso a paso (para depurar)
 
 ```bash
-# 1) Backend sidecar
+# 1) Backend sidecar (empaqueta skills/, plugins/ y agents/ de backend/)
 cd backend
 pip install -r requirements.txt pyinstaller
 python -m PyInstaller --noconfirm --clean mirv-backend.spec
-#    -> backend/dist/mirv-backend/  (carpeta one-dir con el .exe) 
+#    -> backend/dist/mirv-backend.exe (one-file; todo resuelve en sys._MEIPASS)
 
-# 2) Copiar el sidecar a Tauri
+# 2) Copiar el sidecar a Tauri con el nombre que pide "externalBin"
 cd ..\desktop
-mkdir src-tauri\binaries\mirv-backend
-xcopy /E /I /Y ..\backend\dist\mirv-backend  src-tauri\binaries\mirv-backend\
-#    Tauri a veces requiere el sufijo target:
-#    ren src-tauri\binaries\mirv-backend\mirv-backend.exe mirv-backend-x86_64-pc-windows-msvc.exe
+mkdir src-tauri\binaries 2>nul
+copy /Y ..\backend\dist\mirv-backend.exe src-tauri\binaries\mirv-backend-x86_64-pc-windows-msvc.exe
 
 # 3) Dependencias npm
 npm install
@@ -112,8 +110,8 @@ Para lanzarlo manualmente sin esperar un push: Actions → **Desktop Build** →
 
 Flujo interno del job (`windows-latest`):
 1. `setup-python` (cache) → `pip install` deps + pyinstaller
-2. `PyInstaller mirv-backend.spec` → sidecar
-3. Copia el sidecar a `desktop/src-tauri/binaries/mirv-backend/`
+2. `PyInstaller mirv-backend.spec` → sidecar one-file `dist/mirv-backend.exe`
+3. Copia el sidecar a `desktop/src-tauri/binaries/mirv-backend-x86_64-pc-windows-msvc.exe`
 4. `setup-node` + `npm install`
 5. `node scripts/sync-frontend.mjs`
 6. `dtolnay/rust-toolchain@stable` + `Swatinem/rust-cache@v2`
@@ -121,10 +119,10 @@ Flujo interno del job (`windows-latest`):
 
 > **Para subir un release manualmente:** crea un tag y haz push:
 > ```bash
-> git tag v3.0.0
-> git push origin v3.0.0
+> git tag v3.4.0
+> git push origin v3.4.0
 > ```
-> El workflow genera el `.msi` y lo adjunta al Release `v3.0.0`.
+> El workflow genera el `.msi` y lo adjunta al Release `v3.4.0`.
 
 ---
 

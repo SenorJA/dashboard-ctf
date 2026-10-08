@@ -9,8 +9,9 @@
 #
 # Output: dist/mirv-backend(.exe) — a self-contained HTTP/WS backend.
 #   * OneFile build so it ships cleanly as a Tauri sidecar binary.
-#   * Bundles built-in skills/ and plugins/ so the packaged binary finds them
-#     under sys._MEIPASS (the modules resolve their dirs via __file__).
+#   * Bundles built-in skills/, plugins/ and agents/ (AI personas) so the
+#     packaged binary finds them under sys._MEIPASS (the modules resolve
+#     their dirs via __file__).
 #   * Bundles ../frontend so the binary can serve the SPA standalone
 #     (used when NOT in --tauri-mode).
 #   * Run with `--tauri-mode` to omit frontend serving (Tauri WebView takes over).
@@ -31,14 +32,21 @@ block_cipher = None
 root = os.path.dirname(os.path.abspath(SPEC))
 
 # ── Data files ────────────────────────────────────────────────────────────
-# backend/skills (built-in skill playbooks) and backend/plugins (example).
+# backend/skills (built-in skill playbooks), backend/plugins (example) and
+# backend/agents (Pack 17 — vendored AI personas, .md frontmatter files).
+# agency_agents.py resolves its builtin dir via Path(__file__).parent/"agents",
+# which maps to _MEIPASS/backend/agents inside the OneFile build — without
+# this entry the desktop binary boots with an EMPTY persona registry.
 backend_dir = root
 frontend_dir = os.path.normpath(os.path.join(root, os.pardir, "frontend"))
 
 datas = [
     (os.path.join(backend_dir, "skills"), "backend/skills"),
     (os.path.join(backend_dir, "plugins"), "backend/plugins"),
+    (os.path.join(backend_dir, "agents"), "backend/agents"),
 ]
+# Tolerate a checkout where one of the dirs is absent (never ship a broken build).
+datas = [entry for entry in datas if os.path.isdir(entry[0])]
 
 # Bundle the frontend only when it exists (copy-tree tolerates absence).
 # The datas tuple schema: (source, target_dir_under__MEIPASS__).

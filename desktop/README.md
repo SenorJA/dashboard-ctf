@@ -34,14 +34,13 @@ desktop\build_desktop.bat          # build completo -> .msi
 Equivale a:
 
 ```bash
-# 1. Backend sidecar (backend/)
+# 1. Backend sidecar (backend/) — empaqueta skills/, plugins/ y agents/
 cd backend
 pip install -r requirements.txt pyinstaller
-pyinstaller mirv-backend.spec        # -> dist\mirv-backend\
+pyinstaller mirv-backend.spec        # -> dist\mirv-backend.exe (one-file)
 
-# 2. Copiar sidecar al proyecto Tauri
-copy dist\mirv-backend\* ..\desktop\src-tauri\binaries\mirv-backend\
-copy dist\mirv-backend\*.dll ..\desktop\src-tauri\binaries\mirv-backend\
+# 2. Copiar sidecar al proyecto Tauri (nombre con target-triple = externalBin)
+copy /Y dist\mirv-backend.exe ..\desktop\src-tauri\binaries\mirv-backend-x86_64-pc-windows-msvc.exe
 
 # 3. Sincronizar frontend canónico
 cd ..\desktop
@@ -55,7 +54,7 @@ npx tauri icon ..\frontend\img\icon-192.svg src-tauri\icons
 npm run tauri build -- --bundles msi
 ```
 
-Output: `src-tauri\target\release\bundle\msi\MIRV_3.0.0_x64_en-US.msi`
+Output: `src-tauri\target\release\bundle\msi\MIRV_3.4.0_x64_en-US.msi`
 
 ## Estructura
 

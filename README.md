@@ -7,7 +7,7 @@
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-latest-009688?logo=fastapi)](https://fastapi.tiangolo.com)
 [![Endpoints](https://img.shields.io/badge/endpoints-345-9cf)](#-api-resumen)
-[![Tests](https://img.shields.io/badge/tests-5167_✔️-2ea44f?logo=pytest)](#-testing)
+[![Tests](https://img.shields.io/badge/tests-5184_✔️-2ea44f?logo=pytest)](#-testing)
 [![Coverage](https://img.shields.io/badge/coverage-~95%25-2ea44f)](#-testing)
 [![Tabs](https://img.shields.io/badge/frontend%20tabs-35-9cf)](#-features-principales)
 [![Kali](https://img.shields.io/badge/Kali-Linux-557C94?logo=kalilinux)](https://kali.org)
@@ -53,7 +53,7 @@ M.I.R.V. es una **plataforma modular todo-en-uno** para operaciones de cibersegu
 - **Análisis forense** (memoria, disco, archivos) y **móvil** (APK estático + dinámico con Frida)
 - **Swarm multi-operador**, **CTF mode**, **OPSEC Levels**, **Self-Improvement Loop**
 
-> **Versión:** v3.3.0 · Releases de escritorio firmadas (Tauri + updater `latest.json`)
+> **Versión:** v3.4.0 · Releases de escritorio firmadas (Tauri + updater `latest.json`)
 
 ---
 
@@ -258,7 +258,7 @@ python -m pytest tests/ -k "not test_slow_hook" -q
 #                       workspace, pasan con el env limpio / en CI)  ·  1 deselected
 ```
 
-- **110 archivos de test**, **5167 tests** recolectados (~95% cobertura)
+- **111 archivos de test**, **5184 tests** recolectados (~95% cobertura)
 - `main.py` = **100%** de cobertura (statement-level)
 - Pack 11 (Lab Sessions + flags + write-up): **89 tests nuevos** — detección de flags user/root (incl. transcripciones SSH y falsos positivos), recomputado al editar/borrar, invalidación de análisis obsoletos, escape XSS del HTML dark-mode, endpoints
 - Usa `unittest.mock` + `TestClient(app)` para endpoints; hermético (sin red/DB real)
@@ -340,7 +340,7 @@ mirv/
 │   ├── plugins/      # Sistema de plugins (hot-reload)
 │   ├── skills/       # 112 skill playbooks (Markdown + frontmatter) + router/ (routing.json, benchmarks.json)
 │   ├── burp_plugin/  # Plugin Jython para Burp Suite
-│   └── tests/        # 110 archivos, 5167 tests (~95% cobertura)
+│   └── tests/        # 111 archivos, 5184 tests (~95% cobertura)
 ├── frontend/         # SPA vanilla JS + Tailwind CDN (35 tabs)
 │   ├── index.html    # SPA principal (~4065 líneas)
 │   └── js/           # main.v2.js (~14.000 líneas), dataservice, mobile, forensics, swarm
@@ -411,7 +411,7 @@ M.I.R.V. está diseñado para:
 
 <div align="center">
 
-**M.I.R.V. v3.3.0** — 345 endpoints · 5167 tests · ~95% cobertura · 35 tabs · 57 módulos
+**M.I.R.V. v3.4.0** — 345 endpoints · 5184 tests · ~95% cobertura · 35 tabs · 57 módulos
 
 [Reportar bug](https://github.com/SenorJA/dashboard-ctf/issues) · [Sugerir mejora](https://github.com/SenorJA/dashboard-ctf/issues) · [Documentación técnica](AGENTS.md)
 

@@ -10,6 +10,28 @@ import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
+# ───────────────────────────────────────────────────────────────────
+#  Hermetic env -- the repo-root .env (gitignored, machine-specific)
+#  holds LIVE Supabase creds + ``MIRV_PERSIST_WORKSPACE=1``. ``main.py``
+#  calls ``load_dotenv()`` at import (two lines below), which would
+#  otherwise inject them into the suite and make the assets/scheduler/
+#  assessments/notifications tests talk to the real database (they expect
+#  an empty store, exactly like CI). python-dotenv never overwrites a var
+#  already present, so an empty value here wins. CI has no .env at all and
+#  behaves identically; tests that need a value re-set it per test with
+#  ``monkeypatch.setenv`` (see the ``_hermetic_api_token_env`` fixture).
+# ───────────────────────────────────────────────────────────────────
+for _env_key in (
+    "SUPABASE_URL", "SUPABASE_KEY", "SUPABASE_SERVICE_KEY",
+    "SUPABASE_DB_PASSWORD", "SUPABASE_MGMT_TOKEN",
+    "MIRV_PERSIST_WORKSPACE",
+    "MIRV_API_TOKEN", "MIRV_API_TOKEN_FILE",
+    "MIRV_AGENTS_DIRS", "MIRV_AGENTS_WRITE_DIR",
+    "MIRV_ROUTER_CONFIG", "MIRV_SKILLS_DIRS",
+    "MIRV_ENC_KEY",
+):
+    os.environ.setdefault(_env_key, "")
+
 from main import app  # noqa: E402  -- imports backend.* package tree first
 
 # ───────────────────────────────────────────────────────────────────
@@ -145,9 +167,29 @@ def _hermetic_api_token_env(monkeypatch):
     guard must opt IN explicitly with ``monkeypatch.setenv`` (see
     ``test_api_auth.py``). Leaving the host value present would make
     every ``/api/*`` test (and the WS gate) return 401 spuriously.
+
+    The same reasoning applies to the other **opt-in** switches: a host
+    exporting ``MIRV_PERSIST_WORKSPACE=1`` (or pointing ``SUPABASE_*`` at a
+    live project) makes registry tests hit the real Supabase — the
+    ``test_assets`` import/export assertions fail while CI stays green. Host
+    discovery overrides (``MIRV_AGENTS_DIRS``, ``MIRV_ROUTER_CONFIG``...)
+    would resolve personas/skills from machine-specific directories. None of
+    these is set in CI; tests that need them re-set them per test with
+    ``monkeypatch.setenv``.
     """
     monkeypatch.delenv("MIRV_API_TOKEN", raising=False)
     monkeypatch.delenv("MIRV_API_TOKEN_FILE", raising=False)
+    for key in (
+        "MIRV_PERSIST_WORKSPACE",
+        "MIRV_AGENTS_DIRS",
+        "MIRV_AGENTS_WRITE_DIR",
+        "MIRV_ROUTER_CONFIG",
+        "MIRV_SKILLS_DIRS",
+        "SUPABASE_URL",
+        "SUPABASE_KEY",
+        "SUPABASE_SERVICE_KEY",
+    ):
+        monkeypatch.delenv(key, raising=False)
     yield
 
 

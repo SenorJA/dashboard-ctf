@@ -2,8 +2,8 @@
 REM ────────────────────────────────────────────────────────────────────────
 REM  MIRV Desktop — end-to-end build (backend sidecar + Tauri shell)
 REM
-REM  1. Builds backend with PyInstaller -> dist\mirv-backend
-REM  2. Copies the sidecar into src-tauri\binaries\
+REM  1. Builds backend with PyInstaller -> dist\mirv-backend.exe (one-file)
+REM  2. Copies the sidecar as src-tauri\binaries\mirv-backend-<triple>.exe
 REM  3. Syncs the canonical frontend into src\
 REM  4. Builds the Tauri installer (msi by default)
 REM
@@ -24,9 +24,21 @@ echo ==========================================
 echo  [2/4] Copy sidecar into src-tauri\binaries
 echo ==========================================
 mkdir "src-tauri\binaries" 2>nul
-REM Copy the entire one-dir layout so <pkg>.dll + data sit beside the exe.
-xcopy /E /I /Y "..\backend\dist\mirv-backend" "src-tauri\binaries\mirv-backend\" >nul
+REM tauri.conf.json "externalBin": ["binaries/mirv-backend"] resolves to the
+REM target-triple name, and mirv-backend.spec emits a one-file .exe — copy it
+REM there directly (build_backend.bat always builds dist\mirv-backend.exe).
+set "SIDECAR=src-tauri\binaries\mirv-backend-x86_64-pc-windows-msvc.exe"
+if not exist "..\backend\dist\mirv-backend.exe" (
+    echo   [FAIL] ..\backend\dist\mirv-backend.exe not found — run build_backend.bat first
+    goto :fail
+)
+copy /Y "..\backend\dist\mirv-backend.exe" "%SIDECAR%" >nul
 if errorlevel 1 goto :fail
+if not exist "%SIDECAR%" (
+    echo   [FAIL] %SIDECAR% missing after copy
+    goto :fail
+)
+echo   -^> %SIDECAR% (skills/ plugins/ agents/ van in the .exe)
 
 echo.
 echo ==========================================
@@ -53,7 +65,7 @@ if errorlevel 1 goto :fail
 
 echo.
 echo [OK] MIRV Desktop installer:
-echo   src-tauri\target\release\bundle\msi\MIRV_3.0.0_x64_en-US.msi
+echo   src-tauri\target\release\bundle\msi\MIRV_3.4.0_x64_en-US.msi
 exit /b 0
 
 :fail
