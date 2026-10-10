@@ -43,8 +43,8 @@
 M.I.R.V. es una **plataforma modular todo-en-uno** para operaciones de ciberseguridad ofensiva y defensiva. Combina:
 
 - **Terminal SSH interactivo** vía WebSocket (navegador → Kali Linux)
-- **352 endpoints REST** (344 `/api/*` + 8 landings/estáticas) contra Supabase (PostgreSQL)
-- **58 módulos backend** con ~95% de cobertura de tests (`main.py` al 100%)
+- **357 endpoints REST** (349 `/api/*` + 8 landings/estáticas) contra Supabase (PostgreSQL)
+- **59 módulos backend** con ~95% de cobertura de tests (`main.py` al 100%)
 - **36 tabs frontend** en una SPA vanilla JS + Tailwind
 - **IA multi-proveedor** para informes, sugerencias, chat, análisis de laboratorios y **write-ups dark-mode** (HTML/PDF)
 - **Lab Sessions** (Pack 11): máquinas → sesiones → evidencias con **detección determinista de flags** user/root y análisis IA sobre el historial completo
@@ -77,7 +77,7 @@ M.I.R.V. es una **plataforma modular todo-en-uno** para operaciones de cibersegu
 **Flujo de datos:**
 1. **Frontend SPA** (HTML + vanilla JS + Tailwind CDN) — sin bundler, sin build step.
 2. **WebSocket** (`/ws`) proxy SSH bidireccional: navegador ↔ FastAPI ↔ Kali (Paramiko).
-3. **API REST** (`/api/*` + landings públicas) ~352 endpoints para operaciones CRUD y análisis.
+3. **API REST** (`/api/*` + landings públicas) ~357 endpoints para operaciones CRUD y análisis.
 4. **Supabase** (PostgreSQL) con 18 tablas + Storage bucket para archivos (+ `workspace_state` JSONB para registros opt-in).
 5. **Módulos del backend** (57 archivos) operan vía SSH sobre Kali o vía HTTP directo.
 
@@ -131,7 +131,7 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 | **Audit Log** | Log estructurado JSONL con rotación 4MB y redacción automática de secretos. |
 | **Coverage** | Matriz de cobertura endpoint×parámetro×clase de vulnerabilidad + próximos pasos. |
 | **Plugins** | Sistema de plugins con hot-reload (watchdog) y 5 hooks. |
-| **Skills** | **112 playbooks** de habilidades en Markdown + **Task Router** de 39 rutas en/es (hint→skill) con benchmark de regresión de 99 casos. |
+| **Skills** | **113 playbooks** de habilidades en Markdown + **Task Router** de 40 rutas en/es (hint→skill) con benchmark de regresión de 99 casos. |
 | **Intelligence** | Monitorización continua de targets (headers, cert, DNS, puertos, tech stack). |
 | **Burp Bridge** | Ingest bidireccional MIRV ↔ Burp Suite (plugin Jython incluido). |
 | **Browser Capture** | Import de HAR + 10 checks de seguridad + scoring de riesgo. |
@@ -199,7 +199,7 @@ Ver auditoría: [`docs/SECURITY_AUDIT_OSINT_2026-08-15.md`](docs/SECURITY_AUDIT_
 
 ## 📡 API resumen
 
-~352 endpoints agrupados por categoría. **Documentación interactiva (Swagger):**
+~357 endpoints agrupados por categoría. **Documentación interactiva (Swagger):**
 ```
 http://localhost:8000/docs      # Swagger UI
 http://localhost:8000/redoc     # ReDoc
@@ -257,10 +257,10 @@ http://localhost:8000/redoc     # ReDoc
 ```bash
 cd backend
 python -m pytest tests/ -k "not test_slow_hook" -q
-# 5231 passed, 1 deselected  (~462s, ~95% cobertura)
+# 5250 passed, 1 deselected  (~522s, ~95% cobertura)
 ```
 
-- **113 archivos de test**, **5232 tests** recolectados (~95% cobertura)
+- **114 archivos de test**, **5251 tests** recolectados (~95% cobertura)
 - `main.py` = **100%** de cobertura (statement-level)
 - Pack 11 (Lab Sessions + flags + write-up): **89 tests nuevos** — detección de flags user/root (incl. transcripciones SSH y falsos positivos), recomputado al editar/borrar, invalidación de análisis obsoletos, escape XSS del HTML dark-mode, endpoints
 - Pack 18 (LLM Security Scanner): **48 tests nuevos** — 23 probes, detectores (DAN/refusal, goodside/WhoIsRiley, leak/ApiKey, DoNotAnswer, Crescendo-lite con topic/refusal), 8 buffs, resolution de prompts (prefix 220, hijack 15), pureza del módulo (sin `backend.database`/red), veredicto max elemento-wise y endpoints (`mode=stub` + patches de `db.save_finding`/`siem`/`audit`/`notify`)
@@ -318,7 +318,7 @@ Sí. Crea un directorio en `backend/plugins/<nombre>/` con `plugin.json` + `plug
 Crea un `SKILL.md` con frontmatter YAML (`name`, `description`, `category`, `allowed_tools`) en `backend/skills/`, `./.mirv/skills/`, o `~/.mirv/skills/`. Hot-reload automático. Hay **112 built-in**, entre ellos: recon, webvuln, ssrf, jwt, supabase, graphql, race, takeover, deserialize, ssti, binary-reverse, ida-reverse, mobile-reverse, patch-diff-exploit, dsl-vm-reverse, edr-bypass-re, attack-chain, supply-chain-security, api-security, llm-security, browser-automation, case-review, docs-generator, diagram-generator y field-journal.
 
 **¿Cómo funciona el Task Router?**
-`backend/skills/router/routing.json` define **39 rutas bilingües** (`R0`–`R38`). Cada ruta agrupa bloques de keywords (`must` / `mustAll` / `exclude`); un bloque que acierta suma un hit, gana la ruta con más hits y los empates los resuelve el array `priority`. Sin coincidencias cae al fallback `R0`. El corpus `benchmarks.json` (**99 casos** hint→ruta esperada, en+es) acts como gate de regresión:
+`backend/skills/router/routing.json` define **40 rutas bilingües** (`R0`–`R39`). Cada ruta agrupa bloques de keywords (`must` / `mustAll` / `exclude`); un bloque que acierta suma un hit, gana la ruta con más hits y los empates los resuelve el array `priority`. Sin coincidencias cae al fallback `R0`. El corpus `benchmarks.json` (**99 casos** hint→ruta esperada, en+es) acts como gate de regresión:
 
 ```bash
 cd backend
@@ -339,11 +339,11 @@ Cualquier endpoint compatible con OpenAI: Ollama local (gratis), OpenRouter, Ope
 
 ```
 mirv/
-├── backend/          # FastAPI + 58 módulos (main.py ~8500 líneas, database.py, opsec.py, ...)
+├── backend/          # FastAPI + 59 módulos (main.py ~8700 líneas, database.py, opsec.py, ...)
 │   ├── plugins/      # Sistema de plugins (hot-reload)
 │   ├── skills/       # 112 skill playbooks (Markdown + frontmatter) + router/ (routing.json, benchmarks.json)
 │   ├── burp_plugin/  # Plugin Jython para Burp Suite
-│   └── tests/        # 113 archivos, 5232 tests (~95% cobertura)
+│   └── tests/        # 114 archivos, 5251 tests (~95% cobertura)
 ├── frontend/         # SPA vanilla JS + Tailwind CDN (36 tabs)
 │   ├── index.html    # SPA principal (~4065 líneas)
 │   └── js/           # main.v2.js (~14.000 líneas), dataservice, mobile, forensics, swarm
@@ -414,7 +414,7 @@ M.I.R.V. está diseñado para:
 
 <div align="center">
 
-**M.I.R.V. v3.5.0** — 352 endpoints · 5232 tests · ~95% cobertura · 36 tabs · 58 módulos
+**M.I.R.V. v3.5.0** — 357 endpoints · 5251 tests · ~95% cobertura · 36 tabs · 59 módulos
 
 [Reportar bug](https://github.com/SenorJA/dashboard-ctf/issues) · [Sugerir mejora](https://github.com/SenorJA/dashboard-ctf/issues) · [Documentación técnica](AGENTS.md)
 

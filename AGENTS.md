@@ -8,14 +8,14 @@ Two-tier app: **FastAPI backend** serves static frontend + WebSocket SSH proxy +
 Browser → WS (localhost:8000/ws) → FastAPI → Paramiko → Kali SSH
          ↑
    serves /static/* from frontend/
-   REST API (344 endpoints /api/* + 8 landings/static = 352 HTTP) → Supabase (PostgreSQL)
+   REST API (349 endpoints /api/* + 8 landings/static = 357 HTTP) → Supabase (PostgreSQL)
    Plugin system (hot-reload) + Burp Bridge + Browser Capture + Structured Audit Log + Continuous Intelligence
 ```
 
 ```
 C:\Users\34678\Desktop\Proyecto ciber\
 ├── backend/
-│   ├── main.py              # FastAPI app (~8678 lines, 344 endpoints /api/* + CSP middleware + scheduler daemon)
+│   ├── main.py              # FastAPI app (~8727 lines, 349 endpoints /api/* + CSP middleware + scheduler daemon)
 │   ├── database.py           # Supabase CRUD layer (18 tables, 99% coverage)
 │   ├── exif_osint.py         # EXIF metadata extraction + GPS + reverse geocoding
 │   ├── canary_tokens.py      # Honeytoken generator (8 types) + activation tracking
@@ -24,7 +24,7 @@ C:\Users\34678\Desktop\Proyecto ciber\
 │   ├── plugin_manager.py      # Plugin system (hooks, hot-reload via watchdog)
 │   ├── coverage_matrix.py      # Coverage tracking matrix (endpoint×param×vuln_class)
 │   ├── skill_playbooks.py     # Markdown skill playbooks (SKILL.md frontmatter)
-│   ├── skill_router.py        # Task Router: hint→skill by keyword blocks (39 routes + benchmark regression, hot-reload)
+│   ├── skill_router.py        # Task Router: hint→skill by keyword blocks (40 routes + benchmark regression, hot-reload)
 │   ├── redact.py              # Global redaction (20 patterns, shape-preserving)
 │   ├── audit_log.py           # Structured JSONL audit log w/ rotation + SIEM forwarding
 │   ├── burp_bridge.py         # Burp Suite ingest server (captured requests store)
@@ -49,7 +49,7 @@ C:\Users\34678\Desktop\Proyecto ciber\
 │   ├── skills/                # Built-in skill playbooks (recon, webvuln, ssrf, jwt, supabase)
 │   ├── agents/                # 39 vendored AI personas (MIT, agency-agents) + ATTRIBUTION.md
 │   ├── burp_plugin/           # Jython Burp Suite plugin (mirv_burp.py)
-│   ├── tests/                 # ~5232 tests across 113 test files
+│   ├── tests/                 # ~5251 tests across 114 test files
 │   ├── Dockerfile             # Container image for mirv-backend
 │   └── requirements.txt
 ├── frontend/
@@ -99,7 +99,7 @@ cd backend
 
 | File | Lines | Purpose | Tests | Coverage |
 |------|-------|---------|-------|----------|
-| `main.py` | ~8678 | FastAPI app, WebSocket SSH proxy, 344 REST endpoints `/api/*` + CSP middleware + **server-side scheduler daemon** (`_scheduler_loop`, `_exec_tool_command`, `_count_findings_in_output`) | 333+295+19 | 100% |
+| `main.py` | ~8727 | FastAPI app, WebSocket SSH proxy, 349 REST endpoints `/api/*` + CSP middleware + **server-side scheduler daemon** (`_scheduler_loop`, `_exec_tool_command`, `_count_findings_in_output`) | 333+295+19 | 100% |
 | `database.py` | ~1344 | Supabase CRUD (18 tables) | 196 | 100% |
 | `exif_osint.py` | ~812 | EXIF GPS extraction, camera metadata, reverse geocoding, Leaflet map | 21+11 | 99% |
 | `canary_tokens.py` | ~442 | 8 honeytoken types, activation tracking, expiration | 24 | 99% |
@@ -108,7 +108,7 @@ cd backend
 | `plugin_manager.py` | ~700 | Plugin discovery, hooks, hot-reload via watchdog | 47+18+15 | 100% |
 | `coverage_matrix.py` | ~480 | Coverage matrix (endpoint×param×vuln_class), next_steps estimator | 33+17 | 99% |
 | `skill_playbooks.py` | ~450 | Markdown skill playbooks, frontmatter parser, hot-reload | 67+16 | 100% |
-| `skill_router.py` | ~530 | Task Router — hint→skill route by keyword blocks (39 routes en/es, priority tie-break, fallback), hot-reload config + embedded fallback, `detect_tools()` via `which` (108 tools), **regression benchmark** (`benchmarks.json`, 99 cases → `run_benchmarks()`/`GET /api/router/benchmark`) | 144 (incl. 99 parametrized cases) | — |
+| `skill_router.py` | ~530 | Task Router — hint→skill route by keyword blocks (40 routes en/es, priority tie-break, fallback), hot-reload config + embedded fallback, `detect_tools()` via `which` (108 tools), **regression benchmark** (`benchmarks.json`, 99 cases → `run_benchmarks()`/`GET /api/router/benchmark`) | 144 (incl. 99 parametrized cases) | — |
 | `redact.py` | ~430 | 20 redaction patterns, shape-preserving, AI/mission integration | 63 | 100% |
 | `secret_store.py` | ~300 | At-rest Fernet encryption (AES-128-CBC+HMAC), key mgmt (env/file, scrypt derived), legacy passthrough, fail-closed | 22 | — |
 | `audit_log.py` | ~470 | JSONL audit log, 4MB rotation, SIEM forwarding, AuditLogHandler | 45 | 100% |
@@ -145,6 +145,7 @@ cd backend
 | `lab_writeup.py` | ~330 | **Pack 11** dark-mode write-up renderers (ported from exploitpath `exportWriteup.ts`) — `build_writeup_html()` single self-contained HTML (`#090d14`/`#9FEF00`, `color-scheme:dark`, no remote deps, everything escaped, narrative *before* each command); `build_writeup_pdf()` ReportLab dark PDF with terminal cards + interleaved narrative; `es`/`en` labels | 8 | — |
 | `llm_scanner.py` | ~1500 | **Pack 18** LLM Security Scanner (port of praetorian-inc/augustus) — solo-stdlib: 23 probes (goodside/dan/promptinject/prefix/donotanswer/continuation/leak/glitch/crescendo), 22 detectores (substring/word/regex/inversión mitigation, plain-json, markdown-exfil, token-smuggling, glitch, crescendo-judge), 8 buffs encoder (base64/base32/hex/rot13/atbash/leet/morse/charcode), generators hijack/prefix/continuation, **Crescendo-lite multi-turn determinista** (CONTEXT→MECHANISMS→FAILURE_MODES→OFFENSIVE_APPLICATION), `OpenAICompatClient/CallableClient/StubClient/build_client`, `LLMScanRegistry` LRU (20), `RunReport` verbedict max element-wise (primary+secondary), `finding_from_attempt` → payload `db.save_finding` (`tool=llm-scanner`, `service=llm`, severidad según probe) | 48 (37 module + 11 endpoints) | — |
 | `agency_agents.py` | ~577 | **Pack 17** AI Personas registry — vendored `backend/agents/{security,testing,engineering,specialized}/*.md` (39 personas, MIT, agency-agents) + custom override dirs (`.mirv/agents/`, env `MIRV_AGENTS_WRITE_DIR`, `MIRV_AGENTS_DIRS`); discovery order `MIRV_AGENTS_DIRS` → `backend/agents` → `.mirv/agents` → `~/.mirv/agents` → write-dir (last wins), mtime cache + `threading.Lock`, `AgentPersona` dataclass (slug/division/name/description/emoji/color/vibe/body/editable), `build_persona_prompt()` (identity + vibe + mandate + body truncated to `DEFAULT_PROMPT_CHARS`), `create_agent()`/`delete_agent()` (bundled read-only), `export_registry()`/`import_registry()`, `summary()` | 38 | — |
+| `wireless_analyzer.py` | ~121 | **Pack 19** host-only wireless-audit bridge — `WirelessSession` dataclass + `WirelessRegistry` (create/get/list/clear, thread-safe), `_ssh_client()` (paramiko **optional**, env `MIRV_WIRELESS_HOST/PORT/USER/KEY/PASS`, timeout 10s), `run_host_cmd(cmd, timeout=60) -> (out, err, rc)` with graceful `"wireless host not configured (MIRV_WIRELESS_HOST)"`. Requires a **physical Kali host** with a Wi-Fi adapter in monitor mode (impossible inside Docker — no USB/rfkill passthrough). In-memory only, **no Supabase tables**. | 19 | — |
 
 ## Backend quirks (main.py)
 
@@ -332,6 +333,7 @@ cd backend
 | **LLM Security** | `GET /api/llm/probes` (catálogo 23 probes + familias), `POST /api/llm/probe` (single probe, sin guardar), `POST /api/llm/scan` (batería → registry LRU 20 + opcional `create_findings`→findings+SIEM+audit+notify), `GET /api/llm/results`, `GET /api/llm/results/{report_id}`, `DELETE /api/llm/results`, `POST /api/llm/results/{report_id}/findings`. `mode=self` reutiliza `_call_llm_sync`; `mode=openai`→`build_client`; `mode=stub` dry-run. SIEM source `llm` añadido a `_VALID_SOURCES` |
 | **Scheduler** | `GET/POST /api/scheduler/jobs`, `PUT/PATCH/DELETE /api/scheduler/jobs/{jid}`, `POST /api/scheduler/jobs/{jid}/run`, `POST /api/scheduler/jobs/{jid}/record`, `GET/POST /api/scheduler/export`, `GET /api/scheduler/due`, `GET /api/scheduler/status` (daemon health) |
 | **Findings lifecycle** | `PATCH /api/findings/{finding_id}` (lifecycle_status open/confirmed/accepted/fixed/verified + assessment_id), `GET /api/findings/assessment/{assessment_id}`, `GET /api/findings?lifecycle_status=&assessment_id=` |
+| **Wireless Audit** | `GET/POST /api/wireless/sessions`, `GET /api/wireless/sessions/{sid}`, `POST /api/wireless/host/check`, `POST /api/wireless/host/exec` (cmd ≤4096). Host-only bridge (Pack 19) — returns `wireless_analyzer not available` / `wireless host not configured` gracefully when no physical Kali host. In-memory, **no Supabase** |
 
 ## Plugin system
 
@@ -346,6 +348,7 @@ cd backend
 - **Format**: `SKILL.md` with YAML frontmatter (`name`, `description`, `category`, `allowed_tools`).
 - **Discovery** (later wins): `backend/skills/` → `./.mirv/skills/` → `~/.mirv/skills/` → env `MIRV_SKILLS_DIRS`.
 - **Built-in skills**: recon, webvuln, ssrf, jwt, supabase, graphql, race, takeover, deserialize, ssti.
+- **Pack 19**: `android-pentesting` (vendored [DragonJAR/Android-Pentesting-Skill](https://github.com/DragonJAR/Android-Pentesting-Skill) v1.9.0, Apache-2.0 — `references/`, `assets/frida-scripts/`, `scripts/`, `benchmarks/`, `SKILL.original.md`, `ATTRIBUTION.md`; frontmatter mapped to MIRV: `category: mobile`, `allowed_tools: apktool/jadx/frida/adb/objection/python3/aapt2/apksigner/zipalign/apkid`) and `wireless-audit` (doc-only host-based aircrack-ng flow, references [airgorah](https://github.com/martin-olivier/airgorah) GUI; `category: recon`). **113 built-in playbooks** total.
 - **Hot-reload**: live-reload on file change.
 - **AI integration**: `GET /api/skills/{name}/render` returns markdown body for prompt injection.
 
@@ -466,8 +469,8 @@ cd backend
 
 ## Test summary
 
-- **113 test files** in `backend/tests/`
-- **~5232 tests** collected (**5231 passing locally**, + 17 network-only `example.com` tests that pass in CI; 296 now in `test_main_gaps.py` + 20 in `test_main_websocket_gaps.py` + 30 `test_assessments.py` + 43 `test_scheduler.py` + 27 `test_scheduler_daemon.py` + 19 `test_finding_lifecycle.py` + 22 `test_assets.py` + 17 `test_api_auth.py` + 37 `test_notifications.py` + 22 `test_workspace_store.py` + 144 `test_skill_router.py` (incl. 99 benchmark cases) + 20 `test_opencode_agent.py` + 24 `test_agent_bridge.py` + 22 `test_phishing_sim.py` + 64 `test_redact.py` + 21 `test_flag_detection.py` + 38 `test_lab_sessions.py` + 8 `test_lab_writeup.py` + 22 `test_labs_endpoints.py` + 38 `test_agency_agents.py` + 20 `test_personas_endpoints.py` + 17 `test_pack_purity.py` **+ 37 `test_llm_scanner.py` + 11 `test_llm_endpoints.py` (Pack 18)**)
+- **114 test files** in `backend/tests/`
+- **~5251 tests** collected (**5250 passing locally**, + 17 network-only `example.com` tests that pass in CI; 296 now in `test_main_gaps.py` + 20 in `test_main_websocket_gaps.py` + 30 `test_assessments.py` + 43 `test_scheduler.py` + 27 `test_scheduler_daemon.py` + 19 `test_finding_lifecycle.py` + 22 `test_assets.py` + 17 `test_api_auth.py` + 37 `test_notifications.py` + 22 `test_workspace_store.py` + 144 `test_skill_router.py` (incl. 99 benchmark cases) + 20 `test_opencode_agent.py` + 24 `test_agent_bridge.py` + 22 `test_phishing_sim.py` + 64 `test_redact.py` + 21 `test_flag_detection.py` + 38 `test_lab_sessions.py` + 8 `test_lab_writeup.py` + 22 `test_labs_endpoints.py` + 38 `test_agency_agents.py` + 20 `test_personas_endpoints.py` + 17 `test_pack_purity.py` **+ 37 `test_llm_scanner.py` + 11 `test_llm_endpoints.py` + 19 `test_wireless_analyzer.py` (Pack 18/19)**)
 - **~95% coverage** across measured backend modules
 - **`backend/main.py` = 100%** (2847/2847 statements; last gaps were websocket `read_shell` break on OSError/EOFError + outer `WebSocketDisconnect`)
 - **Key test files**: test_database (196), test_api_endpoints (333), test_main_gaps (296), test_main_coverage (165), test_main_extra (120), test_crud_endpoints (67), test_deep_coverage_1/2 (205), test_compaction (63), test_burp_bridge (72), test_redact (63), test_skill_playbooks (67), test_skill_router (144), test_agency_agents (38), test_personas_endpoints (20), test_pack_purity (17), test_audit_log (45), test_plugin_manager (47), test_plugin_watcher (18), test_siem (31), test_coverage (33), test_exif_osint (63), test_mobile_analyzer (54), test_canary_tokens (24), test_dlp_scanner (25), test_finding_poc (61), test_intelligence (43), test_permission_system (56), test_opsec, test_scope_guard, test_forensics, test_adb_controller, test_kali_mcp_client, test_mission_store, test_knowledgebase, test_swarm, test_assessments (30), test_scheduler (43), test_scheduler_daemon (27), test_finding_lifecycle (19), test_assets (22), test_api_auth (17), test_notifications (37), test_workspace_store (22), test_opencode_agent (20), test_agent_bridge (24), test_phishing_sim (22), test_flag_detection (21), test_lab_sessions (38), test_lab_writeup (8), test_labs_endpoints (22), + scanner tools + gap files (test_*_gaps.py: redact, dlp_scanner, mission_store, dns_lookup, pdf_engine, database, finding_poc, headers_scanner, hash_cracker, adb_controller, skill_playbooks, audit_log, intelligence, opsec, scope_guard).

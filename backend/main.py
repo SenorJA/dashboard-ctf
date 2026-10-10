@@ -209,6 +209,12 @@ from backend import lab_writeup as labw
 # ── Pack 18: LLM Security Scanner (port of praetorian-inc/augustus) ──
 from backend import llm_scanner as llms
 
+# ── Pack 19: Wireless audit (host-only SSH bridge to a physical Kali host) ──
+try:
+    from backend import wireless_analyzer as wla
+except Exception:  # pragma: no cover
+    wla = None  # type: ignore
+
 # ── Browser Capture (HAR import, session storage, security analysis) ──
 from backend.browser_capture import (
     import_har as bc_import,
@@ -8677,10 +8683,6 @@ if __name__ == "__main__":
     else:
         uvicorn.run(app_str, host=host, port=port, reload=(port == 8000 and not TAURI_MODE))
 # --- Wireless audit (host-only) ---
-try:
-    from backend import wireless_analyzer as wla
-except Exception:  # pragma: no cover
-    wla = None  # type: ignore
 @app.get("/api/wireless/sessions")
 async def wl_sessions():
     if wla is None:

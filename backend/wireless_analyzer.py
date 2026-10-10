@@ -1,7 +1,7 @@
 """Wireless audit via SSH to a physical Kali host (aircrack-ng suite).
 
 Host-only: monitor mode requires direct access to Wi-Fi hardware.
-Docker: unsupported. Configure M\u00c9RV_WIRELESS_* to use SSH.
+Docker: unsupported. Configure MIRV_WIRELESS_* to use SSH.
 """
 from __future__ import annotations
 
@@ -80,7 +80,6 @@ def _ssh_client() -> Optional[Any]:  # pragma: no cover - host-only path
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     try:
         if key_path:
-            k = paramiko.RSAKey.from_private_key_file(key_path) if key_path.endswith('.pem') or True else None
             try:
                 k = paramiko.Ed25519Key.from_private_key_file(key_path)
             except Exception:
