@@ -20,13 +20,13 @@ Análisis de dos repos de tooling ofensivo/integraciones para el **Pack 19** de 
 
 - **Skill `android-pentesting`** vendorizada en `backend/skills/android-pentesting/`: `references/`, `assets/frida-scripts/`, `scripts/`, `benchmarks/`, `LICENSE` (Apache-2.0) + `ATTRIBUTION.md`. `SKILL.md` MIRV-compatible; `allowed_tools: apktool/jadx/frida/adb/objection/python3/aapt2/apksigner/zipalign/apkid`.
 - **Skill `wireless-audit`** doc-only (`category: recon`): flujo aircrack-ng (airmon-ng → airodump-ng → aireplay-ng deauth → aircrack-ng crack), OPSEC, notas de legalidad, referencia airgorah.
-- **Router `R39 wireless-audit`** en `skills/router/routing.json` (routes/priority **39→40**, R0–R39). La ruta android holística **no** se añadió como PRIMARY para no desplazar `R10 apk-reverse` (el benchmark de 99 casos espera R10 para hints de frida/pinning).
+- **Router `R39 wireless-audit`** y **`R40 android-pentesting`** en `skills/router/routing.json` (routes/priority **39→41**, R0–R40). R39 usa **dos bloques de keywords** (herramientas aircrack-ng + contexto Wi-Fi/802.11) para puntuar doble y ganar a `R16 password` en hints Wi-Fi. R40 agrupa keywords de **auditoría holística** (MASVS/MASTG/MobSF + intent injection/deep links/repackaging/RASP), **disjuntas** de `R10 apk-reverse`, e insertado antes de R10 en `priority` → no desplaza los 3 casos benchmark de R10 (frida/pinning/jadx).
 - **Módulo `backend/wireless_analyzer.py`** (~117 L): `WirelessSession` dataclass + `WirelessRegistry` thread-safe + `_ssh_client()` (paramiko **opcional**, env `MIRV_WIRELESS_HOST/PORT/USER/KEY/PASS`, timeout 10 s) + `run_host_cmd(cmd, timeout=60) -> (out, err, rc)` con fallo elegante `"wireless host not configured (MIRV_WIRELESS_HOST)"`.
 - **5 endpoints** `/api/wireless/*`: `GET/POST /sessions`, `GET /sessions/{sid}`, `POST /host/check`, `POST /host/exec` (cmd ≤ 4096).
-- **19 tests** hermeneuticos (`test_wireless_analyzer.py`, SSH mockeado). Suite completa **5250 passed, 1 deselected**.
+- **19 tests** herméticos (`test_wireless_analyzer.py`, SSH mockeado) + **6 casos benchmark** nuevos (99→105). Suite completa **5256 passed, 1 deselected**.
 
 ## Invariantes respetadas
 
 - **Sin tablas nuevas en Supabase** — `registry` es **in-memory**; `test_pack_purity.py` fija el esquema en **18 tablas**.
 - **Sin red/BD en el módulo** — `paramiko` es dependencia opcional con `try/except`; sin host configurado responde con error controlado (sin excepción).
-- **Docker**: el módulo **no funciona** dentro del contenedor por diseño (sin Wi-Fi). Degrada elegantemente (`/api/wireless/*` devuelve `ok:false`/`not configured`) sin romper el arranque.
+- **Docker verificado E2E** — imagen `proyectociber-mirv-backend` reconstruida y contenedor recreado (**healthy**, `supabase:true`): `/api/wireless/*` responde y **degrada elegante** sin host físico (`wireless host not configured`); `/api/skills` = **113** (con `android-pentesting`/`wireless-audit` cargables y renderizables); `/api/router/routes` = **41**; benchmark `failed==0`. El flujo **real** de aircrack-ng sigue siendo **host-only** (no funciona dentro del contenedor por diseño: sin Wi-Fi en monitor mode).

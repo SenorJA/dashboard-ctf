@@ -810,8 +810,38 @@
       ],
       "keywords": [
         {
-          "must": "aircrack|airmon|airodump|aireplay|wifi|wi-?fi|wlan|monitor mode|deauth|handshake|wpa crack|wep|evil.?twin",
+          "must": "aircrack|airmon|airodump|aireplay|monitor mode|deauth|evil.?twin",
           "note": "Aircrack-ng wireless audit on physical Kali host (not Docker)."
+        },
+        {
+          "must": "\\bwifi\\b|wi-?fi|wireless|\\bwlan\\b|802\\.11|wpa|wep|handshake",
+          "note": "Wi-Fi / 802.11 audit context."
+        }
+      ]
+    },
+    "R40": {
+      "label": {
+        "en": "Android pentesting (holistic audit)",
+        "es": "Pentesting Android (auditoría holística)"
+      },
+      "skill": "android-pentesting",
+      "module": "mobile",
+      "tools": [
+        "apktool",
+        "jadx",
+        "frida",
+        "adb",
+        "objection",
+        "apksigner"
+      ],
+      "keywords": [
+        {
+          "must": "\\bmasvs\\b|\\bmastg\\b|owasp.?m(as|obile)|android.?security.?audit|auditor[ií]a.?android|mobsf",
+          "note": "OWASP MASVS/MASTG holistic Android security audit."
+        },
+        {
+          "must": "intent.?inject|deep.?link|repackag|source.?to.?sink|\\brasp\\b|runtime.?application.?self.?protect|android.*\\bcvss\\b|\\bcvss\\b.*android",
+          "note": "Android attack surfaces (intents, deep links, repackaging, RASP)."
         }
       ]
     }
@@ -819,6 +849,7 @@
   "priority": [
     "R25",
     "R28",
+    "R40",
     "R10",
     "R11",
     "R12",
@@ -836,6 +867,7 @@
     "R13",
     "R14",
     "R15",
+    "R39",
     "R16",
     "R17",
     "R18",
@@ -855,7 +887,6 @@
     "R3",
     "R2",
     "R1",
-    "R0",
-    "R39"
+    "R0"
   ]
 }

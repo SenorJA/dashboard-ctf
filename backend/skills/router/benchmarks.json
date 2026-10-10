@@ -146,6 +146,18 @@
 
     { "hint": "actualiza la bitácora del engagement con decisiones y pivotes", "lang": "es", "expected": "R38" },
 
-    { "hint": "field journal: registra evidencia redacted por cada paso", "lang": "es", "expected": "R38" }
+    { "hint": "field journal: registra evidencia redacted por cada paso", "lang": "es", "expected": "R38" },
+
+    { "hint": "wireless audit with airmon-ng monitor mode, deauth and airodump-ng capture", "lang": "en", "expected": "R39" },
+
+    { "hint": "auditar red wifi con aircrack ng en monitor mode y captura de handshake", "lang": "es", "expected": "R39" },
+
+    { "hint": "escaneo wlan 802.11 con airodump-ng y wpa handshake para crackear wep", "lang": "es", "expected": "R39" },
+
+    { "hint": "android security audit OWASP MASVS and MASTG on the apk", "lang": "en", "expected": "R40" },
+
+    { "hint": "auditoria android OWASP MASVS y MASTG del apk con mobsf", "lang": "es", "expected": "R40" },
+
+    { "hint": "revisa intent injection y deep links del apk android y el repackaging", "lang": "es", "expected": "R40" }
   ]
 }

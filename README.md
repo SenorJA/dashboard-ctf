@@ -131,7 +131,7 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 | **Audit Log** | Log estructurado JSONL con rotación 4MB y redacción automática de secretos. |
 | **Coverage** | Matriz de cobertura endpoint×parámetro×clase de vulnerabilidad + próximos pasos. |
 | **Plugins** | Sistema de plugins con hot-reload (watchdog) y 5 hooks. |
-| **Skills** | **113 playbooks** de habilidades en Markdown + **Task Router** de 40 rutas en/es (hint→skill) con benchmark de regresión de 99 casos. |
+| **Skills** | **113 playbooks** de habilidades en Markdown + **Task Router** de 41 rutas en/es (hint→skill) con benchmark de regresión de 105 casos. |
 | **Intelligence** | Monitorización continua de targets (headers, cert, DNS, puertos, tech stack). |
 | **Burp Bridge** | Ingest bidireccional MIRV ↔ Burp Suite (plugin Jython incluido). |
 | **Browser Capture** | Import de HAR + 10 checks de seguridad + scoring de riesgo. |
@@ -257,10 +257,10 @@ http://localhost:8000/redoc     # ReDoc
 ```bash
 cd backend
 python -m pytest tests/ -k "not test_slow_hook" -q
-# 5250 passed, 1 deselected  (~522s, ~95% cobertura)
+# 5256 passed, 1 deselected  (~529s, ~95% cobertura)
 ```
 
-- **114 archivos de test**, **5251 tests** recolectados (~95% cobertura)
+- **114 archivos de test**, **5257 tests** recolectados (~95% cobertura)
 - `main.py` = **100%** de cobertura (statement-level)
 - Pack 11 (Lab Sessions + flags + write-up): **89 tests nuevos** — detección de flags user/root (incl. transcripciones SSH y falsos positivos), recomputado al editar/borrar, invalidación de análisis obsoletos, escape XSS del HTML dark-mode, endpoints
 - Pack 18 (LLM Security Scanner): **48 tests nuevos** — 23 probes, detectores (DAN/refusal, goodside/WhoIsRiley, leak/ApiKey, DoNotAnswer, Crescendo-lite con topic/refusal), 8 buffs, resolution de prompts (prefix 220, hijack 15), pureza del módulo (sin `backend.database`/red), veredicto max elemento-wise y endpoints (`mode=stub` + patches de `db.save_finding`/`siem`/`audit`/`notify`)
@@ -318,7 +318,7 @@ Sí. Crea un directorio en `backend/plugins/<nombre>/` con `plugin.json` + `plug
 Crea un `SKILL.md` con frontmatter YAML (`name`, `description`, `category`, `allowed_tools`) en `backend/skills/`, `./.mirv/skills/`, o `~/.mirv/skills/`. Hot-reload automático. Hay **112 built-in**, entre ellos: recon, webvuln, ssrf, jwt, supabase, graphql, race, takeover, deserialize, ssti, binary-reverse, ida-reverse, mobile-reverse, patch-diff-exploit, dsl-vm-reverse, edr-bypass-re, attack-chain, supply-chain-security, api-security, llm-security, browser-automation, case-review, docs-generator, diagram-generator y field-journal.
 
 **¿Cómo funciona el Task Router?**
-`backend/skills/router/routing.json` define **40 rutas bilingües** (`R0`–`R39`). Cada ruta agrupa bloques de keywords (`must` / `mustAll` / `exclude`); un bloque que acierta suma un hit, gana la ruta con más hits y los empates los resuelve el array `priority`. Sin coincidencias cae al fallback `R0`. El corpus `benchmarks.json` (**99 casos** hint→ruta esperada, en+es) acts como gate de regresión:
+`backend/skills/router/routing.json` define **41 rutas bilingües** (`R0`–`R40`). Cada ruta agrupa bloques de keywords (`must` / `mustAll` / `exclude`); un bloque que acierta suma un hit, gana la ruta con más hits y los empates los resuelve el array `priority`. Sin coincidencias cae al fallback `R0`. El corpus `benchmarks.json` (**105 casos** hint→ruta esperada, en+es) acts como gate de regresión:
 
 ```bash
 cd backend
@@ -343,7 +343,7 @@ mirv/
 │   ├── plugins/      # Sistema de plugins (hot-reload)
 │   ├── skills/       # 112 skill playbooks (Markdown + frontmatter) + router/ (routing.json, benchmarks.json)
 │   ├── burp_plugin/  # Plugin Jython para Burp Suite
-│   └── tests/        # 114 archivos, 5251 tests (~95% cobertura)
+│   └── tests/        # 114 archivos, 5257 tests (~95% cobertura)
 ├── frontend/         # SPA vanilla JS + Tailwind CDN (36 tabs)
 │   ├── index.html    # SPA principal (~4065 líneas)
 │   └── js/           # main.v2.js (~14.000 líneas), dataservice, mobile, forensics, swarm
@@ -414,7 +414,7 @@ M.I.R.V. está diseñado para:
 
 <div align="center">
 
-**M.I.R.V. v3.5.0** — 357 endpoints · 5251 tests · ~95% cobertura · 36 tabs · 59 módulos
+**M.I.R.V. v3.5.0** — 357 endpoints · 5257 tests · ~95% cobertura · 36 tabs · 59 módulos
 
 [Reportar bug](https://github.com/SenorJA/dashboard-ctf/issues) · [Sugerir mejora](https://github.com/SenorJA/dashboard-ctf/issues) · [Documentación técnica](AGENTS.md)
 

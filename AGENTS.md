@@ -24,7 +24,7 @@ C:\Users\34678\Desktop\Proyecto ciber\
 │   ├── plugin_manager.py      # Plugin system (hooks, hot-reload via watchdog)
 │   ├── coverage_matrix.py      # Coverage tracking matrix (endpoint×param×vuln_class)
 │   ├── skill_playbooks.py     # Markdown skill playbooks (SKILL.md frontmatter)
-│   ├── skill_router.py        # Task Router: hint→skill by keyword blocks (40 routes + benchmark regression, hot-reload)
+│   ├── skill_router.py        # Task Router: hint→skill by keyword blocks (41 routes + benchmark regression, hot-reload)
 │   ├── redact.py              # Global redaction (20 patterns, shape-preserving)
 │   ├── audit_log.py           # Structured JSONL audit log w/ rotation + SIEM forwarding
 │   ├── burp_bridge.py         # Burp Suite ingest server (captured requests store)
@@ -49,7 +49,7 @@ C:\Users\34678\Desktop\Proyecto ciber\
 │   ├── skills/                # Built-in skill playbooks (recon, webvuln, ssrf, jwt, supabase)
 │   ├── agents/                # 39 vendored AI personas (MIT, agency-agents) + ATTRIBUTION.md
 │   ├── burp_plugin/           # Jython Burp Suite plugin (mirv_burp.py)
-│   ├── tests/                 # ~5251 tests across 114 test files
+│   ├── tests/                 # ~5257 tests across 114 test files
 │   ├── Dockerfile             # Container image for mirv-backend
 │   └── requirements.txt
 ├── frontend/
@@ -108,7 +108,7 @@ cd backend
 | `plugin_manager.py` | ~700 | Plugin discovery, hooks, hot-reload via watchdog | 47+18+15 | 100% |
 | `coverage_matrix.py` | ~480 | Coverage matrix (endpoint×param×vuln_class), next_steps estimator | 33+17 | 99% |
 | `skill_playbooks.py` | ~450 | Markdown skill playbooks, frontmatter parser, hot-reload | 67+16 | 100% |
-| `skill_router.py` | ~530 | Task Router — hint→skill route by keyword blocks (40 routes en/es, priority tie-break, fallback), hot-reload config + embedded fallback, `detect_tools()` via `which` (108 tools), **regression benchmark** (`benchmarks.json`, 99 cases → `run_benchmarks()`/`GET /api/router/benchmark`) | 144 (incl. 99 parametrized cases) | — |
+| `skill_router.py` | ~530 | Task Router — hint→skill route by keyword blocks (41 routes en/es, priority tie-break, fallback), hot-reload config + embedded fallback, `detect_tools()` via `which` (108 tools), **regression benchmark** (`benchmarks.json`, 105 cases → `run_benchmarks()`/`GET /api/router/benchmark`) | 162 (incl. 105 parametrized cases) | — |
 | `redact.py` | ~430 | 20 redaction patterns, shape-preserving, AI/mission integration | 63 | 100% |
 | `secret_store.py` | ~300 | At-rest Fernet encryption (AES-128-CBC+HMAC), key mgmt (env/file, scrypt derived), legacy passthrough, fail-closed | 22 | — |
 | `audit_log.py` | ~470 | JSONL audit log, 4MB rotation, SIEM forwarding, AuditLogHandler | 45 | 100% |
@@ -312,7 +312,7 @@ cd backend
 | **Plugin Watcher** | `POST /api/plugins/watcher/{start,stop}`, `GET /api/plugins/watcher/{events,status}` |
 | **Coverage** | `POST /api/coverage/mark`, `GET /api/coverage/{list,summary,untested,next,sessions,export,vocab}`, `DELETE /api/coverage` |
 | **Skills** | `GET /api/skills`, `GET /api/skills/{name}`, `GET /api/skills/{name}/render`, `POST /api/skills/{name}/{load,unload,enable,disable,reload}`, `POST /api/skills/create` |
-| **Skill Router** | `GET /api/router/routes`, `POST /api/router/route` (+ `GET /api/router/route?hint=`), `GET /api/router/routes/{rid}`, `GET /api/router/tool-index`, `POST /api/router/reload`, `GET /api/router/benchmark` (99 cases, gate `failed==0`) |
+| **Skill Router** | `GET /api/router/routes`, `POST /api/router/route` (+ `GET /api/router/route?hint=`), `GET /api/router/routes/{rid}`, `GET /api/router/tool-index`, `POST /api/router/reload`, `GET /api/router/benchmark` (105 cases, gate `failed==0`) |
 | **Redaction** | `POST /api/redact`, `POST /api/redact/dict`, `GET /api/redact/patterns`, `POST /api/redact/check` |
 | **Audit Log** | `GET /api/audit/logs`, `GET /api/audit/stats`, `POST /api/audit` |
 | **Burp Bridge** | `POST /api/burp/ingest`, `GET /api/burp/{requests,requests/{id},endpoints,tasks,issues}`, `POST /api/burp/{tasks,issues,finding-to-issue,raw,export-findings,snapshot}`, `PATCH /api/burp/tasks/{id}`, `DELETE /api/burp/clear`, `GET /api/burp/status` |
@@ -470,7 +470,7 @@ cd backend
 ## Test summary
 
 - **114 test files** in `backend/tests/`
-- **~5251 tests** collected (**5250 passing locally**, + 17 network-only `example.com` tests that pass in CI; 296 now in `test_main_gaps.py` + 20 in `test_main_websocket_gaps.py` + 30 `test_assessments.py` + 43 `test_scheduler.py` + 27 `test_scheduler_daemon.py` + 19 `test_finding_lifecycle.py` + 22 `test_assets.py` + 17 `test_api_auth.py` + 37 `test_notifications.py` + 22 `test_workspace_store.py` + 144 `test_skill_router.py` (incl. 99 benchmark cases) + 20 `test_opencode_agent.py` + 24 `test_agent_bridge.py` + 22 `test_phishing_sim.py` + 64 `test_redact.py` + 21 `test_flag_detection.py` + 38 `test_lab_sessions.py` + 8 `test_lab_writeup.py` + 22 `test_labs_endpoints.py` + 38 `test_agency_agents.py` + 20 `test_personas_endpoints.py` + 17 `test_pack_purity.py` **+ 37 `test_llm_scanner.py` + 11 `test_llm_endpoints.py` + 19 `test_wireless_analyzer.py` (Pack 18/19)**)
+- **~5257 tests** collected (**5256 passing locally**, + 17 network-only `example.com` tests that pass in CI; 296 now in `test_main_gaps.py` + 20 in `test_main_websocket_gaps.py` + 30 `test_assessments.py` + 43 `test_scheduler.py` + 27 `test_scheduler_daemon.py` + 19 `test_finding_lifecycle.py` + 22 `test_assets.py` + 17 `test_api_auth.py` + 37 `test_notifications.py` + 22 `test_workspace_store.py` + 144 `test_skill_router.py` (incl. 99 benchmark cases) + 20 `test_opencode_agent.py` + 24 `test_agent_bridge.py` + 22 `test_phishing_sim.py` + 64 `test_redact.py` + 21 `test_flag_detection.py` + 38 `test_lab_sessions.py` + 8 `test_lab_writeup.py` + 22 `test_labs_endpoints.py` + 38 `test_agency_agents.py` + 20 `test_personas_endpoints.py` + 17 `test_pack_purity.py` **+ 37 `test_llm_scanner.py` + 11 `test_llm_endpoints.py` + 19 `test_wireless_analyzer.py` (Pack 18/19)**)
 - **~95% coverage** across measured backend modules
 - **`backend/main.py` = 100%** (2847/2847 statements; last gaps were websocket `read_shell` break on OSError/EOFError + outer `WebSocketDisconnect`)
 - **Key test files**: test_database (196), test_api_endpoints (333), test_main_gaps (296), test_main_coverage (165), test_main_extra (120), test_crud_endpoints (67), test_deep_coverage_1/2 (205), test_compaction (63), test_burp_bridge (72), test_redact (63), test_skill_playbooks (67), test_skill_router (144), test_agency_agents (38), test_personas_endpoints (20), test_pack_purity (17), test_audit_log (45), test_plugin_manager (47), test_plugin_watcher (18), test_siem (31), test_coverage (33), test_exif_osint (63), test_mobile_analyzer (54), test_canary_tokens (24), test_dlp_scanner (25), test_finding_poc (61), test_intelligence (43), test_permission_system (56), test_opsec, test_scope_guard, test_forensics, test_adb_controller, test_kali_mcp_client, test_mission_store, test_knowledgebase, test_swarm, test_assessments (30), test_scheduler (43), test_scheduler_daemon (27), test_finding_lifecycle (19), test_assets (22), test_api_auth (17), test_notifications (37), test_workspace_store (22), test_opencode_agent (20), test_agent_bridge (24), test_phishing_sim (22), test_flag_detection (21), test_lab_sessions (38), test_lab_writeup (8), test_labs_endpoints (22), + scanner tools + gap files (test_*_gaps.py: redact, dlp_scanner, mission_store, dns_lookup, pdf_engine, database, finding_poc, headers_scanner, hash_cracker, adb_controller, skill_playbooks, audit_log, intelligence, opsec, scope_guard).
