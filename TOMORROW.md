@@ -211,7 +211,9 @@
 - [x] ~~Frontend~~ — tab `LLM Security` (`tab-llm`), i18n es/en, hook en `switchTab`, report cards con attempts + Push findings.
 - [x] ~~Docs/bump~~ — AGENTS.md, README v3.5.0, desktop 3.5.0 (tauri/pkg/cargo/lock/msi), TOMORROW.
 
-### Pendiente actual — acciones manuales del usuario (26 Sep 2026)
+### Pendiente actual — acciones manuales del usuario
+
+**Estado (10 Oct 2026):** todo el trabajo de código/datos está cerrado y pusheado (Pack 19 incluido, Docker E2E verde). Solo quedan acciones **manuales** que requieren tu equipo/cuentas.
 
 **Deployment a VPS — pendiente** (validado el stack ya corrido en Docker local). Orden:
 1. **Contratar VPS** (Hetzner CX22/DigitalOcean/Vultr mínimo: 2 vCPU / 4 GB RAM, Ubuntu 22.04/24.04 LTS, 30–40 GB SSD, IP pública IPv4). Nota: el primer `docker compose up -d --build` necesita ~3 GB de RAM (imagen Kali).
@@ -241,6 +243,8 @@
 - ⬜ Backup de `desktop/.tauri/mirv-updater.key` (privada) + su password (no commitearla; está solo en GitHub Secrets `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` y en local) en el gestor de contraseñas. La `.pub` ya está embebida en `tauri.conf.json` y commiteada.
 - ⬜ Prueba de instalación del `MIRV_3.0.1_x64_en-US.msi` en Windows (splash → dashboard → tray → Cerrar). Nota: si v3.0.0 estaba instalada, el cambio de identifier hace que Windows la trate como producto distinto (el update in-place real aplica para v3.0.2+).
 - ⬜ Opcional: Fase 7 Cloudflare Tunnel (dominio) — andamiaje listo en `docker-compose.yml` (profile `cloudflared`).
+- ⬜ **Pack 19 — Wi-Fi real**: probar el flujo aircrack-ng en un Kali **físico** con adaptador en monitor mode (`MIRV_WIRELESS_HOST/PORT/USER/KEY/PASS`). El resto del Pack 19 está verificado en Docker (sección 15 de `docs/MANUAL_VERIFICATION.md`).
+- ⬜ **Privacidad de IP (VPN/proxy)** — idea en estudio para el próximo pack: salir por una VPN (Proton VPN free) o un proxy configurable para que las auditorías no expongan la IP del operador. Pendiente de diseño (host Kali vs contenedor; `openvpn`/`wireguard`/`proxychains`).
 
 ### Prioridad ALTA — Hecho ✅
 - [x] ~~Docker rebuild + smoke test~~ — ✅ Rebuild completo, ambos containers healthy

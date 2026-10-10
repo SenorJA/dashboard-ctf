@@ -359,3 +359,79 @@ curl -s -H "X-MIRV-Token: $TOK" localhost:8000/api/agents/status | python -m jso
 
 > Claude Code en Docker: define `ANTHROPIC_API_KEY` en `.env` (la suscripción
 > Pro/Max no se puede hornear en la imagen). `docker-compose.yml` ya la reenvía.
+
+## 14. Pack 18 — LLM Security Scanner (verificación rápida)
+
+Port de `praetorian-inc/augustus` a `backend/llm_scanner.py` (23 probes / 9 familias,
+22 detectores, 8 buffs, Crescendo-lite). El modo **`stub` es determinista y sin red**
+→ ideal para verificar el pipeline dentro de Docker. Los modos `self`/`openai` usan
+la config del tab AI (API key). Todo con `-H "X-MIRV-Token: $TOK"`.
+
+```bash
+TOK=$(grep '^MIRV_API_TOKEN=' .env | cut -d= -f2-); H="X-MIRV-Token: $TOK"
+
+curl -s -H "$H" localhost:8000/api/llm/probes | python -c "import sys,json;d=json.load(sys.stdin);print(d['total'],'probes',len(d['families']),'familias')"   # 23 probes 9 familias
+
+# Scan determinista con stub (sin red) + push de findings vuln a DB+SIEM+audit
+curl -s -H "$H" -X POST localhost:8000/api/llm/scan -H 'Content-Type: application/json' \
+  -d '{"target":{"mode":"stub"},"probe_ids":["leak.ApiKey"],"create_findings":true}' | python -m json.tool
+```
+
+| Paso | Petición | Respuesta esperada | Verificado |
+|---|---|---|---|
+| Catálogo de probes | `GET /api/llm/probes` | `total:23`, 9 familias | ✅ |
+| Scan stub (sin guardar) | `POST /api/llm/probe {"target":{"mode":"stub"},"probe_ids":["leak.ApiKey"]}` | `ok:true`, `report` con attempts | ✅ |
+| Scan stub + push | `POST /api/llm/scan {...,"create_findings":true}` | `findings.pushed >= 1`; finding `tool=llm-scanner`, `service=llm` (201 en Supabase) + SIEM + audit | ✅ |
+| Listar resultados | `GET /api/llm/results` | `reports:[…]`, `max_reports:20` (registry LRU) | ✅ |
+| Detalle | `GET /api/llm/results/{id}` | `report` completo (404 si no existe) | ✅ |
+| Push de un guardado | `POST /api/llm/results/{id}/findings` | `pushed` count | ✅ |
+| Limpiar | `DELETE /api/llm/results` | `cleared:n` | ✅ |
+| Tests | `pytest tests/test_llm_scanner.py tests/test_llm_endpoints.py -q` | `48 passed` | ✅ |
+
+> `mode=self` reutiliza `_call_llm_sync` (config AI del usuario); `mode=openai` usa
+> `base_url`+`api_key`; `mode=stub` es dry-run determinista. SIEM source `llm` en `_VALID_SOURCES`.
+> Los resultados viven en un registry **en memoria** (LRU 20) — no hay tablas nuevas en Supabase.
+
+## 15. Pack 19 — Android Pentesting Skill + wireless-audit host-only (verificación rápida)
+
+Skill `android-pentesting` vendorizada (DragonJAR, **Apache-2.0**) + skill doc-only
+`wireless-audit` (flujo aircrack-ng, referencia airgorah) + módulo `backend/wireless_analyzer.py`
+(SSH a un Kali **físico**). El flujo real de Wi-Fi **no funciona en Docker** (sin adaptador
+en monitor mode) pero la API **degrada elegante**. Router `R39 wireless-audit` + `R40 android-pentesting`.
+
+```bash
+TOK=$(grep '^MIRV_API_TOKEN=' .env | cut -d= -f2-); H="X-MIRV-Token: $TOK"
+
+# Skills (113 total; las 2 nuevas presentes)
+curl -s -H "$H" localhost:8000/api/skills | python -c "import sys,json;n=[s['name'] for s in json.load(sys.stdin)['skills']];print(len(n),'android-pentesting' in n,'wireless-audit' in n)"
+
+# Router: 41 rutas + benchmark 105/105
+curl -s -H "$H" localhost:8000/api/router/routes    | python -c "import sys,json;print(len(json.load(sys.stdin)['routes']),'rutas')"
+curl -s -H "$H" localhost:8000/api/router/benchmark | python -c "import sys,json;d=json.load(sys.stdin);print(d['passed'],'/',d['total'],'failed',d['failed'])"
+curl -s -H "$H" -X POST localhost:8000/api/router/route -H 'Content-Type: application/json' -d '{"hint":"auditar red wifi con aircrack ng monitor mode y handshake"}' | python -c "import sys,json;print(json.load(sys.stdin)['primary']['id'])"   # R39
+
+# Wireless (degradación elegante sin host físico):
+curl -s -H "$H" localhost:8000/api/wireless/sessions
+curl -s -H "$H" -X POST localhost:8000/api/wireless/host/check
+```
+
+| Paso | Petición | Respuesta esperada | Verificado |
+|---|---|---|---|
+| Skills | `GET /api/skills` | 113 total; `android-pentesting` + `wireless-audit` presentes | ✅ |
+| Cargar skill android | `POST /api/skills/android-pentesting/load` → `GET .../render` | `enabled:true`, `body` no vacío | ✅ |
+| Router rutas | `GET /api/router/routes` | 41 rutas (R0–R40) | ✅ |
+| Benchmark | `GET /api/router/benchmark` | `105/105`, `failed:0` | ✅ |
+| Ruteo Wi-Fi | `POST /api/router/route {"hint":"…wifi…aircrack…"}` | primary `R39` wireless-audit | ✅ |
+| Ruteo Android | `POST /api/router/route {"hint":"…MASVS/MASTG…"}` | primary `R40` android-pentesting | ✅ |
+| No regresión APK+frida | `POST /api/router/route {"hint":"reverse apk … frida"}` | primary `R10` apk-reverse | ✅ |
+| Wireless list/create | `GET/POST /api/wireless/sessions` | `ok:true`, sesión con `sid` / `interface:wlan0mon` | ✅ |
+| Wireless host/check | `POST /api/wireless/host/check` | `ok:true`, `rc:1`, `wireless host not configured` (sin host) | ✅ |
+| Wireless host/exec | `POST /api/wireless/host/exec {"cmd":""}` | `400` | ✅ |
+| Tests | `pytest tests/test_wireless_analyzer.py -q` | `19 passed` | ✅ |
+| Docker | `docker compose -p proyectociber up -d --build` | `mirv-backend` healthy, `supabase:true` | ✅ |
+
+> **Verificación real (fuera de Docker):** requiere un **Kali físico con adaptador Wi-Fi
+> en monitor mode**. Exporta `MIRV_WIRELESS_HOST/PORT/USER/KEY/PASS` y usa
+> `/api/wireless/host/exec` con el flujo airmon-ng → airodump-ng → aireplay-ng → aircrack-ng
+> (ver `backend/skills/wireless-audit/SKILL.md`). **Solo en alcance autorizado.** In-memory,
+> sin tablas nuevas en Supabase.

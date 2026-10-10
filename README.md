@@ -383,7 +383,7 @@ mirv/
 |---------|-----------|
 | [`AGENTS.md`](AGENTS.md) | Documentación técnica completa para agentes IA (arquitectura, módulos, API) |
 | [`TOMORROW.md`](TOMORROW.md) | Postmortems, siguientes pasos, lecciones aprendidas |
-| [`docs/MANUAL_VERIFICATION.md`](docs/MANUAL_VERIFICATION.md) | Runbook de verificación manual E2E (Supabase, Docker, Packs 10/11) |
+| [`docs/MANUAL_VERIFICATION.md`](docs/MANUAL_VERIFICATION.md) | Runbook de verificación manual E2E (Supabase, Docker, Packs 10–19) |
 | [`PRODUCTION_PLAN.md`](PRODUCTION_PLAN.md) | Plan de despliegue en producción (VPS + Cloudflare) |
 | [`ROADMAP.md`](ROADMAP.md) | Roadmap de desarrollo por fases |
 | [`DOCKER_GUIDE.md`](DOCKER_GUIDE.md) | Guía técnica completa del stack Docker |
