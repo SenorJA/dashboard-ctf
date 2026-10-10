@@ -105,6 +105,10 @@ BUILTIN_NAMES = {
     "llm-security", "browser-automation",
     # ── Pack 16 — case/review/docs/diagrams/journal (4) ───────────
     "case-review", "docs-generator", "diagram-generator", "field-journal",
+    # ── Pack 19 — Android Pentesting Skill (DragonJAR) ────────────
+    "android-pentesting",
+    # ── Pack 19b — Wireless audit (airgorah reference) ────────────
+    "wireless-audit",
 }
 
 

@@ -8676,3 +8676,52 @@ if __name__ == "__main__":
         uvicorn.run(app, host=host, port=port, reload=False)
     else:
         uvicorn.run(app_str, host=host, port=port, reload=(port == 8000 and not TAURI_MODE))
+# --- Wireless audit (host-only) ---
+try:
+    from backend import wireless_analyzer as wla
+except Exception:  # pragma: no cover
+    wla = None  # type: ignore
+@app.get("/api/wireless/sessions")
+async def wl_sessions():
+    if wla is None:
+        return JSONResponse({"ok": False, "error": "wireless_analyzer not available"}, status_code=500)
+    return JSONResponse({"ok": True, "sessions": wla.registry.list()})
+
+
+@app.post("/api/wireless/sessions")
+async def wl_create():
+    if wla is None:
+        return JSONResponse({"ok": False, "error": "wireless_analyzer not available"}, status_code=500)
+    ses = wla.registry.create()
+    return JSONResponse({"ok": True, "session": ses.__dict__})
+
+
+@app.get("/api/wireless/sessions/{sid}")
+async def wl_get(sid: str):
+    if wla is None:
+        return JSONResponse({"ok": False, "error": "wireless_analyzer not available"}, status_code=500)
+    ses = wla.registry.get(sid)
+    if not ses:
+        return JSONResponse({"ok": False, "error": "session not found"}, status_code=404)
+    return JSONResponse({"ok": True, "session": ses.__dict__})
+
+
+@app.post("/api/wireless/host/check")
+async def wl_host_check():
+    if wla is None:
+        return JSONResponse({"ok": False, "error": "wireless_analyzer not available"}, status_code=500)
+    out, err, rc = wla.run_host_cmd("which airmon-ng airodump-ng aireplay-ng aircrack-ng 2>/dev/null; echo '---'; iw dev 2>/dev/null | head -5")
+    if err:
+        out = out + "\nERR:" + err
+    return JSONResponse({"ok": True, "output": out, "rc": rc})
+
+@app.post("/api/wireless/host/exec")
+async def wl_host_exec(req: dict):
+    if wla is None:
+        return JSONResponse({"ok": False, "error": "wireless_analyzer not available"}, status_code=500)
+    cmd = (req or {}).get("cmd") or ""
+    if not cmd or len(cmd) > 4096:
+        return JSONResponse({"ok": False, "error": "invalid cmd"}, status_code=400)
+    out, err, rc = wla.run_host_cmd(cmd)
+    return JSONResponse({"ok": True, "output": out, "error": err, "rc": rc})
+
