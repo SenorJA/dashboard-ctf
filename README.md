@@ -43,9 +43,9 @@
 M.I.R.V. es una **plataforma modular todo-en-uno** para operaciones de ciberseguridad ofensiva y defensiva. Combina:
 
 - **Terminal SSH interactivo** vía WebSocket (navegador → Kali Linux)
-- **357 endpoints REST** (349 `/api/*` + 8 landings/estáticas) contra Supabase (PostgreSQL)
-- **59 módulos backend** con ~95% de cobertura de tests (`main.py` al 100%)
-- **36 tabs frontend** en una SPA vanilla JS + Tailwind
+- **366 endpoints REST** (358 `/api/*` + 8 landings/estáticas) contra Supabase (PostgreSQL)
+- **60 módulos backend** con ~95% de cobertura de tests (`main.py` al 100%)
+- **37 tabs frontend** en una SPA vanilla JS + Tailwind
 - **IA multi-proveedor** para informes, sugerencias, chat, análisis de laboratorios y **write-ups dark-mode** (HTML/PDF)
 - **Lab Sessions** (Pack 11): máquinas → sesiones → evidencias con **detección determinista de flags** user/root y análisis IA sobre el historial completo
 - **Code Agent** (Pack 10/12): puente headless multi-proveedor (**opencode · Claude Code · codex** a futuro) con salida redactada
@@ -77,7 +77,7 @@ M.I.R.V. es una **plataforma modular todo-en-uno** para operaciones de cibersegu
 **Flujo de datos:**
 1. **Frontend SPA** (HTML + vanilla JS + Tailwind CDN) — sin bundler, sin build step.
 2. **WebSocket** (`/ws`) proxy SSH bidireccional: navegador ↔ FastAPI ↔ Kali (Paramiko).
-3. **API REST** (`/api/*` + landings públicas) ~357 endpoints para operaciones CRUD y análisis.
+3. **API REST** (`/api/*` + landings públicas) ~366 endpoints para operaciones CRUD y análisis.
 4. **Supabase** (PostgreSQL) con 18 tablas + Storage bucket para archivos (+ `workspace_state` JSONB para registros opt-in).
 5. **Módulos del backend** (57 archivos) operan vía SSH sobre Kali o vía HTTP directo.
 
@@ -98,7 +98,7 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 ## ✨ Features principales
 
-36 tabs agrupados por categoría:
+37 tabs agrupados por categoría:
 
 ### Core
 | Tab | Descripción |
@@ -156,6 +156,7 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 | **Sys Monitor** | Recursos del host (CPU/RAM/uptime), volúmenes y candidatos de limpieza. |
 | **PC Analyzer** | Diagnóstico de equipo (grado A–F) + sugerencias + auto-fix confirmado. |
 | **Phishing Sim** | Campañas de concienciación (training-only): landing, clicks y submissions hasheadas. |
+| **Privacy** | Gestor de IP de salida: proxies SOCKS5/HTTP(S) en el host Kali (proxychains + env), IP directa vs con proxy. |
 
 > Además, **Payload Studio** se abre como enlace externo (editor de payloads Hak5 para 12 dispositivos).
 
@@ -199,7 +200,7 @@ Ver auditoría: [`docs/SECURITY_AUDIT_OSINT_2026-08-15.md`](docs/SECURITY_AUDIT_
 
 ## 📡 API resumen
 
-~357 endpoints agrupados por categoría. **Documentación interactiva (Swagger):**
+~366 endpoints agrupados por categoría. **Documentación interactiva (Swagger):**
 ```
 http://localhost:8000/docs      # Swagger UI
 http://localhost:8000/redoc     # ReDoc
@@ -229,6 +230,7 @@ http://localhost:8000/redoc     # ReDoc
 | **Phishing Sim (Pack 10)** | 13 | `POST /api/phishing/campaigns` + landings públicas `/phishing/{cid}` |
 | **AI Personas (Pack 17)** | 9 | `GET /api/personas`, `GET /api/personas/{slug}`, `POST /api/personas/{slug}/prompt` |
 | **LLM Security (Pack 18)** | 7 | `POST /api/llm/scan` (23 probes), `POST /api/llm/probe`, `GET /api/llm/results/{id}`, `POST /api/llm/results/{id}/findings` |
+| **Privacy (Pack 20)** | 9 | `GET/POST /api/privacy/proxies`, `POST /api/privacy/proxies/{pid}/activate`, `POST /api/privacy/deactivate`, `GET /api/privacy/ip`, `GET /api/privacy/status` |
 | Assessments / Assets | 20 | `GET /api/assessments`, `POST /api/assets/ingest` |
 | Scheduler | 10 | `GET /api/scheduler/jobs`, daemon `status`, `record` |
 | Notifications | 4 | `POST /api/notifications/send`, Telegram/Discord/Slack/webhook |
@@ -260,10 +262,11 @@ python -m pytest tests/ -k "not test_slow_hook" -q
 # 5256 passed, 1 deselected  (~529s, ~95% cobertura)
 ```
 
-- **114 archivos de test**, **5257 tests** recolectados (~95% cobertura)
+- **115 archivos de test**, **5321 tests** recolectados (~95% cobertura)
 - `main.py` = **100%** de cobertura (statement-level)
 - Pack 11 (Lab Sessions + flags + write-up): **89 tests nuevos** — detección de flags user/root (incl. transcripciones SSH y falsos positivos), recomputado al editar/borrar, invalidación de análisis obsoletos, escape XSS del HTML dark-mode, endpoints
 - Pack 18 (LLM Security Scanner): **48 tests nuevos** — 23 probes, detectores (DAN/refusal, goodside/WhoIsRiley, leak/ApiKey, DoNotAnswer, Crescendo-lite con topic/refusal), 8 buffs, resolution de prompts (prefix 220, hijack 15), pureza del módulo (sin `backend.database`/red), veredicto max elemento-wise y endpoints (`mode=stub` + patches de `db.save_finding`/`siem`/`audit`/`notify`)
+- Pack 20 (Privacy / egress IP): **64 tests nuevos** — registry CRUD + dedup de activo, masking de password, validación kind/host/port, constructores puros (proxychains conf, env block con/sin `export`, base64 roundtrip), `run_on_host` con cliente SSH inyectado y degradación sin host, `apply_proxy`/`clear_proxy`/`public_ip`/`status`, persistencia opt-in (`workspace_store`) y 9 endpoints `/api/privacy/*`
 - Usa `unittest.mock` + `TestClient(app)` para endpoints; hermético (sin red/DB real)
 - CI corre bandit (security) + safety check además de pytest
 
@@ -339,12 +342,12 @@ Cualquier endpoint compatible con OpenAI: Ollama local (gratis), OpenRouter, Ope
 
 ```
 mirv/
-├── backend/          # FastAPI + 59 módulos (main.py ~8700 líneas, database.py, opsec.py, ...)
+├── backend/          # FastAPI + 60 módulos (main.py ~8830 líneas, database.py, opsec.py, ...)
 │   ├── plugins/      # Sistema de plugins (hot-reload)
 │   ├── skills/       # 112 skill playbooks (Markdown + frontmatter) + router/ (routing.json, benchmarks.json)
 │   ├── burp_plugin/  # Plugin Jython para Burp Suite
-│   └── tests/        # 114 archivos, 5257 tests (~95% cobertura)
-├── frontend/         # SPA vanilla JS + Tailwind CDN (36 tabs)
+│   └── tests/        # 115 archivos, 5321 tests (~95% cobertura)
+├── frontend/         # SPA vanilla JS + Tailwind CDN (37 tabs)
 │   ├── index.html    # SPA principal (~4065 líneas)
 │   └── js/           # main.v2.js (~14.000 líneas), dataservice, mobile, forensics, swarm
 ├── desktop/          # App de escritorio (Tauri v2 + sidecar PyInstaller + updater firmado)
@@ -414,7 +417,7 @@ M.I.R.V. está diseñado para:
 
 <div align="center">
 
-**M.I.R.V. v3.5.0** — 357 endpoints · 5257 tests · ~95% cobertura · 36 tabs · 59 módulos
+**M.I.R.V. v3.5.0** — 366 endpoints · 5321 tests · ~95% cobertura · 37 tabs · 60 módulos
 
 [Reportar bug](https://github.com/SenorJA/dashboard-ctf/issues) · [Sugerir mejora](https://github.com/SenorJA/dashboard-ctf/issues) · [Documentación técnica](AGENTS.md)
 

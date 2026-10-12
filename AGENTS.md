@@ -8,14 +8,14 @@ Two-tier app: **FastAPI backend** serves static frontend + WebSocket SSH proxy +
 Browser → WS (localhost:8000/ws) → FastAPI → Paramiko → Kali SSH
          ↑
    serves /static/* from frontend/
-   REST API (349 endpoints /api/* + 8 landings/static = 357 HTTP) → Supabase (PostgreSQL)
+   REST API (358 endpoints /api/* + 8 landings/static = 366 HTTP) → Supabase (PostgreSQL)
    Plugin system (hot-reload) + Burp Bridge + Browser Capture + Structured Audit Log + Continuous Intelligence
 ```
 
 ```
 C:\Users\34678\Desktop\Proyecto ciber\
 ├── backend/
-│   ├── main.py              # FastAPI app (~8727 lines, 349 endpoints /api/* + CSP middleware + scheduler daemon)
+│   ├── main.py              # FastAPI app (~8830 lines, 358 endpoints /api/* + CSP middleware + scheduler daemon)
 │   ├── database.py           # Supabase CRUD layer (18 tables, 99% coverage)
 │   ├── exif_osint.py         # EXIF metadata extraction + GPS + reverse geocoding
 │   ├── canary_tokens.py      # Honeytoken generator (8 types) + activation tracking
@@ -49,11 +49,11 @@ C:\Users\34678\Desktop\Proyecto ciber\
 │   ├── skills/                # Built-in skill playbooks (recon, webvuln, ssrf, jwt, supabase)
 │   ├── agents/                # 39 vendored AI personas (MIT, agency-agents) + ATTRIBUTION.md
 │   ├── burp_plugin/           # Jython Burp Suite plugin (mirv_burp.py)
-│   ├── tests/                 # ~5257 tests across 114 test files
+│   ├── tests/                 # ~5321 tests across 115 test files
 │   ├── Dockerfile             # Container image for mirv-backend
 │   └── requirements.txt
 ├── frontend/
-│   ├── index.html            # SPA (Tailwind CDN, 36 tabs, ~4065 lines)
+│   ├── index.html            # SPA (Tailwind CDN, 37 tabs, ~4250 lines)
 │   ├── css/
 │   │   └── style.css          # Signal Intelligence + Monochrome theme (~873 lines)
 │   ├── img/
@@ -95,11 +95,11 @@ cd backend
  python -m pytest tests/ -k "not test_slow_hook" -q  # ~5232 tests, ~95% coverage
  ```
 
-## Backend modules (main.py + 57 modules)
+## Backend modules (main.py + 60 modules)
 
 | File | Lines | Purpose | Tests | Coverage |
 |------|-------|---------|-------|----------|
-| `main.py` | ~8727 | FastAPI app, WebSocket SSH proxy, 349 REST endpoints `/api/*` + CSP middleware + **server-side scheduler daemon** (`_scheduler_loop`, `_exec_tool_command`, `_count_findings_in_output`) | 333+295+19 | 100% |
+| `main.py` | ~8830 | FastAPI app, WebSocket SSH proxy, 358 REST endpoints `/api/*` + CSP middleware + **server-side scheduler daemon** (`_scheduler_loop`, `_exec_tool_command`, `_count_findings_in_output`) | 333+295+19 | 100% |
 | `database.py` | ~1344 | Supabase CRUD (18 tables) | 196 | 100% |
 | `exif_osint.py` | ~812 | EXIF GPS extraction, camera metadata, reverse geocoding, Leaflet map | 21+11 | 99% |
 | `canary_tokens.py` | ~442 | 8 honeytoken types, activation tracking, expiration | 24 | 99% |
@@ -146,6 +146,7 @@ cd backend
 | `llm_scanner.py` | ~1500 | **Pack 18** LLM Security Scanner (port of praetorian-inc/augustus) — solo-stdlib: 23 probes (goodside/dan/promptinject/prefix/donotanswer/continuation/leak/glitch/crescendo), 22 detectores (substring/word/regex/inversión mitigation, plain-json, markdown-exfil, token-smuggling, glitch, crescendo-judge), 8 buffs encoder (base64/base32/hex/rot13/atbash/leet/morse/charcode), generators hijack/prefix/continuation, **Crescendo-lite multi-turn determinista** (CONTEXT→MECHANISMS→FAILURE_MODES→OFFENSIVE_APPLICATION), `OpenAICompatClient/CallableClient/StubClient/build_client`, `LLMScanRegistry` LRU (20), `RunReport` verbedict max element-wise (primary+secondary), `finding_from_attempt` → payload `db.save_finding` (`tool=llm-scanner`, `service=llm`, severidad según probe) | 48 (37 module + 11 endpoints) | — |
 | `agency_agents.py` | ~577 | **Pack 17** AI Personas registry — vendored `backend/agents/{security,testing,engineering,specialized}/*.md` (39 personas, MIT, agency-agents) + custom override dirs (`.mirv/agents/`, env `MIRV_AGENTS_WRITE_DIR`, `MIRV_AGENTS_DIRS`); discovery order `MIRV_AGENTS_DIRS` → `backend/agents` → `.mirv/agents` → `~/.mirv/agents` → write-dir (last wins), mtime cache + `threading.Lock`, `AgentPersona` dataclass (slug/division/name/description/emoji/color/vibe/body/editable), `build_persona_prompt()` (identity + vibe + mandate + body truncated to `DEFAULT_PROMPT_CHARS`), `create_agent()`/`delete_agent()` (bundled read-only), `export_registry()`/`import_registry()`, `summary()` | 38 | — |
 | `wireless_analyzer.py` | ~121 | **Pack 19** host-only wireless-audit bridge — `WirelessSession` dataclass + `WirelessRegistry` (create/get/list/clear, thread-safe), `_ssh_client()` (paramiko **optional**, env `MIRV_WIRELESS_HOST/PORT/USER/KEY/PASS`, timeout 10s), `run_host_cmd(cmd, timeout=60) -> (out, err, rc)` with graceful `"wireless host not configured (MIRV_WIRELESS_HOST)"`. Requires a **physical Kali host** with a Wi-Fi adapter in monitor mode (impossible inside Docker — no USB/rfkill passthrough). In-memory only, **no Supabase tables**. | 19 | — |
+| `privacy.py` | ~430 | **Pack 20** egress-IP / proxy management on the Kali host — `ProxyProfile` + `ProxyRegistry` (thread-safe CRUD `add/get/list/delete/set_active/active/clear/export_state/import_state`, `to_public()` masks password), `run_on_host(cmd)` reusing the **shared SSH client** (`set_ssh_client` from main) or its own paramiko env fallback (`MIRV_PRIVACY_HOST/PORT/USER/KEY/PASS` → `KALI_*`), pure builders `build_proxychains_conf` / `build_apply_commands` / `build_clear_commands` (writes `~/.proxychains/proxychains4.conf`, `~/.config/mirv/proxy.env` + idempotent `/etc/environment` marker block), `apply_proxy`/`clear_proxy`, `public_ip(via_proxy)` (curl via `proxychains4 -q`), `status()` (direct + proxied IP), `validate()`. SOCKS5/SOCKS4/HTTP(S). In-memory + **opt-in** `workspace_store` persistence (key `privacy`), **no new Supabase tables**. VPN (WireGuard/OpenVPN) out of scope (needs NET_ADMIN+/dev/net/tun) | 64 | — |
 
 ## Backend quirks (main.py)
 
@@ -162,7 +163,7 @@ cd backend
 - **Audit log auto-init** on startup + existing `logger` wired with `AuditLogHandler`.
 - **Swarm sessions route** registered BEFORE `/api/swarm/{session_id}` to avoid catch-all collision.
 
-## Frontend structure (36 tabs)
+## Frontend structure (37 tabs)
 
 | Tab | ID | Purpose |
 |-----|----|---------| 
@@ -202,10 +203,11 @@ cd backend
 | Lab Sessions | `tab-labs` | Machines → sessions → evidence timeline, deterministic flag detection, AI analysis over full history, dark-mode HTML/PDF write-up |
 | AI Personas | `tab-personas` | 39 vendored AI personas (divisions security/testing/engineering/specialized): search + division filter, detail view (vibe/description/body), Build prompt (task-aware), Copy, custom persona create/delete, JSON export; `agent` field in `/api/ai/chat` injects the persona as system message |
 | LLM Security | `tab-llm` | LLM Security Scanner (Pack 18): target config (self/openai/stub), probe selector por familia (23 probes), buffs (8 encoders), run scan / single probe, KPIs resumen + report cards con attempts + Push findings; resultados en memoria (registry LRU 20) |
+| Privacy | `tab-privacy` | **Pack 20** egress-IP / proxy manager: direct vs proxied public IP cards, proxy profile CRUD (socks5/socks4/http/https, password masked), activate (applies proxychains conf + env on the Kali host) / deactivate, proxychains how-to hint; auto-refresh on tab open |
 
-- **Single HTML file** (`index.html`, ~4065 lines) — no build step, no bundler, no framework.
+- **Single HTML file** (`index.html`, ~4240 lines) — no build step, no bundler, no framework.
 - **Tailwind via CDN** (`https://cdn.tailwindcss.com`). Custom colors: `neon`, `cyber`, `deep`, `void`, `blood`.
-- **All JS in one file** (`main.v2.js`, ~14749 lines) — DOMContentLoaded closure, functions on `window.*`.
+- **All JS in one file** (`main.v2.js`, ~15100 lines) — DOMContentLoaded closure, functions on `window.*`.
 - **i18n**: 375+ entries (en/es, including full coverage of audit/burp/canary/coverage/dlp/exif/opd/osint/plugins/router/skills/Hak5/personas tabs), `data-i18n` + `data-i18n-placeholder` attributes, `applyLanguage()`. Default `en`; switch via `switchLanguage()`.
 - **Vanilla JS**, no router, no package.json for frontend.
 
@@ -250,6 +252,7 @@ cd backend
 | `refreshPhishingSim()` / `phishingCreate()` / `phishingAction(cid, act)` | Phishing Sim tab: stats + campañas (create/activate/archive/delete) + landing URL |
 | `refreshLabs()` / `labsCreateMachine()` / `labsOpenMachine(mid)` / `labsCreateSession()` / `labsOpenSession(sid)` / `labsAddStep()` / `labsDeleteStep(id)` / `labsDeleteMachine(mid)` / `labsDeleteSession(sid)` | Lab Sessions tab: máquinas→sesiones→evidencias, flag badges, timeline |
 | `labsAnalyze()` / `labsWriteup()` / `labsDownload(format)` | Lab Sessions IA: análisis estructurado sobre historial, narrativa por paso, export HTML/PDF dark mode |
+| `refreshPrivacy()` / `privacyCreate()` / `privacyActivate(pid)` / `privacyDeactivate()` / `privacyDelete(pid)` / `privacyHowto()` | Privacy tab (Pack 20): direct vs proxied IP, proxy profile CRUD (masked), apply/clear proxy on the Kali host, proxychains how-to |
 | `refreshLLM()` / `llmRunScan()` / `llmRunProbe()` / `llmPushFindings(id)` / `llmClearResults()` / `llmSelectAll()` | LLM Security tab: listado probes + resultados (registry), scan/single-probe contra self/openai/stub, push de findings vuln a DB+SIEM+audit, clear |
 | `addConsole()` / `removeConsole(id)` (módulo `mircConsoles`) | Multi-terminal: consolas extra autocontenidas (WS propio por panel sobre el perfil de conexión activo) — sin tocar el pipeline del terminal principal |
 | `routerRoute()` / `refreshRouter()` / `routerReload()` / `routerOpenSkill(name)` | Task Router (tab Skills): rutea hint→skill (POST `/api/router/route`), tool-index con `which` del host, reload config, open+auto-load skill |
@@ -334,6 +337,7 @@ cd backend
 | **Scheduler** | `GET/POST /api/scheduler/jobs`, `PUT/PATCH/DELETE /api/scheduler/jobs/{jid}`, `POST /api/scheduler/jobs/{jid}/run`, `POST /api/scheduler/jobs/{jid}/record`, `GET/POST /api/scheduler/export`, `GET /api/scheduler/due`, `GET /api/scheduler/status` (daemon health) |
 | **Findings lifecycle** | `PATCH /api/findings/{finding_id}` (lifecycle_status open/confirmed/accepted/fixed/verified + assessment_id), `GET /api/findings/assessment/{assessment_id}`, `GET /api/findings?lifecycle_status=&assessment_id=` |
 | **Wireless Audit** | `GET/POST /api/wireless/sessions`, `GET /api/wireless/sessions/{sid}`, `POST /api/wireless/host/check`, `POST /api/wireless/host/exec` (cmd ≤4096). Host-only bridge (Pack 19) — returns `wireless_analyzer not available` / `wireless host not configured` gracefully when no physical Kali host. In-memory, **no Supabase** |
+| **Privacy** | `GET /api/privacy/summary`, `GET/POST /api/privacy/proxies`, `GET/DELETE /api/privacy/proxies/{pid}`, `POST /api/privacy/proxies/{pid}/activate`, `POST /api/privacy/deactivate`, `GET /api/privacy/ip?via_proxy=`, `GET /api/privacy/status`. Pack 20 proxy manager on the **Kali host** (via shared SSH): applies `proxychains4.conf` + proxy env, returns direct **and** proxied public IP. Passwords masked; in-memory + opt-in `workspace_store` (key `privacy`), **no new Supabase tables** |
 
 ## Plugin system
 
@@ -469,8 +473,8 @@ cd backend
 
 ## Test summary
 
-- **114 test files** in `backend/tests/`
-- **~5257 tests** collected (**5256 passing locally**, + 17 network-only `example.com` tests that pass in CI; 296 now in `test_main_gaps.py` + 20 in `test_main_websocket_gaps.py` + 30 `test_assessments.py` + 43 `test_scheduler.py` + 27 `test_scheduler_daemon.py` + 19 `test_finding_lifecycle.py` + 22 `test_assets.py` + 17 `test_api_auth.py` + 37 `test_notifications.py` + 22 `test_workspace_store.py` + 144 `test_skill_router.py` (incl. 99 benchmark cases) + 20 `test_opencode_agent.py` + 24 `test_agent_bridge.py` + 22 `test_phishing_sim.py` + 64 `test_redact.py` + 21 `test_flag_detection.py` + 38 `test_lab_sessions.py` + 8 `test_lab_writeup.py` + 22 `test_labs_endpoints.py` + 38 `test_agency_agents.py` + 20 `test_personas_endpoints.py` + 17 `test_pack_purity.py` **+ 37 `test_llm_scanner.py` + 11 `test_llm_endpoints.py` + 19 `test_wireless_analyzer.py` (Pack 18/19)**)
+- **115 test files** in `backend/tests/`
+- **~5321 tests** collected (**5320 passing locally**, + 17 network-only `example.com` tests that pass in CI; 296 now in `test_main_gaps.py` + 20 in `test_main_websocket_gaps.py` + 30 `test_assessments.py` + 43 `test_scheduler.py` + 27 `test_scheduler_daemon.py` + 19 `test_finding_lifecycle.py` + 22 `test_assets.py` + 17 `test_api_auth.py` + 37 `test_notifications.py` + 22 `test_workspace_store.py` + 144 `test_skill_router.py` (incl. 99 benchmark cases) + 20 `test_opencode_agent.py` + 24 `test_agent_bridge.py` + 22 `test_phishing_sim.py` + 64 `test_redact.py` + 21 `test_flag_detection.py` + 38 `test_lab_sessions.py` + 8 `test_lab_writeup.py` + 22 `test_labs_endpoints.py` + 38 `test_agency_agents.py` + 20 `test_personas_endpoints.py` + 17 `test_pack_purity.py` **+ 37 `test_llm_scanner.py` + 11 `test_llm_endpoints.py` + 19 `test_wireless_analyzer.py` (Pack 18/19) + 64 `test_privacy.py` (Pack 20)**)
 - **~95% coverage** across measured backend modules
 - **`backend/main.py` = 100%** (2847/2847 statements; last gaps were websocket `read_shell` break on OSError/EOFError + outer `WebSocketDisconnect`)
 - **Key test files**: test_database (196), test_api_endpoints (333), test_main_gaps (296), test_main_coverage (165), test_main_extra (120), test_crud_endpoints (67), test_deep_coverage_1/2 (205), test_compaction (63), test_burp_bridge (72), test_redact (63), test_skill_playbooks (67), test_skill_router (144), test_agency_agents (38), test_personas_endpoints (20), test_pack_purity (17), test_audit_log (45), test_plugin_manager (47), test_plugin_watcher (18), test_siem (31), test_coverage (33), test_exif_osint (63), test_mobile_analyzer (54), test_canary_tokens (24), test_dlp_scanner (25), test_finding_poc (61), test_intelligence (43), test_permission_system (56), test_opsec, test_scope_guard, test_forensics, test_adb_controller, test_kali_mcp_client, test_mission_store, test_knowledgebase, test_swarm, test_assessments (30), test_scheduler (43), test_scheduler_daemon (27), test_finding_lifecycle (19), test_assets (22), test_api_auth (17), test_notifications (37), test_workspace_store (22), test_opencode_agent (20), test_agent_bridge (24), test_phishing_sim (22), test_flag_detection (21), test_lab_sessions (38), test_lab_writeup (8), test_labs_endpoints (22), + scanner tools + gap files (test_*_gaps.py: redact, dlp_scanner, mission_store, dns_lookup, pdf_engine, database, finding_poc, headers_scanner, hash_cracker, adb_controller, skill_playbooks, audit_log, intelligence, opsec, scope_guard).

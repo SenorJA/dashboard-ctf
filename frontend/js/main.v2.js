@@ -4583,6 +4583,11 @@ ${bodyHtml}
         // ── Lab Sessions (Pack 11) ──
         'labs-refresh':          ()   => { if (window.refreshLabs) refreshLabs(); },
         'labs-create-machine':   ()   => { if (window.labsCreateMachine) labsCreateMachine(); },
+
+        // ── Privacy / egress IP (Pack 20) ──
+        'privacy-refresh':       ()   => { if (window.refreshPrivacy) refreshPrivacy(); },
+        'privacy-create':        ()   => { if (window.privacyCreate) privacyCreate(); },
+        'privacy-apply-proxychains': () => { if (window.privacyHowto) privacyHowto(); },
     };
 
     function initEventListeners() {
@@ -7731,6 +7736,22 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         labsMachineName:  { en: 'Name',                      es: 'Nombre' },
         labsMachines:     { en: 'Machines',                  es: 'Máquinas' },
         labsSelectHint:   { en: 'Select a machine to manage its sessions and evidence.', es: 'Selecciona una máquina para gestionar sus sesiones y evidencias.' },
+
+        // ── Privacy / egress IP (Pack 20) ──
+        tabPrivacy:       { en: '🛡️ Privacy',                es: '🛡️ Privacidad' },
+        privacySubtitle:  { en: 'Configure SOCKS5/HTTP proxies on the Kali host to hide your IP during authorized audits.', es: 'Configura proxies SOCKS5/HTTP en el host Kali para ocultar tu IP durante auditorías autorizadas.' },
+        privacyDirectIp:  { en: 'Direct egress IP',          es: 'IP de salida directa' },
+        privacyProxiedIp: { en: 'Proxied egress IP',         es: 'IP de salida con proxy' },
+        privacyDirectHint:{ en: 'Real IP of the tool host.', es: 'IP real del host de herramientas.' },
+        privacyProxiedHint:{ en: 'IP seen by the target when the proxy is active.', es: 'IP vista por el objetivo con el proxy activo.' },
+        privacyNewProxy:  { en: 'New proxy',                 es: 'Nuevo proxy' },
+        privacyName:      { en: 'Name',                      es: 'Nombre' },
+        privacyHost:      { en: 'host',                      es: 'host' },
+        privacyPort:      { en: 'port',                      es: 'puerto' },
+        privacyUser:      { en: 'user (optional)',           es: 'usuario (opcional)' },
+        privacyPass:      { en: 'password (optional)',       es: 'contraseña (opcional)' },
+        privacyHowto:     { en: 'How to use (proxychains)',  es: 'Cómo usar (proxychains)' },
+        privacyProfiles:  { en: 'Profiles',                  es: 'Perfiles' },
 
         // ── LLM Security Scanner (Pack 18) ──
         tabLlms:          { en: '🤖 LLM',                    es: '🤖 LLM' },
@@ -14967,12 +14988,119 @@ Reglas:
     };
     if (typeof ACTION_MAP !== 'undefined' && ACTION_MAP) Object.assign(ACTION_MAP, _LABS_ACTIONS);
 
-    // Refresh all Pack 10/11 tabs when opened
+    // ════════════════════════════════════════════════════════════════
+    //  PRIVACY / EGRESS IP (Pack 20) — proxies on the Kali host
+    // ════════════════════════════════════════════════════════════════
+    function _privacyEsc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+    window.refreshPrivacy = async function () {
+        try {
+            const [st, list] = await Promise.all([
+                _assessFetch('/api/privacy/status'),
+                _assessFetch('/api/privacy/proxies'),
+            ]);
+            const active = st && st.active;
+            const badge = document.getElementById('privacy-status-badge');
+            if (badge) {
+                badge.textContent = active ? `🛡️ ${active.name}` : '○ no proxy';
+                badge.className = 'px-2 py-1 rounded text-[10px] font-semibold border ' +
+                    (active ? 'bg-neon/10 border-neon/40 text-neon' : 'bg-deep border-gray-800 text-gray-400');
+            }
+            const dEl = document.getElementById('privacy-direct-ip');
+            if (dEl) dEl.textContent = (st && st.direct && st.direct.ip) || '—';
+            const pEl = document.getElementById('privacy-proxied-ip');
+            if (pEl) pEl.textContent = (st && st.proxied && st.proxied.ip) || '—';
+
+            const wrap = document.getElementById('privacy-proxies');
+            if (!wrap) return;
+            const proxies = (list && list.proxies) || [];
+            if (!proxies.length) {
+                wrap.innerHTML = '<p class="text-gray-500 text-[10px]">No proxies yet.</p>';
+                return;
+            }
+            wrap.innerHTML = proxies.map(p => {
+                const isActive = p.active;
+                return `<div data-privacy-pid="${p.pid}" class="bg-deep rounded-lg border ${isActive ? 'border-neon/50' : 'border-gray-800'} p-3 text-[11px] flex items-center justify-between gap-3">
+                    <div class="min-w-0">
+                        <div class="font-semibold text-gray-100 truncate">${_privacyEsc(p.name)} <span class="text-gray-500 font-normal">· ${_privacyEsc(p.kind)}://${_privacyEsc(p.host)}:${p.port}</span></div>
+                        <div class="text-[10px] text-gray-500">${p.username ? 'auth: ' + _privacyEsc(p.username) : 'no auth'}</div>
+                    </div>
+                    <div class="flex items-center gap-2 shrink-0">
+                        ${isActive
+                            ? '<button data-privacy-deactivate="1" class="text-[10px] text-amber-300 border border-amber-500/30 rounded px-2 py-0.5 hover:bg-amber-500/10">Deactivate</button>'
+                            : `<button data-privacy-activate="${p.pid}" class="text-[10px] text-neon border border-neon/30 rounded px-2 py-0.5 hover:bg-neon/10">Activate</button>`}
+                        <button data-privacy-del="${p.pid}" class="text-rose-400/70 hover:text-rose-300">🗑</button>
+                    </div>
+                </div>`;
+            }).join('');
+        } catch { /* silent */ }
+    };
+
+    window.privacyCreate = async function () {
+        const name = (document.getElementById('privacy-name')?.value || '').trim() || 'proxy';
+        const host = (document.getElementById('privacy-host')?.value || '').trim();
+        const port = parseInt(document.getElementById('privacy-port')?.value || '0', 10);
+        if (!host) { showToast('⚠ host required'); return; }
+        const d = await _assessFetch('/api/privacy/proxies', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name,
+                kind: document.getElementById('privacy-kind')?.value || 'socks5',
+                host, port,
+                username: document.getElementById('privacy-user')?.value?.trim() || '',
+                password: document.getElementById('privacy-pass')?.value || '',
+            }),
+        });
+        if (!d.ok) { showToast('⚠ ' + (d.error || 'create failed')); return; }
+        ['privacy-name', 'privacy-host', 'privacy-user', 'privacy-pass'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+        showToast('✅ Proxy added');
+        refreshPrivacy();
+    };
+
+    window.privacyActivate = async function (pid) {
+        showToast('⏳ applying proxy on host…');
+        const d = await _assessFetch(`/api/privacy/proxies/${encodeURIComponent(pid)}/activate`, { method: 'POST' });
+        if (!d.ok) { showToast('⚠ ' + (d.error || 'apply failed')); return; }
+        showToast('✅ Proxy active');
+        refreshPrivacy();
+    };
+
+    window.privacyDeactivate = async function () {
+        const d = await _assessFetch('/api/privacy/deactivate', { method: 'POST' });
+        if (!d.ok) { showToast('⚠ ' + (d.error || 'failed')); return; }
+        showToast('✅ Proxy cleared');
+        refreshPrivacy();
+    };
+
+    window.privacyDelete = async function (pid) {
+        const d = await _assessFetch(`/api/privacy/proxies/${encodeURIComponent(pid)}`, { method: 'DELETE' });
+        if (!d.ok) { showToast('⚠ ' + (d.error || 'delete failed')); return; }
+        showToast('🗑 Proxy deleted');
+        refreshPrivacy();
+    };
+
+    window.privacyHowto = function () {
+        const el = document.getElementById('privacy-hint');
+        if (!el) return;
+        el.textContent = 'Wrap a tool with proxychains: proxychains4 -q nmap -sV target. Config: ~/.proxychains/proxychains4.conf. Env: ~/.config/mirv/proxy.env';
+        el.classList.toggle('hidden');
+    };
+
+    document.getElementById('privacy-proxies')?.addEventListener('click', (e) => {
+        const act = e.target.closest('[data-privacy-activate]');
+        if (act) { privacyActivate(act.dataset.privacyActivate); return; }
+        if (e.target.closest('[data-privacy-deactivate]')) { privacyDeactivate(); return; }
+        const del = e.target.closest('[data-privacy-del]');
+        if (del) { privacyDelete(del.dataset.privacyDel); return; }
+    });
+
+    // Refresh all Pack 10/11/20 tabs when opened
     const _origPack10Switch = window.switchTab;
     window.switchTab = function (name) {
         _origPack10Switch(name);
         if (name === 'opencode') refreshCodeAgent();
         if (name === 'phishing') refreshPhishingSim();
         if (name === 'labs') refreshLabs();
+        if (name === 'privacy') refreshPrivacy();
     };
 });

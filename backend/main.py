@@ -215,6 +215,12 @@ try:
 except Exception:  # pragma: no cover
     wla = None  # type: ignore
 
+# ── Pack 20: Privacy / egress-IP management (proxy profiles on the Kali host) ──
+try:
+    from backend import privacy as priv
+except Exception:  # pragma: no cover
+    priv = None  # type: ignore
+
 # ── Browser Capture (HAR import, session storage, security analysis) ──
 from backend.browser_capture import (
     import_har as bc_import,
@@ -384,8 +390,10 @@ async def _ensure_ssh_connection(ssh_ip: str = None, ssh_user: str = None, ssh_p
         )
         _active_ssh_client = client
         _ssh_credentials = {"ip": ip, "user": user, "pass": pwd}
-        # Share with mobile_analyzer
+        # Share with mobile_analyzer + privacy (proxy ops on the Kali host)
         mobile_set_ssh_client(client)
+        if priv is not None:
+            priv.set_ssh_client(client)
         logger.info("Shared SSH connected: %s@%s", user, ip)
         return client
     except Exception as e:
@@ -3982,6 +3990,8 @@ async def _record_startup():
         sched.load_from_store()
         assetslib.load_from_store()
         labs.load_from_store()
+        if priv is not None:
+            priv.hydrate()
         logger.info("Workspace-store hydration complete")
     except Exception as e:
         logger.warning("Workspace-store hydration failed: %s", e)
@@ -5674,6 +5684,8 @@ async def websocket_endpoint(websocket: WebSocket):
 
         # ── Share SSH client with Mobile Lab modules ──
         mobile_set_ssh_client(ssh)
+        if priv is not None:
+            priv.set_ssh_client(ssh)
         _active_ssh_client = ssh
         _ssh_credentials = {"ip": ssh_ip, "user": ssh_user, "pass": ssh_pass}
 
@@ -5745,6 +5757,8 @@ async def websocket_endpoint(websocket: WebSocket):
                                 _pass[0] = cmd.get("pass", _pass[0])
                                 # Update shared SSH client for Mobile Lab
                                 mobile_set_ssh_client(ssh)
+                                if priv is not None:
+                                    priv.set_ssh_client(ssh)
                                 _active_ssh_client = ssh
                                 _ssh_credentials = {"ip": _ip[0], "user": _user[0], "pass": _pass[0]}
                                 await websocket.send_text(f"[+] Re-connected as {_user[0]}@{_ip[0]}")
@@ -8726,4 +8740,91 @@ async def wl_host_exec(req: dict):
         return JSONResponse({"ok": False, "error": "invalid cmd"}, status_code=400)
     out, err, rc = wla.run_host_cmd(cmd)
     return JSONResponse({"ok": True, "output": out, "error": err, "rc": rc})
+
+
+# --- Privacy / egress-IP management (Pack 20) ---
+@app.get("/api/privacy/summary")
+async def priv_summary():
+    if priv is None:
+        return JSONResponse({"ok": False, "error": "privacy not available"}, status_code=500)
+    return JSONResponse({"ok": True, **priv.summary()})
+
+
+@app.get("/api/privacy/proxies")
+async def priv_list():
+    if priv is None:
+        return JSONResponse({"ok": False, "error": "privacy not available"}, status_code=500)
+    return JSONResponse({"ok": True, "proxies": [p.to_public() for p in priv.registry.list()]})
+
+
+@app.post("/api/privacy/proxies")
+async def priv_create(req: dict):
+    if priv is None:
+        return JSONResponse({"ok": False, "error": "privacy not available"}, status_code=500)
+    req = req or {}
+    name = (req.get("name") or "").strip() or "proxy"
+    kind = (req.get("kind") or "socks5").strip().lower()
+    host = (req.get("host") or "").strip()
+    err = priv.validate(kind, host, req.get("port"))
+    if err:
+        return JSONResponse({"ok": False, "error": err}, status_code=400)
+    profile = priv.registry.add(
+        name=name, kind=kind, host=host, port=int(req.get("port")),
+        username=(req.get("username") or "").strip(),
+        password=req.get("password") or "",
+    )
+    return JSONResponse({"ok": True, "proxy": profile.to_public()}, status_code=201)
+
+
+@app.get("/api/privacy/proxies/{pid}")
+async def priv_get(pid: str):
+    if priv is None:
+        return JSONResponse({"ok": False, "error": "privacy not available"}, status_code=500)
+    profile = priv.registry.get(pid)
+    if not profile:
+        return JSONResponse({"ok": False, "error": "proxy not found"}, status_code=404)
+    return JSONResponse({"ok": True, "proxy": profile.to_public()})
+
+
+@app.delete("/api/privacy/proxies/{pid}")
+async def priv_delete(pid: str):
+    if priv is None:
+        return JSONResponse({"ok": False, "error": "privacy not available"}, status_code=500)
+    if not priv.registry.delete(pid):
+        return JSONResponse({"ok": False, "error": "proxy not found"}, status_code=404)
+    return JSONResponse({"ok": True, "deleted": pid})
+
+
+@app.post("/api/privacy/proxies/{pid}/activate")
+async def priv_activate(pid: str):
+    if priv is None:
+        return JSONResponse({"ok": False, "error": "privacy not available"}, status_code=500)
+    result = await asyncio.to_thread(priv.apply_proxy, pid)
+    if not result.get("ok") and result.get("error") == "proxy profile not found":
+        return JSONResponse(result, status_code=404)
+    return JSONResponse(result)
+
+
+@app.post("/api/privacy/deactivate")
+async def priv_deactivate():
+    if priv is None:
+        return JSONResponse({"ok": False, "error": "privacy not available"}, status_code=500)
+    result = await asyncio.to_thread(priv.clear_proxy)
+    return JSONResponse(result)
+
+
+@app.get("/api/privacy/ip")
+async def priv_ip(via_proxy: bool = False):
+    if priv is None:
+        return JSONResponse({"ok": False, "error": "privacy not available"}, status_code=500)
+    result = await asyncio.to_thread(priv.public_ip, via_proxy)
+    return JSONResponse(result)
+
+
+@app.get("/api/privacy/status")
+async def priv_status():
+    if priv is None:
+        return JSONResponse({"ok": False, "error": "privacy not available"}, status_code=500)
+    result = await asyncio.to_thread(priv.status)
+    return JSONResponse(result)
 

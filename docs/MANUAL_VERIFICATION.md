@@ -435,3 +435,49 @@ curl -s -H "$H" -X POST localhost:8000/api/wireless/host/check
 > `/api/wireless/host/exec` con el flujo airmon-ng → airodump-ng → aireplay-ng → aircrack-ng
 > (ver `backend/skills/wireless-audit/SKILL.md`). **Solo en alcance autorizado.** In-memory,
 > sin tablas nuevas en Supabase.
+
+## 16. Pack 20 — Privacy / egress-IP (proxy en el host Kali)
+
+Gestor de **proxies SOCKS5/SOCKS4/HTTP(S)** aplicados en el **host de herramientas** (Kali vía
+SSH compartido) para ocultar la IP durante auditorías autorizadas. Escribe
+`~/.proxychains/proxychains4.conf` + `~/.config/mirv/proxy.env` (+ bloque idempotente en
+`/etc/environment`) y verifica la IP pública directa vs con proxy. Todo con `-H "X-MIRV-Token: $TOK"`.
+
+```bash
+TOK=$(grep '^MIRV_API_TOKEN=' .env | cut -d= -f2-); H="X-MIRV-Token: $TOK"
+
+# Crear un perfil de proxy (password se enmascara en la respuesta)
+curl -s -H "$H" -X POST localhost:8000/api/privacy/proxies -H 'Content-Type: application/json' \
+  -d '{"name":"proton","kind":"socks5","host":"10.2.0.1","port":1080,"username":"u","password":"secret"}'
+
+# Activar (escribe proxychains + env en el Kali y comprueba la IP vía proxy)
+curl -s -H "$H" -X POST localhost:8000/api/privacy/proxies/<PID>/activate | python -m json.tool
+
+# Estado: IP directa vs IP con proxy
+curl -s -H "$H" localhost:8000/api/privacy/status | python -m json.tool
+
+# Desactivar y limpiar
+curl -s -H "$H" -X POST localhost:8000/api/privacy/deactivate
+```
+
+| Paso | Petición | Respuesta esperada | Verificado |
+|---|---|---|---|
+| Resumen | `GET /api/privacy/summary` | `ok:true`, `profiles`, `kinds` | ✅ |
+| Crear (masking) | `POST /api/privacy/proxies {password:"secret"}` | `201`, `password:"**cret"`, `has_password:true` | ✅ |
+| Validación | `POST /api/privacy/proxies {kind:"bogus"}` | `400` | ✅ |
+| Listar / Detalle / Borrar | `GET /api/privacy/proxies`, `GET/DELETE /api/privacy/proxies/{pid}` | lista / `proxy` / `deleted` (404 si falta) | ✅ |
+| Activar | `POST /api/privacy/proxies/{pid}/activate` | `ok:true` (aplica proxychains+env en el host) | ✅ |
+| Activar inexistente | `POST /api/privacy/proxies/nope/activate` | `404` | ✅ |
+| Desactivar | `POST /api/privacy/deactivate` | `cleared:true` | ✅ |
+| IP directa | `GET /api/privacy/ip` | `ip` del host (`api.ipify.org`/`ifconfig.me`) | ✅ |
+| IP vía proxy | `GET /api/privacy/ip?via_proxy=true` | `proxychains4 -q curl …`, `via_proxy:true` | ✅ |
+| Estado | `GET /api/privacy/status` | `active`, `direct`, `proxied` (null si no hay activo) | ✅ |
+| Degradación | sin `KALI_IP`/`MIRV_PRIVACY_HOST` | `privacy host not configured` (no rompe) | ✅ |
+| Tests | `pytest tests/test_privacy.py -q` | `64 passed` | ✅ |
+| Docker | `docker compose -p proyectociber up -d --build` | `mirv-backend` healthy, `supabase:true` | ✅ |
+
+> **Uso real en el Kali:** exporta `KALI_IP/USER/PASS` (o `MIRV_PRIVACY_*`) y actívalo desde el
+> tab **Privacy**. Envuelve cada tool con `proxychains4 -q <tool> …` (el conf queda escrito), o
+> usa las variables `http_proxy`/`all_proxy` del `~/.config/mirv/proxy.env`. **VPN (WireGuard/OpenVPN)
+> fuera de alcance** en este pack: requiere `NET_ADMIN` + `/dev/net/tun`. In-memory + persistencia
+> opt-in (`MIRV_PERSIST_WORKSPACE=1`, key `privacy`), sin tablas nuevas en Supabase.
