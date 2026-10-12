@@ -65,6 +65,13 @@ RUN apt-get update && \
     # --- Wordlists ---
     seclists \
     wordlists \
+    # --- Privacy & VPN (Pack 20/21: proxychains + WireGuard/OpenVPN) ---
+    iproute2 \
+    iptables \
+    proxychains4 \
+    wireguard-tools \
+    openvpn \
+    openresolv \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Decompress rockyou
@@ -86,9 +93,17 @@ RUN apt-get install -y openssh-server && \
 RUN mkdir -p /tmp/workspace
 WORKDIR /tmp/workspace
 
+# Ensure /dev/net/tun exists so Pack 21 (WireGuard/OpenVPN) can create tunnels.
+# Requires NET_ADMIN + CAP_MKNOD (see docker-compose.yml cap_add).
+RUN printf '%s\n' \
+    '#!/bin/sh' \
+    '[ -c /dev/net/tun ] || { mkdir -p /dev/net && mknod /dev/net/tun c 10 200 2>/dev/null || true; }' \
+    'exec /usr/sbin/sshd -D -e' > /usr/local/bin/mirv-entrypoint.sh && \
+    chmod +x /usr/local/bin/mirv-entrypoint.sh
+
 EXPOSE 22
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
   CMD sshd -t || exit 1
 
-CMD ["/usr/sbin/sshd", "-D", "-e"]
+CMD ["/usr/local/bin/mirv-entrypoint.sh"]

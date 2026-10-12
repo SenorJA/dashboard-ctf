@@ -157,6 +157,7 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 | **PC Analyzer** | Diagnóstico de equipo (grado A–F) + sugerencias + auto-fix confirmado. |
 | **Phishing Sim** | Campañas de concienciación (training-only): landing, clicks y submissions hasheadas. |
 | **Privacy** | Gestor de IP de salida: proxies SOCKS5/HTTP(S) en el host Kali (proxychains + env), IP directa vs con proxy. |
+| **VPN** | Túneles WireGuard/OpenVPN en el host Kali (`wg-quick` / `openvpn --daemon`), IP de salida del túnel, config con claves privadas redactadas. |
 
 > Además, **Payload Studio** se abre como enlace externo (editor de payloads Hak5 para 12 dispositivos).
 
@@ -231,6 +232,7 @@ http://localhost:8000/redoc     # ReDoc
 | **AI Personas (Pack 17)** | 9 | `GET /api/personas`, `GET /api/personas/{slug}`, `POST /api/personas/{slug}/prompt` |
 | **LLM Security (Pack 18)** | 7 | `POST /api/llm/scan` (23 probes), `POST /api/llm/probe`, `GET /api/llm/results/{id}`, `POST /api/llm/results/{id}/findings` |
 | **Privacy (Pack 20)** | 9 | `GET/POST /api/privacy/proxies`, `POST /api/privacy/proxies/{pid}/activate`, `POST /api/privacy/deactivate`, `GET /api/privacy/ip`, `GET /api/privacy/status` |
+| **VPN (Pack 21)** | 9 | `GET/POST /api/vpn/profiles`, `POST /api/vpn/profiles/{vid}/activate`, `POST /api/vpn/deactivate`, `GET /api/vpn/ip`, `GET /api/vpn/status` |
 | Assessments / Assets | 20 | `GET /api/assessments`, `POST /api/assets/ingest` |
 | Scheduler | 10 | `GET /api/scheduler/jobs`, daemon `status`, `record` |
 | Notifications | 4 | `POST /api/notifications/send`, Telegram/Discord/Slack/webhook |
@@ -259,14 +261,15 @@ http://localhost:8000/redoc     # ReDoc
 ```bash
 cd backend
 python -m pytest tests/ -k "not test_slow_hook" -q
-# 5256 passed, 1 deselected  (~529s, ~95% cobertura)
+# 5388 passed, 1 deselected  (~455s, ~95% cobertura)
 ```
 
-- **115 archivos de test**, **5321 tests** recolectados (~95% cobertura)
+- **116 archivos de test**, **5389 tests** recolectados (~95% cobertura)
 - `main.py` = **100%** de cobertura (statement-level)
 - Pack 11 (Lab Sessions + flags + write-up): **89 tests nuevos** — detección de flags user/root (incl. transcripciones SSH y falsos positivos), recomputado al editar/borrar, invalidación de análisis obsoletos, escape XSS del HTML dark-mode, endpoints
 - Pack 18 (LLM Security Scanner): **48 tests nuevos** — 23 probes, detectores (DAN/refusal, goodside/WhoIsRiley, leak/ApiKey, DoNotAnswer, Crescendo-lite con topic/refusal), 8 buffs, resolution de prompts (prefix 220, hijack 15), pureza del módulo (sin `backend.database`/red), veredicto max elemento-wise y endpoints (`mode=stub` + patches de `db.save_finding`/`siem`/`audit`/`notify`)
 - Pack 20 (Privacy / egress IP): **64 tests nuevos** — registry CRUD + dedup de activo, masking de password, validación kind/host/port, constructores puros (proxychains conf, env block con/sin `export`, base64 roundtrip), `run_on_host` con cliente SSH inyectado y degradación sin host, `apply_proxy`/`clear_proxy`/`public_ip`/`status`, persistencia opt-in (`workspace_store`) y 9 endpoints `/api/privacy/*`
+- Pack 21 (VPN WireGuard/OpenVPN): **68 tests nuevos** — registry CRUD + activo único, redacción de claves privadas (`PrivateKey`/`PresharedKey`/PEM/`<key>` inline), validación por protocolo (`[Interface]`+`PrivateKey` / `client`/`remote`), saneado de nombre de interfaz (límite 15 chars de WireGuard), constructores puros apply/clear (base64 roundtrip, pidfile OVPN), `apply_vpn`/`clear_vpn`/`public_ip`/`status` con host mockeado, persistencia opt-in (`workspace_store`, key `vpn`) y 9 endpoints `/api/vpn/*`
 - Usa `unittest.mock` + `TestClient(app)` para endpoints; hermético (sin red/DB real)
 - CI corre bandit (security) + safety check además de pytest
 

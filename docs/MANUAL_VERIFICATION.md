@@ -478,6 +478,53 @@ curl -s -H "$H" -X POST localhost:8000/api/privacy/deactivate
 
 > **Uso real en el Kali:** exporta `KALI_IP/USER/PASS` (o `MIRV_PRIVACY_*`) y actívalo desde el
 > tab **Privacy**. Envuelve cada tool con `proxychains4 -q <tool> …` (el conf queda escrito), o
-> usa las variables `http_proxy`/`all_proxy` del `~/.config/mirv/proxy.env`. **VPN (WireGuard/OpenVPN)
-> fuera de alcance** en este pack: requiere `NET_ADMIN` + `/dev/net/tun`. In-memory + persistencia
-> opt-in (`MIRV_PERSIST_WORKSPACE=1`, key `privacy`), sin tablas nuevas en Supabase.
+> usa las variables `http_proxy`/`all_proxy` del `~/.config/mirv/proxy.env`. La **VPN real
+> (WireGuard/OpenVPN)** vive en el Pack 21 (§17): requiere `NET_ADMIN` + `/dev/net/tun`. In-memory +
+> persistencia opt-in (`MIRV_PERSIST_WORKSPACE=1`, key `privacy`), sin tablas nuevas en Supabase.
+
+## 17. Pack 21 — VPN real (WireGuard / OpenVPN) en el host Kali
+
+Túneles **WireGuard / OpenVPN** aplicados en el **host de herramientas** (Kali vía SSH compartido,
+mismo runner que Pack 20) para enrutar **todo** el tráfico de auditoría a nivel de red (no por-tool
+como proxychains). WireGuard escribe `/etc/wireguard/<iface>.conf` y corre `wg-quick up|down`;
+OpenVPN escribe `/etc/openvpn/client/<name>.conf` y lanza `openvpn --daemon` (pid en
+`/run/mirv-vpn-<name>.pid`). Las **claves privadas se redactan** en todas las respuestas.
+Todo con `-H "X-MIRV-Token: $TOK"`.
+
+```bash
+TOK=$(grep '^MIRV_API_TOKEN=' .env | cut -d= -f2-); H="X-MIRV-Token: $TOK"
+
+# Crear un perfil WireGuard (config enmascarada en la respuesta)
+curl -s -H "$H" -X POST localhost:8000/api/vpn/profiles -H 'Content-Type: application/json' \
+  -d '{"name":"e2e","protocol":"wireguard","config":"[Interface]\nPrivateKey = ...\nAddress = 10.77.0.2/24\n[Peer]\n..."}'
+
+# Activar (wg-quick up en el Kali) / desactivar (wg-quick down + borra config)
+curl -s -H "$H" -X POST localhost:8000/api/vpn/profiles/<VID>/activate | python -m json.tool
+curl -s -H "$H" -X POST localhost:8000/api/vpn/deactivate | python -m json.tool
+
+# Estado: perfil activo + IP de salida actual (transparente con túnel)
+curl -s -H "$H" localhost:8000/api/vpn/status | python -m json.tool
+```
+
+| Paso | Petición | Respuesta esperada | Verificado |
+|---|---|---|---|
+| Resumen | `GET /api/vpn/summary` | `ok:true`, `profiles`, `protocols`, `active` | ✅ |
+| Crear (masking) | `POST /api/vpn/profiles {config:"...PrivateKey = ..."}` | `201`, `config` con `PrivateKey = ***`, `active:false` | ✅ |
+| Validación protocolo | `POST /api/vpn/profiles {protocol:"pptp"}` | `400` (`invalid protocol`) | ✅ |
+| Config vacía | `POST /api/vpn/profiles {config:""}` | `400` (`empty config`) | ✅ |
+| Listar / Detalle / Borrar | `GET /api/vpn/profiles`, `GET/DELETE /api/vpn/profiles/{vid}` | lista / `profile` / `deleted` (`404` si falta) | ✅ |
+| Activar | `POST /api/vpn/profiles/{vid}/activate` | `ok:true` (interfaz `e2e` 10.77.0.2/24 en Kali, `wg show` OK) | ✅ |
+| Activar inexistente | `POST /api/vpn/profiles/nope/activate` | `404` | ✅ |
+| Desactivar | `POST /api/vpn/deactivate` | `cleared:true` (túnel abajo + config borrada) | ✅ |
+| IP de salida | `GET /api/vpn/ip` | `ip` actual (egress del túnel si está activo), `via_vpn` | ✅ |
+| Estado | `GET /api/vpn/status` | `active`, `current_ip`, `profiles`, `protocols` | ✅ |
+| Degradación | sin `KALI_IP`/`MIRV_PRIVACY_HOST` | `not configured` / `vpn host runner unavailable` (no rompe) | ✅ |
+| Tests | `pytest tests/test_vpn.py -q` | `68 passed` | ✅ |
+| Docker | `docker compose -p proyectociber up -d` | `mirv-backend` healthy, `supabase:true` | ✅ |
+
+> **Requisitos:** `cap_add: NET_ADMIN` + `/dev/net/tun` en el servicio `kali-tools`
+> (`docker-compose.yml`; el entrypoint de `docker/kali-mcp.Dockerfile` crea `/dev/net/tun` si falta) y
+> paquetes `wireguard-tools` + `openvpn` en la imagen Kali. **Ojo:** `openresolv` y `resolvconf` no
+> pueden coexistir (conflicto de asignación al instalar) — instalar **solo `openresolv`**. In-memory +
+> persistencia opt-in (`MIRV_PERSIST_WORKSPACE=1`, key `vpn`), sin tablas nuevas en Supabase.
+> **Solo en alcance autorizado.**

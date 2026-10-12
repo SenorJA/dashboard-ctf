@@ -587,6 +587,10 @@
                     <span class="tab-icon">🛡️</span>
                     <span>Privacy</span>
                 </button>
+                <button class="tab-btn" id="tab-btn-vpn" data-tab="vpn" role="tab" aria-selected="false" aria-controls="tab-vpn" data-i18n="tabVpn">
+                    <span class="tab-icon">🔒</span>
+                    <span>VPN</span>
+                </button>
             </nav>
 
             <!-- ── STATS BAR ── -->
@@ -4002,6 +4006,55 @@
                 <!-- Proxy list -->
                 <h4 class="text-[11px] text-cyber font-semibold tracking-wider uppercase mb-2" data-i18n="privacyProfiles">Perfiles</h4>
                 <div id="privacy-proxies" class="space-y-2"></div>
+            </div>
+
+            <div id="tab-vpn" role="tabpanel" aria-labelledby="tab-btn-vpn" class="tab-pane p-4 pt-3 overflow-y-auto">
+                <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+                    <div>
+                        <h2 class="text-lg font-bold text-neon tracking-wider">🔒 VPN</h2>
+                        <p class="text-[10px] text-gray-400" data-i18n="vpnSubtitle">Levanta un túnel WireGuard/OpenVPN en el host Kali para enrutar todo el tráfico de auditoría.</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span id="vpn-status-badge" class="px-2 py-1 rounded text-[10px] font-semibold bg-deep border border-gray-800 text-gray-400">—</span>
+                        <button data-action="vpn-refresh" class="bg-neon/10 hover:bg-neon/20 text-neon border border-neon/30 px-3 py-1.5 rounded text-[10px] font-semibold transition-all">⟳ Refresh</button>
+                    </div>
+                </div>
+
+                <!-- Egress IP panel -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div class="bg-deep rounded-lg border border-gray-800 p-4">
+                        <h4 class="text-[11px] text-cyber font-semibold tracking-wider uppercase mb-2" data-i18n="vpnCurrentIp">Current egress IP</h4>
+                        <div id="vpn-current-ip" class="text-xl font-mono text-neon">—</div>
+                        <p class="text-[10px] text-gray-500 mt-1" data-i18n="vpnCurrentHint">IP con el túnel activo (o la real si está caído).</p>
+                    </div>
+                    <div class="bg-deep rounded-lg border border-gray-800 p-4">
+                        <h4 class="text-[11px] text-cyber font-semibold tracking-wider uppercase mb-2" data-i18n="vpnActiveProfile">Active tunnel</h4>
+                        <div id="vpn-active-profile" class="text-sm font-mono text-gray-200">—</div>
+                        <p class="text-[10px] text-gray-500 mt-1" data-i18n="vpnActiveHint">Perfil WireGuard/OpenVPN en uso.</p>
+                    </div>
+                </div>
+
+                <!-- New VPN form -->
+                <div class="bg-deep rounded-lg border border-gray-800 p-4 mb-4">
+                    <h4 class="text-[11px] text-cyber font-semibold tracking-wider uppercase mb-3" data-i18n="vpnNewProfile">Nuevo perfil VPN</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+                        <input id="vpn-name" placeholder="Nombre (wg0)" class="bg-void border border-gray-800 rounded px-2 py-2 text-[11px] text-gray-200" data-i18n-placeholder="vpnName" />
+                        <select id="vpn-protocol" class="bg-void border border-gray-800 rounded px-2 py-2 text-[11px] text-gray-300">
+                            <option value="wireguard">wireguard</option>
+                            <option value="openvpn">openvpn</option>
+                        </select>
+                    </div>
+                    <textarea id="vpn-config" rows="8" placeholder="[Interface]&#10;PrivateKey = ...&#10;Address = 10.2.0.2/32&#10;&#10;[Peer]&#10;..." class="w-full bg-void border border-gray-800 rounded px-2 py-2 text-[11px] text-gray-200 font-mono" data-i18n-placeholder="vpnConfig"></textarea>
+                    <div class="mt-3 flex items-center gap-2">
+                        <button data-action="vpn-create" class="bg-cyber hover:bg-cyan-600 text-void px-4 py-2 rounded text-[11px] font-bold transition-all">+ Add VPN</button>
+                        <button data-action="vpn-howto" class="bg-deep hover:bg-void border border-neon/30 text-neon px-3 py-2 rounded text-[10px] font-semibold transition-all" data-i18n="vpnHowto">How to get a config</button>
+                    </div>
+                    <p id="vpn-hint" class="text-[10px] text-gray-500 mt-2 hidden"></p>
+                </div>
+
+                <!-- Profile list -->
+                <h4 class="text-[11px] text-cyber font-semibold tracking-wider uppercase mb-2" data-i18n="vpnProfiles">Perfiles</h4>
+                <div id="vpn-profiles" class="space-y-2"></div>
             </div>
 
         </main>

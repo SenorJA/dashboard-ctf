@@ -4588,6 +4588,11 @@ ${bodyHtml}
         'privacy-refresh':       ()   => { if (window.refreshPrivacy) refreshPrivacy(); },
         'privacy-create':        ()   => { if (window.privacyCreate) privacyCreate(); },
         'privacy-apply-proxychains': () => { if (window.privacyHowto) privacyHowto(); },
+
+        // ── VPN WireGuard/OpenVPN (Pack 21) ──
+        'vpn-refresh':           ()   => { if (window.refreshVpn) refreshVpn(); },
+        'vpn-create':            ()   => { if (window.vpnCreate) vpnCreate(); },
+        'vpn-howto':             ()   => { if (window.vpnHowto) vpnHowto(); },
     };
 
     function initEventListeners() {
@@ -7752,6 +7757,17 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         privacyPass:      { en: 'password (optional)',       es: 'contraseña (opcional)' },
         privacyHowto:     { en: 'How to use (proxychains)',  es: 'Cómo usar (proxychains)' },
         privacyProfiles:  { en: 'Profiles',                  es: 'Perfiles' },
+        tabVpn:           { en: '🔒 VPN',                    es: '🔒 VPN' },
+        vpnSubtitle:      { en: 'Bring up a WireGuard/OpenVPN tunnel on the Kali host to route all audit traffic.', es: 'Levanta un túnel WireGuard/OpenVPN en el host Kali para enrutar todo el tráfico de auditoría.' },
+        vpnCurrentIp:     { en: 'Current egress IP',          es: 'IP de salida actual' },
+        vpnCurrentHint:   { en: 'IP with the tunnel up (or the real one if down).', es: 'IP con el túnel activo (o la real si está caído).' },
+        vpnActiveProfile: { en: 'Active tunnel',              es: 'Túnel activo' },
+        vpnActiveHint:    { en: 'WireGuard/OpenVPN profile in use.', es: 'Perfil WireGuard/OpenVPN en uso.' },
+        vpnNewProfile:    { en: 'New VPN profile',            es: 'Nuevo perfil VPN' },
+        vpnName:          { en: 'Name (wg0)',                 es: 'Nombre (wg0)' },
+        vpnConfig:        { en: 'Paste the .conf / .ovpn content', es: 'Pega el contenido .conf / .ovpn' },
+        vpnHowto:         { en: 'How to get a config',        es: 'Cómo obtener un config' },
+        vpnProfiles:      { en: 'Profiles',                   es: 'Perfiles' },
 
         // ── LLM Security Scanner (Pack 18) ──
         tabLlms:          { en: '🤖 LLM',                    es: '🤖 LLM' },
@@ -15094,6 +15110,107 @@ Reglas:
         if (del) { privacyDelete(del.dataset.privacyDel); return; }
     });
 
+    // ════════════════════════════════════════════════════════════════
+    //  VPN / WireGuard-OpenVPN (Pack 21) — tunnels on the Kali host
+    // ════════════════════════════════════════════════════════════════
+    function _vpnEsc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+    window.refreshVpn = async function () {
+        try {
+            const [st, list] = await Promise.all([
+                _assessFetch('/api/vpn/status'),
+                _assessFetch('/api/vpn/profiles'),
+            ]);
+            const active = st && st.active;
+            const badge = document.getElementById('vpn-status-badge');
+            if (badge) {
+                badge.textContent = active ? `🔒 ${active.name}` : '○ no tunnel';
+                badge.className = 'px-2 py-1 rounded text-[10px] font-semibold border ' +
+                    (active ? 'bg-neon/10 border-neon/40 text-neon' : 'bg-deep border-gray-800 text-gray-400');
+            }
+            const ipEl = document.getElementById('vpn-current-ip');
+            if (ipEl) ipEl.textContent = (st && st.current_ip && st.current_ip.ip) || '—';
+            const aEl = document.getElementById('vpn-active-profile');
+            if (aEl) aEl.textContent = active ? `${active.protocol} · ${active.name}` : '—';
+
+            const wrap = document.getElementById('vpn-profiles');
+            if (!wrap) return;
+            const profiles = (list && list.profiles) || [];
+            if (!profiles.length) {
+                wrap.innerHTML = '<p class="text-gray-500 text-[10px]">No VPN profiles yet.</p>';
+                return;
+            }
+            wrap.innerHTML = profiles.map(p => {
+                const isActive = p.active;
+                return `<div data-vpn-vid="${p.vid}" class="bg-deep rounded-lg border ${isActive ? 'border-neon/50' : 'border-gray-800'} p-3 text-[11px] flex items-center justify-between gap-3">
+                    <div class="min-w-0">
+                        <div class="font-semibold text-gray-100 truncate">${_vpnEsc(p.name)} <span class="text-gray-500 font-normal">· ${_vpnEsc(p.protocol)} · iface ${_vpnEsc(p.iface)}</span></div>
+                        <div class="text-[10px] text-gray-500">${p.config_lines || 0} config lines</div>
+                    </div>
+                    <div class="flex items-center gap-2 shrink-0">
+                        ${isActive
+                            ? '<button data-vpn-deactivate="1" class="text-[10px] text-amber-300 border border-amber-500/30 rounded px-2 py-0.5 hover:bg-amber-500/10">Deactivate</button>'
+                            : `<button data-vpn-activate="${p.vid}" class="text-[10px] text-neon border border-neon/30 rounded px-2 py-0.5 hover:bg-neon/10">Activate</button>`}
+                        <button data-vpn-del="${p.vid}" class="text-rose-400/70 hover:text-rose-300">🗑</button>
+                    </div>
+                </div>`;
+            }).join('');
+        } catch { /* silent */ }
+    };
+
+    window.vpnCreate = async function () {
+        const name = (document.getElementById('vpn-name')?.value || '').trim();
+        const protocol = document.getElementById('vpn-protocol')?.value || 'wireguard';
+        const config = document.getElementById('vpn-config')?.value || '';
+        if (!name) { showToast('⚠ name required'); return; }
+        if (!config.trim()) { showToast('⚠ config required'); return; }
+        const d = await _assessFetch('/api/vpn/profiles', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, protocol, config }),
+        });
+        if (!d.ok) { showToast('⚠ ' + (d.error || 'create failed')); return; }
+        ['vpn-name', 'vpn-config'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+        showToast('✅ VPN profile added');
+        refreshVpn();
+    };
+
+    window.vpnActivate = async function (vid) {
+        showToast('⏳ bringing tunnel up on host…');
+        const d = await _assessFetch(`/api/vpn/profiles/${encodeURIComponent(vid)}/activate`, { method: 'POST' });
+        if (!d.ok) { showToast('⚠ ' + (d.error || 'apply failed')); return; }
+        showToast('✅ VPN active');
+        refreshVpn();
+    };
+
+    window.vpnDeactivate = async function () {
+        const d = await _assessFetch('/api/vpn/deactivate', { method: 'POST' });
+        if (!d.ok) { showToast('⚠ ' + (d.error || 'failed')); return; }
+        showToast('✅ Tunnel down');
+        refreshVpn();
+    };
+
+    window.vpnDelete = async function (vid) {
+        const d = await _assessFetch(`/api/vpn/profiles/${encodeURIComponent(vid)}`, { method: 'DELETE' });
+        if (!d.ok) { showToast('⚠ ' + (d.error || 'delete failed')); return; }
+        showToast('🗑 VPN profile deleted');
+        refreshVpn();
+    };
+
+    window.vpnHowto = function () {
+        const el = document.getElementById('vpn-hint');
+        if (!el) return;
+        el.textContent = 'WireGuard: paste an [Interface]/[Peer] .conf (Proton VPN → Downloads → WireGuard configuration). OpenVPN: paste a .ovpn (client/remote). The tunnel is created on the Kali host with wg-quick / openvpn --daemon.';
+        el.classList.toggle('hidden');
+    };
+
+    document.getElementById('vpn-profiles')?.addEventListener('click', (e) => {
+        const act = e.target.closest('[data-vpn-activate]');
+        if (act) { vpnActivate(act.dataset.vpnActivate); return; }
+        if (e.target.closest('[data-vpn-deactivate]')) { vpnDeactivate(); return; }
+        const del = e.target.closest('[data-vpn-del]');
+        if (del) { vpnDelete(del.dataset.vpnDel); return; }
+    });
+
     // Refresh all Pack 10/11/20 tabs when opened
     const _origPack10Switch = window.switchTab;
     window.switchTab = function (name) {
@@ -15102,5 +15219,6 @@ Reglas:
         if (name === 'phishing') refreshPhishingSim();
         if (name === 'labs') refreshLabs();
         if (name === 'privacy') refreshPrivacy();
+        if (name === 'vpn') refreshVpn();
     };
 });

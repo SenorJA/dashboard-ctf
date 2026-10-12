@@ -18,7 +18,7 @@ services:
     restart: unless-stopped
     cap_add:
       - NET_RAW
-      - NET_ADMIN
+      - NET_ADMIN   # Pack 21: needed to create WireGuard/OpenVPN tun interfaces
     sysctls:
       - net.ipv4.ping_group_range=0 2147483647
     volumes:

@@ -221,6 +221,12 @@ try:
 except Exception:  # pragma: no cover
     priv = None  # type: ignore
 
+# ── Pack 21: VPN (WireGuard / OpenVPN) management on the Kali host ──
+try:
+    from backend import vpn as vpn
+except Exception:  # pragma: no cover
+    vpn = None  # type: ignore
+
 # ── Browser Capture (HAR import, session storage, security analysis) ──
 from backend.browser_capture import (
     import_har as bc_import,
@@ -3992,6 +3998,8 @@ async def _record_startup():
         labs.load_from_store()
         if priv is not None:
             priv.hydrate()
+        if vpn is not None:
+            vpn.hydrate()
         logger.info("Workspace-store hydration complete")
     except Exception as e:
         logger.warning("Workspace-store hydration failed: %s", e)
@@ -8826,5 +8834,88 @@ async def priv_status():
     if priv is None:
         return JSONResponse({"ok": False, "error": "privacy not available"}, status_code=500)
     result = await asyncio.to_thread(priv.status)
+    return JSONResponse(result)
+
+
+# --- VPN (WireGuard / OpenVPN) management (Pack 21) ---
+@app.get("/api/vpn/summary")
+async def vpn_summary():
+    if vpn is None:
+        return JSONResponse({"ok": False, "error": "vpn not available"}, status_code=500)
+    return JSONResponse({"ok": True, **vpn.summary()})
+
+
+@app.get("/api/vpn/profiles")
+async def vpn_list():
+    if vpn is None:
+        return JSONResponse({"ok": False, "error": "vpn not available"}, status_code=500)
+    return JSONResponse({"ok": True, "profiles": [p.to_public() for p in vpn.registry.list()]})
+
+
+@app.post("/api/vpn/profiles")
+async def vpn_create(req: dict):
+    if vpn is None:
+        return JSONResponse({"ok": False, "error": "vpn not available"}, status_code=500)
+    req = req or {}
+    name = (req.get("name") or "").strip()
+    protocol = (req.get("protocol") or "wireguard").strip().lower()
+    config = req.get("config") or ""
+    err = vpn.validate(protocol, name, config)
+    if err:
+        return JSONResponse({"ok": False, "error": err}, status_code=400)
+    profile = vpn.registry.add(name=name, protocol=protocol, config=config)
+    return JSONResponse({"ok": True, "profile": profile.to_public()}, status_code=201)
+
+
+@app.get("/api/vpn/profiles/{vid}")
+async def vpn_get(vid: str):
+    if vpn is None:
+        return JSONResponse({"ok": False, "error": "vpn not available"}, status_code=500)
+    profile = vpn.registry.get(vid)
+    if not profile:
+        return JSONResponse({"ok": False, "error": "vpn profile not found"}, status_code=404)
+    return JSONResponse({"ok": True, "profile": profile.to_public()})
+
+
+@app.delete("/api/vpn/profiles/{vid}")
+async def vpn_delete(vid: str):
+    if vpn is None:
+        return JSONResponse({"ok": False, "error": "vpn not available"}, status_code=500)
+    if not vpn.registry.delete(vid):
+        return JSONResponse({"ok": False, "error": "vpn profile not found"}, status_code=404)
+    return JSONResponse({"ok": True, "deleted": vid})
+
+
+@app.post("/api/vpn/profiles/{vid}/activate")
+async def vpn_activate(vid: str):
+    if vpn is None:
+        return JSONResponse({"ok": False, "error": "vpn not available"}, status_code=500)
+    result = await asyncio.to_thread(vpn.apply_vpn, vid)
+    if not result.get("ok") and result.get("error") == "vpn profile not found":
+        return JSONResponse(result, status_code=404)
+    return JSONResponse(result)
+
+
+@app.post("/api/vpn/deactivate")
+async def vpn_deactivate():
+    if vpn is None:
+        return JSONResponse({"ok": False, "error": "vpn not available"}, status_code=500)
+    result = await asyncio.to_thread(vpn.clear_vpn)
+    return JSONResponse(result)
+
+
+@app.get("/api/vpn/ip")
+async def vpn_ip():
+    if vpn is None:
+        return JSONResponse({"ok": False, "error": "vpn not available"}, status_code=500)
+    result = await asyncio.to_thread(vpn.public_ip, True)
+    return JSONResponse(result)
+
+
+@app.get("/api/vpn/status")
+async def vpn_status():
+    if vpn is None:
+        return JSONResponse({"ok": False, "error": "vpn not available"}, status_code=500)
+    result = await asyncio.to_thread(vpn.status)
     return JSONResponse(result)
 
