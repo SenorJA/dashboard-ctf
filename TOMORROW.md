@@ -249,6 +249,7 @@
 - ⬜ Opcional: Fase 7 Cloudflare Tunnel (dominio) — andamiaje listo en `docker-compose.yml` (profile `cloudflared`).
 - ⬜ **Pack 19 — Wi-Fi real**: probar el flujo aircrack-ng en un Kali **físico** con adaptador en monitor mode (`MIRV_WIRELESS_HOST/PORT/USER/KEY/PASS`). El resto del Pack 19 está verificado en Docker (sección 15 de `docs/MANUAL_VERIFICATION.md`).
 - ✅ **Privacidad de IP — proxy + VPN**: **proxy SOCKS5/HTTP** (Pack 20, tab Privacy, proxychains) y **VPN real WireGuard/OpenVPN** (Pack 21, tab VPN) implementados. `NET_ADMIN` + `/dev/net/tun` ya en `docker-compose` (`kali-tools`); la VPN enruta todo el tráfico de auditoría a nivel de red (el proxy solo a nivel de herramienta). Claves privadas redactadas en las respuestas.
+- 🔁 **Mantenimiento disco Docker (recurrente)**: cuando el disco del vhdx baje de ~20 GB libres → `docker image prune -a -f` + `docker builder prune -a -f` y, si el vhdx supera ~35 GB, `scripts/compact-docker-vhdx.ps1`. **Nunca matar `diskpart` a mitad** (deja "disco fantasma" VDS). Guía + recuperación: `docs/DISK_MAINTENANCE.md`.
 
 ### Prioridad ALTA — Hecho ✅
 - [x] ~~Docker rebuild + smoke test~~ — ✅ Rebuild completo, ambos containers healthy
@@ -849,3 +850,39 @@ backend/skills/ (28 total)
 3. **Separación visual**: el badge ⚠️ y el banner evitan que un operador cargue accidentalmente un skill ofensivo pensando que es defensivo.
 4. **Precedente**: el skill `password-audit` ya cubre Hydra/Medusa/Ncrack (brute force) con el patrón ético `## IMPORTANT` + scope + autorización.
 5. **Trazabilidad**: el Audit Log registra `skill_load` con `category=red-team` — auditoría completa.
+
+---
+
+## 🩺 Postmortem — Docker vhdx hinchado + "disco fantasma" VDS (12 Oct 2026)
+
+> F: llevaba meses degradándose: `docker_data.vhdx` de **73,43 GB** con solo ~11 GB reales de Docker.
+> El primer intento de compactación quedó colgado y se mató `diskpart` → VDS dejó un **disco fantasma**
+> que bloqueaba `attach`/`detach` ("ya está expuesto" / "ya está oculto"). Resultado final:
+> vhdx **26,13 GB** (−48,4 GB) y F: de **0,36 → 65,65 GB libres**, contenedores `healthy`, cero pérdidas.
+
+### Síntomas
+| Señal | Detalle |
+|---|---|
+| C: 2,5 GB / F: 0,63 GB libres | el vhdx vive en F: (junction `%LOCALAPPDATA%\Docker\wsl` → `F:\docker\wsl`, creado por `F:\docker\setup_docker.bat`) |
+| `docker system df` ≈ 11 GB vs vhdx 73,43 GB | `prune` libera **dentro** del vhdx, pero el fichero **nunca encoge solo** |
+| `Get-Disk` → `Disco 2 Msft Virtual Disk` | disco **fantasma** "Expuesto no abierto" (VDS sin proceso dueño) |
+| `attach vdisk` → "ya está expuesto" / `detach vdisk` → "ya está oculto" | estado VDS corrupto tras matar `diskpart` a mitad |
+
+### Causa raíz
+`diskpart compact` quedó en "Compactando" (primera pasada) y **se mató el proceso** — el wrapper del
+comando expiró. VDS conserva el handle "expuesto" sin proceso y rechaza nuevos `attach`/`detach`.
+Sobre USB la compactación tarda **horas** y el porcentaje se queda clavado (10 % durante ~15 min,
+84 % durante ~40 min): **es normal**, no está colgado — matarlo es lo que corrompe el estado.
+
+### Fix aplicado
+1. `Stop-Service vds -Force; Start-Service vds` → limpió el "Compactando" colgado.
+2. `diskpart: select vdisk + detach vdisk` → limpió el fantasma (sin tocar datos).
+3. Compact en **proceso separado sin matarlo** (progreso medido por I/O de F:, no por %): 10→84→97→100 % en ~3 h.
+4. `detach vdisk` final → `Get-Disk` limpio → Docker Desktop arrancado → ambos contenedores `healthy`.
+
+### Prevención institucionalizada
+- Script one-shot [`scripts/compact-docker-vhdx.ps1`](scripts/compact-docker-vhdx.ps1): para Docker +
+  `wsl --shutdown` y hace `attach readonly + compact + detach` en **una sola sesión diskpart**.
+- Guía completa con recuperación paso a paso: [`docs/DISK_MAINTENANCE.md`](docs/DISK_MAINTENANCE.md).
+- Regla: **nunca** matar `diskpart`; para distinguir "lento" de "colgado", medir I/O de F:
+  (`Win32_PerfFormattedData_PerfDisk_LogicalDisk`), no CPU ni %.

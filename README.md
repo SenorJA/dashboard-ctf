@@ -6,10 +6,10 @@
 
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-latest-009688?logo=fastapi)](https://fastapi.tiangolo.com)
-[![Endpoints](https://img.shields.io/badge/endpoints-352-9cf)](#-api-resumen)
-[![Tests](https://img.shields.io/badge/tests-5232_✔️-2ea44f?logo=pytest)](#-testing)
+[![Endpoints](https://img.shields.io/badge/endpoints-375-9cf)](#-api-resumen)
+[![Tests](https://img.shields.io/badge/tests-5389_✔️-2ea44f?logo=pytest)](#-testing)
 [![Coverage](https://img.shields.io/badge/coverage-~95%25-2ea44f)](#-testing)
-[![Tabs](https://img.shields.io/badge/frontend%20tabs-36-9cf)](#-features-principales)
+[![Tabs](https://img.shields.io/badge/frontend%20tabs-38-9cf)](#-features-principales)
 [![Kali](https://img.shields.io/badge/Kali-Linux-557C94?logo=kalilinux)](https://kali.org)
 [![CI/CD](https://img.shields.io/github/actions/workflow/status/SenorJA/dashboard-ctf/ci.yml?label=CI%2FCD&logo=githubactions)](https://github.com/SenorJA/dashboard-ctf/actions)
 
@@ -43,9 +43,9 @@
 M.I.R.V. es una **plataforma modular todo-en-uno** para operaciones de ciberseguridad ofensiva y defensiva. Combina:
 
 - **Terminal SSH interactivo** vía WebSocket (navegador → Kali Linux)
-- **366 endpoints REST** (358 `/api/*` + 8 landings/estáticas) contra Supabase (PostgreSQL)
-- **60 módulos backend** con ~95% de cobertura de tests (`main.py` al 100%)
-- **37 tabs frontend** en una SPA vanilla JS + Tailwind
+- **375 endpoints REST** (367 `/api/*` + 8 landings/estáticas) contra Supabase (PostgreSQL)
+- **61 módulos backend** con ~95% de cobertura de tests (`main.py` al 100%)
+- **38 tabs frontend** en una SPA vanilla JS + Tailwind
 - **IA multi-proveedor** para informes, sugerencias, chat, análisis de laboratorios y **write-ups dark-mode** (HTML/PDF)
 - **Lab Sessions** (Pack 11): máquinas → sesiones → evidencias con **detección determinista de flags** user/root y análisis IA sobre el historial completo
 - **Code Agent** (Pack 10/12): puente headless multi-proveedor (**opencode · Claude Code · codex** a futuro) con salida redactada
@@ -66,7 +66,7 @@ M.I.R.V. es una **plataforma modular todo-en-uno** para operaciones de cibersegu
 │  (SPA + JS)  │ ◄──────────── │  (main.py)   │ ◄───────────── │  (50+ tools) │
 └──────┬───────┘               └──────┬───────┘                └──────────────┘
        │                              │
-       │  fetch() /api/* (337)        │  CRUD
+       │  fetch() /api/* (367)        │  CRUD
        ▼                              ▼
 ┌──────────────────────────────────────────┐
 │              Supabase (PostgreSQL)        │
@@ -77,7 +77,7 @@ M.I.R.V. es una **plataforma modular todo-en-uno** para operaciones de cibersegu
 **Flujo de datos:**
 1. **Frontend SPA** (HTML + vanilla JS + Tailwind CDN) — sin bundler, sin build step.
 2. **WebSocket** (`/ws`) proxy SSH bidireccional: navegador ↔ FastAPI ↔ Kali (Paramiko).
-3. **API REST** (`/api/*` + landings públicas) ~366 endpoints para operaciones CRUD y análisis.
+3. **API REST** (`/api/*` + landings públicas) ~375 endpoints para operaciones CRUD y análisis.
 4. **Supabase** (PostgreSQL) con 18 tablas + Storage bucket para archivos (+ `workspace_state` JSONB para registros opt-in).
 5. **Módulos del backend** (57 archivos) operan vía SSH sobre Kali o vía HTTP directo.
 
@@ -334,10 +334,13 @@ python -c "from backend.skill_router import run_benchmarks as r; print(r())"
 `GET /api/router/benchmark` devuelve lo mismo por HTTP, y `GET /api/router/tool-index` lista las **108 herramientas** detectadas en el host con `which`.
 
 **¿Qué gestor de paquetes usa el frontend?**
-Ninguno. El frontend es **vanilla JS sin build step**: un solo `index.html` (~3960 líneas) + `js/main.v2.js` (~14.000 líneas), Tailwind vía CDN. No hay `package.json` ni bundler. Solo el **desktop** (Tauri, `desktop/`) usa npm.
+Ninguno. El frontend es **vanilla JS sin build step**: un solo `index.html` (~4.300 líneas) + `js/main.v2.js` (~15.200 líneas), Tailwind vía CDN. No hay `package.json` ni bundler. Solo el **desktop** (Tauri, `desktop/`) usa npm.
 
 **¿Cómo configuro la IA?**
 Cualquier endpoint compatible con OpenAI: Ollama local (gratis), OpenRouter, OpenAI, Anthropic, etc. Configúralo desde el tab **AI Writeup** o vía localStorage (`mirv_ai_endpoint`, `mirv_ai_model`).
+
+**¿Docker/F: se quedan sin espacio o aparece un "disco fantasma"?**
+El `docker_data.vhdx` de Docker Desktop (vive en `F:` vía junction) **nunca encoge solo**: `docker prune` libera espacio dentro, pero el fichero sigue igual. Compactarlo mal (matar `diskpart` a mitad) deja un **disco fantasma** del servicio VDS ("ya está expuesto" / "ya está oculto"). Procedimiento seguro de compactación, script one-shot y recuperación paso a paso: [`docs/DISK_MAINTENANCE.md`](docs/DISK_MAINTENANCE.md).
 
 ---
 
@@ -345,14 +348,14 @@ Cualquier endpoint compatible con OpenAI: Ollama local (gratis), OpenRouter, Ope
 
 ```
 mirv/
-├── backend/          # FastAPI + 60 módulos (main.py ~8830 líneas, database.py, opsec.py, ...)
+├── backend/          # FastAPI + 61 módulos (main.py ~8920 líneas, database.py, opsec.py, ...)
 │   ├── plugins/      # Sistema de plugins (hot-reload)
-│   ├── skills/       # 112 skill playbooks (Markdown + frontmatter) + router/ (routing.json, benchmarks.json)
+│   ├── skills/       # 113 skill playbooks (Markdown + frontmatter) + router/ (routing.json, benchmarks.json)
 │   ├── burp_plugin/  # Plugin Jython para Burp Suite
-│   └── tests/        # 115 archivos, 5321 tests (~95% cobertura)
-├── frontend/         # SPA vanilla JS + Tailwind CDN (37 tabs)
-│   ├── index.html    # SPA principal (~4065 líneas)
-│   └── js/           # main.v2.js (~14.000 líneas), dataservice, mobile, forensics, swarm
+│   └── tests/        # 116 archivos, 5389 tests (~95% cobertura)
+├── frontend/         # SPA vanilla JS + Tailwind CDN (38 tabs)
+│   ├── index.html    # SPA principal (~4.300 líneas)
+│   └── js/           # main.v2.js (~15.200 líneas), dataservice, mobile, forensics, swarm
 ├── desktop/          # App de escritorio (Tauri v2 + sidecar PyInstaller + updater firmado)
 ├── deploy/           # VPS bootstrap + Cloudflare Tunnel setup
 ├── docker/           # Dockerfiles (mirv-backend, kali-tools)
@@ -389,10 +392,11 @@ mirv/
 |---------|-----------|
 | [`AGENTS.md`](AGENTS.md) | Documentación técnica completa para agentes IA (arquitectura, módulos, API) |
 | [`TOMORROW.md`](TOMORROW.md) | Postmortems, siguientes pasos, lecciones aprendidas |
-| [`docs/MANUAL_VERIFICATION.md`](docs/MANUAL_VERIFICATION.md) | Runbook de verificación manual E2E (Supabase, Docker, Packs 10–19) |
+| [`docs/MANUAL_VERIFICATION.md`](docs/MANUAL_VERIFICATION.md) | Runbook de verificación manual E2E (Supabase, Docker, Packs 10–21) |
 | [`PRODUCTION_PLAN.md`](PRODUCTION_PLAN.md) | Plan de despliegue en producción (VPS + Cloudflare) |
 | [`ROADMAP.md`](ROADMAP.md) | Roadmap de desarrollo por fases |
 | [`DOCKER_GUIDE.md`](DOCKER_GUIDE.md) | Guía técnica completa del stack Docker |
+| [`docs/DISK_MAINTENANCE.md`](docs/DISK_MAINTENANCE.md) | Mantenimiento del `vhdx` de Docker en F: + recuperación del "disco fantasma" de VDS (script incluido) |
 | [`docs/SECURITY_AUDIT_OSINT_2026-08-15.md`](docs/SECURITY_AUDIT_OSINT_2026-08-15.md) | Auditoría de seguridad de endpoints OSINT |
 | [`PERSISTENCE_AUDIT.md`](PERSISTENCE_AUDIT.md) | Auditoría de persistencia de datos |
 | [`MIRV_DESKTOP_PLAN.md`](MIRV_DESKTOP_PLAN.md) | Plan para app desktop con Tauri |
@@ -420,7 +424,7 @@ M.I.R.V. está diseñado para:
 
 <div align="center">
 
-**M.I.R.V. v3.5.0** — 366 endpoints · 5321 tests · ~95% cobertura · 37 tabs · 60 módulos
+**M.I.R.V. v3.5.0** — 375 endpoints · 5389 tests · ~95% cobertura · 38 tabs · 61 módulos
 
 [Reportar bug](https://github.com/SenorJA/dashboard-ctf/issues) · [Sugerir mejora](https://github.com/SenorJA/dashboard-ctf/issues) · [Documentación técnica](AGENTS.md)
 

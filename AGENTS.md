@@ -73,9 +73,10 @@ C:\Users\34678\Desktop\Proyecto ciber\
 │   │   └── deploy.yml         # Docker build → Docker Hub → SSH deploy to VPS
 │   └── SECRETS.md             # Secrets/variables setup guide
 ├── framework/                  # Architecture plans per module (PLAN.md files)
+├── scripts/                    # Utilidades (compact-docker-vhdx.ps1 — mantenimiento del vhdx de Docker)
 ├── .opencode/
 │   └── agents/                 # OpenCode agent definitions
-└── docs: README.md, ROADMAP.md, PRODUCTION_PLAN.md, PERSISTENCE_AUDIT.md, MIRV_DESKTOP_PLAN.md, VULNFORGE_VS_T3MP3ST.md, DOCKER_GUIDE.md, TOMORROW.md, MANUAL_VERIFICATION.md
+└── docs: README.md, ROADMAP.md, PRODUCTION_PLAN.md, PERSISTENCE_AUDIT.md, MIRV_DESKTOP_PLAN.md, VULNFORGE_VS_T3MP3ST.md, DOCKER_GUIDE.md, TOMORROW.md, MANUAL_VERIFICATION.md, DISK_MAINTENANCE.md
 ```
 
 ## How to run
@@ -446,6 +447,7 @@ cd backend
 - **Backend assumes Kali Linux** is reachable on LAN (or via Docker `kali-tools` container).
 - **Docker-in-Docker**: Docker commands run from inside `mirv-backend` via mounted `/var/run/docker.sock`. All compose commands use `-p proyectociber`.
 - **Container-safe operations**: Start/stop/clean only affect `kali-tools` (never self-destruct `mirv-backend`).
+- **Mantenimiento disco Docker (vhdx en F:)**: `F:\docker\wsl\disk\docker_data.vhdx` (junction en `%LOCALAPPDATA%\Docker\wsl`) **nunca encoge solo**. Compactar SOLO con `scripts/compact-docker-vhdx.ps1` (Docker parado + `wsl --shutdown` + `attach readonly`/`compact`/`detach` en una única sesión diskpart). **NUNCA matar `diskpart` a mitad** → deja un "disco fantasma" VDS ("ya está expuesto"/"ya está oculto"); recuperación: `Stop-Service vds -Force` + `Start-Service vds` → `detach vdisk`; si persiste, reiniciar Windows. Guía: `docs/DISK_MAINTENANCE.md`.
 - **Plugin auto-load**: `auto_load_new=False` by default — never auto-execute new Python just because a file appeared.
 - **GitHub Push Protection**: test files must not contain real-looking secrets (build strings in fragments if needed).
 - **Sidecar de escritorio (PyInstaller)**: `backend/mirv-backend.spec` empaqueta `backend/{skills,plugins,agents}` + `frontend/` en un one-file `dist/mirv-backend.exe`; hay que copiarlo a `desktop/src-tauri/binaries/mirv-backend-<target-triple>.exe` (nombre que exige `bundle.externalBin`). Si falta `agents/`, la app de escritorio arranca con **0 personas**.
