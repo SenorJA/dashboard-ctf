@@ -2440,7 +2440,7 @@ ${bodyHtml}
                 <span class="text-[10px] text-gray-500 font-mono w-12 shrink-0">${it.type === 'tool' ? '⚡' : it.type === 'tab' ? '▦' : '→'}</span>
                 <span class="text-[11px] text-gray-200 flex-1">${_paletteEsc(it.label)}</span>
                 ${it.cat ? `<span class="text-[9px] text-cyber font-mono">${_paletteEsc(it.cat)}</span>` : ''}
-                ${it.hint ? `<span class="text-[9px] text-gray-600 font-mono truncate max-w-[130px]">${_paletteEsc(it.hint)}</span>` : ''}
+                ${it.hint ? `<span class="text-[9px] text-gray-400 font-mono truncate max-w-[130px]">${_paletteEsc(it.hint)}</span>` : ''}
             </button>`).join('');
         box.querySelectorAll('.palette-row').forEach(b => {
             b.addEventListener('click', () => _paletteRun(parseInt(b.dataset.pidx, 10), false));
@@ -11465,7 +11465,7 @@ Reglas:
             ? `<div class="border-t border-gray-800 pt-2 mt-2">
                  <p class="text-[10px] text-gray-500 font-semibold tracking-wider uppercase mb-1">${_esc(_t('router-alternatives'))}</p>
                  <div class="flex flex-wrap gap-1">${j.alternatives.map(a =>
-                     `<span class="text-[10px] px-2 py-0.5 rounded bg-gray-800/60 text-gray-400 font-mono"${a.skill ? ` onclick="routerOpenSkill('${_esc(a.skill)}')" style="cursor:pointer" title="${_esc(a.label)}"` : ''}>${_esc(a.label)} <span class="text-gray-600">(${a.hits})</span></span>`).join('')}</div>
+                     `<span class="text-[10px] px-2 py-0.5 rounded bg-gray-800/60 text-gray-400 font-mono"${a.skill ? ` onclick="routerOpenSkill('${_esc(a.skill)}')" style="cursor:pointer" title="${_esc(a.label)}"` : ''}>${_esc(a.label)} <span class="text-gray-400">(${a.hits})</span></span>`).join('')}</div>
                </div>`
             : '';
         box.innerHTML = `
@@ -11482,7 +11482,7 @@ Reglas:
                 </div>
                 <div class="flex items-center gap-2 mt-1 flex-wrap">
                     <span class="text-[10px] text-gray-500 uppercase font-semibold tracking-wider">${_esc(_t('router-tools'))}:</span>
-                    ${(p.tools && p.tools.length) ? p.tools.map(t => `<span class="text-[10px] px-2 py-0.5 rounded bg-deep border border-gray-800 text-gray-300 font-mono">${_esc(t)}</span>`).join('') : `<span class="text-[10px] text-gray-600 font-mono">—</span>`}
+                    ${(p.tools && p.tools.length) ? p.tools.map(t => `<span class="text-[10px] px-2 py-0.5 rounded bg-deep border border-gray-800 text-gray-300 font-mono">${_esc(t)}</span>`).join('') : `<span class="text-[10px] text-gray-400 font-mono">—</span>`}
                 </div>
                 ${altHtml}
             </div>`;
@@ -11533,10 +11533,10 @@ Reglas:
         const f = (filter || '').trim().toLowerCase();
         const entries = Object.entries(tools)
             .filter(([tool]) => !f || tool.toLowerCase().includes(f));
-        if (!entries.length) { list.innerHTML = '<span class="text-[10px] text-gray-600 font-mono">—</span>'; return; }
+        if (!entries.length) { list.innerHTML = '<span class="text-[10px] text-gray-400 font-mono">—</span>'; return; }
         list.innerHTML = entries.map(([tool, present]) => {
             const isDetected = present || (detected && detected.has(tool));
-            return `<span class="text-[10px] px-2 py-0.5 rounded font-mono border ${isDetected ? 'bg-neon/10 border-neon/30 text-neon' : 'bg-void/60 border-gray-800 text-gray-600'}">${_esc(tool)} ${isDetected ? '✓' : '·'}</span>`;
+            return `<span class="text-[10px] px-2 py-0.5 rounded font-mono border ${isDetected ? 'bg-neon/10 border-neon/30 text-neon' : 'bg-void/60 border-gray-800 text-gray-400'}">${_esc(tool)} ${isDetected ? '✓' : '·'}</span>`;
         }).join('');
     }
 
@@ -13213,7 +13213,7 @@ Reglas:
                         <span class="text-[10px] text-gray-500 whitespace-nowrap">${_escH(r.ip || '')}</span>
                     </div>
                     ${r.url ? `<div class="text-[10px] text-gray-400 truncate">${_escH(r.url)}</div>` : ''}
-                    <div class="text-[9px] text-gray-600">${_escH(r.country || '')} ${_escH(r.server || '')} ${_escH(r.asn || '')}</div>
+                    <div class="text-[9px] text-gray-400">${_escH(r.country || '')} ${_escH(r.server || '')} ${_escH(r.asn || '')}</div>
                 </div>`).join('') || '<div class="text-gray-500 text-xs">no public scans found</div>';
             _osintRender('osint-urlscan-result', `
                 <div class="bg-void border border-cyber rounded p-3 text-xs">
@@ -13708,13 +13708,13 @@ Reglas:
                 <div class="flex items-center gap-1.5 flex-wrap">
                     <span>${kindIcon}</span>
                     <span class="text-cyber font-semibold">${esc(a.address)}</span>
-                    <span class="text-[8px] uppercase text-gray-600">${esc(a.kind)}</span>
+                    <span class="text-[8px] uppercase text-gray-400">${esc(a.kind)}</span>
                     <span class="px-1.5 py-0.5 rounded border text-[8px] ${statusCls}">${esc(a.status)}</span>
                     ${a.label ? `<span class="text-gray-400">${esc(a.label)}</span>` : ''}
-                    <span class="text-gray-600">${esc(a.source)}</span>
+                    <span class="text-gray-400">${esc(a.source)}</span>
                     <span class="ml-auto flex items-center gap-1.5">
                         <span class="text-gray-500">🔎 ${a.findings_count || 0}</span>
-                        <button onclick="deleteAsset('${esc(a.id)}')" class="text-gray-600 hover:text-blood transition-colors" title="delete asset">✕</button>
+                        <button onclick="deleteAsset('${esc(a.id)}')" class="text-gray-400 hover:text-blood transition-colors" title="delete asset">✕</button>
                     </span>
                 </div>
                 ${a.label || portChips || svcChips || tags ? `
@@ -13776,7 +13776,7 @@ Reglas:
                 <span class="inline-flex items-center gap-1 bg-void border border-cyber/20 rounded px-1.5 py-0.5 font-mono text-[10px] text-cyber">
                     ${esc(t)}
                     <button class="text-gray-500 hover:text-blood" data-action="assessment-remove-target" data-aid="${esc(a.id)}" data-target="${esc(t)}" title="remove target">✕</button>
-                </span>`).join('') || '<span class="text-gray-600 text-[10px] italic">no targets</span>';
+                </span>`).join('') || '<span class="text-gray-400 text-[10px] italic">no targets</span>';
             const tags = (a.tags || []).map(t => `<span class="text-[9px] text-gray-500 border border-gray-800 rounded px-1">#${esc(t)}</span>`).join(' ');
             const badgeCls = _assessStatusBadge[a.status] || _assessStatusBadge.planning;
             const isActive = active && active.id === a.id;
@@ -14512,7 +14512,7 @@ Reglas:
                     <span class="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-mono border border-gray-700" style="color:${col};border-color:${col}55">${_psEsc(a.division)}</span>
                 </div>
                 <p class="text-[10px] text-gray-400 mt-1">${_psEsc(a.description || '')}</p>
-                <div class="flex items-center justify-between mt-2 text-[9px] font-mono text-gray-600">
+                <div class="flex items-center justify-between mt-2 text-[9px] font-mono text-gray-400">
                     <span>${Number(a.chars || 0).toLocaleString()} chars</span>
                     <span>${a.editable ? '✎ custom' : '🔒 bundled'}</span>
                 </div>
@@ -14698,7 +14698,7 @@ Reglas:
                         <div class="text-[10px] text-gray-500 mt-0.5">
                             clicks ${c.clicks || 0} · submissions ${c.submissions || 0} · hashes ${(c.hashes || []).length}
                             <span class="text-cyber block truncate">${_ocEsc(url)}</span>
-                            <span class="text-gray-600">· autorizado por ${_ocEsc(c.authorized_by || '')}</span>
+                            <span class="text-gray-400">· autorizado por ${_ocEsc(c.authorized_by || '')}</span>
                         </div>
                     </div>
                     <div class="flex gap-1.5">${actions.join('')}</div>
@@ -14748,8 +14748,8 @@ Reglas:
     const _labs = { machineId: null, sessionId: null, narrative: null };
 
     function _labsFlagBadges(s) {
-        const u = s.user_flag_captured ? '<span class="text-emerald-400">user ✅</span>' : '<span class="text-gray-600">user ✗</span>';
-        const r = s.root_flag_captured ? '<span class="text-rose-400">root ✅</span>' : '<span class="text-gray-600">root ✗</span>';
+        const u = s.user_flag_captured ? '<span class="text-emerald-400">user ✅</span>' : '<span class="text-gray-400">user ✗</span>';
+        const r = s.root_flag_captured ? '<span class="text-rose-400">root ✅</span>' : '<span class="text-gray-400">root ✗</span>';
         return `${u} · ${r}`;
     }
 
