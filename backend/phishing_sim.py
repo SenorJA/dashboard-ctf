@@ -71,7 +71,7 @@ _BANNER = (
 )
 
 _REGISTRY: Dict[str, "PhishingCampaign"] = {}
-_LOCK = threading.Lock()
+_LOCK = threading.RLock()
 _HYDRATED = False
 
 
@@ -108,7 +108,8 @@ def _p_hash(value: str) -> str:
 
 def _persist() -> None:
     if _store and _store.is_enabled():
-        payload = [asdict(c) for c in _REGISTRY.values()]
+        with _LOCK:
+            payload = [asdict(c) for c in _REGISTRY.values()]
         _store.upsert("phishing", payload)
 
 
@@ -117,22 +118,23 @@ _CAMPAIGN_FIELDS = frozenset(asdict(PhishingCampaign("", "", "", "", "")).keys()
 
 def _hydrate() -> None:
     global _HYDRATED
-    if _HYDRATED:
-        return
-    _HYDRATED = True
-    if not _store or not _store.is_enabled():
-        return
-    try:
-        rows = _store.load("phishing")
-        if not rows:
+    with _LOCK:
+        if _HYDRATED:
             return
-        for row in rows:
-            camp = PhishingCampaign(**{
-                k: v for k, v in row.items() if k in _CAMPAIGN_FIELDS
-            })
-            _REGISTRY[camp.id] = camp
-    except Exception as exc:  # pragma: no cover - defensive
-        logger.warning("phishing_sim hydrate failed: %s", exc)
+        if not _store or not _store.is_enabled():
+            _HYDRATED = True
+            return
+        try:
+            rows = _store.load("phishing")
+            for row in rows or []:
+                camp = PhishingCampaign(**{
+                    k: v for k, v in row.items() if k in _CAMPAIGN_FIELDS
+                })
+                _REGISTRY[camp.id] = camp
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.warning("phishing_sim hydrate failed: %s", exc)
+            return
+        _HYDRATED = True
 
 
 def templates() -> list:
@@ -178,18 +180,19 @@ def create_campaign(
         return None, "name, target y authorized_by son obligatorios"
     if template_id not in TRAINING_TEMPLATES:
         return None, f"plantilla desconocida: {template_id}"
-    if len(_REGISTRY) >= MAX_CAMPAIGNS:  # pragma: no cover - bound guard
-        return None, f"límite alcanzado ({MAX_CAMPAIGNS} campañas)"
-    campaign = PhishingCampaign(
-        id=_gen_id(),
-        name=name,
-        template_id=template_id,
-        target=target,
-        authorized_by=authorized_by,
-        notes=(notes or "").strip(),
-        created_at=_now(),
-    )
-    _REGISTRY[campaign.id] = campaign
+    with _LOCK:
+        if len(_REGISTRY) >= MAX_CAMPAIGNS:  # pragma: no cover - bound guard
+            return None, f"límite alcanzado ({MAX_CAMPAIGNS} campañas)"
+        campaign = PhishingCampaign(
+            id=_gen_id(),
+            name=name,
+            template_id=template_id,
+            target=target,
+            authorized_by=authorized_by,
+            notes=(notes or "").strip(),
+            created_at=_now(),
+        )
+        _REGISTRY[campaign.id] = campaign
     _persist()
     return campaign, None
 
@@ -197,34 +200,37 @@ def create_campaign(
 def activate_campaign(campaign_id: str) -> Tuple[Optional[PhishingCampaign], Optional[str]]:
     """Mark a campaign as ``active`` (only the active ones serve the landing)."""
     _hydrate()
-    campaign = _REGISTRY.get(campaign_id)
-    if not campaign:
-        return None, "campaña no encontrada"
-    if campaign.status == "archived":
-        return None, "campaña archivada no se puede reactivar"
-    campaign.status = "active"
-    if not campaign.started_at:
-        campaign.started_at = _now()
-    campaign.finished_at = ""
+    with _LOCK:
+        campaign = _REGISTRY.get(campaign_id)
+        if not campaign:
+            return None, "campaña no encontrada"
+        if campaign.status == "archived":
+            return None, "campaña archivada no se puede reactivar"
+        campaign.status = "active"
+        if not campaign.started_at:
+            campaign.started_at = _now()
+        campaign.finished_at = ""
     _persist()
     return campaign, None
 
 
 def archive_campaign(campaign_id: str) -> Tuple[Optional[PhishingCampaign], Optional[str]]:
     _hydrate()
-    campaign = _REGISTRY.get(campaign_id)
-    if not campaign:
-        return None, "campaña no encontrada"
-    if campaign.status == "active":
-        campaign.finished_at = _now()
-    campaign.status = "archived"
+    with _LOCK:
+        campaign = _REGISTRY.get(campaign_id)
+        if not campaign:
+            return None, "campaña no encontrada"
+        if campaign.status == "active":
+            campaign.finished_at = _now()
+        campaign.status = "archived"
     _persist()
     return campaign, None
 
 
 def delete_campaign(campaign_id: str) -> bool:
     _hydrate()
-    removed = _REGISTRY.pop(campaign_id, None) is not None
+    with _LOCK:
+        removed = _REGISTRY.pop(campaign_id, None) is not None
     if removed:
         _persist()
     return removed
@@ -233,12 +239,13 @@ def delete_campaign(campaign_id: str) -> bool:
 def record_click(campaign_id: str) -> Tuple[Optional[PhishingCampaign], Optional[str]]:
     """Bump the click counter when a trainee opens the landing URL."""
     _hydrate()
-    campaign = _REGISTRY.get(campaign_id)
-    if not campaign:
-        return None, "campaña no encontrada"
-    if campaign.status != "active":
-        return None, "campaña no activa"
-    campaign.clicks += 1
+    with _LOCK:
+        campaign = _REGISTRY.get(campaign_id)
+        if not campaign:
+            return None, "campaña no encontrada"
+        if campaign.status != "active":
+            return None, "campaña no activa"
+        campaign.clicks += 1
     _persist()
     return campaign, None
 
@@ -250,18 +257,19 @@ def record_submission(
 ) -> Tuple[Optional[dict], Optional[str]]:
     """Record a trainee submission with hashed credentials (never plaintext)."""
     _hydrate()
-    campaign = _REGISTRY.get(campaign_id)
-    if not campaign:
-        return None, "campaña no encontrada"
-    if campaign.status != "active":
-        return None, "campaña no activa"
-    entry = {
-        "u": _p_hash(username or ""),
-        "p": _p_hash(password or ""),
-        "at": _now(),
-    }
-    campaign.hashes.append(entry)
-    campaign.submissions += 1
+    with _LOCK:
+        campaign = _REGISTRY.get(campaign_id)
+        if not campaign:
+            return None, "campaña no encontrada"
+        if campaign.status != "active":
+            return None, "campaña no activa"
+        entry = {
+            "u": _p_hash(username or ""),
+            "p": _p_hash(password or ""),
+            "at": _now(),
+        }
+        campaign.hashes.append(entry)
+        campaign.submissions += 1
     _persist()
     return {
         "campaign_id": campaign.id,

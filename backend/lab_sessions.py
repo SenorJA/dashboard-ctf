@@ -604,6 +604,7 @@ def import_state(rows: List[Dict[str, Any]], replace: bool = False) -> Dict[str,
     """Restore machines/sessions/steps/analyses from JSON. Skips invalid rows."""
     if not isinstance(rows, list):
         raise ValueError("debe ser una lista de machines")
+    global _step_counter
     imported = sessions_in = steps_in = skipped = 0
     with _lock:
         if replace:
@@ -679,6 +680,9 @@ def import_state(rows: List[Dict[str, Any]], replace: bool = False) -> Dict[str,
                         created_at=a.get("created_at", _now_iso()),
                     )
                 _recompute_session_locked(sid)
+        _step_counter = max(
+            _step_counter, max((st.order for st in _steps.values()), default=0)
+        )
     if imported:
         _persist()
     return {

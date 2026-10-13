@@ -140,7 +140,12 @@ def _truncate(text: Optional[str], limit: int) -> Optional[str]:
 def _evidence_hash(excerpt: Optional[str]) -> Optional[str]:
     if not excerpt:
         return None
-    return hashlib.sha256(excerpt.encode("utf-8", errors="replace")).hexdigest()[:12]
+    # Normalize trailing line breaks so a stored excerpt and a replayed
+    # response (curl output always ends in a newline) hash identically.
+    normalized = excerpt.rstrip("\r\n")
+    if not normalized:
+        return None
+    return hashlib.sha256(normalized.encode("utf-8", errors="replace")).hexdigest()[:12]
 
 
 def _quote_shell(value: str) -> str:

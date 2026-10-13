@@ -308,6 +308,15 @@ def test_replay_poc_matches_original_true():
     assert res["matches_original"] is True
 
 
+def test_replay_poc_matches_original_ignores_trailing_newlines():
+    p = build_poc("GET", "https://example.com/", response_excerpt="EVIDENCE\n")
+    fake = _fake_completed(stdout="HTTP/1.1 200 OK\r\n\r\nEVIDENCE\r\n\r\n")
+    with patch("backend.finding_poc.subprocess.run", return_value=fake):
+        res = replay_poc(p, timeout=5)
+    assert res["ok"] is True
+    assert res["matches_original"] is True
+
+
 def test_replay_poc_matches_original_false_when_changed():
     p = build_poc("GET", "https://example.com/", response_excerpt="ORIG")
     fake = _fake_completed(stdout="HTTP/1.1 200 OK\r\n\r\nDIFFERENT\n")

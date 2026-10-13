@@ -433,7 +433,8 @@ def cleanup_candidate(path: str, force: bool = False) -> dict:
     if not path:
         return {"ok": False, "error": "no path provided"}
     normalized = os.path.abspath(path)
-    if _looks_dangerous(normalized) and not force:
+    real = os.path.realpath(normalized)
+    if (_looks_dangerous(normalized) or _looks_dangerous(real)) and not force:
         return {"ok": False, "error": "refusing to delete a dangerous path"}
     if not os.path.exists(normalized) and not os.path.islink(normalized):
         return {"ok": False, "error": "path does not exist"}

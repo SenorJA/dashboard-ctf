@@ -32,7 +32,14 @@ for _env_key in (
 ):
     os.environ.setdefault(_env_key, "")
 
-from main import app  # noqa: E402  -- imports backend.* package tree first
+import backend.main as _backend_main  # noqa: E402  -- loads the backend.* package tree first
+
+# Unify the top-level ``main`` module with ``backend.main`` so that test
+# files importing ``from main import app`` and ``from backend.main import
+# app`` share ONE app instance (previously two module objects → duplicate
+# startup handlers + divergent module state; see the aliasing note below).
+sys.modules.setdefault("main", _backend_main)
+app = _backend_main.app
 
 # ───────────────────────────────────────────────────────────────────
 #  Module-identity aliasing -- prevent "split-module" monkeypatch bugs

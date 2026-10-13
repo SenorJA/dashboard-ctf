@@ -283,6 +283,18 @@ class TestExportImport:
         ls.import_state([{"id": m.id, "name": "B"}], replace=False)
         assert ls.get_machine(m.id)["name"] == "A"
 
+    def test_new_step_after_import_sorts_last(self):
+        m = _machine("A")
+        s = ls.create_session(m.id, "S")
+        ls.add_step(s.id, "one")
+        ls.add_step(s.id, "two")
+        state = ls.export_state()
+        ls.reset_lab_sessions()
+        ls.import_state(state, replace=True)
+        ls.add_step(s.id, "three")
+        cmds = [st["command"] for st in ls.list_steps(s.id)]
+        assert cmds == ["one", "two", "three"]
+
 
 class TestPersistence:
     def test_persist_noop_when_disabled(self):

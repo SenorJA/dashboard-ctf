@@ -408,8 +408,9 @@ def apply_proxy(pid: str) -> Dict[str, Any]:
             return {"ok": False, "error": err.strip(), "applied": results}
         ok = ok and rc == 0
         results.append({"rc": rc, "out": out.strip()[:400], "err": err.strip()[:400]})
-    registry.set_active(pid)
-    return {"ok": ok, "active": pid, "profile": profile.to_public(), "steps": results}
+    if ok:
+        registry.set_active(pid)
+    return {"ok": ok, "active": pid if ok else None, "profile": profile.to_public(), "steps": results}
 
 
 def clear_proxy() -> Dict[str, Any]:

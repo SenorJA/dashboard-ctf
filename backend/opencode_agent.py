@@ -111,7 +111,9 @@ def _resolve_cwd(cwd: Optional[str]) -> Optional[Path]:
     if not cwd:
         return root
     candidate = Path(cwd).expanduser().resolve()
-    if candidate == root or root in candidate.parents:
+    cand_nc = os.path.normcase(str(candidate))
+    root_nc = os.path.normcase(str(root))
+    if cand_nc == root_nc or cand_nc.startswith(root_nc + os.sep):
         return candidate
     return None
 

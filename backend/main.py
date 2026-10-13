@@ -438,7 +438,7 @@ async def _exec_tool_command(tool_id: str, target: str, timeout: int = 90) -> di
 
         out = await asyncio.to_thread(_drain, stdout)
         err = await asyncio.to_thread(_drain, stderr)
-        exit_code = stdout.channel.recv_exit_status()
+        exit_code = await asyncio.to_thread(stdout.channel.recv_exit_status)
         duration_ms = int((time.monotonic() - start) * 1000)
         truncated = len(out) > 8192
         return {
@@ -4148,6 +4148,11 @@ async def agents_run(body: dict):
     if not prompt.strip():
         return JSONResponse({"ok": False, "error": "prompt is required"}, status_code=400)
     from backend import agent_bridge as ab
+    if provider not in ab.PROVIDERS:
+        return JSONResponse(
+            {"ok": False, "error": f"unknown provider '{provider}'. Allowed: {', '.join(ab.PROVIDERS)}"},
+            status_code=400,
+        )
     timeout = int(body.get("timeout") or 0) or None
     result = await asyncio.to_thread(
         ab.run,
@@ -4292,19 +4297,20 @@ async def personas_delete(slug: str):
 #   credentials are NEVER stored in plaintext, only sha256 prefixes)
 # ════════════════════════════════════════════════════════════════
 
-def _ph_upgrade(cid: str) -> Tuple[Optional[object], Optional[str]]:
+def _ph_upgrade(cid: str, ip: str = "") -> Tuple[Optional[object], Optional[str]]:
     """Shared act on a campaign for public endpoints (bumps click, SIEM, audit)."""
     from backend import phishing_sim as ps
     camp, err = ps.record_click(cid)
     if camp is None:
         return None, err or "campaña no encontrada"
+    who = f" from {ip}" if ip else ""
     siem_ingest(
         source="phishing",
         severity="info",
         title="Phishing-awareness click",
-        detail=f"Trainee opened landing of campaign '{camp.name}'",
+        detail=f"Trainee opened landing of campaign '{camp.name}'{who}",
         tags=["phishing", "training", "click"],
-        raw_data={"campaign": camp.id},
+        raw_data={"campaign": camp.id, "ip": ip},
     )
     al_audit("INFO", "tool", "phishing.click",
              f"Campaign '{camp.name}' clicked", details={"campaign_id": cid})
@@ -4405,19 +4411,13 @@ _PH_ENDED_HTML = ("<!doctype html><html lang='es'><meta charset='utf-8'>"
 async def phishing_landing(cid: str, request: Request):
     """Public landing for trainees (no API token required)."""
     ip = request.client.host if request.client else "unknown"
-    camp, err = _ph_upgrade(cid)
+    camp, err = _ph_upgrade(cid, ip)
     if camp is None:
         return HTMLResponse(_PH_ENDED_HTML, status_code=410)
     from backend import phishing_sim as ps
     html, _ = ps.render_landing(cid)
     if html is None:
         return HTMLResponse(_PH_ENDED_HTML, status_code=410)
-    siem_ingest(
-        source="phishing", severity="info",
-        title="Phishing-awareness landing served",
-        detail=f"Click tracked for campaign '{camp.name}' from {ip}",
-        tags=["phishing", "training", "click"], raw_data={"campaign": cid, "ip": ip},
-    )
     return HTMLResponse(html)
 
 
@@ -4629,6 +4629,8 @@ async def labs_get_session(sid: str):
 
 @app.put("/api/labs/sessions/{sid}")
 async def labs_update_session(sid: str, req: LabSessionRequest):
+    if not req.title.strip():
+        return JSONResponse({"error": "title is required"}, status_code=400)
     updated = labs.update_session(sid, req.title)
     if not updated:
         return JSONResponse({"error": "session not found"}, status_code=404)

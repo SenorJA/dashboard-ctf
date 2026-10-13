@@ -174,6 +174,7 @@ def create_asset(
     if source not in VALID_SOURCES:
         source = "manual"
 
+    merged = False
     with _lock:
         k = _key(assessment_id, kind, address)
         existing_id = _index.get(k)
@@ -189,22 +190,24 @@ def create_asset(
                 if source == "manual":
                     a.source = source
                 a.updated_at = _now_iso()
-                return a
-        if len(_assets) >= MAX_ASSETS:
-            raise ValueError(f"max {MAX_ASSETS} assets reached")
-        a = Asset(
-            id=uuid.uuid4().hex[:12],
-            assessment_id=assessment_id,
-            kind=kind,
-            address=address,
-            label=(label or "").strip()[:200],
-            status=status,
-            tags=_clean_tags(tags),
-            notes=(notes or "").strip()[:MAX_NOTES_LENGTH],
-            source=source,
-        )
-        _assets[a.id] = a
-        _index[k] = a.id
+                merged = True
+        if not merged:
+            if len(_assets) >= MAX_ASSETS:
+                raise ValueError(f"max {MAX_ASSETS} assets reached")
+            a = Asset(
+                id=uuid.uuid4().hex[:12],
+                assessment_id=assessment_id,
+                kind=kind,
+                address=address,
+                label=(label or "").strip()[:200],
+                status=status,
+                tags=_clean_tags(tags),
+                notes=(notes or "").strip()[:MAX_NOTES_LENGTH],
+                source=source,
+            )
+            _assets[a.id] = a
+            _index[k] = a.id
+    _persist()
     return a
 
 
