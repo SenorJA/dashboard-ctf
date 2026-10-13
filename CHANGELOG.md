@@ -4,6 +4,34 @@ All notable changes to this project are documented in this file.
 Format based on [Keep a Changelog](https://keepachangelog.com/), auto-generated from Conventional Commits.
 
 ## [Unreleased]
+### Fixed
+- **fix(audit-2026-10-13)**: hallazgos de la auditoría de código (agentes `security` + `reviewer`):
+  - `privacy.apply_proxy`: ya **no** marca el perfil como activo si algún paso falla (`ok=False`) —
+    solo llama a `set_active(pid) if ok` (espejo de `vpn.apply_vpn`); antes el operador creía que su
+    tráfico salía por el proxy aunque la aplicación hubiera fallado.
+  - `assets.create_asset`: ahora llama a `_persist()` (antes el asset vivía solo en memoria y se
+    perdía al reiniciar con `MIRV_PERSIST_WORKSPACE=1`); persistencia fuera del lock, cubre alta y merge.
+  - `phishing_sim`: `_LOCK` era código muerto → ahora `RLock` que serializa `create/activate/archive/
+    delete/record_click/record_submission` + `_hydrate`/`_persist` (snapshot bajo lock, escritura fuera);
+    `_hydrate()` solo marca `_HYDRATED=True` tras un `load()` correcto (antes no reintentaba si el store fallaba).
+  - `phishing_landing`: emitía **dos** eventos SIEM por click (`_ph_upgrade` + endpoint); eliminado el
+    duplicado (el evento de click ahora incluye la IP).
+  - `opencode_agent._resolve_cwd`: comparación de rutas con `os.path.normcase` (case-insensitive en Windows).
+  - `system_monitor.cleanup_candidate`: valida también `os.path.realpath` contra `_looks_dangerous`
+    (evita borrar un destino peligroso alcanzado vía symlink/junction).
+  - `labs_update_session`: un título vacío devuelve **400** en lugar de 404 engañoso.
+  - `/api/agents/run`: un `provider` desconocido devuelve **400** en lugar de 503.
+  - `_exec_tool_command`: `recv_exit_status()` movido a `asyncio.to_thread` (no bloquea el event loop).
+  - `tests/conftest.py`: alias `sys.modules["main"] = backend.main` (elimina el módulo dividido:
+    31 ficheros importaban `main` top-level y 30 `backend.main` → dos apps/startup handlers).
+  - `lab_sessions.import_state`: sincroniza `_step_counter` con el `order` máximo importado
+    (antes, tras importar/hidratar, el siguiente `add_step` reutilizaba un `order` bajo y la nueva
+    evidencia se ordenaba en medio de la cronología). Regression test añadido.
+  - `finding_poc._evidence_hash`: normaliza saltos de línea finales (`rstrip("\r\n")`) para que el
+    hash de un excerpt almacenado y el de una respuesta re-jugada (`curl`, que siempre añade
+    newline) coincidan — `matches_original` ya no da falsos negativos. Regression test añadido.
+  - Suite completa: **5390 passed, 1 deselected** (warnings 47→33).
+
 ### Added
 - **feat(desktop-fase-4)**: Fase 4 del plan de escritorio — splash screen, título dinámico, página de error e iconos.
   - **Identifier** `com.mirv.app` → `com.mirv.desktop` (elimina el warning del bundler por terminar en `.app`).

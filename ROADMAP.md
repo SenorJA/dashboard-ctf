@@ -1,6 +1,7 @@
 # 🗺️ M.I.R.V. — Roadmap de Mejoras
 
-> Última actualización: 21 Sep 2026 — MIRV v5.6 | desktop shell Tauri (tray + auto-updater) | multi-terminal SSH | notifications hub | API token auth opt-in | asset inventory per engagement | scheduler daemon + finding lifecycle | 295+ endpoints | 4790+ tests | 31 tabs | main.py 100%
+> Última actualización: 13 Oct 2026 — MIRV **v3.5.0** | 61 módulos | **377 endpoints** | **5391 tests** | 38 tabs | `main.py` 100% | Packs 10–21 cerrados (Code Agent, AI Personas, Phishing Sim, Lab Sessions, LLM Security, Wireless, Privacy, VPN)
+> Estado vivo y bitácora: [`TOMORROW.md`](TOMORROW.md) · arquitectura/API: [`AGENTS.md`](AGENTS.md). Las fases de abajo son **registros históricos** de su cierre (los conteos citados corresponden a esa fecha).
 
 ## ✅ Completado
 
@@ -422,7 +423,7 @@ ya cerrados antes).
 | Fase 5 | Hallazgos persistentes + informes | ✅ |
 | Fase 6 | Scope + OPSEC + Permissions | ✅ |
 | Fase 7 | Producción (Cloudflare Tunnel) | 🚧 Infra |
-| Fase 8 | Docker + Tests + CI/CD | ✅ (3834 tests, main.py 100%) |
+| Fase 8 | Docker + Tests + CI/CD | ✅ (5391 tests, main.py 100%) |
 | PentesterFlow | Coverage + Skills + Redact + Burp + Audit | ✅ |
 | Plugin System | Hot-reload + Watcher + 5 hooks | ✅ |
 | Session Compaction | Mission store + auto-redact | ✅ |

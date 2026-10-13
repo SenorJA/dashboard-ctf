@@ -6,8 +6,8 @@
 
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-latest-009688?logo=fastapi)](https://fastapi.tiangolo.com)
-[![Endpoints](https://img.shields.io/badge/endpoints-375-9cf)](#-api-resumen)
-[![Tests](https://img.shields.io/badge/tests-5389_✔️-2ea44f?logo=pytest)](#-testing)
+[![Endpoints](https://img.shields.io/badge/endpoints-377-9cf)](#-api-resumen)
+[![Tests](https://img.shields.io/badge/tests-5391_✔️-2ea44f?logo=pytest)](#-testing)
 [![Coverage](https://img.shields.io/badge/coverage-~95%25-2ea44f)](#-testing)
 [![Tabs](https://img.shields.io/badge/frontend%20tabs-38-9cf)](#-features-principales)
 [![Kali](https://img.shields.io/badge/Kali-Linux-557C94?logo=kalilinux)](https://kali.org)
@@ -43,7 +43,7 @@
 M.I.R.V. es una **plataforma modular todo-en-uno** para operaciones de ciberseguridad ofensiva y defensiva. Combina:
 
 - **Terminal SSH interactivo** vía WebSocket (navegador → Kali Linux)
-- **375 endpoints REST** (367 `/api/*` + 8 landings/estáticas) contra Supabase (PostgreSQL)
+- **377 endpoints REST** (369 `/api/*` + 8 landings/estáticas) contra Supabase (PostgreSQL)
 - **61 módulos backend** con ~95% de cobertura de tests (`main.py` al 100%)
 - **38 tabs frontend** en una SPA vanilla JS + Tailwind
 - **IA multi-proveedor** para informes, sugerencias, chat, análisis de laboratorios y **write-ups dark-mode** (HTML/PDF)
@@ -66,7 +66,7 @@ M.I.R.V. es una **plataforma modular todo-en-uno** para operaciones de cibersegu
 │  (SPA + JS)  │ ◄──────────── │  (main.py)   │ ◄───────────── │  (50+ tools) │
 └──────┬───────┘               └──────┬───────┘                └──────────────┘
        │                              │
-       │  fetch() /api/* (367)        │  CRUD
+       │  fetch() /api/* (369)        │  CRUD
        ▼                              ▼
 ┌──────────────────────────────────────────┐
 │              Supabase (PostgreSQL)        │
@@ -77,7 +77,7 @@ M.I.R.V. es una **plataforma modular todo-en-uno** para operaciones de cibersegu
 **Flujo de datos:**
 1. **Frontend SPA** (HTML + vanilla JS + Tailwind CDN) — sin bundler, sin build step.
 2. **WebSocket** (`/ws`) proxy SSH bidireccional: navegador ↔ FastAPI ↔ Kali (Paramiko).
-3. **API REST** (`/api/*` + landings públicas) ~375 endpoints para operaciones CRUD y análisis.
+3. **API REST** (`/api/*` + landings públicas) ~377 endpoints para operaciones CRUD y análisis.
 4. **Supabase** (PostgreSQL) con 18 tablas + Storage bucket para archivos (+ `workspace_state` JSONB para registros opt-in).
 5. **Módulos del backend** (57 archivos) operan vía SSH sobre Kali o vía HTTP directo.
 
@@ -201,7 +201,7 @@ Ver auditoría: [`docs/SECURITY_AUDIT_OSINT_2026-08-15.md`](docs/SECURITY_AUDIT_
 
 ## 📡 API resumen
 
-~366 endpoints agrupados por categoría. **Documentación interactiva (Swagger):**
+~377 endpoints agrupados por categoría. **Documentación interactiva (Swagger):**
 ```
 http://localhost:8000/docs      # Swagger UI
 http://localhost:8000/redoc     # ReDoc
@@ -261,10 +261,10 @@ http://localhost:8000/redoc     # ReDoc
 ```bash
 cd backend
 python -m pytest tests/ -k "not test_slow_hook" -q
-# 5388 passed, 1 deselected  (~455s, ~95% cobertura)
+# 5390 passed, 1 deselected  (~455s, ~95% cobertura)
 ```
 
-- **116 archivos de test**, **5389 tests** recolectados (~95% cobertura)
+- **116 archivos de test**, **5391 tests** recolectados (~95% cobertura)
 - `main.py` = **100%** de cobertura (statement-level)
 - Pack 11 (Lab Sessions + flags + write-up): **89 tests nuevos** — detección de flags user/root (incl. transcripciones SSH y falsos positivos), recomputado al editar/borrar, invalidación de análisis obsoletos, escape XSS del HTML dark-mode, endpoints
 - Pack 18 (LLM Security Scanner): **48 tests nuevos** — 23 probes, detectores (DAN/refusal, goodside/WhoIsRiley, leak/ApiKey, DoNotAnswer, Crescendo-lite con topic/refusal), 8 buffs, resolution de prompts (prefix 220, hijack 15), pureza del módulo (sin `backend.database`/red), veredicto max elemento-wise y endpoints (`mode=stub` + patches de `db.save_finding`/`siem`/`audit`/`notify`)
@@ -352,7 +352,7 @@ mirv/
 │   ├── plugins/      # Sistema de plugins (hot-reload)
 │   ├── skills/       # 113 skill playbooks (Markdown + frontmatter) + router/ (routing.json, benchmarks.json)
 │   ├── burp_plugin/  # Plugin Jython para Burp Suite
-│   └── tests/        # 116 archivos, 5389 tests (~95% cobertura)
+│   └── tests/        # 116 archivos, 5391 tests (~95% cobertura)
 ├── frontend/         # SPA vanilla JS + Tailwind CDN (38 tabs)
 │   ├── index.html    # SPA principal (~4.300 líneas)
 │   └── js/           # main.v2.js (~15.200 líneas), dataservice, mobile, forensics, swarm
@@ -424,7 +424,7 @@ M.I.R.V. está diseñado para:
 
 <div align="center">
 
-**M.I.R.V. v3.5.0** — 375 endpoints · 5389 tests · ~95% cobertura · 38 tabs · 61 módulos
+**M.I.R.V. v3.5.0** — 377 endpoints · 5391 tests · ~95% cobertura · 38 tabs · 61 módulos
 
 [Reportar bug](https://github.com/SenorJA/dashboard-ctf/issues) · [Sugerir mejora](https://github.com/SenorJA/dashboard-ctf/issues) · [Documentación técnica](AGENTS.md)
 

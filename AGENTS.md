@@ -8,14 +8,14 @@ Two-tier app: **FastAPI backend** serves static frontend + WebSocket SSH proxy +
 Browser → WS (localhost:8000/ws) → FastAPI → Paramiko → Kali SSH
          ↑
    serves /static/* from frontend/
-   REST API (367 endpoints /api/* + 8 landings/static = 375 HTTP) → Supabase (PostgreSQL)
+   REST API (369 endpoints /api/* + 8 landings/static = 377 HTTP) → Supabase (PostgreSQL)
    Plugin system (hot-reload) + Burp Bridge + Browser Capture + Structured Audit Log + Continuous Intelligence
 ```
 
 ```
 C:\Users\34678\Desktop\Proyecto ciber\
 ├── backend/
-│   ├── main.py              # FastAPI app (~8990 lines, 367 endpoints /api/* + CSP middleware + scheduler daemon)
+│   ├── main.py              # FastAPI app (~8921 lines, 369 endpoints /api/* + CSP middleware + scheduler daemon)
 │   ├── database.py           # Supabase CRUD layer (18 tables, 99% coverage)
 │   ├── exif_osint.py         # EXIF metadata extraction + GPS + reverse geocoding
 │   ├── canary_tokens.py      # Honeytoken generator (8 types) + activation tracking
@@ -49,7 +49,7 @@ C:\Users\34678\Desktop\Proyecto ciber\
 │   ├── skills/                # Built-in skill playbooks (recon, webvuln, ssrf, jwt, supabase)
 │   ├── agents/                # 39 vendored AI personas (MIT, agency-agents) + ATTRIBUTION.md
 │   ├── burp_plugin/           # Jython Burp Suite plugin (mirv_burp.py)
-│   ├── tests/                 # ~5389 tests across 116 test files
+│   ├── tests/                 # ~5391 tests across 116 test files
 │   ├── Dockerfile             # Container image for mirv-backend
 │   └── requirements.txt
 ├── frontend/
@@ -93,14 +93,14 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 **Tests:**
 ```bash
 cd backend
- python -m pytest tests/ -k "not test_slow_hook" -q  # ~5232 tests, ~95% coverage
+ python -m pytest tests/ -k "not test_slow_hook" -q  # ~5391 tests, ~95% coverage
  ```
 
 ## Backend modules (main.py + 61 modules)
 
 | File | Lines | Purpose | Tests | Coverage |
 |------|-------|---------|-------|----------|
-| `main.py` | ~8990 | FastAPI app, WebSocket SSH proxy, 367 REST endpoints `/api/*` + CSP middleware + **server-side scheduler daemon** (`_scheduler_loop`, `_exec_tool_command`, `_count_findings_in_output`) | 333+295+19 | 100% |
+| `main.py` | ~8921 | FastAPI app, WebSocket SSH proxy, 369 REST endpoints `/api/*` + CSP middleware + **server-side scheduler daemon** (`_scheduler_loop`, `_exec_tool_command`, `_count_findings_in_output`) | 333+295+19 | 100% |
 | `database.py` | ~1344 | Supabase CRUD (18 tables) | 196 | 100% |
 | `exif_osint.py` | ~812 | EXIF GPS extraction, camera metadata, reverse geocoding, Leaflet map | 21+11 | 99% |
 | `canary_tokens.py` | ~442 | 8 honeytoken types, activation tracking, expiration | 24 | 99% |
@@ -127,7 +127,7 @@ cd backend
 | `adb_controller.py` | ~205 | ADB device detection + Frida scripts (run/stop/clear) | ~25 | 100% |
 | `opsec.py` | ~400 | OPSEC Levels — 30 tools with Silent/Covert/Loud modifiers | ~25 | 100% |
 | `mission_store.py` | ~356 | Self-Improvement Loop — mission history + AI context (auto-redacts) + Session Compaction | ~30+63 | 100% |
-| `finding_poc.py` | ~735 | Reproducible Finding PoC — curl replay, markdown reports, evidence hash | 61 | 99% |
+| `finding_poc.py` | ~735 | Reproducible Finding PoC — curl replay, markdown reports, evidence hash | 62 | 99% |
 | `intelligence.py` | ~500 | Continuous Intelligence — watch/snapshot/diff/alert system | 43 | 99% |
 | `system_monitor.py` | ~490 | Host resource monitor — CPU/RAM/uptime, disk volumes, safe cleanup-candidate scan + delete (stdlib, psutil optional) | 29 | — |
 | `osint_recon.py` | ~1428 | Passive OSINT — 19 tools: email breach/verify, dorking, phone, reverse-image, wayback, IP geo, username, github + **Ronda #2**: dns_recon (DoH), rdap_whois (RDAP), pwned_passwords (HIBP k-anonymity), urlhaus_lookup (abuse.ch), page_snapshot (Jina Reader) + **Ronda #3**: code_search (Sourcegraph SSE), cert_transparency (crt.sh CT), sigstore_lookup (Rekor), urlscan_search (urlscan.io), mac_vendor_lookup (maclookup) — all stdlib, keyless | 159 | 100% |
@@ -142,7 +142,7 @@ cd backend
 | `agent_bridge.py` | ~290 | **Pack 12** multi-provider Code Agent bridge — `PROVIDERS=('opencode','claude','codex')`; `status(provider)`/`status_all()` and `run(provider, prompt, agent, cwd, model, pure, timeout)`. `opencode` delegates to `opencode_agent`; `claude` runs Claude Code CLI in safe non-interactive mode (`-p --output-format json --max-turns 1 --tools "" --strict-mcp-config`, MCP disabled), parses the JSON envelope (`result`/`structured_output`) and falls back to raw text; `codex` reserved (not implemented). Same guardrails: list argv (never shell), cwd constrained to `MIRV_OPENCODE_ROOT`, per-provider lock, timeout, redact+truncate. Docker image installs the native Claude Code CLI (fail-safe); auth via `ANTHROPIC_API_KEY` | 24 | — |
 | `phishing_sim.py` | ~340 | **Pack 10** phishing **awareness simulation** (training-only, NOT credential theft): 3 generic branded-neutral templates, `PhishingCampaign` dataclass registry + lock, credentials stored **only as sha256[:16] hashes**, landings served only while `active`, status lifecycle (planning→active→archived), opt-in `workspace_store` persistence (key `phishing`, lazy hydrate), CI/CD-safe | 22 | — |
 | `flag_detection.py` | ~170 | **Pack 11** deterministic user/root **flag detection** (ported from afsh4ck/exploitpath `server/db.ts`) — `detect_flag(command, output, prior_history)` uses prior history only to infer *type*; patterns: explicit `cat/type/get-content (user\|root).txt`, labeled `user/root flag:`/`=`, `Content:` + accumulated root context, strict `[a-f0-9]{32}` fallback; strips ANSI/CR; no false positives from hashes or bare path refs. `derive_session_state(detections, latest_analysis_phase)` folds flags→phase (recon/foothold/privesc/complete, root wins). `normalize_detection()` bounds values | 21 | — |
-| `lab_sessions.py` | ~560 | **Pack 11** Lab Sessions workspace — `machines→sessions→steps→analyses` thread-safe registry (ported from exploitpath data model). Deterministic flag detection on every step; **edit/delete recomputes flags+phase and invalidates stale AI analyses**; `get_workspace()` joins machine fields; structured `save_analysis()` (phase/summary/evidence/next_objective/safe_commands/rationale/cautions); `summary`, `export_state`/`import_state` (nested), opt-in `workspace_store` persistence (key `lab_sessions`) | 38 | — |
+| `lab_sessions.py` | ~560 | **Pack 11** Lab Sessions workspace — `machines→sessions→steps→analyses` thread-safe registry (ported from exploitpath data model). Deterministic flag detection on every step; **edit/delete recomputes flags+phase and invalidates stale AI analyses**; `get_workspace()` joins machine fields; structured `save_analysis()` (phase/summary/evidence/next_objective/safe_commands/rationale/cautions); `summary`, `export_state`/`import_state` (nested), opt-in `workspace_store` persistence (key `lab_sessions`) | 39 | — |
 | `lab_writeup.py` | ~330 | **Pack 11** dark-mode write-up renderers (ported from exploitpath `exportWriteup.ts`) — `build_writeup_html()` single self-contained HTML (`#090d14`/`#9FEF00`, `color-scheme:dark`, no remote deps, everything escaped, narrative *before* each command); `build_writeup_pdf()` ReportLab dark PDF with terminal cards + interleaved narrative; `es`/`en` labels | 8 | — |
 | `llm_scanner.py` | ~1500 | **Pack 18** LLM Security Scanner (port of praetorian-inc/augustus) — solo-stdlib: 23 probes (goodside/dan/promptinject/prefix/donotanswer/continuation/leak/glitch/crescendo), 22 detectores (substring/word/regex/inversión mitigation, plain-json, markdown-exfil, token-smuggling, glitch, crescendo-judge), 8 buffs encoder (base64/base32/hex/rot13/atbash/leet/morse/charcode), generators hijack/prefix/continuation, **Crescendo-lite multi-turn determinista** (CONTEXT→MECHANISMS→FAILURE_MODES→OFFENSIVE_APPLICATION), `OpenAICompatClient/CallableClient/StubClient/build_client`, `LLMScanRegistry` LRU (20), `RunReport` verbedict max element-wise (primary+secondary), `finding_from_attempt` → payload `db.save_finding` (`tool=llm-scanner`, `service=llm`, severidad según probe) | 48 (37 module + 11 endpoints) | — |
 | `agency_agents.py` | ~577 | **Pack 17** AI Personas registry — vendored `backend/agents/{security,testing,engineering,specialized}/*.md` (39 personas, MIT, agency-agents) + custom override dirs (`.mirv/agents/`, env `MIRV_AGENTS_WRITE_DIR`, `MIRV_AGENTS_DIRS`); discovery order `MIRV_AGENTS_DIRS` → `backend/agents` → `.mirv/agents` → `~/.mirv/agents` → write-dir (last wins), mtime cache + `threading.Lock`, `AgentPersona` dataclass (slug/division/name/description/emoji/color/vibe/body/editable), `build_persona_prompt()` (identity + vibe + mandate + body truncated to `DEFAULT_PROMPT_CHARS`), `create_agent()`/`delete_agent()` (bundled read-only), `export_registry()`/`import_registry()`, `summary()` | 38 | — |
@@ -480,10 +480,10 @@ cd backend
 ## Test summary
 
 - **116 test files** in `backend/tests/`
-- **~5389 tests** collected (**5388 passing locally**, + 17 network-only `example.com` tests that pass in CI; 296 now in `test_main_gaps.py` + 20 in `test_main_websocket_gaps.py` + 30 `test_assessments.py` + 43 `test_scheduler.py` + 27 `test_scheduler_daemon.py` + 19 `test_finding_lifecycle.py` + 22 `test_assets.py` + 17 `test_api_auth.py` + 37 `test_notifications.py` + 22 `test_workspace_store.py` + 144 `test_skill_router.py` (incl. 99 benchmark cases) + 20 `test_opencode_agent.py` + 24 `test_agent_bridge.py` + 22 `test_phishing_sim.py` + 64 `test_redact.py` + 21 `test_flag_detection.py` + 38 `test_lab_sessions.py` + 8 `test_lab_writeup.py` + 22 `test_labs_endpoints.py` + 38 `test_agency_agents.py` + 20 `test_personas_endpoints.py` + 17 `test_pack_purity.py` **+ 37 `test_llm_scanner.py` + 11 `test_llm_endpoints.py` + 19 `test_wireless_analyzer.py` (Pack 18/19) + 64 `test_privacy.py` (Pack 20) + 68 `test_vpn.py` (Pack 21)**)
+- **~5391 tests** collected (**5390 passing locally**, + 17 network-only `example.com` tests that pass in CI; 296 now in `test_main_gaps.py` + 20 in `test_main_websocket_gaps.py` + 30 `test_assessments.py` + 43 `test_scheduler.py` + 27 `test_scheduler_daemon.py` + 19 `test_finding_lifecycle.py` + 22 `test_assets.py` + 17 `test_api_auth.py` + 37 `test_notifications.py` + 22 `test_workspace_store.py` + 144 `test_skill_router.py` (incl. 99 benchmark cases) + 20 `test_opencode_agent.py` + 24 `test_agent_bridge.py` + 22 `test_phishing_sim.py` + 64 `test_redact.py` + 21 `test_flag_detection.py` + 39 `test_lab_sessions.py` + 8 `test_lab_writeup.py` + 22 `test_labs_endpoints.py` + 38 `test_agency_agents.py` + 20 `test_personas_endpoints.py` + 17 `test_pack_purity.py` **+ 37 `test_llm_scanner.py` + 11 `test_llm_endpoints.py` + 19 `test_wireless_analyzer.py` (Pack 18/19) + 64 `test_privacy.py` (Pack 20) + 68 `test_vpn.py` (Pack 21)**)
 - **~95% coverage** across measured backend modules
 - **`backend/main.py` = 100%** (2847/2847 statements; last gaps were websocket `read_shell` break on OSError/EOFError + outer `WebSocketDisconnect`)
-- **Key test files**: test_database (196), test_api_endpoints (333), test_main_gaps (296), test_main_coverage (165), test_main_extra (120), test_crud_endpoints (67), test_deep_coverage_1/2 (205), test_compaction (63), test_burp_bridge (72), test_redact (63), test_skill_playbooks (67), test_skill_router (144), test_agency_agents (38), test_personas_endpoints (20), test_pack_purity (17), test_audit_log (45), test_plugin_manager (47), test_plugin_watcher (18), test_siem (31), test_coverage (33), test_exif_osint (63), test_mobile_analyzer (54), test_canary_tokens (24), test_dlp_scanner (25), test_finding_poc (61), test_intelligence (43), test_permission_system (56), test_opsec, test_scope_guard, test_forensics, test_adb_controller, test_kali_mcp_client, test_mission_store, test_knowledgebase, test_swarm, test_assessments (30), test_scheduler (43), test_scheduler_daemon (27), test_finding_lifecycle (19), test_assets (22), test_api_auth (17), test_notifications (37), test_workspace_store (22), test_opencode_agent (20), test_agent_bridge (24), test_phishing_sim (22), test_flag_detection (21), test_lab_sessions (38), test_lab_writeup (8), test_labs_endpoints (22), test_privacy (64), test_vpn (68), + scanner tools + gap files (test_*_gaps.py: redact, dlp_scanner, mission_store, dns_lookup, pdf_engine, database, finding_poc, headers_scanner, hash_cracker, adb_controller, skill_playbooks, audit_log, intelligence, opsec, scope_guard).
+- **Key test files**: test_database (196), test_api_endpoints (333), test_main_gaps (296), test_main_coverage (165), test_main_extra (120), test_crud_endpoints (67), test_deep_coverage_1/2 (205), test_compaction (63), test_burp_bridge (72), test_redact (63), test_skill_playbooks (67), test_skill_router (144), test_agency_agents (38), test_personas_endpoints (20), test_pack_purity (17), test_audit_log (45), test_plugin_manager (47), test_plugin_watcher (18), test_siem (31), test_coverage (33), test_exif_osint (63), test_mobile_analyzer (54), test_canary_tokens (24), test_dlp_scanner (25), test_finding_poc (62), test_intelligence (43), test_permission_system (56), test_opsec, test_scope_guard, test_forensics, test_adb_controller, test_kali_mcp_client, test_mission_store, test_knowledgebase, test_swarm, test_assessments (30), test_scheduler (43), test_scheduler_daemon (27), test_finding_lifecycle (19), test_assets (22), test_api_auth (17), test_notifications (37), test_workspace_store (22), test_opencode_agent (20), test_agent_bridge (24), test_phishing_sim (22), test_flag_detection (21), test_lab_sessions (39), test_lab_writeup (8), test_labs_endpoints (22), test_privacy (64), test_vpn (68), + scanner tools + gap files (test_*_gaps.py: redact, dlp_scanner, mission_store, dns_lookup, pdf_engine, database, finding_poc, headers_scanner, hash_cracker, adb_controller, skill_playbooks, audit_log, intelligence, opsec, scope_guard).
 
 ### main.py coverage tests (gaps)
 
