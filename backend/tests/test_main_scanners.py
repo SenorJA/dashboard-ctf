@@ -194,13 +194,15 @@ def test_dns_lookup_success(client):
 
 
 def test_dns_lookup_with_types(client):
-    with patch("main.dns_lookup", AsyncMock()) as m:
+    report = DNSReport(domain="example.com", records={"A": []})
+    with patch("main.dns_lookup", AsyncMock(return_value=report)) as m:
         client.get("/api/dns/lookup", params={"domain": "example.com", "types": "A,MX"})
     assert m.await_args.kwargs["record_types"] == ["A", "MX"]
 
 
 def test_dns_lookup_url_strips_scheme(client):
-    with patch("main.dns_lookup", AsyncMock()) as m:
+    report = DNSReport(domain="example.com", records={"A": []})
+    with patch("main.dns_lookup", AsyncMock(return_value=report)) as m:
         client.get("/api/dns/lookup", params={"domain": "http://example.com"})
     assert m.await_args.args[0] == "example.com"
 

@@ -648,7 +648,10 @@ def test_docker_clean_stop_failed(client):
 
 
 def test_docker_build_starts_task(client):
-    with patch("main.asyncio.create_task") as create_task:
+    def _discard_coro(coro, *args, **kwargs):
+        coro.close()
+        return MagicMock()
+    with patch("main.asyncio.create_task", side_effect=_discard_coro) as create_task:
         resp = client.post("/api/docker/build")
     assert resp.status_code == 200
     assert "task_id" in resp.json()

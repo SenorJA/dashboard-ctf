@@ -457,7 +457,13 @@ class TestDockerControlDeep:
 
     def test_docker_build_returns_task_id_format(self, client: TestClient):
         """Build returns a task_id that starts with 'build_'."""
-        resp = client.post("/api/docker/build")
+        def _discard_coro(coro, *args, **kwargs):
+            coro.close()
+            return MagicMock()
+        # Patch create_task so the real `docker compose build` subprocess is
+        # never spawned (it would leak a child process + pipes across tests).
+        with patch("main.asyncio.create_task", side_effect=_discard_coro):
+            resp = client.post("/api/docker/build")
         assert resp.status_code == 200
         data = resp.json()
         assert data["ok"] is True

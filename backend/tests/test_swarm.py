@@ -540,14 +540,25 @@ class TestToDictOperators:
 #  start()
 # ════════════════════════════════════════════════════════════════
 
+def _discard_coro(coro, *args, **kwargs):
+    """Close a coroutine handed to a patched ``asyncio.create_task``.
+
+    ``start()`` builds ``run_pipeline()`` but ``create_task`` is mocked in
+    these tests, so without closing it Python emits
+    "coroutine 'SwarmCoordinator.run_pipeline' was never awaited".
+    """
+    coro.close()
+    return MagicMock()
+
+
 class TestStart:
     def test_start_creates_task(self, coordinator):
-        with patch("swarm.asyncio.create_task") as mock_task:
+        with patch("swarm.asyncio.create_task", side_effect=_discard_coro) as mock_task:
             coordinator.start()
             mock_task.assert_called_once()
             assert coordinator.session_id in _sessions
 
     def test_start_registers_session(self, coordinator):
-        with patch("swarm.asyncio.create_task"):
+        with patch("swarm.asyncio.create_task", side_effect=_discard_coro):
             coordinator.start()
             assert get_session(coordinator.session_id) is coordinator

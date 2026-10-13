@@ -1289,7 +1289,13 @@ class TestDockerEndpoints:
 
     def test_docker_build(self, client: TestClient):
         """Build docker images (starts background task)."""
-        resp = client.post("/api/docker/build")
+        def _discard_coro(coro, *args, **kwargs):
+            coro.close()
+            return MagicMock()
+        # Patch create_task so the real `docker compose build` subprocess is
+        # never spawned (it leaks a child process + pipes across tests).
+        with patch("main.asyncio.create_task", side_effect=_discard_coro):
+            resp = client.post("/api/docker/build")
         assert resp.status_code == 200
         data = resp.json()
         assert data["ok"] is True

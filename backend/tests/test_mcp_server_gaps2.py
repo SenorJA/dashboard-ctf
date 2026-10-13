@@ -134,6 +134,11 @@ class TestEntryPoint:
     def test_asyncio_run_entrypoint(self, monkeypatch):
         """Re-run the module as __main__ (EOF on stdin -> clean shutdown)."""
         import runpy
+        import warnings
         monkeypatch.setattr(sys, "stdin", _FakeStdin([""]))
         monkeypatch.setattr(sys, "stdout", _FakeStdout())
-        runpy.run_module("backend.mcp_server", run_name="__main__", alter_sys=True)
+        # Re-importing an already-imported module via runpy emits a benign
+        # RuntimeWarning ("found in sys.modules ..."); silence just this one.
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            runpy.run_module("backend.mcp_server", run_name="__main__", alter_sys=True)

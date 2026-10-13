@@ -82,8 +82,9 @@ def test_memory_psutil_path():
 def test_memory_linux_fallback(tmp_path):
     meminfo = tmp_path / "meminfo"
     meminfo.write_text("MemTotal:       16000000 kB\nMemFree:          2000000 kB\nMemAvailable:   8000000 kB\n")
+    import io
     with patch.object(sm, "_HAVE_PSUTIL", False), patch.object(sm.os, "name", "posix"):
-        with patch("builtins.open", return_value=meminfo.open("r")):
+        with patch("builtins.open", return_value=io.StringIO(meminfo.read_text())):
             d = sm._mem_linux()
     assert d["total"] == 16000000 * 1024
     assert d["available"] == 8000000 * 1024
@@ -98,11 +99,12 @@ def test_cpu_linux_stale_returns_zero():
 
 
 def test_uptime_linux(tmp_path):
+    import io
     up = tmp_path / "uptime"
     up.write_text("3600.0 1234.0\n")
     with patch.object(sm, "_HAVE_PSUTIL", False), patch.object(sm.os, "name", "posix"):
         with patch("builtins.open", create=True) as mo:
-            mo.return_value.__enter__.return_value = up.open("r")
+            mo.return_value.__enter__.return_value = io.StringIO(up.read_text())
             assert sm.uptime()["seconds"] == 3600.0
 
 
@@ -289,12 +291,12 @@ def test_summary_shape(tmp_path):
 
 
 # ── REST endpoints ────────────────────────────────────────────────
-@pytest.fixture
-def client():
-    from fastapi.testclient import TestClient
-    from backend.main import app
-    with TestClient(app) as c:
-        yield c
+# NB: the shared `client` fixture from tests/conftest.py is used (it wires
+# the already-imported app). A local fixture importing ``backend.main`` here
+# would re-run ``load_dotenv()`` *after* the hermetic fixture stripped
+# ``MIRV_API_TOKEN``, re-injecting the host token from ``.env`` and making
+# every ``/api/*`` call return 401 (only visible when running this file alone
+# or in a small subset -- the full suite already imported ``backend.main``).
 
 
 def test_api_stats(client):

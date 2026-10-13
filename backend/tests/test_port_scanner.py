@@ -364,7 +364,7 @@ class TestScanPortInternals:
         def __init__(self):
             self.closed = False
 
-        async def write(self, data):
+        def write(self, data):
             pass
 
         async def drain(self):
