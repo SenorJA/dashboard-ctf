@@ -194,6 +194,35 @@ def test_hydrates_from_workspace_store(monkeypatch):
     assert ps.get_campaign(camp.id).hashes == []
 
 
+def test_hydrate_retries_after_store_failure(monkeypatch):
+    """A failed load leaves _HYDRATED False so a later call retries (no crash)."""
+    monkeypatch.setenv("MIRV_PERSIST_WORKSPACE", "1")
+    from dataclasses import asdict
+    from backend import workspace_store as ws
+
+    camp, _ = ps.create_campaign(**VALID)
+    snapshot = asdict(camp)
+    ps._REGISTRY.clear()
+    ps._HYDRATED = False
+
+    calls = {"n": 0}
+
+    def _load(key):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise RuntimeError("store down")
+        return [snapshot]
+
+    monkeypatch.setattr(ws, "is_enabled", lambda: True)
+    monkeypatch.setattr(ws, "load", _load)
+    monkeypatch.setattr(ws, "upsert", lambda k, d: True)
+
+    assert ps.stats()["total"] == 0  # first attempt fails gracefully
+    assert ps._HYDRATED is False     # retry stays open
+    assert ps.stats()["total"] == 1  # second attempt hydrates
+    assert ps._HYDRATED is True
+
+
 def test_foreign_object_never_persisted_in_registry(monkeypatch):
     """Extra/missing fields in the snapshot are tolerated (defensive hydration)."""
     ps._REGISTRY["ph-fake"] = ps.PhishingCampaign(

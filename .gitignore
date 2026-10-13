@@ -38,10 +38,13 @@ backend/data/api_token.txt
 *.log
 backend/logs/
 
-# Temp files
+# Temp files / editor backups
 C:*
 c:*
 /tmp/
+*.bak
+*.orig
+*.rej
 
 # Playwright / test artifacts
 playwright-report/

@@ -30,7 +30,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/), auto-generated 
   - `finding_poc._evidence_hash`: normaliza saltos de línea finales (`rstrip("\r\n")`) para que el
     hash de un excerpt almacenado y el de una respuesta re-jugada (`curl`, que siempre añade
     newline) coincidan — `matches_original` ya no da falsos negativos. Regression test añadido.
-  - Suite completa: **5390 passed, 1 deselected** (warnings 47→33).
+  - **Ronda 2 (subagentes `security` + `reviewer`)**: `phishing_sim.stats/list_campaigns/get_campaign`
+    leían `_REGISTRY` sin lock (riesgo de `RuntimeError: dictionary changed size during iteration`
+    ante mutación concurrente de `create/delete`) → ahora leen bajo `_LOCK`; `_hydrate()` mueve el
+    `_store.load()` **fuera** del lock (doble-check bajo `_LOCK`) para que un store lento/caído no
+    serialice los clicks públicos de landing tras cada llamada; `frontend/index.html.bak` (134 KB,
+    180 vars «gray-600» no servidas, 13 Jul) eliminado del repo y `*.bak/*.orig/*.rej` añadidos a
+    `.gitignore`; tests de regresión: `assets.create_asset` persiste en alta **y** merge, no persiste
+    en error, y `phishing_sim` reintenta la hidratación tras un fallo transitorio del store
+    (`_HYDRATED` solo tras `load()` correcto).
+  - Suite completa: **5393 passed, 1 deselected** (warnings 47→31).
 
 ### Added
 - **feat(desktop-fase-4)**: Fase 4 del plan de escritorio — splash screen, título dinámico, página de error e iconos.

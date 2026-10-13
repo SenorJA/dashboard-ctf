@@ -1,5 +1,7 @@
 """Tests for the Asset inventory module (backend/assets.py) + REST endpoints."""
 
+from unittest.mock import patch
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -54,6 +56,25 @@ def test_create_and_dedup_merge(clean):
     assert second.label == "db"
     assert second.tags == ["web"]
     assert len(assetslib.list_assets(assessment_id=aid)) == 1
+
+
+def test_create_and_merge_persist(clean):
+    """Regression: create_asset must _persist() on both create and merge."""
+    a = assess.create_assessment("X")
+    with patch.object(assetslib, "_persist") as mocked:
+        assetslib.create_asset(a.id, "host", "10.0.0.1")
+        assert mocked.call_count == 1
+        assetslib.create_asset(a.id, "host", "10.0.0.1", label="db")
+        assert mocked.call_count == 2
+
+
+def test_create_asset_does_not_persist_on_error(clean):
+    """A rejected create must not touch persistence."""
+    a = assess.create_assessment("X")
+    with patch.object(assetslib, "_persist") as mocked:
+        with pytest.raises(ValueError, match="invalid kind"):
+            assetslib.create_asset(a.id, "planet", "10.0.0.1")
+        mocked.assert_not_called()
 
 
 def test_create_same_address_different_kind(clean):

@@ -1,6 +1,6 @@
 # M.I.R.V. — Estado del Proyecto (snapshot)
 
-> Última actualización: 13 Oct 2026 — MIRV **v3.5.0** | 61 módulos | **377 endpoints** (369 `/api/*` + 8 landings) | **5391 tests** | 38 tabs | 113 skills · 41 rutas · `main.py` 100%
+> Última actualización: 13 Oct 2026 — MIRV **v3.5.0** | 61 módulos | **377 endpoints** (369 `/api/*` + 8 landings) | **5394 tests** | 38 tabs | 113 skills · 41 rutas · `main.py` 100%
 
 > **Fuente de verdad viva:** [`AGENTS.md`](../AGENTS.md) (arquitectura, módulos, API, convenciones) y [`TOMORROW.md`](../TOMORROW.md) (bitácora + pendientes). Este documento es un **resumen puntual**; si hay divergencia, mandan esos dos.
 
@@ -15,7 +15,7 @@
 | Docker | ✅ | `mirv-backend` (:8000) + `kali-tools` (:2222) |
 | CI/CD | ✅ | CI + Deploy + Desktop Build (GitHub Actions) |
 | Desktop | ✅ v3.5.0 | Tauri + sidecar PyInstaller + updater firmado (minisign) |
-| Tests | ✅ 5391 | ~95% cobertura; `main.py` 100% |
+| Tests | ✅ 5394 | ~95% cobertura; `main.py` 100% |
 
 ## Módulos backend (61 + `main.py`)
 
@@ -38,7 +38,7 @@ Tabs: Home, Terminal, Reports, Scripts, Bounty, AI Writeup, Findings, Op Admiral
 
 ## Tests (pytest)
 
-- **5391 tests** (5390 passed, 1 deselected — `test_slow_hook`, 35 s, excluido de CI adrede).
+- **5394 tests** (5393 passed, 1 deselected — `test_slow_hook`, 35 s, excluido de CI adrede).
 - Comando: `cd backend && python -m pytest tests/ -k "not test_slow_hook" -q`
 - Cobertura ~95% global; `main.py` 100% vía `test_main_gaps.py` + `test_main_websocket_gaps.py`.
 

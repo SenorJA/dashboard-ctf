@@ -118,14 +118,24 @@ _CAMPAIGN_FIELDS = frozenset(asdict(PhishingCampaign("", "", "", "", "")).keys()
 
 def _hydrate() -> None:
     global _HYDRATED
+    if _HYDRATED:
+        return
+    if not _store or not _store.is_enabled():
+        with _LOCK:
+            _HYDRATED = True
+        return
+    # Load OUTSIDE the lock so a slow/unreachable store never serializes
+    # public landing clicks behind the network call; merging is idempotent
+    # (keyed by campaign id) and double-checked under the lock below.
+    try:
+        rows = _store.load("phishing")
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning("phishing_sim hydrate failed: %s", exc)
+        return
     with _LOCK:
         if _HYDRATED:
             return
-        if not _store or not _store.is_enabled():
-            _HYDRATED = True
-            return
         try:
-            rows = _store.load("phishing")
             for row in rows or []:
                 camp = PhishingCampaign(**{
                     k: v for k, v in row.items() if k in _CAMPAIGN_FIELDS
@@ -143,25 +153,28 @@ def templates() -> list:
 
 def stats() -> dict:
     _hydrate()
-    by_status = {}
-    for c in _REGISTRY.values():
-        by_status[c.status] = by_status.get(c.status, 0) + 1
-    return {
-        "total": len(_REGISTRY),
-        "by_status": by_status,
-        "total_clicks": sum(c.clicks for c in _REGISTRY.values()),
-        "total_submissions": sum(c.submissions for c in _REGISTRY.values()),
-    }
+    with _LOCK:
+        by_status = {}
+        for c in _REGISTRY.values():
+            by_status[c.status] = by_status.get(c.status, 0) + 1
+        return {
+            "total": len(_REGISTRY),
+            "by_status": by_status,
+            "total_clicks": sum(c.clicks for c in _REGISTRY.values()),
+            "total_submissions": sum(c.submissions for c in _REGISTRY.values()),
+        }
 
 
 def list_campaigns() -> List[dict]:
     _hydrate()
-    return [asdict(c) for c in sorted(_REGISTRY.values(), key=lambda c: c.created_at, reverse=True)]
+    with _LOCK:
+        return [asdict(c) for c in sorted(_REGISTRY.values(), key=lambda c: c.created_at, reverse=True)]
 
 
 def get_campaign(campaign_id: str) -> Optional[PhishingCampaign]:
     _hydrate()
-    return _REGISTRY.get(campaign_id)
+    with _LOCK:
+        return _REGISTRY.get(campaign_id)
 
 
 def create_campaign(

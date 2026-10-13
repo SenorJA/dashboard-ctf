@@ -49,7 +49,7 @@ C:\Users\34678\Desktop\Proyecto ciber\
 │   ├── skills/                # Built-in skill playbooks (recon, webvuln, ssrf, jwt, supabase)
 │   ├── agents/                # 39 vendored AI personas (MIT, agency-agents) + ATTRIBUTION.md
 │   ├── burp_plugin/           # Jython Burp Suite plugin (mirv_burp.py)
-│   ├── tests/                 # ~5391 tests across 116 test files
+│   ├── tests/                 # ~5394 tests across 116 test files
 │   ├── Dockerfile             # Container image for mirv-backend
 │   └── requirements.txt
 ├── frontend/
@@ -93,7 +93,7 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 **Tests:**
 ```bash
 cd backend
- python -m pytest tests/ -k "not test_slow_hook" -q  # ~5391 tests, ~95% coverage
+ python -m pytest tests/ -k "not test_slow_hook" -q  # ~5394 tests, ~95% coverage
  ```
 
 ## Backend modules (main.py + 61 modules)
@@ -480,10 +480,10 @@ cd backend
 ## Test summary
 
 - **116 test files** in `backend/tests/`
-- **~5391 tests** collected (**5390 passing locally**, + 17 network-only `example.com` tests that pass in CI; 296 now in `test_main_gaps.py` + 20 in `test_main_websocket_gaps.py` + 30 `test_assessments.py` + 43 `test_scheduler.py` + 27 `test_scheduler_daemon.py` + 19 `test_finding_lifecycle.py` + 22 `test_assets.py` + 17 `test_api_auth.py` + 37 `test_notifications.py` + 22 `test_workspace_store.py` + 144 `test_skill_router.py` (incl. 99 benchmark cases) + 20 `test_opencode_agent.py` + 24 `test_agent_bridge.py` + 22 `test_phishing_sim.py` + 64 `test_redact.py` + 21 `test_flag_detection.py` + 39 `test_lab_sessions.py` + 8 `test_lab_writeup.py` + 22 `test_labs_endpoints.py` + 38 `test_agency_agents.py` + 20 `test_personas_endpoints.py` + 17 `test_pack_purity.py` **+ 37 `test_llm_scanner.py` + 11 `test_llm_endpoints.py` + 19 `test_wireless_analyzer.py` (Pack 18/19) + 64 `test_privacy.py` (Pack 20) + 68 `test_vpn.py` (Pack 21)**)
+- **~5394 tests** collected (**5393 passing locally**, + 17 network-only `example.com` tests that pass in CI; 296 now in `test_main_gaps.py` + 20 in `test_main_websocket_gaps.py` + 30 `test_assessments.py` + 43 `test_scheduler.py` + 27 `test_scheduler_daemon.py` + 19 `test_finding_lifecycle.py` + 24 `test_assets.py` + 17 `test_api_auth.py` + 37 `test_notifications.py` + 22 `test_workspace_store.py` + 144 `test_skill_router.py` (incl. 99 benchmark cases) + 20 `test_opencode_agent.py` + 24 `test_agent_bridge.py` + 23 `test_phishing_sim.py` + 64 `test_redact.py` + 21 `test_flag_detection.py` + 39 `test_lab_sessions.py` + 8 `test_lab_writeup.py` + 22 `test_labs_endpoints.py` + 38 `test_agency_agents.py` + 20 `test_personas_endpoints.py` + 17 `test_pack_purity.py` **+ 37 `test_llm_scanner.py` + 11 `test_llm_endpoints.py` + 19 `test_wireless_analyzer.py` (Pack 18/19) + 64 `test_privacy.py` (Pack 20) + 68 `test_vpn.py` (Pack 21)**)
 - **~95% coverage** across measured backend modules
 - **`backend/main.py` = 100%** (2847/2847 statements; last gaps were websocket `read_shell` break on OSError/EOFError + outer `WebSocketDisconnect`)
-- **Key test files**: test_database (196), test_api_endpoints (333), test_main_gaps (296), test_main_coverage (165), test_main_extra (120), test_crud_endpoints (67), test_deep_coverage_1/2 (205), test_compaction (63), test_burp_bridge (72), test_redact (63), test_skill_playbooks (67), test_skill_router (144), test_agency_agents (38), test_personas_endpoints (20), test_pack_purity (17), test_audit_log (45), test_plugin_manager (47), test_plugin_watcher (18), test_siem (31), test_coverage (33), test_exif_osint (63), test_mobile_analyzer (54), test_canary_tokens (24), test_dlp_scanner (25), test_finding_poc (62), test_intelligence (43), test_permission_system (56), test_opsec, test_scope_guard, test_forensics, test_adb_controller, test_kali_mcp_client, test_mission_store, test_knowledgebase, test_swarm, test_assessments (30), test_scheduler (43), test_scheduler_daemon (27), test_finding_lifecycle (19), test_assets (22), test_api_auth (17), test_notifications (37), test_workspace_store (22), test_opencode_agent (20), test_agent_bridge (24), test_phishing_sim (22), test_flag_detection (21), test_lab_sessions (39), test_lab_writeup (8), test_labs_endpoints (22), test_privacy (64), test_vpn (68), + scanner tools + gap files (test_*_gaps.py: redact, dlp_scanner, mission_store, dns_lookup, pdf_engine, database, finding_poc, headers_scanner, hash_cracker, adb_controller, skill_playbooks, audit_log, intelligence, opsec, scope_guard).
+- **Key test files**: test_database (196), test_api_endpoints (333), test_main_gaps (296), test_main_coverage (165), test_main_extra (120), test_crud_endpoints (67), test_deep_coverage_1/2 (205), test_compaction (63), test_burp_bridge (72), test_redact (63), test_skill_playbooks (67), test_skill_router (144), test_agency_agents (38), test_personas_endpoints (20), test_pack_purity (17), test_audit_log (45), test_plugin_manager (47), test_plugin_watcher (18), test_siem (31), test_coverage (33), test_exif_osint (63), test_mobile_analyzer (54), test_canary_tokens (24), test_dlp_scanner (25), test_finding_poc (62), test_intelligence (43), test_permission_system (56), test_opsec, test_scope_guard, test_forensics, test_adb_controller, test_kali_mcp_client, test_mission_store, test_knowledgebase, test_swarm, test_assessments (30), test_scheduler (43), test_scheduler_daemon (27), test_finding_lifecycle (19), test_assets (24), test_api_auth (17), test_notifications (37), test_workspace_store (22), test_opencode_agent (20), test_agent_bridge (24), test_phishing_sim (23), test_flag_detection (21), test_lab_sessions (39), test_lab_writeup (8), test_labs_endpoints (22), test_privacy (64), test_vpn (68), + scanner tools + gap files (test_*_gaps.py: redact, dlp_scanner, mission_store, dns_lookup, pdf_engine, database, finding_poc, headers_scanner, hash_cracker, adb_controller, skill_playbooks, audit_log, intelligence, opsec, scope_guard).
 
 ### main.py coverage tests (gaps)
 
