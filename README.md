@@ -44,7 +44,7 @@ M.I.R.V. es una **plataforma modular todo-en-uno** para operaciones de cibersegu
 
 - **Terminal SSH interactivo** vía WebSocket (navegador → Kali Linux)
 - **377 endpoints REST** (369 `/api/*` + 8 landings/estáticas) contra Supabase (PostgreSQL)
-- **67 módulos backend** con ~95% de cobertura de tests (`main.py` al 100%)
+- **68 módulos backend** con ~95% de cobertura de tests (`main.py` al 100%)
 - **38 tabs frontend** en una SPA vanilla JS + Tailwind
 - **IA multi-proveedor** para informes, sugerencias, chat, análisis de laboratorios y **write-ups dark-mode** (HTML/PDF)
 - **Lab Sessions** (Pack 11): máquinas → sesiones → evidencias con **detección determinista de flags** user/root y análisis IA sobre el historial completo
@@ -424,7 +424,7 @@ M.I.R.V. está diseñado para:
 
 <div align="center">
 
-**M.I.R.V. v3.5.0** — 390 endpoints · 5514 tests · ~95% cobertura · 38 tabs · 67 módulos
+**M.I.R.V. v3.5.0** — 393 endpoints · 5514 tests · ~95% cobertura · 38 tabs · 68 módulos
 
 [Reportar bug](https://github.com/SenorJA/dashboard-ctf/issues) · [Sugerir mejora](https://github.com/SenorJA/dashboard-ctf/issues) · [Documentación técnica](AGENTS.md)
 

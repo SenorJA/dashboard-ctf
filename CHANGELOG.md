@@ -104,6 +104,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/), auto-generated 
     `test_pack_purity.py`).
   - Tests: `backend/tests/test_skill_supply_chain.py` (46, incluye integridad de la allowlist contra
     `ARSENAL_GROUPS` del frontend). Suite completa **5514 passed**.
+- **feat(attack-f4): MITRE ATT&CK mapping** — técnicas/cobertura/gaps + enriquecimiento de findings.
+  - `backend/attack.py` (nuevo): `enrich_finding`, `list_techniques`, `coverage_by_technique`.
+  - Endpoints: `GET /api/attack/techniques`, `GET /api/attack/coverage`, `GET /api/attack/gap` (filtrable por `assessment_id`).
+  - OODA `orient()` puede inferir/propagar `technique_id` y `act()` normaliza findings con `technique_id`/`confidence`/`ooda_status`.
 - **feat(ooda-f3): OODA core (Observe/Orient/Decide/Act)** — bucle asistido/guardarraíles con store JSONL
   + informe basado solo en evidencia.
   - `backend/ooda_store.py` (nuevo, JSONL + *write dual* index, thread-safe, sin tablas Supabase nuevas):
