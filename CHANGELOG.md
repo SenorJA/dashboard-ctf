@@ -104,6 +104,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/), auto-generated 
     `test_pack_purity.py`).
   - Tests: `backend/tests/test_skill_supply_chain.py` (46, incluye integridad de la allowlist contra
     `ARSENAL_GROUPS` del frontend). Suite completa **5514 passed**.
+- **feat(skills-f5): instalador remoto de skills (preview → confirm)** — instala desde repo/URL con auditoría de
+  supply-chain obligatoria, sin auto-activación.
+  - `backend/skills_installer.py` (nuevo, **solo stdlib**): `preview()` / `install()` / `uninstall()`,
+    fetch de `SKILL.md` vía `urllib`, frontmatter tolerante mapeado a MIRV, `enabled=False` por defecto,
+    escritura **únicamente** en `~/.mirv/skills/`, bloqueo si hay `errors` del guard, auditoría `audit_log` +
+    evento `skills` en SIEM.
+  - Endpoints: `POST /api/skills/install` (preview), `POST /api/skills/install/confirm` (instala),
+    `DELETE /api/skills/{name}/uninstall` (borra solo desde `~/.mirv/skills/`).
+  - UI: pestaña *Skills* — botones *Install from repo* / *Supply Chain Audit* + modales con preview de
+    issues (block/allow), confirmación explícita.
 - **feat(desktop-fase-4)**: Fase 4 del plan de escritorio — splash screen, título dinámico, página de error e iconos.
   - **Identifier** `com.mirv.app` → `com.mirv.desktop` (elimina el warning del bundler por terminar en `.app`).
   - **Splash screen** (`frontend/splash.html`, copiada al shell por `sync-frontend.mjs`): ventana `splash` sin
