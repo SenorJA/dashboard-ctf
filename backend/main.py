@@ -1415,6 +1415,24 @@ async def api_browser_crawl(req: BrowserCrawlReq):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+class DraftReviewReq(BaseModel):
+    evidence: List[Dict[str, Any]] | Dict[str, Any]
+    persona_draft: str = "security-penetration-tester"
+    persona_review: str = "security-appsec-engineer"
+
+
+@app.post("/api/reports/draft-review")
+async def api_reports_draft_review(req: DraftReviewReq):
+    try:
+        from backend import draft_review
+        d = draft_review.draft(req.evidence, persona=req.persona_draft)
+        r = draft_review.review(d.get("draft", ""), req.evidence, persona=req.persona_review)
+        rev = draft_review.revise(d.get("draft", ""), r.get("review", ""), req.evidence, persona=req.persona_draft)
+        return JSONResponse({"ok": True, "draft": d.get("draft"), "review": r.get("review"), "revised": rev.get("revised")})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/api/skills/install")
 async def api_skills_install_preview(req: SkillInstallPreviewReq):
     try:

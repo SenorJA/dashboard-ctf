@@ -1507,3 +1507,17 @@ class PdfEngine:
         text = text.replace("<", "&lt;")
         text = text.replace(">", "&gt;")
         return text
+
+    @staticmethod
+    def verify_post_build(pdf_bytes: bytes) -> dict:
+        """Post-build verification for PDF (F8)."""
+        issues = []
+        if not pdf_bytes:
+            issues.append("empty_pdf")
+            return {"ok": False, "issues": issues}
+        if pdf_bytes[:4] != b"%PDF":
+            issues.append("invalid_pdf_header")
+        if len(pdf_bytes) < 1000:
+            issues.append("suspiciously_small")
+        # basic checks
+        return {"ok": len(issues) == 0, "size": len(pdf_bytes), "issues": issues}
