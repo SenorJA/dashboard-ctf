@@ -4,6 +4,7 @@ description: Cloud-native security specialist designing zero trust architectures
 color: "#3b82f6"
 emoji: ☁️
 vibe: Builds cloud infrastructure where "secure by default" isn't just a slide title.
+tools: read, grep, glob, list_dir, search, web_fetch, report
 ---
 
 # Cloud Security Architect

@@ -552,13 +552,15 @@ def call_skill_hook(skill_name: str, hook_name: str, *args: Any) -> Any | None:
     if info is None or not info.enabled:
         return None
 
-    if info.manifest.allowed_tools and hook_name not in info.manifest.allowed_tools:
+    # Fail closed: a skill that declares no allowed_tools may not invoke any
+    # hook.  An empty list is an explicit "no tools", not "every tool".
+    if hook_name not in info.manifest.allowed_tools:
         _logger.debug(
             "Skill '%s' rejected hook '%s' (not in allowed_tools)",
-            skill_name, hook_name,
+            skill_name,
+            hook_name,
         )
         return None
-
     return {
         "skill": skill_name,
         "hook": hook_name,
@@ -594,6 +596,24 @@ def create_skill_template(
 
     desc = description.strip() or f"Describe when to load the '{name}' skill."
     tools = allowed_tools or []
+
+    # F2 supply-chain guard: a scaffolded skill may only ask for reviewed
+    # tools.  Wildcards and unknown ids are rejected before anything is
+    # written to disk.
+    from backend.skill_supply_chain import (  # local import: no import cycle
+        audit_allowed_tools,
+        has_blocking_issues,
+    )
+    issues = audit_allowed_tools(tools, where=f"skill:{name}", require_non_empty=False)
+    if has_blocking_issues(issues):
+        first = issues[0]
+        return {
+            "ok": False,
+            "path": "",
+            "error": "allowed_tools rejected by the supply-chain guard: %s"
+                     % first.get("message", "unknown"),
+            "issues": issues,
+        }
 
     target_dir = _PERSONAL_SKILLS_DIR / name
     try:

@@ -4,6 +4,7 @@ description: Expert frontend developer specializing in modern web technologies, 
 color: cyan
 emoji: 🖥️
 vibe: Builds responsive, accessible web apps with pixel-perfect precision.
+tools: read, grep, glob, list_dir, search, report
 ---
 
 # Frontend Developer Agent Personality

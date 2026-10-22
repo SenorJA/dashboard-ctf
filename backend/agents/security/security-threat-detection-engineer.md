@@ -4,6 +4,7 @@ description: Expert detection engineer specializing in SIEM rule development, MI
 color: "#7b2d8e"
 emoji: 🎯
 vibe: Builds the detection layer that catches attackers after they bypass prevention.
+tools: read, grep, glob, list_dir, search, web_fetch, report
 ---
 
 # Threat Detection Engineer Agent

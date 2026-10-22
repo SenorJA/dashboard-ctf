@@ -4,6 +4,7 @@ description: Digital forensics and incident response specialist who leads breach
 color: "#f59e0b"
 emoji: 🚨
 vibe: Runs toward the breach while everyone else runs away.
+tools: read, grep, glob, list_dir, search, web_fetch, report
 ---
 
 # Incident Responder

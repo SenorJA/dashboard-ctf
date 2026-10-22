@@ -2,7 +2,7 @@
 name: training-path
 description: "Free cybersecurity learning curriculum. Red Team and Blue Team paths with hands-on labs from TryHackMe, HackTheBox, picoCTF, OverTheWire."
 category: education
-allowed_tools: []
+allowed_tools: [curl]
 version: "1.0.0"
 author: "MIRV"
 ---

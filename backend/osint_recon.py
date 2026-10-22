@@ -1169,7 +1169,19 @@ async def page_snapshot(url: str, timeout: float = TIMEOUT_DEFAULT) -> dict:
         if line.strip():
             title = line.strip()[:120]
             break
-    return {"ok": True, "url": url, "title": title, "chars": len(text), "text": text}
+    # F1 — ingest guard: the reader output is third-party content and may
+    # carry hidden HTML / invisible characters / embedded instructions.
+    guard_verdict = "ok"
+    guard_counts: dict = {}
+    try:
+        from backend.ingest_guard import guard as _guard
+        text, _findings = _guard(text, mode="auto", add_banner=False)
+        guard_verdict = _findings.get("verdict", "ok")
+        guard_counts = _findings.get("counts", {})
+    except Exception:
+        pass
+    return {"ok": True, "url": url, "title": title, "chars": len(text), "text": text,
+            "ingest_guard": {"verdict": guard_verdict, "counts": guard_counts}}
 
 
 # ════════════════════════════════════════════════════════════════

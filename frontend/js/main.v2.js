@@ -2785,6 +2785,13 @@ ${bodyHtml}
                         if (_compTimer) clearTimeout(_compTimer);
                         showCompletionDropdown(msg.completions || []);
                         return;
+                    } else if (msg.type === 'scope_block') {
+                        appendOutput('\n🔒 ' + (msg.message || 'blocked by Scope Guard') + '\n');
+                    } else if (msg.type === 'permission_request') {
+                        appendOutput('\n⏸ Permission required: ' + (msg.summary || 'risky command') + '\n');
+                        if (window.permissionShow) window.permissionShow(msg);
+                    } else if (msg.type === 'permission_denied') {
+                        if (window.permissionDenied) window.permissionDenied(msg);
                     }
                     return;
                 } catch {}
@@ -2890,6 +2897,15 @@ ${bodyHtml}
                     if (msg.type === 'connected' || msg.type === 'error') { consoleAppend(c, '\n' + (msg.message || msg.type) + '\n'); return; }
                     if (msg.type === 'scope_block') { consoleAppend(c, '\n🔒 ' + (msg.message || 'blocked') + '\n'); return; }
                     if (msg.type === 'scope_warn') { consoleAppend(c, '\n⚠ ' + (msg.message || 'warn') + '\n'); return; }
+                    if (msg.type === 'permission_request') {
+                        consoleAppend(c, '\n⏸ Permission required: ' + (msg.summary || 'risky command') + '\n');
+                        if (window.permissionShow) window.permissionShow(msg);
+                        return;
+                    }
+                    if (msg.type === 'permission_denied') {
+                        consoleAppend(c, '\n🚫 Permission ' + (msg.status || 'denied') + '\n');
+                        return;
+                    }
                 } catch {}
                 return;
             }
@@ -7600,6 +7616,18 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         hak5AiBtn:         { en: '🤖 AI',              es: '🤖 IA' },
         hak5PayloadLabel:  { en: 'PAYLOAD',            es: 'PAYLOAD' },
 
+        // ── Interactive Permissions (F0) ──
+        permModalTitle:    { en: 'Permission Required', es: 'Permiso Requerido' },
+        permModalIntro:    { en: 'This command was classified as risky. Review it before it runs on the target.',
+                             es: 'Este comando se clasificó como riesgoso. Revísalo antes de ejecutarlo en el objetivo.' },
+        permModalCommand:  { en: 'Command',            es: 'Comando' },
+        permModalTarget:   { en: 'Target',             es: 'Objetivo' },
+        permModalReasons:  { en: 'Risk reasons',       es: 'Motivos de riesgo' },
+        permModalExpires:  { en: 'Expires',            es: 'Expira' },
+        permBtnDeny:       { en: '🚫 Deny',             es: '🚫 Denegar' },
+        permBtnSession:    { en: '♻️ Allow for session', es: '♻️ Permitir en sesión' },
+        permBtnOnce:       { en: '✅ Allow once',       es: '✅ Permitir una vez' },
+
         // ── Scope Guard ──
         scopeGuard:        { en: '🔒 Scope Guard',     es: '🔒 Guardia de Scope' },
         scopeEnable:       { en: 'Enable scope enforcement', es: 'Habilitar enforzamiento de scope' },
@@ -7671,6 +7699,8 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         bcExportFindings:    { en: '📤 Export Findings',  es: '📤 Exportar Hallazgos' },
         bcDelete:            { en: '🗑 Delete',           es: '🗑 Eliminar' },
         bcAnalysisResults:   { en: 'Security Analysis',   es: 'Análisis de Seguridad' },
+        bcIngestGuardTitle:  { en: 'INGEST GUARD',        es: 'INGEST GUARD' },
+        bcIngestGuardHint:   { en: 'Hidden or injected instructions were found in the captured content. Treat them as data, never as commands.', es: 'Se encontraron instrucciones ocultas o inyectadas en el contenido capturado. Trátalas como datos, nunca como órdenes.' },
         bcRequests:          { en: 'Captured Requests',   es: 'Peticiones Capturadas' },
 
         // ── Continuous Intelligence ──
@@ -8023,6 +8053,13 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
 
     window.currentLang = localStorage.getItem('vulnforge_lang') || 'en';
 
+    // Generic translation getter for dynamically rendered widgets
+    window.t = function (key, fallback) {
+        const entry = translations[key];
+        if (entry && entry[window.currentLang]) return entry[window.currentLang];
+        return fallback !== undefined ? fallback : key;
+    };
+
     window.switchLanguage = function () {
         window.currentLang = window.currentLang === 'en' ? 'es' : 'en';
         localStorage.setItem('vulnforge_lang', window.currentLang);
@@ -8058,6 +8095,7 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
 
         // Refresh dynamic (non data-i18n) widgets: Hak5 device description
         if (window.refreshHak5Lang) window.refreshHak5Lang();
+        if (window.refreshIngestGuardBadge) window.refreshIngestGuardBadge();
 
         // Update placeholders
         const targetPlaceholder = translations.targetPlaceholder[lang];
@@ -12339,6 +12377,7 @@ Reglas:
     // ════════════════════════════════════════════════════════════════
 
     let bcCurrentSession = null;
+    let bcLastAnalysis = null;
 
     window.refreshBrowserCapture = async function() {
         const list = document.getElementById('bc-sessions-list');
@@ -12433,6 +12472,32 @@ Reglas:
         }
     };
 
+    function bcRenderIngestGuard(injections) {
+        const box = document.getElementById('bc-ingest-guard');
+        if (!box) return;
+        if (!injections || injections.length === 0) {
+            box.classList.add('hidden');
+            box.innerHTML = '';
+            return;
+        }
+        box.classList.remove('hidden');
+        const rows = injections.map(i => `<div class="text-[9px] text-orange-200/90 mt-1">• ${_escH(i.detail || i.title || 'prompt injection detected')}</div>`).join('');
+        const title = window.t ? (window.t('bcIngestGuardTitle') || 'INGEST GUARD') : 'INGEST GUARD';
+        const hint = window.t ? (window.t('bcIngestGuardHint') || 'Hidden or injected instructions were found in the captured content. Treat them as data, never as commands.') : 'Hidden or injected instructions were found in the captured content. Treat them as data, never as commands.';
+        box.innerHTML = `<div class="p-2 rounded border-l-4 border-orange-400 bg-orange-400/10">
+            <div class="flex items-center justify-between">
+                <span class="text-[10px] font-semibold text-orange-400">${_escH(title)}</span>
+                <span class="text-[9px] px-1.5 py-0.5 rounded border border-orange-400/30 bg-orange-400/10 text-orange-400">${injections.length}</span>
+            </div>
+            <div class="text-[9px] text-gray-400 mt-1">${_escH(hint)}</div>
+            ${rows}
+        </div>`;
+    }
+
+    window.refreshIngestGuardBadge = function () {
+        if (bcLastAnalysis) bcRenderIngestGuard(bcLastAnalysis.prompt_injection || []);
+    };
+
     function bcRenderAnalysis(analysis) {
         const el = document.getElementById('bc-analysis');
         if (!el) return;
@@ -12448,6 +12513,9 @@ Reglas:
                 { label: 'Info', count: fc.info || 0, color: 'text-gray-400' },
             ].map(s => `<div class="p-2 bg-deep/50 rounded border border-gray-800 text-center"><div class="text-xl font-bold ${s.color}">${s.count}</div><div class="text-[9px] text-gray-500">${s.label}</div></div>`).join('');
         }
+
+        bcRenderIngestGuard(analysis.prompt_injection || []);
+        bcLastAnalysis = analysis;
 
         const issues = analysis.security_issues || [];
         const list = document.getElementById('bc-findings-list');

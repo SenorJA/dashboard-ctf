@@ -42,6 +42,68 @@ Format based on [Keep a Changelog](https://keepachangelog.com/), auto-generated 
   - Suite completa: **5393 passed, 1 deselected** (warnings 47→31).
 
 ### Added
+- **feat(security-f0): gate de permisos interactivos en el canal SSH** — los comandos peligrosos ya no se ejecutan
+  solos: el operador decide antes de que lleguen al shell del host Kali.
+  - `backend/scope_guard.py`: `classify_command(...)` y `validate_command_with_permission(...)` aceptan
+    `check_scope: bool = True`; con `check_scope=False` solo se evalúan los *danger patterns* (capa 2).
+  - `backend/main.py`: `PERMISSION_TTL_SECONDS = 120` y gate de 2 capas en `@app.websocket("/ws")` —
+    (1) validación de scope legacy preservada (`sudo` fuera del check de scope, `p10k`/`PROMPT` fuera del
+    path; `warn` deja pasar, `block` corta), (2) `classify_command(..., check_scope=False)` → `blocked` corta
+    con `scope_block`, `needs_permission` emite `permission_request` y espera `wait_for_decision` (TTL fail-safe
+    120 s, `allow-session` cacheado por `cache_key`).
+  - Protocolo WS: `permission_request` (id/tool/command/target/summary/detail/created_at/expires_at),
+    `permission_denied` (id/status/message) y `scope_block` (razones).
+  - `frontend/js/permissions.js` (nuevo): modal con cola de peticiones, botones *Deny* / *Allow session* /
+    *Allow once*, countdown de expiración, `Escape` = denegar y poll 4 s a `GET /api/permissions/pending`.
+  - `frontend/index.html`: modal `#permission-modal` + `frontend/js/main.v2.js`: handlers WS (canal principal y
+    multi-consola) e i18n en/es (9 claves `perm*`).
+  - Auditoría: el logger `vulnforge.permission` propaga al `AuditLogHandler` → `permission.request` /
+    `permission.decide` quedan en `backend/logs/audit.jsonl`.
+  - Tests: `backend/tests/test_permission_gate.py` (8). Suite completa **5468 passed**.
+- **feat(security-f1): Ingest Guard — filtro anti prompt-injection para contenido de terceros** (`redact.py`
+  filtra *secretos*; este módulo filtra *instrucciones embebidas*).
+  - `backend/ingest_guard.py` (nuevo, **solo stdlib**, offline): `guard(raw, mode="auto", add_banner=True)`,
+    `scan_text`, `strip_invisible`, `detect_invisible_chars`, `detect_instruction_like`, `detect_homoglyphs`,
+    `find_hidden_urls`; verdict `ok`/`warn` (nunca bloquea: neutraliza y etiqueta, no destruye evidencia).
+  - Detecta HTML oculto (`display:none`, `visibility:hidden`, `opacity:0`, `font-size:0`, `color:transparent`,
+    `clip-path`/`clip`, off-screen, caja colapsada `overflow:hidden`, `transform: scale(0)`, `hidden`/`inert`/
+    `aria-hidden`, clases `sr-only`, `<script>/<style>/<template>/<noscript>` y comentarios), caracteres
+    invisibles (zero-width, bidi, soft hyphen, BOM, Hangul fillers, **bloque TAG `U+E0000`–`U+E007F`**,
+    variation selectors, `Cf`/`Cc`), líneas con forma de instrucción, homoglifos latin+cirílico/griego y URLs
+    que solo existen en bloques ocultos (canal C2).
+  - Integraciones: `backend/main.py::_prepare_chat_messages` (solo mensajes no-system, antes de
+    `redact_ai_payload`) + endpoint `POST /api/ingest/guard`; `backend/browser_capture.py` (nuevo check
+    `prompt_injection` en `analyze_request`/`analyze_session`, severidad high/medium);
+    `backend/lab_sessions.py::save_analysis` (evidencia y resumen saneados);
+    `backend/intelligence.py::capture_snapshot` (contenido de páginas vigiladas saneado);
+    `backend/osint_recon.py::page_snapshot` (texto de Jina Reader saneado + `ingest_guard` en la respuesta).
+  - UI: badge **INGEST GUARD** en el panel de análisis de Browser Capture (`bc-ingest-guard`) + i18n en/es
+    (`bcIngestGuardTitle`, `bcIngestGuardHint`) + helper genérico `window.t(key)` para widgets dinámicos.
+  - Atribución: `backend/ATTRIBUTION.md` (MIT de `MadsLorentzen/ai-job-search` + personas/skills vendorizados).
+  - Tests: `backend/tests/test_ingest_guard.py` (49) + `backend/tests/test_ingest_guard_integration.py` (17).
+- **feat(security-f2): supply-chain guard para skills, personas y payloads** — el contenido ejecutable/instalable ya no se
+  confía por defecto; toda skill, persona o payload se audita antes de habilitarse.
+  - `backend/skill_supply_chain.py` (nuevo, **solo stdlib**, 504 L): allowlist canónica `ARSENAL_TOOL_IDS` (65 IDs del
+    frontend) ∪ `REVIEWED_TOOL_BINARIES` (159 binarios) = **224 tools**; `PERSONA_ALLOWED_TOOLS` /
+    `PERSONA_FORBIDDEN_TOOLS`, `LIFECYCLE_SCRIPTS` (`preinstall/install/postinstall/prepare/prepack`),
+    `REQUIRED_GITIGNORE_PATTERNS`, patrón `_PIPE_TO_SHELL`; API `audit_allowed_tools`,
+    `audit_skill_markdown`, `audit_persona_markdown`, `audit_package_json`, `audit_script_file`,
+    `audit_payload(files)`, `has_blocking_issues`, `summarize`. Severidades **error** (bloquea) vs **info**
+    (advisory, p.ej. `near_miss_tool` con distancia de edición ≤1 incl. transposición).
+  - **Fail-closed**: `backend/skill_playbooks.py::call_skill_hook` ya no ejecuta hooks cuando `allowed_tools` está vacío
+    (antes un `[]` significaba "todas"); `create_skill_template` valida `allowed_tools` y devuelve `issues`;
+    `backend/agency_agents.py::_validate_persona_tools` rechaza tools prohibidas/desconocidas y `create_agent` escribe
+    un `tools:` explícito (default read-only).
+  - **Correcciones aplicadas por el guard**: `backend/skills/training-path/SKILL.md` (`allowed_tools: []` → `[curl]`);
+    **39 personas** de `backend/agents/{security,testing,engineering,specialized}/` con frontmatter `tools:` read-only
+    (`read, grep, glob, list_dir, search, web_fetch, report`; `engineering` sin `web_fetch`); `.gitignore` += `*.env`,
+    `.env.*`, `backend/data/`.
+  - Endpoint `GET /api/skills/supply-chain` (`{ok, skills: 113, personas: 39, allowlist: {arsenal: 65, total: 224},
+    errors, infos, total}`); `POST /api/skills/create` adjunta el `supply_chain` al error de validación.
+  - CI: step **Skill supply-chain guard (F2)** en `.github/workflows/ci.yml` (`test_skill_supply_chain.py` +
+    `test_pack_purity.py`).
+  - Tests: `backend/tests/test_skill_supply_chain.py` (46, incluye integridad de la allowlist contra
+    `ARSENAL_GROUPS` del frontend). Suite completa **5514 passed**.
 - **feat(desktop-fase-4)**: Fase 4 del plan de escritorio — splash screen, título dinámico, página de error e iconos.
   - **Identifier** `com.mirv.app` → `com.mirv.desktop` (elimina el warning del bundler por terminar en `.app`).
   - **Splash screen** (`frontend/splash.html`, copiada al shell por `sync-frontend.mjs`): ventana `splash` sin

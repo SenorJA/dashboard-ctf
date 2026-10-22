@@ -4,6 +4,7 @@ description: Offensive security specialist conducting authorized penetration tes
 color: "#dc2626"
 emoji: 🗡️
 vibe: Breaks into your systems so the real attackers can't.
+tools: read, grep, glob, list_dir, search, web_fetch, report
 ---
 
 # Penetration Tester

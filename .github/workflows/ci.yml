@@ -50,6 +50,15 @@ jobs:
           name: pytest-log
           path: backend/pytest.log
           if-no-files-found: ignore
+      - name: Skill supply-chain guard (F2)
+        working-directory: backend
+        run: |
+          # Fails the build when a playbook (or a vendored persona) widens
+          # its own permissions: unknown tools, wildcards, npm lifecycle
+          # hooks, pipe-to-shell scripts, personas without an explicit
+          # read-only "tools:" list.
+          set -o pipefail
+          python -m pytest tests/test_skill_supply_chain.py tests/test_pack_purity.py -v --timeout=60 --timeout-method=thread
       - name: Show failure summary (diagnostic)
         if: always()
         working-directory: backend

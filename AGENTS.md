@@ -26,6 +26,7 @@ C:\Users\34678\Desktop\Proyecto ciber\
 │   ├── skill_playbooks.py     # Markdown skill playbooks (SKILL.md frontmatter)
 │   ├── skill_router.py        # Task Router: hint→skill by keyword blocks (41 routes + benchmark regression, hot-reload)
 │   ├── redact.py              # Global redaction (20 patterns, shape-preserving)
+│   ├── ingest_guard.py        # Ingest Guard: anti prompt-injection for untrusted content (stdlib only)
 │   ├── audit_log.py           # Structured JSONL audit log w/ rotation + SIEM forwarding
 │   ├── burp_bridge.py         # Burp Suite ingest server (captured requests store)
 │   ├── browser_capture.py     # Browser traffic capture & security analysis (HAR 1.2)
@@ -49,7 +50,7 @@ C:\Users\34678\Desktop\Proyecto ciber\
 │   ├── skills/                # Built-in skill playbooks (recon, webvuln, ssrf, jwt, supabase)
 │   ├── agents/                # 39 vendored AI personas (MIT, agency-agents) + ATTRIBUTION.md
 │   ├── burp_plugin/           # Jython Burp Suite plugin (mirv_burp.py)
-│   ├── tests/                 # ~5394 tests across 116 test files
+│   ├── tests/                 # ~5514 tests across 120 test files
 │   ├── Dockerfile             # Container image for mirv-backend
 │   └── requirements.txt
 ├── frontend/
@@ -64,6 +65,7 @@ C:\Users\34678\Desktop\Proyecto ciber\
 │       ├── main.v2.js          # All frontend logic (~12500 lines)
 │       ├── main.js             # Legacy version
 │       ├── dataservice.js      # Supabase REST client
+│       ├── permissions.js      # F0 Permission Gate modal (queue, decision, countdown)
 │       ├── mobile.js           # Mobile analysis UI
 │       ├── forensics.js        # Forensics UI
 │       └── swarm.js            # Swarm UI
@@ -93,10 +95,10 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 **Tests:**
 ```bash
 cd backend
- python -m pytest tests/ -k "not test_slow_hook" -q  # ~5394 tests, ~95% coverage
+ python -m pytest tests/ -k "not test_slow_hook" -q  # ~5514 tests, ~95% coverage
  ```
 
-## Backend modules (main.py + 61 modules)
+## Backend modules (main.py + 62 modules)
 
 | File | Lines | Purpose | Tests | Coverage |
 |------|-------|---------|-------|----------|
@@ -110,7 +112,9 @@ cd backend
 | `coverage_matrix.py` | ~480 | Coverage matrix (endpoint×param×vuln_class), next_steps estimator | 33+17 | 99% |
 | `skill_playbooks.py` | ~450 | Markdown skill playbooks, frontmatter parser, hot-reload | 67+16 | 100% |
 | `skill_router.py` | ~530 | Task Router — hint→skill route by keyword blocks (41 routes en/es, priority tie-break, fallback), hot-reload config + embedded fallback, `detect_tools()` via `which` (108 tools), **regression benchmark** (`benchmarks.json`, 105 cases → `run_benchmarks()`/`GET /api/router/benchmark`) | 162 (incl. 105 parametrized cases) | — |
+| `skill_supply_chain.py` | ~504 | **F2** Supply-chain guard (stdlib only): canonical allowlist `ARSENAL_TOOL_IDS` (65 frontend IDs) ∪ `REVIEWED_TOOL_BINARIES` (159) = 224 tools; `PERSONA_ALLOWED_TOOLS`/`PERSONA_FORBIDDEN_TOOLS`, `LIFECYCLE_SCRIPTS`, `REQUIRED_GITIGNORE_PATTERNS`, `_PIPE_TO_SHELL`; `audit_allowed_tools`, `audit_skill_markdown`, `audit_persona_markdown`, `audit_package_json`, `audit_script_file`, `audit_payload(files)`, `has_blocking_issues`, `summarize`; severities `error` (blocks) vs `info` (advisory, `near_miss_tool` edit-distance ≤1 incl. transposition). Fail-closed in `skill_playbooks.call_skill_hook` (empty `allowed_tools` = no hooks) + `agency_agents._validate_persona_tools`; `GET /api/skills/supply-chain`; CI step + 46 tests | 46 | — |
 | `redact.py` | ~430 | 20 redaction patterns, shape-preserving, AI/mission integration | 63 | 100% |
+| `ingest_guard.py` | ~647 | **F1** Ingest Guard — anti prompt-injection for third-party content (stdlib only, offline): `guard(raw, mode="auto", add_banner=True) -> (clean, findings)`, `scan_text`, `strip_invisible`, `detect_invisible_chars`, `detect_instruction_like`, `detect_homoglyphs`, `find_hidden_urls`; verdict `ok`/`warn` (**never blocking**); detects hidden HTML (`display:none`, off-screen, `clip-path`, `aria-hidden`, `sr-only`, `<script>/<style>/<template>`, comments), invisible chars (zero-width, bidi, soft hyphen, BOM, Hangul fillers, **Unicode TAG `U+E0000`–`U+E007F`**, variation selectors), instruction-like lines, homoglyph runs, hidden URLs (C2). Integrated in `main._prepare_chat_messages`, `POST /api/ingest/guard`, `browser_capture`, `lab_sessions.save_analysis`, `intelligence.capture_snapshot`, `osint_recon.page_snapshot` | 49+17 | — |
 | `secret_store.py` | ~300 | At-rest Fernet encryption (AES-128-CBC+HMAC), key mgmt (env/file, scrypt derived), legacy passthrough, fail-closed | 22 | — |
 | `audit_log.py` | ~470 | JSONL audit log, 4MB rotation, SIEM forwarding, AuditLogHandler | 45 | 100% |
 | `burp_bridge.py` | ~599 | Burp ingest server, LRU store, finding↔issue conversion | 72+14 | 100% |
@@ -152,7 +156,8 @@ cd backend
 
 ## Backend quirks (main.py)
 
-- **First WS message must be JSON auth**: `{"type":"auth","ip":"...","port":22,"user":"...","pass":"..."}`
+- **First WS message must be JSON auth**: `{"type":"auth","ip":"...","port":22,"user":"...","pass":"..."}
+- **Permission Gate (F0)**: el WS aplica 2 capas antes de enviar al shell — (1) scope legacy (`sudo` excluido del check de scope; `p10k`/`PROMPT` fuera del path; `warn` deja pasar, `block` corta con `scope_block`), (2) `classify_command(..., check_scope=False)` → `blocked` corta, `needs_permission` emite `permission_request` y espera `wait_for_decision` (TTL `PERMISSION_TTL_SECONDS=120`, `allow-session` cacheado por `cache_key`). El frontend (`frontend/js/permissions.js`) decide; la denegación emite `permission_denied`.`
 - SSH uses `invoke_shell()` for interactive PTY session.
 - `p10k disable` sent on connect → Powerlevel10k prompt disabled.
 - sudo commands intercepted with `sudo -S` + password piped via heredoc.
@@ -260,6 +265,8 @@ cd backend
 | `refreshLLM()` / `llmRunScan()` / `llmRunProbe()` / `llmPushFindings(id)` / `llmClearResults()` / `llmSelectAll()` | LLM Security tab: listado probes + resultados (registry), scan/single-probe contra self/openai/stub, push de findings vuln a DB+SIEM+audit, clear |
 | `addConsole()` / `removeConsole(id)` (módulo `mircConsoles`) | Multi-terminal: consolas extra autocontenidas (WS propio por panel sobre el perfil de conexión activo) — sin tocar el pipeline del terminal principal |
 | `routerRoute()` / `refreshRouter()` / `routerReload()` / `routerOpenSkill(name)` | Task Router (tab Skills): rutea hint→skill (POST `/api/router/route`), tool-index con `which` del host, reload config, open+auto-load skill |
+| `window.permissionShow(req)` / `permissionDenied(req)` / `permissionDecide(id, decision)` / `permissionClose()` | F0 Permission Gate (modal `#permission-modal`): cola de `permission_request` WS, decide contra `POST /api/permissions/{id}/decide` (`deny` / `allow-once` / `allow-session`), countdown de expiración, `Escape` = denegar |
+| `window.t(key, fallback)` | Getter genérico de i18n para widgets renderizados dinámicamente (browser capture, permisos) |
 
 ## Findings parsing system
 
@@ -319,8 +326,10 @@ cd backend
 | **Plugin Watcher** | `POST /api/plugins/watcher/{start,stop}`, `GET /api/plugins/watcher/{events,status}` |
 | **Coverage** | `POST /api/coverage/mark`, `GET /api/coverage/{list,summary,untested,next,sessions,export,vocab}`, `DELETE /api/coverage` |
 | **Skills** | `GET /api/skills`, `GET /api/skills/{name}`, `GET /api/skills/{name}/render`, `POST /api/skills/{name}/{load,unload,enable,disable,reload}`, `POST /api/skills/create` |
+| **Skill Supply Chain** | `GET /api/skills/supply-chain` (F2 — audits 113 skills + 39 personas + lifecycle scripts against the 224-tool allowlist; `{ok, skills, personas, allowlist{arsenal,total}, errors, infos, total}`) |
 | **Skill Router** | `GET /api/router/routes`, `POST /api/router/route` (+ `GET /api/router/route?hint=`), `GET /api/router/routes/{rid}`, `GET /api/router/tool-index`, `POST /api/router/reload`, `GET /api/router/benchmark` (105 cases, gate `failed==0`) |
 | **Redaction** | `POST /api/redact`, `POST /api/redact/dict`, `GET /api/redact/patterns`, `POST /api/redact/check` |
+| **Ingest Guard** | `POST /api/ingest/guard` (F1 — anti prompt-injection: `{content, mode?, sanitize?}` → `{ok, verdict, findings, clean?}`) |
 | **Audit Log** | `GET /api/audit/logs`, `GET /api/audit/stats`, `POST /api/audit` |
 | **Burp Bridge** | `POST /api/burp/ingest`, `GET /api/burp/{requests,requests/{id},endpoints,tasks,issues}`, `POST /api/burp/{tasks,issues,finding-to-issue,raw,export-findings,snapshot}`, `PATCH /api/burp/tasks/{id}`, `DELETE /api/burp/clear`, `GET /api/burp/status` |
 | **Browser Capture** | `POST /api/browser-capture/import`, `GET /api/browser-capture/sessions`, `GET /api/browser-capture/sessions/{id}`, `DELETE /api/browser-capture/sessions/{id}`, `GET /api/browser-capture/sessions/{id}/requests`, `POST /api/browser-capture/sessions/{id}/analyze`, `GET /api/browser-capture/sessions/{id}/analysis`, `POST /api/browser-capture/sessions/{id}/findings`, `GET /api/browser-capture/stats` |
@@ -479,11 +488,11 @@ cd backend
 
 ## Test summary
 
-- **116 test files** in `backend/tests/`
-- **~5394 tests** collected (**5393 passing locally**, + 17 network-only `example.com` tests that pass in CI; 296 now in `test_main_gaps.py` + 20 in `test_main_websocket_gaps.py` + 30 `test_assessments.py` + 43 `test_scheduler.py` + 27 `test_scheduler_daemon.py` + 19 `test_finding_lifecycle.py` + 24 `test_assets.py` + 17 `test_api_auth.py` + 37 `test_notifications.py` + 22 `test_workspace_store.py` + 144 `test_skill_router.py` (incl. 99 benchmark cases) + 20 `test_opencode_agent.py` + 24 `test_agent_bridge.py` + 23 `test_phishing_sim.py` + 64 `test_redact.py` + 21 `test_flag_detection.py` + 39 `test_lab_sessions.py` + 8 `test_lab_writeup.py` + 22 `test_labs_endpoints.py` + 38 `test_agency_agents.py` + 20 `test_personas_endpoints.py` + 17 `test_pack_purity.py` **+ 37 `test_llm_scanner.py` + 11 `test_llm_endpoints.py` + 19 `test_wireless_analyzer.py` (Pack 18/19) + 64 `test_privacy.py` (Pack 20) + 68 `test_vpn.py` (Pack 21)**)
+- **120 test files** in `backend/tests/`
+- **~5514 tests** collected (**5514 passing locally**, + 17 network-only `example.com` tests that pass in CI; 296 now in `test_main_gaps.py` + 20 in `test_main_websocket_gaps.py` + 30 `test_assessments.py` + 43 `test_scheduler.py` + 27 `test_scheduler_daemon.py` + 19 `test_finding_lifecycle.py` + 24 `test_assets.py` + 17 `test_api_auth.py` + 37 `test_notifications.py` + 22 `test_workspace_store.py` + 144 `test_skill_router.py` (incl. 99 benchmark cases) + 20 `test_opencode_agent.py` + 24 `test_agent_bridge.py` + 23 `test_phishing_sim.py` + 64 `test_redact.py` + 21 `test_flag_detection.py` + 39 `test_lab_sessions.py` + 8 `test_lab_writeup.py` + 22 `test_labs_endpoints.py` + 38 `test_agency_agents.py` + 20 `test_personas_endpoints.py` + 17 `test_pack_purity.py` **+ 37 `test_llm_scanner.py` + 11 `test_llm_endpoints.py` + 19 `test_wireless_analyzer.py` (Pack 18/19) + 64 `test_privacy.py` (Pack 20) + 68 `test_vpn.py` (Pack 21) + 8 `test_permission_gate.py` (F0) + 49 `test_ingest_guard.py` + 17 `test_ingest_guard_integration.py` (F1)**)
 - **~95% coverage** across measured backend modules
 - **`backend/main.py` = 100%** (2847/2847 statements; last gaps were websocket `read_shell` break on OSError/EOFError + outer `WebSocketDisconnect`)
-- **Key test files**: test_database (196), test_api_endpoints (333), test_main_gaps (296), test_main_coverage (165), test_main_extra (120), test_crud_endpoints (67), test_deep_coverage_1/2 (205), test_compaction (63), test_burp_bridge (72), test_redact (63), test_skill_playbooks (67), test_skill_router (144), test_agency_agents (38), test_personas_endpoints (20), test_pack_purity (17), test_audit_log (45), test_plugin_manager (47), test_plugin_watcher (18), test_siem (31), test_coverage (33), test_exif_osint (63), test_mobile_analyzer (54), test_canary_tokens (24), test_dlp_scanner (25), test_finding_poc (62), test_intelligence (43), test_permission_system (56), test_opsec, test_scope_guard, test_forensics, test_adb_controller, test_kali_mcp_client, test_mission_store, test_knowledgebase, test_swarm, test_assessments (30), test_scheduler (43), test_scheduler_daemon (27), test_finding_lifecycle (19), test_assets (24), test_api_auth (17), test_notifications (37), test_workspace_store (22), test_opencode_agent (20), test_agent_bridge (24), test_phishing_sim (23), test_flag_detection (21), test_lab_sessions (39), test_lab_writeup (8), test_labs_endpoints (22), test_privacy (64), test_vpn (68), + scanner tools + gap files (test_*_gaps.py: redact, dlp_scanner, mission_store, dns_lookup, pdf_engine, database, finding_poc, headers_scanner, hash_cracker, adb_controller, skill_playbooks, audit_log, intelligence, opsec, scope_guard).
+- **Key test files**: test_database (196), test_api_endpoints (333), test_main_gaps (296), test_main_coverage (165), test_main_extra (120), test_crud_endpoints (67), test_deep_coverage_1/2 (205), test_compaction (63), test_burp_bridge (72), test_redact (63), test_skill_playbooks (67), test_skill_router (144), test_agency_agents (38), test_personas_endpoints (20), test_pack_purity (17), test_audit_log (45), test_plugin_manager (47), test_plugin_watcher (18), test_siem (31), test_coverage (33), test_exif_osint (63), test_mobile_analyzer (54), test_canary_tokens (24), test_dlp_scanner (25), test_finding_poc (62), test_intelligence (43), test_permission_system (56), test_opsec, test_scope_guard, test_forensics, test_adb_controller, test_kali_mcp_client, test_mission_store, test_knowledgebase, test_swarm, test_assessments (30), test_scheduler (43), test_scheduler_daemon (27), test_finding_lifecycle (19), test_assets (24), test_api_auth (17), test_notifications (37), test_workspace_store (22), test_opencode_agent (20), test_agent_bridge (24), test_phishing_sim (23), test_flag_detection (21), test_lab_sessions (39), test_lab_writeup (8), test_labs_endpoints (22), test_privacy (64), test_vpn (68), test_permission_gate (8), test_ingest_guard (49), test_ingest_guard_integration (17), test_skill_supply_chain (46), + scanner tools + gap files (test_*_gaps.py: redact, dlp_scanner, mission_store, dns_lookup, pdf_engine, database, finding_poc, headers_scanner, hash_cracker, adb_controller, skill_playbooks, audit_log, intelligence, opsec, scope_guard).
 
 ### main.py coverage tests (gaps)
 

@@ -4,6 +4,7 @@ description: Expert process improvement specialist focused on analyzing, optimiz
 color: green
 emoji: ⚡
 vibe: Finds the bottleneck, fixes the process, automates the rest.
+tools: read, grep, glob, list_dir, search, web_fetch, report
 ---
 
 # Workflow Optimizer Agent Personality

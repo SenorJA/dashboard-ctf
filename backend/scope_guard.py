@@ -357,7 +357,7 @@ _VALID_DECISIONS = {"allow-once", "allow-session", "deny"}
 
 # Decision normalization map (frontend may send variants).
 # Canonical status values stored on the request MUST match the spec:
-#   "pending" | "allowed-once" | "allowed-session" | "denied" | "expired"
+#   "pending" | "allowed-once" | "allowed-session" | "deny" | "expired"
 _DECISION_ALIASES = {
     "allow-once": "allowed-once",
     "allow_once": "allowed-once",
@@ -390,7 +390,12 @@ def _req_to_dict(req: PermissionRequest) -> dict:
     return asdict(req)
 
 
-def classify_command(tool: str, command: str, target: str) -> dict:
+def classify_command(
+    tool: str,
+    command: str,
+    target: str,
+    check_scope: bool = True,
+) -> dict:
     """
     Classify a command for risk.
 
@@ -398,6 +403,11 @@ def classify_command(tool: str, command: str, target: str) -> dict:
       1. Existing scope validation against configured scope targets
          (returns block reasons if out of scope).
       2. High-impact danger pattern matching.
+
+    check_scope=False skips layer 1 (danger patterns only). Used by the
+    dispatch layer when scope validation was already performed separately
+    (e.g. the WebSocket gate handles scope itself so legacy warn/block
+    semantics are preserved).
 
     Returns a dict:
         {
@@ -419,7 +429,7 @@ def classify_command(tool: str, command: str, target: str) -> dict:
     severity_rank = {"safe": 0, "medium": 1, "high": 2, "critical": 3}
 
     # ── Layer 1: scope validation ──
-    scope_result = validate_command(command)
+    scope_result = validate_command(command) if check_scope else None
     if scope_result and scope_result.get("blocked"):
         mode = scope_result.get("mode", "warn")
         target_list = scope_result.get("targets", [])
@@ -677,9 +687,13 @@ def validate_command_with_permission(
     command: str,
     tool: str = "shell",
     target: str = "",
+    check_scope: bool = True,
 ) -> dict:
     """
     Combined scope + danger-pattern validation used by the dispatch layer.
+
+    check_scope=False disables the scope layer (danger patterns only) so a
+    caller that already applied scope validation keeps its own semantics.
 
     Returns a richer dict than the base validate_command:
       - ok bool
@@ -690,7 +704,7 @@ def validate_command_with_permission(
         to invoke request_permission if needs_permission=True)
       - reasons, summary, detail, cache_key from classify_command
     """
-    classification = classify_command(tool, command, target)
+    classification = classify_command(tool, command, target, check_scope=check_scope)
 
     # Auto-block on critical
     if classification["risk_level"] == "blocked":

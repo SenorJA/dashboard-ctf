@@ -145,6 +145,8 @@ class CaptureAnalysis:
     websocket_issues: list
     risk_score: float
     recommendations: list
+    # F1 — prompt-injection payloads detected in the captured bodies.
+    prompt_injection: list = field(default_factory=list)
 
 
 # ════════════════════════════════════════════════════════════════
@@ -929,9 +931,68 @@ def _check_websocket(req: CapturedRequest) -> list[dict]:
 #  Core: Analyze single request
 # ════════════════════════════════════════════════════════════════
 
+def _check_prompt_injection(req: CapturedRequest) -> list[dict]:
+    """Check K: hidden / instruction-like content in the captured body.
+
+    A page carrying hidden instructions (``display:none`` blocks, Unicode TAG
+    characters, "ignore previous instructions") is trying to manipulate any AI
+    agent that reads it — and it is also a classic phishing vector.
+
+    F1 — powered by ``backend/ingest_guard.py``.
+    """
+    issues: list[dict] = []
+
+    body = req.response_body or ""
+    if not body:
+        return issues
+
+    try:
+        from backend.ingest_guard import scan_text
+    except Exception:
+        return issues
+
+    try:
+        findings = scan_text(body, mode="auto")
+    except Exception:
+        return issues
+
+    if findings.get("verdict") != "warn":
+        return issues
+
+    counts = findings.get("counts", {})
+    bits: list[str] = []
+    if counts.get("hidden_blocks"):
+        bits.append(f"{counts['hidden_blocks']} hidden block(s)")
+    if counts.get("instruction_like"):
+        bits.append(f"{counts['instruction_like']} instruction-like line(s)")
+    if counts.get("invisible_chars"):
+        bits.append(f"{counts['invisible_chars']} invisible char group(s)")
+    if counts.get("hidden_urls"):
+        bits.append(f"{counts['hidden_urls']} hidden URL(s)")
+    if counts.get("homoglyph_runs"):
+        bits.append(f"{counts['homoglyph_runs']} homoglyph run(s)")
+
+    severity = "high" if (counts.get("hidden_blocks") or counts.get("instruction_like")) \
+        else "medium"
+    issues.append({
+        "check_id": "prompt-injection-content",
+        "severity": severity,
+        "category": "prompt_injection",
+        "title": "Hidden / instruction-like content in response body",
+        "detail": "The response carries content that is invisible to the user "
+                  "or shaped like an instruction aimed at an AI agent.",
+        "url": req.url,
+        "evidence": ", ".join(bits) or "anomalies detected",
+        "recommendation": "Strip or distrust this content before feeding it to an "
+                          "AI agent; the hidden payload may target prompt-based "
+                          "automation.",
+    })
+    return issues
+
+
 def analyze_request(req: CapturedRequest) -> list[dict]:
     """
-    Run all 10 security check categories on a single captured request.
+    Run all security check categories on a single captured request.
 
     Args:
         req: The CapturedRequest to analyze.
@@ -952,6 +1013,7 @@ def analyze_request(req: CapturedRequest) -> list[dict]:
     issues.extend(_check_info_leakage(req))
     issues.extend(_check_large_responses(req))
     issues.extend(_check_websocket(req))
+    issues.extend(_check_prompt_injection(req))
 
     return issues
 
@@ -995,6 +1057,7 @@ def analyze_session(session_id: str) -> Optional[CaptureAnalysis]:
     info_leakage_list: list[dict] = []
     large_responses_list: list[dict] = []
     websocket_issues_list: list[dict] = []
+    prompt_injection_list: list[dict] = []
 
     for req in reqs:
         issues = analyze_request(req)
@@ -1019,6 +1082,8 @@ def analyze_session(session_id: str) -> Optional[CaptureAnalysis]:
                 large_responses_list.append(issue)
             elif cat == "websocket":
                 websocket_issues_list.append(issue)
+            elif cat == "prompt_injection":
+                prompt_injection_list.append(issue)
 
         # Cookies stats
         cookies_analysis["total_cookies"] += len(req.cookies)
@@ -1078,6 +1143,7 @@ def analyze_session(session_id: str) -> Optional[CaptureAnalysis]:
         websocket_issues=websocket_issues_list,
         risk_score=risk_score,
         recommendations=recommendations,
+        prompt_injection=prompt_injection_list,
     )
 
     with _lock:

@@ -266,6 +266,32 @@ def delete_watch(watch_id: str) -> bool:
 #  Snapshot management
 # ════════════════════════════════════════════════════════════════
 
+def _guard_snapshot_data(watch_type: str, data: dict) -> dict:
+    """
+    F1 — sanitise untrusted page content before it is stored and diffed.
+
+    A watched page is third-party content: it may carry hidden HTML,
+    invisible characters or embedded instructions. Invisible payloads are
+    removed; visible content is preserved (the diff engine needs it).
+    """
+    if watch_type != "page_content" or not isinstance(data, dict):
+        return data
+    try:
+        from backend.ingest_guard import guard as _guard
+    except Exception:
+        return data
+    out = dict(data)
+    for key in ("content", "text", "body", "html"):
+        val = out.get(key)
+        if isinstance(val, str) and val:
+            try:
+                clean, _findings = _guard(val, mode="auto", add_banner=False)
+                out[key] = clean
+            except Exception:
+                continue
+    return out
+
+
 def capture_snapshot(watch: WatchDefinition, data: dict) -> Snapshot:
     """Store a new snapshot for *watch* and return it.
 
@@ -273,6 +299,7 @@ def capture_snapshot(watch: WatchDefinition, data: dict) -> Snapshot:
     trimmed to ``MAX_SNAPSHOTS_PER_WATCH``.
     """
     now = _now_iso()
+    data = _guard_snapshot_data(watch.watch_type, data)
     with _lock:
         history = _snapshots.get(watch.id, [])
         prev_id = history[-1].id if history else None

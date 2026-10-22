@@ -11,6 +11,7 @@ STARTUP:
 
 import json
 import os
+from pathlib import Path
 import sys
 import io
 import csv
@@ -704,9 +705,9 @@ Based on these findings, suggest the single most impactful next step. Be concise
 
 Keep suggestions actionable and technical. Focus on the most promising attack path."""
 
-def _call_llm_sync(provider: str, api_key: str, model: str, messages: list, timeout: int = 60, max_tokens: int = 1024) -> str:
+def _call_llm_sync(provider: str, api_key: str, model: str, messages: list, timeout: int = 60, max_tokens: int = 1024, base_url: str = "") -> str:
     """Synchronous LLM API call (runs in thread via asyncio). Returns the response text."""
-    if provider in ("openai", "openrouter", "deepseek", "groq"):
+    if provider in ("openai", "openrouter", "deepseek", "groq", "custom"):
         # OpenAI-compatible API
         base_map = {
             "openai":     "https://api.openai.com/v1",
@@ -720,8 +721,13 @@ def _call_llm_sync(provider: str, api_key: str, model: str, messages: list, time
             "deepseek":   "deepseek-chat",
             "groq":       "llama-3.3-70b-versatile",
         }
-        base = base_map.get(provider, "https://api.openai.com/v1")
-        if not model or model.lower() in ("openai", "gemini", "anthropic", "openrouter", "deepseek", "groq"):
+        if provider == "custom":
+            base = (base_url or "").strip().rstrip("/")
+            if not base:
+                raise ValueError("custom provider requires base_url")
+        else:
+            base = base_map.get(provider, "https://api.openai.com/v1")
+        if not model or model.lower() in ("openai", "gemini", "anthropic", "openrouter", "deepseek", "groq", "custom"):
             model = default_model_map.get(provider, "gpt-4o-mini")
         url = f"{base}/chat/completions"
         body = json.dumps({
@@ -732,7 +738,8 @@ def _call_llm_sync(provider: str, api_key: str, model: str, messages: list, time
         }).encode("utf-8")
         req = urllib.request.Request(url, data=body, method="POST")
         req.add_header("Content-Type", "application/json; charset=utf-8")
-        req.add_header("Authorization", f"Bearer {api_key}")
+        if api_key:
+            req.add_header("Authorization", f"Bearer {api_key}")
         req.add_header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36")
         req.add_header("Accept", "*/*")
         req.add_header("Cache-Control", "no-cache")
@@ -988,7 +995,13 @@ def _prepare_chat_messages(messages: list, provider: str) -> list:
                 rebuilt.append(system_msg)
         rebuilt.extend(non_system)
 
-        return redact_ai_payload(rebuilt)
+        # F1 — ingest guard: sanitise untrusted content (hidden HTML,
+        # invisible chars, embedded instructions) before it reaches the LLM.
+        # System messages are MIRV's own (persona / operator instructions)
+        # and are left untouched.
+        guarded = _ingest_guard_messages(rebuilt)
+
+        return redact_ai_payload(guarded)
     except Exception as e:
         logger.debug("[ai_chat] message restructure failed: %s", e)
         # Last-resort: redact the raw input so we never send unredacted text.
@@ -996,6 +1009,47 @@ def _prepare_chat_messages(messages: list, provider: str) -> list:
             return redact_ai_payload(messages)
         except Exception:
             return []
+
+
+def _ingest_guard_messages(messages: list) -> list:
+    """
+    Run the ingest guard over every non-system message.
+
+    System messages are trusted (MIRR persona / operator system prompt) and
+    are never rewritten. Failures are non-fatal: the original messages are
+    returned unchanged.
+    """
+    try:
+        from backend.ingest_guard import guard as _guard
+    except Exception:
+        return messages
+    try:
+        out: list = []
+        for m in messages:
+            if not isinstance(m, dict) or m.get("role") == "system":
+                out.append(m)
+                continue
+            content = m.get("content")
+            if isinstance(content, str):
+                clean, _findings = _guard(content, mode="auto")
+                if clean != content:
+                    m = {**m, "content": clean}
+            elif isinstance(content, list):
+                parts: list = []
+                changed = False
+                for part in content:
+                    if isinstance(part, dict) and isinstance(part.get("text"), str):
+                        clean, _findings = _guard(part["text"], mode="auto")
+                        if clean != part["text"]:
+                            part = {**part, "text": clean}
+                            changed = True
+                    parts.append(part)
+                if changed:
+                    m = {**m, "content": parts}
+            out.append(m)
+        return out
+    except Exception:
+        return messages
 
 
 class AIChatRequest(BaseModel):
@@ -1059,7 +1113,7 @@ async def ai_chat(req: AIChatRequest):
         safe_messages = _prepare_chat_messages(messages, req.provider)
 
         result = await asyncio.to_thread(
-            _call_llm_sync, req.provider, req.api_key, req.model, safe_messages, 60
+            _call_llm_sync, req.provider, req.api_key, req.model, safe_messages, 60, 1024, getattr(req, 'base_url', '') or ''
         )
         return JSONResponse({"ok": True, "content": result})
     except urllib.error.HTTPError as e:
@@ -1112,6 +1166,120 @@ async def api_redact_patterns():
         ]
         return JSONResponse({"ok": True, "count": len(patterns), "patterns": patterns})
     except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+# ════════════════════════════════════════════════════════════════
+#  INGEST GUARD (F1) — anti prompt-injection for untrusted content
+# ════════════════════════════════════════════════════════════════
+
+class IngestGuardRequest(BaseModel):
+    content: str = ""
+    mode: str = "auto"        # auto | html | text
+    sanitize: bool = True     # return the cleaned text too
+
+
+@app.post("/api/ingest/guard")
+async def api_ingest_guard(req: IngestGuardRequest):
+    """
+    Analyse untrusted content for prompt-injection payloads.
+
+    Reports hidden HTML blocks, invisible characters (incl. the Unicode TAG
+    block), instruction-like lines, hidden URLs and homoglyph runs. The
+    verdict is informative (``ok`` / ``warn``) — it never blocks.
+    """
+    try:
+        from backend.ingest_guard import guard as _guard
+        mode = (req.mode or "auto").lower()
+        if mode not in ("auto", "html", "text"):
+            mode = "auto"
+        clean, findings = _guard(req.content or "", mode=mode,
+                                 add_banner=bool(req.sanitize))
+        payload = {"ok": True, "verdict": findings.get("verdict", "ok"),
+                   "findings": findings}
+        if req.sanitize:
+            payload["clean"] = clean
+        return JSONResponse(payload)
+    except Exception as e:
+        logging.getLogger("vulnforge.api").exception("ingest.guard")
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+# ════════════════════════════════════════════════════════════════
+#  SKILL SUPPLY-CHAIN GUARD (F2) — permissions of playbooks & personas
+# ════════════════════════════════════════════════════════════════
+
+@app.get("/api/skills/supply-chain")
+async def api_skills_supply_chain():
+    """
+    Audit the installed skill tree against the supply-chain allowlists.
+
+    Reports skills that ask for unknown tools or wildcards, npm lifecycle
+    hooks, scripts that pipe a download into a shell and personas without an
+    explicit read-only ``tools:`` declaration.
+    """
+    try:
+        from backend.skill_supply_chain import (
+            ALLOWED_TOOLS,
+            ARSENAL_TOOL_IDS,
+            audit_payload,
+            audit_persona_markdown,
+            audit_skill_markdown,
+            has_blocking_issues,
+            summarize,
+        )
+        from backend.skill_playbooks import _parse_skill_md
+
+        backend_dir = os.path.dirname(os.path.abspath(__file__))
+        skills_dir = os.path.join(backend_dir, "skills")
+        agents_dir = os.path.join(backend_dir, "agents")
+
+        issues: list[dict] = []
+        skills_count = 0
+        if Path(skills_dir).exists():
+            for skill_md in sorted(Path(skills_dir).glob("*/SKILL.md")):
+                skills_count += 1
+                content = skill_md.read_text(encoding="utf-8", errors="replace")
+                issues.extend(audit_skill_markdown(skill_md.parent.name, content))
+
+        personas_count = 0
+        if Path(agents_dir).exists():
+            for division in ("security", "testing", "engineering", "specialized"):
+                for persona in sorted(Path(agents_dir, division).glob("*.md")):
+                    personas_count += 1
+                    issues.extend(audit_persona_markdown(
+                        persona.stem,
+                        persona.read_text(encoding="utf-8", errors="replace"),
+                    ))
+
+        # Files that are not SKILL.md are still audited (lifecycle scripts…).
+        if Path(skills_dir).exists():
+            extra: dict[str, str] = {}
+            for path in Path(skills_dir).rglob("*"):
+                if not path.is_file():
+                    continue
+                if path.name == "SKILL.md" or path.suffix.lower() not in (".json", ".sh", ".bash"):
+                    continue
+                try:
+                    extra[str(path.relative_to(skills_dir))] = path.read_text(
+                        encoding="utf-8", errors="replace")
+                except OSError:
+                    continue
+            issues.extend(audit_payload(extra))
+
+        report = summarize(issues)
+        return JSONResponse({
+            "ok": not has_blocking_issues(issues),
+            "skills": skills_count,
+            "personas": personas_count,
+            "allowlist": {
+                "arsenal": len(ARSENAL_TOOL_IDS),
+                "total": len(ALLOWED_TOOLS),
+            },
+            **report,
+        })
+    except Exception as e:
+        logging.getLogger("vulnforge.api").exception("skills.supply-chain")
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 
 
@@ -2116,7 +2284,7 @@ def _llm_client_for(target: LLMTargetSpec) -> Any:
 
         def _fn(messages):
             return _call_llm_sync(provider, target.api_key, model, messages,
-                                  int(spec["timeout"]), int(spec["max_tokens"]))
+                                  int(spec["timeout"]), int(spec["max_tokens"]), base_url=(target.base_url or '').strip())
 
         return llms.CallableClient(_fn, model=model or provider)
     if target.mode == "openai" or target.mode == "stub":
@@ -2768,6 +2936,8 @@ from backend.skill_playbooks import (
     create_skill_template as sp_create_template,
 )
 
+from backend.skill_supply_chain import summarize as supply_chain_summary  # noqa: E402
+
 
 @app.get("/api/skills")
 async def api_skills_list():
@@ -2907,7 +3077,11 @@ async def api_skills_create(request: Request):
             description=body.get("description", ""),
             allowed_tools=body.get("allowed_tools", []),
         )
-        return JSONResponse(result, status_code=200 if result.get("ok") else 400)
+        status = 200 if result.get("ok") else 400
+        if not result.get("ok") and result.get("issues"):
+            result = dict(result)
+            result["supply_chain"] = supply_chain_summary(result["issues"])
+        return JSONResponse(result, status_code=status)
     except Exception as e:
         logger.error("[skills create] %s", e)
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
@@ -5626,6 +5800,11 @@ async def favicon():
     return JSONResponse({"detail": "Not Found"}, status_code=404)
 
 
+# TTL (seconds) an interactive permission request stays pending before it
+# auto-expires and the command is NOT executed (fail-safe).
+PERMISSION_TTL_SECONDS = 120
+
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     # Gate: when the API token guard is enabled, the browser must already hold
@@ -5842,29 +6021,101 @@ async def websocket_endpoint(websocket: WebSocket):
                     except json.JSONDecodeError:
                         pass
 
-                    # ── Scope Guard: validate command ──
-                    if not msg.startswith("sudo ") and not msg.startswith("p10k ") and "PROMPT=" not in msg:
-                        from backend.scope_guard import validate_command, log_block
-                        scope_check = validate_command(msg)
-                        if scope_check:
-                            log_block(scope_check)
-                            if scope_check.get("mode") == "block":
-                                await websocket.send_text(
-                                    json.dumps({
-                                        "type": "scope_block",
-                                        "message": f"🔒 BLOCKED: {scope_check['message']}",
-                                        "targets": scope_check["targets"],
-                                    })
+                    # ── Scope Guard + interactive Permission Gate ──
+                    # Layer 1: scope validation (legacy warn/block semantics).
+                    # Layer 2: danger patterns → interactive approval request.
+                    if not msg.startswith("p10k ") and "PROMPT=" not in msg:
+                        from backend.scope_guard import (
+                            validate_command, log_block, classify_command,
+                            request_permission, wait_for_decision,
+                            check_session_cache,
+                        )
+                        # Layer 1 — scope (sudo excluded: legacy behaviour)
+                        if not msg.startswith("sudo "):
+                            scope_check = validate_command(msg)
+                            if scope_check:
+                                log_block(scope_check)
+                                if scope_check.get("mode") == "block":
+                                    await websocket.send_text(
+                                        json.dumps({
+                                            "type": "scope_block",
+                                            "message": f"🔒 BLOCKED: {scope_check['message']}",
+                                            "targets": scope_check["targets"],
+                                        })
+                                    )
+                                    await websocket.send_text(
+                                        f"\n⚠ 🔒 Scope Guard BLOCKED: {scope_check['message']}\n"
+                                    )
+                                    continue  # Skip sending to SSH
+                                else:
+                                    # Warn mode: send warning but allow
+                                    await websocket.send_text(
+                                        f"\n⚠ 🔒 Scope Warning: {scope_check['message']}\n"
+                                    )
+                        # Layer 2 — danger patterns → interactive permission.
+                        # Scope was already handled above → check_scope=False.
+                        verdict = classify_command(
+                            "shell", msg, "", check_scope=False
+                        )
+                        perm_targets = extract_targets(msg)
+                        if verdict.get("risk_level") == "blocked":
+                            await websocket.send_text(
+                                json.dumps({
+                                    "type": "scope_block",
+                                    "message": f"🔒 BLOCKED: {verdict.get('summary', '')}",
+                                    "targets": perm_targets,
+                                })
+                            )
+                            await websocket.send_text(
+                                f"\n⚠ 🔒 Permission Guard BLOCKED: {verdict.get('summary', '')}\n"
+                            )
+                            continue
+                        if verdict.get("needs_permission"):
+                            cache_key = verdict.get("cache_key")
+                            already_allowed = bool(
+                                cache_key and check_session_cache(cache_key) == "allowed"
+                            )
+                            if not already_allowed:
+                                perm = request_permission(
+                                    tool="shell",
+                                    command=msg,
+                                    target=", ".join(perm_targets),
+                                    summary=verdict.get("summary", ""),
+                                    detail=verdict.get("detail", ""),
+                                    cache_key=cache_key,
                                 )
+                                # Notify the operator (frontend opens a modal).
+                                await websocket.send_text(json.dumps({
+                                    "type": "permission_request",
+                                    "id": perm.id,
+                                    "tool": perm.tool,
+                                    "command": perm.command,
+                                    "target": perm.target,
+                                    "summary": perm.summary,
+                                    "detail": perm.detail,
+                                    "created_at": perm.created_at,
+                                    "expires_at": perm.expires_at,
+                                }))
                                 await websocket.send_text(
-                                    f"\n⚠ 🔒 Scope Guard BLOCKED: {scope_check['message']}\n"
+                                    f"\n⏸ Permission required [{perm.id}]: {perm.summary}\n"
                                 )
-                                continue  # Skip sending to SSH
-                            else:
-                                # Warn mode: send warning but allow
-                                await websocket.send_text(
-                                    f"\n⚠ 🔒 Scope Warning: {scope_check['message']}\n"
+                                # Wait for the operator decision (non-blocking for
+                                # the event loop — wait_for_decision polls).
+                                decision = await asyncio.to_thread(
+                                    wait_for_decision, perm.id, PERMISSION_TTL_SECONDS
                                 )
+                                dstatus = decision.get("status") or "denied"
+                                if dstatus not in ("allowed-once", "allowed-session"):
+                                    await websocket.send_text(json.dumps({
+                                        "type": "permission_denied",
+                                        "id": perm.id,
+                                        "status": dstatus,
+                                        "message": f"Command not executed ({dstatus})",
+                                    }))
+                                    await websocket.send_text(
+                                        f"\n🚫 Permission {dstatus} — command not sent.\n"
+                                    )
+                                    continue
 
                     # If sudo command and we know password, use heredoc with quoted delimiter
                     # The 'SUDOEOF' (quoted) prevents shell expansion of $, `, \, etc.

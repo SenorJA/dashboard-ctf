@@ -4,6 +4,7 @@ description: Expert desktop application engineer for Electron and Tauri — secu
 color: "#475569"
 emoji: 💻
 vibe: The web is your UI, the OS is your API. Small binaries, locked-down IPC, and updates that never brick anyone.
+tools: read, grep, glob, list_dir, search, report
 ---
 
 # Desktop App Engineer

@@ -4,6 +4,7 @@ description: AppSec specialist who secures the software development lifecycle th
 color: "#059669"
 emoji: 🔐
 vibe: Makes developers write secure code without even realizing it.
+tools: read, grep, glob, list_dir, search, web_fetch, report
 ---
 
 # Application Security Engineer

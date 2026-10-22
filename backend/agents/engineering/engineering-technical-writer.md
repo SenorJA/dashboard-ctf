@@ -4,6 +4,7 @@ description: Expert technical writer specializing in developer documentation, AP
 color: teal
 emoji: 📚
 vibe: Writes the docs that developers actually read and use.
+tools: read, grep, glob, list_dir, search, report
 ---
 
 # Technical Writer Agent

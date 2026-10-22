@@ -3709,6 +3709,7 @@
                     <!-- Analysis Results (hidden until analyzed) -->
                     <div id="bc-analysis" class="hidden mb-4">
                         <h4 class="text-[11px] text-cyber font-semibold tracking-wider uppercase mb-2" data-i18n="bcAnalysisResults">Security Analysis</h4>
+                        <div id="bc-ingest-guard" class="hidden mb-3"></div>
                         <div id="bc-analysis-summary" class="grid grid-cols-5 gap-2 mb-3"></div>
                         <div id="bc-findings-list" class="space-y-2 max-h-96 overflow-y-auto"></div>
                     </div>
@@ -4073,6 +4074,7 @@
     <script src="js/dataservice.js"></script>
     <script src="js/swarm.js"></script>
     <script src="js/scope.js"></script>
+    <script src="js/permissions.js"></script>
     <script src="js/main.v2.js"></script>
     <script src="js/credentials.js"></script>
     <script src="js/knowledgebase.js"></script>
@@ -4145,6 +4147,53 @@ example.com
                     </div>
                 </div>
 
+            </div>
+        </div>
+    </div>
+
+    <!-- ════════════════════════════════════════════════════════════
+         MODAL: INTERACTIVE PERMISSION REQUEST
+         ════════════════════════════════════════════════════════════ -->
+    <div id="permission-modal" class="fixed inset-0 z-[99990] flex items-center justify-center bg-black/70 backdrop-blur-sm hidden" role="dialog" aria-modal="true" aria-labelledby="permission-modal-title">
+        <div class="bg-deep border border-cyber/40 rounded-lg w-full max-w-xl mx-4 shadow-2xl">
+            <!-- Header -->
+            <div class="flex items-center justify-between p-3 border-b border-gray-800 gap-3">
+                <h3 class="text-xs text-cyber font-semibold tracking-wider flex items-center gap-2" id="permission-modal-title">
+                    <span>🔐</span><span data-i18n="permModalTitle">Permission Required</span>
+                </h3>
+                <span id="permission-modal-id" class="text-[9px] text-gray-600 font-mono truncate max-w-[45%]"></span>
+            </div>
+
+            <!-- Body -->
+            <div class="p-4 space-y-3">
+                <p class="text-[11px] text-gray-400" data-i18n="permModalIntro">This command was classified as risky. Review it before it runs on the target.</p>
+
+                <div>
+                    <div class="text-[9px] text-gray-500 uppercase tracking-wider mb-1" data-i18n="permModalCommand">Command</div>
+                    <pre id="permission-modal-cmd" class="bg-black/60 border border-gray-800 rounded px-3 py-2 text-[11px] text-neon font-mono whitespace-pre-wrap break-all max-h-40 overflow-y-auto"></pre>
+                </div>
+
+                <div id="permission-modal-target-wrap" class="hidden">
+                    <div class="text-[9px] text-gray-500 uppercase tracking-wider mb-1" data-i18n="permModalTarget">Target</div>
+                    <div id="permission-modal-target" class="text-[11px] text-cyan-400 font-mono break-all"></div>
+                </div>
+
+                <div>
+                    <div class="text-[9px] text-gray-500 uppercase tracking-wider mb-1" data-i18n="permModalReasons">Risk reasons</div>
+                    <ul id="permission-modal-reasons" class="text-[11px] text-blood/90 space-y-0.5 font-mono max-h-24 overflow-y-auto"></ul>
+                </div>
+
+                <div class="flex items-center justify-between text-[9px] text-gray-500">
+                    <span data-i18n="permModalExpires">Expires</span>
+                    <span id="permission-modal-expiry" class="font-mono">—</span>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="flex items-center gap-2 p-3 border-t border-gray-800 flex-wrap">
+                <button id="permission-btn-deny" class="flex-1 bg-blood/10 hover:bg-blood/20 text-blood border border-blood/40 px-3 py-2 rounded text-[11px] font-semibold transition-all" data-i18n="permBtnDeny">🚫 Deny</button>
+                <button id="permission-btn-session" class="flex-1 bg-cyber/10 hover:bg-cyber/20 text-cyber border border-cyber/40 px-3 py-2 rounded text-[11px] font-semibold transition-all" data-i18n="permBtnSession">♻️ Allow for session</button>
+                <button id="permission-btn-once" class="flex-1 bg-neon/10 hover:bg-neon/20 text-neon border border-neon/40 px-3 py-2 rounded text-[11px] font-semibold transition-all" data-i18n="permBtnOnce">✅ Allow once</button>
             </div>
         </div>
     </div>

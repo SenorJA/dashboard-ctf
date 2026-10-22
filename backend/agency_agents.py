@@ -452,6 +452,38 @@ def _validate_division(division: str) -> str | None:
     return None
 
 
+def _validate_persona_tools(raw: Any) -> tuple[list[str], str | None]:
+    """
+    Validate the tool list of a persona (F2 supply-chain guard).
+
+    Returns ``(tools, error)``.  An empty declaration falls back to the
+    read-only baseline; a forbidden tool (free-form ``edit`` / ``write`` /
+    ``bash``) or an unreviewed one is rejected.
+    """
+    from backend.skill_supply_chain import (  # local import: no import cycle
+        PERSONA_ALLOWED_TOOLS,
+        PERSONA_FORBIDDEN_TOOLS,
+    )
+
+    if isinstance(raw, (list, tuple, set)):
+        declared = [str(t).strip() for t in raw if str(t).strip()]
+    else:
+        declared = [t.strip() for t in re.split(r"[,\s]+", str(raw or "")) if t.strip()]
+
+    if not declared:
+        return sorted(PERSONA_ALLOWED_TOOLS), None
+
+    seen: list[str] = []
+    for tool in declared:
+        if tool.lower() in PERSONA_FORBIDDEN_TOOLS:
+            return [], "tool not allowed for a persona: %s" % tool
+        if tool not in PERSONA_ALLOWED_TOOLS:
+            return [], "tool not allowed for a persona: %s" % tool
+        if tool not in seen:
+            seen.append(tool)
+    return seen, None
+
+
 def create_agent(payload: dict[str, Any]) -> tuple[dict[str, Any] | None, str | None]:
     """Create a custom persona. Returns ``(agent, error)``.
 
@@ -478,6 +510,12 @@ def create_agent(payload: dict[str, Any]) -> tuple[dict[str, Any] | None, str | 
     if len(body) > _BODY_MAX_CHARS:
         return None, "body exceeds %d chars" % _BODY_MAX_CHARS
 
+    # F2 supply-chain guard: a persona is a voice, not an executor.  Its
+    # tool list must be explicit and read-only.
+    tools, tools_err = _validate_persona_tools(payload.get("tools"))
+    if tools_err:
+        return None, tools_err
+
     target_dir = _writable_dir() / division
     target = target_dir / (slug + ".md")
     if target.exists():
@@ -491,6 +529,7 @@ def create_agent(payload: dict[str, Any]) -> tuple[dict[str, Any] | None, str | 
     fm.append("color: %s" % _normalize_color(payload.get("color", "")))
     if vibe:
         fm.append('vibe: "%s"' % vibe.replace('"', "'"))
+    fm.append("tools: %s" % ", ".join(tools))
     fm.append("---")
 
     try:

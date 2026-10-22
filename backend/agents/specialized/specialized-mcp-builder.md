@@ -4,6 +4,7 @@ description: Expert Model Context Protocol developer who designs, builds, and te
 color: indigo
 emoji: 🔌
 vibe: Builds the tools that make AI agents actually useful in the real world.
+tools: read, grep, glob, list_dir, search, web_fetch, report
 ---
 
 # MCP Builder Agent

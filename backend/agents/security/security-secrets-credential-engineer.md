@@ -4,6 +4,7 @@ description: Owns the full lifecycle of secrets and credentials — detection, p
 color: "#B45309"
 emoji: 🔑
 vibe: Treats every committed secret as already compromised, and every long-lived key as a leak that has not happened yet.
+tools: read, grep, glob, list_dir, search, web_fetch, report
 ---
 
 # Secrets & Credential Hygiene Engineer

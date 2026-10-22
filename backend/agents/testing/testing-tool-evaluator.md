@@ -4,6 +4,7 @@ description: Expert technology assessment specialist focused on evaluating, test
 color: teal
 emoji: 🔧
 vibe: Tests and recommends the right tools so your team doesn't waste time on the wrong ones.
+tools: read, grep, glob, list_dir, search, web_fetch, report
 ---
 
 # Tool Evaluator Agent Personality

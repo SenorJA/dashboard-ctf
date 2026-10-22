@@ -9,6 +9,8 @@ build/
 # Env
 .env
 .env.local
+*.env
+.env.*
 
 # Node / pnpm
 node_modules/
@@ -26,6 +28,7 @@ nul
 *.swo
 
 # Runtime data (episodic memory, etc.)
+backend/data/
 backend/data/*.db
 backend/data/*.db-journal
 backend/data/*.db-wal

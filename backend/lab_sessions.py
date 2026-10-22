@@ -460,6 +460,28 @@ def list_steps(session_id: str) -> List[Dict[str, Any]]:
 
 # ── Analyses ───────────────────────────────────────────────────────────────
 
+def _guard_untrusted(value: str) -> str:
+    """
+    F1 — sanitise untrusted text stored in an analysis.
+
+    Evidence and summaries often quote output coming from the target, so
+    they can carry hidden HTML, invisible characters or embedded
+    instructions. Invisible payloads are removed; visible content is kept
+    (it is legitimate evidence) and only reported.
+    """
+    if not isinstance(value, str) or not value:
+        return value
+    try:
+        from backend.ingest_guard import guard as _guard
+    except Exception:
+        return value
+    try:
+        clean, _findings = _guard(value, mode="auto", add_banner=False)
+        return clean
+    except Exception:
+        return value
+
+
 def save_analysis(session_id: str, data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Persist a structured AI analysis and sync the session phase."""
     with _lock:
@@ -481,8 +503,9 @@ def save_analysis(session_id: str, data: Dict[str, Any]) -> Optional[Dict[str, A
             session_id=session_id,
             model=_clip(data.get("model", ""), 80),
             current_phase=phase,
-            summary=_clip(data.get("summary", ""), MAX_NOTES_LENGTH),
-            evidence=[_clip(x, 2000) for x in (data.get("evidence") or [])][:20],
+            summary=_guard_untrusted(_clip(data.get("summary", ""), MAX_NOTES_LENGTH)),
+            evidence=[_guard_untrusted(_clip(x, 2000))
+                      for x in (data.get("evidence") or [])][:20],
             next_objective=_clip(data.get("next_objective", data.get("nextObjective", "")), MAX_NOTES_LENGTH),
             safe_commands=[_clip(x, 1000) for x in (data.get("safe_commands") or data.get("safeCommands") or [])][:10],
             rationale=_clip(data.get("rationale", ""), MAX_NOTES_LENGTH),
