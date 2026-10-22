@@ -104,6 +104,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/), auto-generated 
     `test_pack_purity.py`).
   - Tests: `backend/tests/test_skill_supply_chain.py` (46, incluye integridad de la allowlist contra
     `ARSENAL_GROUPS` del frontend). Suite completa **5514 passed**.
+- **feat(browser-f6): navegador automatizado con Playwright MCP** — crawling/DOM con guardarraíles.
+  - `docker/playwright-mcp.Dockerfile` + servicio `playwright-mcp:8931` en `docker/kali-mcp.yml`.
+  - `backend/browser_automation.py`: `crawl()` con fallback si MCP no disponible, extracción de rutas/formularios,
+    `ingest_guard` sobre HTML, hallazgos `prompt_injection_dom` enviados a `audit_log`/`siem`.
+  - Endpoint `POST /api/browser/crawl`.
 - **feat(attack-f4): MITRE ATT&CK mapping** — técnicas/cobertura/gaps + enriquecimiento de findings.
   - `backend/attack.py` (nuevo): `enrich_finding`, `list_techniques`, `coverage_by_technique`.
   - Endpoints: `GET /api/attack/techniques`, `GET /api/attack/coverage`, `GET /api/attack/gap` (filtrable por `assessment_id`).
