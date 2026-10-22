@@ -104,6 +104,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/), auto-generated 
     `test_pack_purity.py`).
   - Tests: `backend/tests/test_skill_supply_chain.py` (46, incluye integridad de la allowlist contra
     `ARSENAL_GROUPS` del frontend). Suite completa **5514 passed**.
+- **feat(f9): proveedor `custom` con `base_url` + enlace skills.sh** — puertas abiertas.
+  - AI Writeup: campo *Base URL (custom)* guardado en `localStorage` y enviado como `base_url` a `/api/ai/chat` (soporta OpenAI-compat local/remoto).
+  - Resumen AI del terminal y `/api/ai/chat` usan `provider: custom` cuando hay `base_url`.
+  - Pestaña *Skills*: enlace directo a [skills.sh](https://skills.sh/) para descubrir skills.
 - **feat(reports-f8): drafter-reviewer + verificación post-build PDF** — calidad de informes con agentes.
   - `backend/draft_review.py`: flujo `draft → review → revise` con personas de `agency_agents`, basado solo en evidencia.
   - `backend/pdf_engine.PDFReportGenerator.verify_post_build()`: verificación básica de cabecera/tamaño.

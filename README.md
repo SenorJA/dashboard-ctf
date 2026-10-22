@@ -424,7 +424,7 @@ M.I.R.V. está diseñado para:
 
 <div align="center">
 
-**M.I.R.V. v3.5.0** — 398 endpoints · 5514 tests · ~95% cobertura · 38 tabs · 71 módulos
+**M.I.R.V. v3.5.0** — 398 endpoints · 5514 tests · ~95% cobertura · 38 tabs · 71 módulos — **F0–F9 completados** (Permission Gate, Ingest Guard, Supply-chain, OODA, ATT&CK, Skills Installer, Browser Automation, Ducky/HID, Drafter-Reviewer, Custom LLM base_url)
 
 [Reportar bug](https://github.com/SenorJA/dashboard-ctf/issues) · [Sugerir mejora](https://github.com/SenorJA/dashboard-ctf/issues) · [Documentación técnica](AGENTS.md)
 
