@@ -1223,6 +1223,125 @@ class SkillUninstallReq(BaseModel):
     name: str
 
 
+class OODACreateReq(BaseModel):
+    target: str = ""
+    goal: str = ""
+    mode: str = "assist"
+    assessment_id: str | None = None
+    meta: Dict[str, Any] | None = None
+
+
+class OODAStepReq(BaseModel):
+    phase: str
+    input: Dict[str, Any] | None = None
+    reasoning: str = ""
+    actions: List[Dict[str, Any]] | None = None
+    evidence: List[Dict[str, Any]] | None = None
+    findings: List[Dict[str, Any]] | None = None
+    technique_id: str = ""
+    confidence: float = 0.0
+    ooda_status: str = "open"
+
+
+class OODAStatusReq(BaseModel):
+    status: str
+
+
+@app.post("/api/ooda/create")
+async def api_ooda_create(req: OODACreateReq):
+    try:
+        from backend import ooda as ooda_engine
+        run = ooda_engine.engine.create(target=req.target, goal=req.goal, mode=req.mode, assessment_id=req.assessment_id, meta=req.meta)
+        return JSONResponse({"ok": True, "run": run.to_dict()})
+    except Exception as e:
+        logging.getLogger("vulnforge.api").exception("ooda.create")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/ooda/list")
+async def api_ooda_list(limit: int = 50):
+    try:
+        from backend import ooda as ooda_engine
+        items = ooda_engine.engine.list(limit=limit)
+        return JSONResponse({"ok": True, "items": items})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/ooda/{run_id}")
+async def api_ooda_get(run_id: str):
+    try:
+        from backend import ooda as ooda_engine
+        run = ooda_engine.engine.get(run_id)
+        if not run:
+            raise HTTPException(status_code=404, detail="run not found")
+        return JSONResponse({"ok": True, "run": run.to_dict()})
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/ooda/{run_id}/observe")
+async def api_ooda_observe(run_id: str, req: OODAStepReq):
+    try:
+        from backend import ooda as ooda_engine
+        step = ooda_engine.engine.observe(run_id, input_data=req.input, reasoning=req.reasoning, evidence=req.evidence)
+        return JSONResponse({"ok": True, "step": step.to_dict()})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/ooda/{run_id}/orient")
+async def api_ooda_orient(run_id: str, req: OODAStepReq):
+    try:
+        from backend import ooda as ooda_engine
+        step = ooda_engine.engine.orient(run_id, reasoning=req.reasoning, technique_id=req.technique_id, confidence=req.confidence, input_data=req.input)
+        return JSONResponse({"ok": True, "step": step.to_dict()})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/ooda/{run_id}/decide")
+async def api_ooda_decide(run_id: str, req: OODAStepReq):
+    try:
+        from backend import ooda as ooda_engine
+        step = ooda_engine.engine.decide(run_id, actions=req.actions, reasoning=req.reasoning, technique_id=req.technique_id, confidence=req.confidence)
+        return JSONResponse({"ok": True, "step": step.to_dict()})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/ooda/{run_id}/act")
+async def api_ooda_act(run_id: str, req: OODAStepReq):
+    try:
+        from backend import ooda as ooda_engine
+        step = ooda_engine.engine.act(run_id, actions=req.actions, evidence=req.evidence, findings=req.findings, reasoning=req.reasoning, technique_id=req.technique_id, confidence=req.confidence, ooda_status=req.ooda_status)
+        return JSONResponse({"ok": True, "step": step.to_dict()})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/ooda/{run_id}/done")
+async def api_ooda_done(run_id: str):
+    try:
+        from backend import ooda as ooda_engine
+        ok = ooda_engine.engine.done(run_id)
+        return JSONResponse({"ok": bool(ok)})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/ooda/{run_id}/report")
+async def api_ooda_report(run_id: str):
+    try:
+        from backend import ooda_report
+        md = ooda_report.render_markdown(run_id)
+        return Response(content=md, media_type="text/markdown")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/api/skills/install")
 async def api_skills_install_preview(req: SkillInstallPreviewReq):
     try:
