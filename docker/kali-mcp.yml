@@ -23,3 +23,16 @@ services:
 
 volumes:
   kali-mcp-sessions:
+
+services:
+  playwright-mcp:
+    build:
+      context: .
+      dockerfile: playwright-mcp.Dockerfile
+    container_name: mirv-playwright-mcp
+    ports:
+      - "8931:8931"
+    restart: unless-stopped
+    shm_size: 1gb
+    environment:
+      - TZ=UTC

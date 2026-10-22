@@ -1397,6 +1397,24 @@ async def api_attack_gap(assessment_id: str | None = None):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+class BrowserCrawlReq(BaseModel):
+    url: str
+    actions: List[Dict[str, Any]] | None = None
+
+
+@app.post("/api/browser/crawl")
+async def api_browser_crawl(req: BrowserCrawlReq):
+    try:
+        from backend import browser_automation
+        res = browser_automation.crawl(req.url, actions=req.actions)
+        return JSONResponse(res)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logging.getLogger("vulnforge.api").exception("browser.crawl")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/api/skills/install")
 async def api_skills_install_preview(req: SkillInstallPreviewReq):
     try:
