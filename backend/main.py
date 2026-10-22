@@ -1209,6 +1209,59 @@ async def api_ingest_guard(req: IngestGuardRequest):
 #  SKILL SUPPLY-CHAIN GUARD (F2) — permissions of playbooks & personas
 # ════════════════════════════════════════════════════════════════
 
+class SkillInstallPreviewReq(BaseModel):
+    source: str
+
+
+class SkillInstallConfirmReq(BaseModel):
+    source: str
+    name: str
+    files: Dict[str, str] | None = None
+
+
+class SkillUninstallReq(BaseModel):
+    name: str
+
+
+@app.post("/api/skills/install")
+async def api_skills_install_preview(req: SkillInstallPreviewReq):
+    try:
+        from backend import skills_installer
+        res = skills_installer.preview(req.source)
+        return JSONResponse(res)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logging.getLogger("vulnforge.api").exception("skills.install_preview")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/skills/install/confirm")
+async def api_skills_install_confirm(req: SkillInstallConfirmReq):
+    try:
+        from backend import skills_installer
+        res = skills_installer.install(req.name, req.source, confirm=True, files_override=req.files)
+        return JSONResponse(res)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logging.getLogger("vulnforge.api").exception("skills.install_confirm")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/skills/{name}/uninstall")
+async def api_skills_uninstall(name: str):
+    try:
+        from backend import skills_installer
+        res = skills_installer.uninstall(name)
+        return JSONResponse(res)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logging.getLogger("vulnforge.api").exception("skills.uninstall")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/skills/supply-chain")
 async def api_skills_supply_chain():
     """

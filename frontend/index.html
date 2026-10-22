@@ -3290,6 +3290,8 @@
                     <h2 class="text-xl font-semibold text-neon" data-i18n="skills-title">📚 Skill Playbooks</h2>
                     <div class="flex items-center gap-2">
                         <span id="skills-count-badge" class="text-[9px] px-2 py-1 rounded bg-deep border border-gray-800 text-gray-400 font-mono"> 0 loaded </span>
+                        <button id="skills-supplychain-btn" class="px-3 py-1.5 text-[11px] bg-void hover:bg-deep text-gray-200 border border-gray-800 rounded transition-colors" data-i18n="skills-supplychain">🛡️ Supply Chain</button>
+                        <button id="skills-install-btn" class="px-3 py-1.5 text-[11px] bg-void hover:bg-deep text-gray-200 border border-gray-800 rounded transition-colors" data-i18n="skills-install">⬇️ Install from repo</button>
                         <button id="skills-refresh-btn" class="px-3 py-1.5 text-[11px] bg-cyber hover:bg-neon text-white rounded transition-colors" data-i18n="skills-refresh">🔄 Refresh</button>
                     </div>
                 </div>
@@ -4340,6 +4342,48 @@ example.com
                     class="w-full text-[11px] py-2 rounded bg-neon text-void font-semibold tracking-widest hover:opacity-90 transition-opacity font-mono">
                     <span data-i18n="loginButton">UNLOCK</span>
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Skills Install Modal -->
+    <div id="skills-install-modal" class="fixed inset-0 bg-black/70 hidden items-center justify-center z-50">
+        <div class="bg-deep border border-gray-800 rounded-lg w-full max-w-2xl max-h-[90vh] overflow-auto shadow-2xl">
+            <div class="flex items-center justify-between px-4 py-3 border-b border-gray-800">
+                <h3 class="text-sm text-neon font-semibold" data-i18n="skills-install-modal-title">⬇️ Install skill from repository</h3>
+                <button id="skills-install-close" class="text-gray-400 hover:text-white">✕</button>
+            </div>
+            <div class="p-4 space-y-3">
+                <div>
+                    <label class="text-[11px] text-gray-400" data-i18n="skills-install-source">Source (owner/repo or owner/repo/subdir or raw SKILL.md URL)</label>
+                    <input id="skills-install-source" type="text" class="w-full mt-1 bg-void border border-gray-800 rounded px-2 py-1.5 text-[11px] text-gray-200 font-mono" placeholder="vercel-labs/skills or https://raw.githubusercontent.com/.../SKILL.md">
+                </div>
+                <div class="flex gap-2">
+                    <button id="skills-install-preview" class="px-3 py-1.5 text-[11px] bg-cyber hover:bg-neon text-white rounded" data-i18n="skills-install-preview">Preview</button>
+                </div>
+                <div id="skills-install-preview-wrap" class="hidden space-y-2">
+                    <div class="text-[11px] text-gray-300">Name: <span id="skills-install-name" class="text-neon font-mono"></span></div>
+                    <div class="text-[11px] text-gray-400">Target: <span id="skills-install-target" class="font-mono"></span></div>
+                    <div class="text-[11px] text-gray-400">Enabled by default: <span class="text-blood">false</span></div>
+                    <div id="skills-install-issues" class="bg-void border border-gray-800 rounded p-2 text-[10px] font-mono whitespace-pre-wrap max-h-40 overflow-auto"></div>
+                    <div class="flex gap-2">
+                        <button id="skills-install-confirm" class="px-3 py-1.5 text-[11px] bg-blood/80 hover:bg-blood text-white rounded disabled:opacity-40" data-i18n="skills-install-confirm">Confirm & Install</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Skills Supply Chain Modal -->
+    <div id="skills-supplychain-modal" class="fixed inset-0 bg-black/70 hidden items-center justify-center z-50">
+        <div class="bg-deep border border-gray-800 rounded-lg w-full max-w-3xl max-h-[90vh] overflow-auto shadow-2xl">
+            <div class="flex items-center justify-between px-4 py-3 border-b border-gray-800">
+                <h3 class="text-sm text-neon font-semibold" data-i18n="skills-supplychain-modal-title">🛡️ Skill Supply Chain Audit</h3>
+                <button id="skills-supplychain-close" class="text-gray-400 hover:text-white">✕</button>
+            </div>
+            <div class="p-4 space-y-2">
+                <div id="skills-supplychain-summary" class="text-[11px] text-gray-300 font-mono"></div>
+                <div id="skills-supplychain-list" class="bg-void border border-gray-800 rounded p-2 text-[10px] font-mono whitespace-pre-wrap max-h-[60vh] overflow-auto"></div>
             </div>
         </div>
     </div>

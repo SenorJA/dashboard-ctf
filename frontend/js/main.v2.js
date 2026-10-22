@@ -11451,9 +11451,14 @@ Reglas:
         if (_skillsBound) return;
         const btnR = document.getElementById('skills-refresh-btn');
         const btnC = document.getElementById('skills-create-btn');
+        const btnInst = document.getElementById('skills-install-btn');
+        const btnSc = document.getElementById('skills-supplychain-btn');
         if (btnR) btnR.addEventListener('click', refreshSkills);
         if (btnC) btnC.addEventListener('click', skillCreate);
+        if (btnInst) btnInst.addEventListener('click', skillsOpenInstall);
+        if (btnSc) btnSc.addEventListener('click', skillsOpenSupplyChain);
         _routerBindEvents();
+        _skillsBindInstall();
         _skillsBound = true;
     }
 
@@ -11461,6 +11466,8 @@ Reglas:
     window.skillAction = skillAction;
     window.skillRender = skillRender;
     window.skillCreate = skillCreate;
+    window.skillsOpenInstall = skillsOpenInstall;
+    window.skillsOpenSupplyChain = skillsOpenSupplyChain;
 
     // ────────────────────────────────────────────────────────────
     //  TASK ROUTER (Skill Router) — network to playbook matching
@@ -15290,3 +15297,124 @@ Reglas:
         if (name === 'vpn') refreshVpn();
     };
 });
+
+    // ────────────────────────────────────────────────────────────
+    //  SKILLS INSTALLER (F5) — preview -> confirm
+    // ────────────────────────────────────────────────────────────
+    let _skillsInstallPreview = null;
+
+    function _skillsBindInstall() {
+        const btnClose = document.getElementById('skills-install-close');
+        const btnPrev = document.getElementById('skills-install-preview');
+        const btnConf = document.getElementById('skills-install-confirm');
+        const btnScClose = document.getElementById('skills-supplychain-close');
+        if (btnClose) btnClose.addEventListener('click', skillsCloseInstall);
+        if (btnPrev) btnPrev.addEventListener('click', skillsDoPreview);
+        if (btnConf) btnConf.addEventListener('click', skillsDoInstall);
+        if (btnScClose) btnScClose.addEventListener('click', skillsCloseSupplyChain);
+    }
+
+    function skillsOpenInstall() {
+        const m = document.getElementById('skills-install-modal');
+        if (!m) return;
+        m.classList.remove('hidden'); m.classList.add('flex');
+        _skillsInstallPreview = null;
+        const wrap = document.getElementById('skills-install-preview-wrap');
+        if (wrap) wrap.classList.add('hidden');
+        const conf = document.getElementById('skills-install-confirm');
+        if (conf) { conf.disabled = true; conf.dataset.name = ''; conf.dataset.source = ''; }
+    }
+
+    function skillsCloseInstall() {
+        const m = document.getElementById('skills-install-modal');
+        if (!m) return;
+        m.classList.add('hidden'); m.classList.remove('flex');
+    }
+
+    function skillsOpenSupplyChain() {
+        const m = document.getElementById('skills-supplychain-modal');
+        if (!m) return;
+        m.classList.remove('hidden'); m.classList.add('flex');
+        skillsLoadSupplyChain();
+    }
+
+    function skillsCloseSupplyChain() {
+        const m = document.getElementById('skills-supplychain-modal');
+        if (!m) return;
+        m.classList.add('hidden'); m.classList.remove('flex');
+    }
+
+    async function skillsLoadSupplyChain() {
+        const sum = document.getElementById('skills-supplychain-summary');
+        const list = document.getElementById('skills-supplychain-list');
+        if (sum) sum.textContent = '…';
+        if (list) list.textContent = '';
+        try {
+            const r = await fetch('/api/skills/supply-chain');
+            const j = await r.json();
+            if (sum) {
+                sum.textContent = `ok=${j.ok} | skills=${j.skills} | personas=${j.personas} | allowlist arsenal=${j.allowlist?.arsenal} total=${j.allowlist?.total} | errors=${j.errors} infos=${j.infos}`;
+            }
+            if (list) {
+                if (j.issues && j.issues.length) {
+                    list.textContent = JSON.stringify(j.issues, null, 2);
+                } else {
+                    list.textContent = 'No issues.';
+                }
+            }
+        } catch (e) {
+            if (sum) sum.textContent = 'ERROR: ' + e.message;
+        }
+    }
+
+    async function skillsDoPreview() {
+        const inp = document.getElementById('skills-install-source');
+        const source = inp?.value.trim();
+        if (!source) { if (typeof showToast==='function') showToast('⚠️ Source required'); return; }
+        try {
+            const r = await fetch('/api/skills/install', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ source })
+            });
+            const j = await r.json();
+            if (!r.ok || j.error) { if (typeof showToast==='function') showToast('⚠️ ' + (j.error||'preview failed')); return; }
+            _skillsInstallPreview = j;
+            document.getElementById('skills-install-name').textContent = j.name || '';
+            document.getElementById('skills-install-target').textContent = j.target_path || '';
+            const iss = document.getElementById('skills-install-issues');
+            if (iss) iss.textContent = j.issues && j.issues.length ? JSON.stringify(j.issues, null, 2) : 'No issues.';
+            const wrap = document.getElementById('skills-install-preview-wrap');
+            if (wrap) wrap.classList.remove('hidden');
+            const conf = document.getElementById('skills-install-confirm');
+            if (conf) {
+                conf.dataset.name = j.name;
+                conf.dataset.source = source;
+                conf.disabled = !!j.blocking;
+            }
+            if (j.blocking && typeof showToast==='function') showToast('⛔ Supply-chain blocked (errors). Fix or choose another skill.');
+        } catch (e) {
+            if (typeof showToast==='function') showToast('⚠️ ' + e.message);
+        }
+    }
+
+    async function skillsDoInstall() {
+        const conf = document.getElementById('skills-install-confirm');
+        const name = conf?.dataset.name;
+        const source = conf?.dataset.source;
+        if (!name || !source) return;
+        try {
+            const r = await fetch('/api/skills/install/confirm', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, source })
+            });
+            const j = await r.json();
+            if (!r.ok || j.error) { if (typeof showToast==='function') showToast('⚠️ ' + (j.error||'install failed')); return; }
+            if (typeof showToast==='function') showToast('✓ Installed: ' + name + ' (disabled by default)');
+            skillsCloseInstall();
+            refreshSkills();
+        } catch (e) {
+            if (typeof showToast==='function') showToast('⚠️ ' + e.message);
+        }
+    }
