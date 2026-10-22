@@ -2210,10 +2210,13 @@ ${bodyHtml}
         if (!tail.trim()) { showToast('ℹ Terminal vacío — no hay nada que resumir'); return; }
         const target = (typeof targetInput !== 'undefined' && targetInput) ? targetInput.value.trim() : '';
         try {
+            const baseUrl2 = localStorage.getItem('vulnforge_ai_base_url') || '';
             const syncResp = await fetch('/api/ai/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                    provider: baseUrl2 ? 'custom' : undefined,
+                    base_url: baseUrl2 || undefined,
                     messages: [{
                         role: 'user',
                         content: `You are a pentest session summarizer for MIRV. Summarize the following terminal session in ${window.currentLang === 'es' ? 'Spanish' : 'English'}, using bullets: (1) target, (2) tools/commands run, (3) key findings/signals, (4) recommended next 2-3 steps. Keep it under 180 words. Do NOT invent data. Session (target ${target || 'unknown'}):\n\n${tail}`
@@ -5574,6 +5577,8 @@ ${fix || 'Apply appropriate security patches and input validation.'}
             // Save UI preferences to localStorage (non-secret)
             localStorage.setItem('vulnforge_ai_endpoint', document.getElementById('ai-endpoint').value);
             localStorage.setItem('vulnforge_ai_model', document.getElementById('ai-model').value);
+            const aiBase = document.getElementById('ai-base-url')?.value || '';
+            localStorage.setItem('vulnforge_ai_base_url', aiBase);
             localStorage.setItem('vulnforge_suggest_provider', document.getElementById('suggest-provider').value);
             localStorage.setItem('vulnforge_suggest_model', document.getElementById('suggest-model').value);
 
@@ -5833,6 +5838,7 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
             return null;
         }
         try {
+            const baseUrl = localStorage.getItem('vulnforge_ai_base_url') || '';
             const resp = await fetch('/api/ai/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -5840,6 +5846,7 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
                     provider: cfg.provider,
                     api_key: cfg.apiKey,
                     model: cfg.model,
+                    base_url: baseUrl,
                     messages: [
                         { role: 'system', content: systemPrompt },
                         { role: 'user', content: userMessage }

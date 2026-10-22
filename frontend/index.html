@@ -1115,15 +1115,18 @@
                                     placeholder="API Endpoint"
                                     value="https://api.openai.com/v1/chat/completions"
                                     class="w-full bg-deep border border-gray-800 rounded px-2 py-1 text-[10px] text-gray-300 placeholder-gray-500 focus:outline-none focus:border-neon/50 font-mono" aria-label="AI API endpoint URL">
-                                <div class="flex gap-1.5">
-                                    <input type="password" id="ai-key"
-                                        placeholder="API Key"
-                                        class="flex-1 bg-deep border border-gray-800 rounded px-2 py-1 text-[10px] text-gray-300 placeholder-gray-500 focus:outline-none focus:border-neon/50 font-mono" aria-label="AI API key">
-                                    <input type="text" id="ai-model"
-                                        placeholder="Model"
-                                        value="gpt-4"
-                                        class="w-24 bg-deep border border-gray-800 rounded px-2 py-1 text-[10px] text-gray-300 placeholder-gray-500 focus:outline-none focus:border-neon/50 font-mono" aria-label="AI model name">
-                                </div>
+                            <div class="flex gap-1.5 flex-wrap">
+                                <input type="password" id="ai-key"
+                                    placeholder="API Key"
+                                    class="flex-1 bg-deep border border-gray-800 rounded px-2 py-1 text-[10px] text-gray-300 placeholder-gray-500 focus:outline-none focus:border-neon/50 font-mono" aria-label="AI API key">
+                                <input type="text" id="ai-model"
+                                    placeholder="Model"
+                                    value="gpt-4"
+                                    class="w-24 bg-deep border border-gray-800 rounded px-2 py-1 text-[10px] text-gray-300 placeholder-gray-500 focus:outline-none focus:border-neon/50 font-mono" aria-label="AI model name">
+                                <input type="text" id="ai-base-url"
+                                    placeholder="Base URL (custom)"
+                                    class="w-40 bg-deep border border-gray-800 rounded px-2 py-1 text-[10px] text-gray-300 placeholder-gray-500 focus:outline-none focus:border-neon/50 font-mono" aria-label="AI base URL for custom provider">
+                            </div>
                             </div>
                         </div>
 
@@ -3291,12 +3294,13 @@
                 <!-- Header -->
                 <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
                     <h2 class="text-xl font-semibold text-neon" data-i18n="skills-title">📚 Skill Playbooks</h2>
-                    <div class="flex items-center gap-2">
-                        <span id="skills-count-badge" class="text-[9px] px-2 py-1 rounded bg-deep border border-gray-800 text-gray-400 font-mono"> 0 loaded </span>
-                        <button id="skills-supplychain-btn" class="px-3 py-1.5 text-[11px] bg-void hover:bg-deep text-gray-200 border border-gray-800 rounded transition-colors" data-i18n="skills-supplychain">🛡️ Supply Chain</button>
-                        <button id="skills-install-btn" class="px-3 py-1.5 text-[11px] bg-void hover:bg-deep text-gray-200 border border-gray-800 rounded transition-colors" data-i18n="skills-install">⬇️ Install from repo</button>
-                        <button id="skills-refresh-btn" class="px-3 py-1.5 text-[11px] bg-cyber hover:bg-neon text-white rounded transition-colors" data-i18n="skills-refresh">🔄 Refresh</button>
-                    </div>
+                <div class="flex items-center gap-2">
+                    <span id="skills-count-badge" class="text-[9px] px-2 py-1 rounded bg-deep border border-gray-800 text-gray-400 font-mono"> 0 loaded </span>
+                    <button id="skills-supplychain-btn" class="px-3 py-1.5 text-[11px] bg-void hover:bg-deep text-gray-200 border border-gray-800 rounded transition-colors" data-i18n="skills-supplychain">🛡️ Supply Chain</button>
+                    <button id="skills-install-btn" class="px-3 py-1.5 text-[11px] bg-void hover:bg-deep text-gray-200 border border-gray-800 rounded transition-colors" data-i18n="skills-install">⬇️ Install from repo</button>
+                    <a href="https://skills.sh/" target="_blank" rel="noopener" class="px-3 py-1.5 text-[11px] bg-void hover:bg-deep text-gray-200 border border-gray-800 rounded transition-colors">🌐 skills.sh</a>
+                    <button id="skills-refresh-btn" class="px-3 py-1.5 text-[11px] bg-cyber hover:bg-neon text-white rounded transition-colors" data-i18n="skills-refresh">🔄 Refresh</button>
+                </div>
                 </div>
 
                 <!-- Skill Playbooks -->
