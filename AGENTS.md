@@ -118,6 +118,7 @@ cd backend
 | `attack.py` | ~120 | **F4** MITRE ATT&CK mapping: `enrich_finding`, `list_techniques`, `coverage_by_technique`; used by `/api/attack/*` | — | — |
 | `browser_automation.py` | ~150 | **F6** Playwright MCP browser automation — `crawl()` with route/form extraction, `ingest_guard` on DOM, audit/SIEM | — | — |
 | `hid_detect.py` | ~80 | **F7** Rubber Ducky/HID heuristics for DuckyScript and inject.bin | — | — |
+| `draft_review.py` | ~90 | **F8** Drafter-reviewer (draft→review→revise) using agency_agents, evidence-only | — | — |
 | `skill_router.py` | ~530 | Task Router — hint→skill route by keyword blocks (41 routes en/es, priority tie-break, fallback), hot-reload config + embedded fallback, `detect_tools()` via `which` (108 tools), **regression benchmark** (`benchmarks.json`, 105 cases → `run_benchmarks()`/`GET /api/router/benchmark`) | 162 (incl. 105 parametrized cases) | — |
 | `skill_supply_chain.py` | ~504 | **F2** Supply-chain guard (stdlib only): canonical allowlist `ARSENAL_TOOL_IDS` (65 frontend IDs) ∪ `REVIEWED_TOOL_BINARIES` (159) = 224 tools; `PERSONA_ALLOWED_TOOLS`/`PERSONA_FORBIDDEN_TOOLS`, `LIFECYCLE_SCRIPTS`, `REQUIRED_GITIGNORE_PATTERNS`, `_PIPE_TO_SHELL`; `audit_allowed_tools`, `audit_skill_markdown`, `audit_persona_markdown`, `audit_package_json`, `audit_script_file`, `audit_payload(files)`, `has_blocking_issues`, `summarize`; severities `error` (blocks) vs `info` (advisory, `near_miss_tool` edit-distance ≤1 incl. transposition). Fail-closed in `skill_playbooks.call_skill_hook` (empty `allowed_tools` = no hooks) + `agency_agents._validate_persona_tools`; `GET /api/skills/supply-chain`; CI step + 46 tests | 46 | — |
 | `redact.py` | ~430 | 20 redaction patterns, shape-preserving, AI/mission integration | 63 | 100% |
@@ -348,6 +349,7 @@ cd backend
 | **Finding PoC** | `POST /api/poc/{build,parse-curl,finding-to-md,from-burp,validate,replay}` |
 | **HID / Ducky** | `POST /api/hid/duckyscript/analyze`, `POST /api/hid/injectbin/analyze` | 
 | **Forensics (extras)** | `POST /api/forensics/telegram/parse` (F7 timeline parser) |
+| **Reports (F8)** | `POST /api/reports/draft-review` (drafter→reviewer→reviser with agency personas) |
 | **Permissions** | `GET /api/permissions/pending`, `GET /api/permissions/{id}`, `POST /api/permissions/{id}/decide`, `POST /api/permissions/{classify,request,cleanup}`, `DELETE /api/permissions` |
 | **Intelligence** | `POST /api/intelligence/watches`, `GET /api/intelligence/watches`, `GET /api/intelligence/watches/{id}`, `PUT /api/intelligence/watches/{id}`, `DELETE /api/intelligence/watches/{id}`, `POST /api/intelligence/watches/{id}/snapshot`, `GET /api/intelligence/watches/{id}/snapshots`, `GET /api/intelligence/alerts`, `POST /api/intelligence/alerts/{id}/acknowledge`, `DELETE /api/intelligence/alerts`, `POST /api/intelligence/diff/{id}` |
 | **Sys Monitor** | `GET /api/system/stats`, `GET /api/system/disk`, `GET /api/system/cleanup`, `POST /api/system/cleanup` |

@@ -104,6 +104,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/), auto-generated 
     `test_pack_purity.py`).
   - Tests: `backend/tests/test_skill_supply_chain.py` (46, incluye integridad de la allowlist contra
     `ARSENAL_GROUPS` del frontend). Suite completa **5514 passed**.
+- **feat(reports-f8): drafter-reviewer + verificación post-build PDF** — calidad de informes con agentes.
+  - `backend/draft_review.py`: flujo `draft → review → revise` con personas de `agency_agents`, basado solo en evidencia.
+  - `backend/pdf_engine.PDFReportGenerator.verify_post_build()`: verificación básica de cabecera/tamaño.
+  - Endpoint `POST /api/reports/draft-review`.
 - **feat(ducky-f7): Rubber Ducky + HID detect + parser Telegram** — soporte del 13º dispositivo Hak5.
   - Payload Studio: añade **USB Rubber Ducky** (`ducky`, `ext: bin`, `lang: ducky script`), plantillas DuckyScript y validación.
   - `backend/hid_detect.py`: análisis heurístico de `DuckyScript` / `inject.bin` con hallazgos.
