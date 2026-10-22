@@ -104,6 +104,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/), auto-generated 
     `test_pack_purity.py`).
   - Tests: `backend/tests/test_skill_supply_chain.py` (46, incluye integridad de la allowlist contra
     `ARSENAL_GROUPS` del frontend). Suite completa **5514 passed**.
+- **feat(ooda-f3): OODA core (Observe/Orient/Decide/Act)** — bucle asistido/guardarraíles con store JSONL
+  + informe basado solo en evidencia.
+  - `backend/ooda_store.py` (nuevo, JSONL + *write dual* index, thread-safe, sin tablas Supabase nuevas):
+    runs/steps con `technique_id`, `confidence`, `ooda_status`, `findings[]` con campos enriquecidos.
+  - `backend/ooda.py` (motor): `observe`/`orient`/`decide`/`act`, chequeo de scope, clasificación de comandos
+    con hints de permisos (*needs-permission*), modo `assist|pentest`.
+  - `backend/ooda_report.py`: informe Markdown con timeline y solo evidencia real.
+  - Endpoints: `POST/GET /api/ooda/create|list|{id}|{id}/observe|orient|decide|act|done|report`.
 - **feat(skills-f5): instalador remoto de skills (preview → confirm)** — instala desde repo/URL con auditoría de
   supply-chain obligatoria, sin auto-activación.
   - `backend/skills_installer.py` (nuevo, **solo stdlib**): `preview()` / `install()` / `uninstall()`,

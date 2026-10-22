@@ -112,6 +112,9 @@ cd backend
 | `coverage_matrix.py` | ~480 | Coverage matrix (endpoint×param×vuln_class), next_steps estimator | 33+17 | 99% |
 | `skill_playbooks.py` | ~450 | Markdown skill playbooks, frontmatter parser, hot-reload | 67+16 | 100% |
 | `skills_installer.py` | ~280 | **F5** Remote skill installer (preview→confirm): fetch SKILL.md via urllib, map frontmatter to MIRV, `audit_payload` via `skill_supply_chain`, install to `~/.mirv/skills/` with `enabled=False`, audit_log + SIEM, `install/uninstall` guarded (no bundled deletion) | — | — |
+| `ooda_store.py` | ~210 | **F3** OODA store (JSONL + write dual index, thread-safe, no new Supabase tables): runs/steps with `technique_id`/`confidence`/`ooda_status`/`findings` | — | — |
+| `ooda.py` | ~150 | **F3** OODA engine (observe/orient/decide/act), scope checks + command permission hints | — | — |
+| `ooda_report.py` | ~90 | **F3** Evidence-based OODA Markdown report | — | — |
 | `skill_router.py` | ~530 | Task Router — hint→skill route by keyword blocks (41 routes en/es, priority tie-break, fallback), hot-reload config + embedded fallback, `detect_tools()` via `which` (108 tools), **regression benchmark** (`benchmarks.json`, 105 cases → `run_benchmarks()`/`GET /api/router/benchmark`) | 162 (incl. 105 parametrized cases) | — |
 | `skill_supply_chain.py` | ~504 | **F2** Supply-chain guard (stdlib only): canonical allowlist `ARSENAL_TOOL_IDS` (65 frontend IDs) ∪ `REVIEWED_TOOL_BINARIES` (159) = 224 tools; `PERSONA_ALLOWED_TOOLS`/`PERSONA_FORBIDDEN_TOOLS`, `LIFECYCLE_SCRIPTS`, `REQUIRED_GITIGNORE_PATTERNS`, `_PIPE_TO_SHELL`; `audit_allowed_tools`, `audit_skill_markdown`, `audit_persona_markdown`, `audit_package_json`, `audit_script_file`, `audit_payload(files)`, `has_blocking_issues`, `summarize`; severities `error` (blocks) vs `info` (advisory, `near_miss_tool` edit-distance ≤1 incl. transposition). Fail-closed in `skill_playbooks.call_skill_hook` (empty `allowed_tools` = no hooks) + `agency_agents._validate_persona_tools`; `GET /api/skills/supply-chain`; CI step + 46 tests | 46 | — |
 | `redact.py` | ~430 | 20 redaction patterns, shape-preserving, AI/mission integration | 63 | 100% |
@@ -329,6 +332,7 @@ cd backend
 | **Skills** | `GET /api/skills`, `GET /api/skills/{name}`, `GET /api/skills/{name}/render`, `POST /api/skills/{name}/{load,unload,enable,disable,reload}`, `POST /api/skills/create` |
 | **Skill Supply Chain** | `GET /api/skills/supply-chain` (F2 — audits 113 skills + 39 personas + lifecycle scripts against the 224-tool allowlist; `{ok, skills, personas, allowlist{arsenal,total}, errors, infos, total}`) |
 | **Skills Installer (F5)** | `POST /api/skills/install` (preview), `POST /api/skills/install/confirm`, `DELETE /api/skills/{name}/uninstall` (install only to `~/.mirv/skills/`, `enabled=False`, supply-chain audited) |
+| **OODA** | `POST/GET /api/ooda/create\|list\|{id}\|{id}/observe\|orient\|decide\|act\|done\|report` (F3 — JSONL store, evidence-based report) |
 | **Skill Router** | `GET /api/router/routes`, `POST /api/router/route` (+ `GET /api/router/route?hint=`), `GET /api/router/routes/{rid}`, `GET /api/router/tool-index`, `POST /api/router/reload`, `GET /api/router/benchmark` (105 cases, gate `failed==0`) |
 | **Redaction** | `POST /api/redact`, `POST /api/redact/dict`, `GET /api/redact/patterns`, `POST /api/redact/check` |
 | **Ingest Guard** | `POST /api/ingest/guard` (F1 — anti prompt-injection: `{content, mode?, sanitize?}` → `{ok, verdict, findings, clean?}`) |
