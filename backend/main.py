@@ -1342,6 +1342,61 @@ async def api_ooda_report(run_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/attack/techniques")
+async def api_attack_techniques(q: str = ""):
+    try:
+        from backend import attack
+        return JSONResponse({"ok": True, "techniques": attack.list_techniques(q)})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/attack/coverage")
+async def api_attack_coverage(assessment_id: str | None = None):
+    try:
+        from backend import attack, database as db
+        findings = []
+        if assessment_id and db.is_available():
+            try:
+                tbl = db._table("findings")
+                if tbl:
+                    resp = tbl.select("*").eq("assessment_id", assessment_id).execute()
+                    findings = resp.data or []
+            except Exception:
+                findings = []
+        else:
+            # try to aggregate from recent? fallback empty
+            findings = []
+        cov = attack.coverage_by_technique(findings)
+        return JSONResponse({"ok": True, **cov})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/attack/gap")
+async def api_attack_gap(assessment_id: str | None = None):
+    try:
+        from backend import attack, database as db
+        findings = []
+        if assessment_id and db.is_available():
+            try:
+                tbl = db._table("findings")
+                if tbl:
+                    resp = tbl.select("*").eq("assessment_id", assessment_id).execute()
+                    findings = resp.data or []
+            except Exception:
+                findings = []
+        cov = attack.coverage_by_technique(findings)
+        gaps = []
+        for tid in cov.get("missing", []):
+            m = __import__('backend.knowledgebase', fromlist=['get_mitre']).get_mitre(tid)
+            if m:
+                gaps.append(m)
+        return JSONResponse({"ok": True, "gaps": gaps, "missing": cov.get("missing", [])})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/api/skills/install")
 async def api_skills_install_preview(req: SkillInstallPreviewReq):
     try:
