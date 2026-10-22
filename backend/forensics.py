@@ -223,6 +223,62 @@ def delete_evidence(ev_id: str) -> bool:
     return False
 
 
+def parse_telegram_export(text: str) -> dict:
+    """Parse Telegram export (JSON/HTML/text) into a readable timeline (F7)."""
+    findings = []
+    events = []
+    if not text:
+        return {"ok": False, "error": "empty"}
+    # Try JSON first (Telegram Desktop export)
+    try:
+        data = json.loads(text)
+        # common shapes: {"messages": [...]}
+        msgs = []
+        if isinstance(data, dict):
+            if isinstance(data.get("messages"), list):
+                msgs = data["messages"]
+            elif isinstance(data.get("chats"), dict) and data["chats"].get("list"):
+                for c in data["chats"]["list"]:
+                    if isinstance(c.get("messages"), list):
+                        msgs.extend(c["messages"])
+        elif isinstance(data, list):
+            msgs = data
+        for m in msgs[:5000]:
+            if not isinstance(m, dict):
+                continue
+            ts = m.get("date") or m.get("date_unixtime") or m.get("time") or ""
+            from_ = m.get("from") or m.get("actor") or m.get("author") or ""
+            text_m = m.get("text") or m.get("message") or ""
+            if isinstance(text_m, list):
+                # entities
+                parts = []
+                for p in text_m:
+                    if isinstance(p, str):
+                        parts.append(p)
+                    elif isinstance(p, dict):
+                        parts.append(p.get("text") or "")
+                text_m = " ".join(parts)
+            if ts or text_m:
+                events.append({"ts": ts, "from": from_, "text": str(text_m)[:500]})
+            if isinstance(text_m, str):
+                low = text_m.lower()
+                if "login" in low or "password" in low or "token" in low or "2fa" in low:
+                    findings.append({"severity": "medium", "title": "Sensitive keyword in message", "description": str(text_m)[:200]})
+        return {"ok": True, "format": "json", "events": events, "count": len(events), "findings": findings}
+    except Exception:
+        pass
+    # Fallback text/HTML line-based
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("<!"):
+            continue
+        if re.match(r'^\d{2}\.\d{2}\.\d{4}|^\d{4}-\d{2}-\d{2}', line):
+            events.append({"ts": line[:32], "text": line[32:][:500]})
+        elif "@" in line and len(line) < 200:
+            events.append({"from": line[:64], "text": line[:200]})
+    return {"ok": True, "format": "text", "events": events[:5000], "count": len(events), "findings": findings}
+
+
 def run_tool(filepath: str, tool: str, params: dict = None) -> dict:
     """Run a specific forensic tool on a file."""
     if not os.path.exists(filepath):
@@ -249,5 +305,11 @@ def run_tool(filepath: str, tool: str, params: dict = None) -> dict:
         cmd = ["steghide", "extract", "-sf", filepath, "-p", passphrase, "-f"]
         stdout, stderr = _run_local(cmd, timeout=30)
         return {"output": stdout[:2000] + stderr[:2000]}
+    elif tool == "telegram":
+        try:
+            content = open(filepath, encoding="utf-8", errors="replace").read()
+            return parse_telegram_export(content)
+        except Exception as e:
+            return {"error": str(e)}
     else:
         return {"error": f"Unknown tool: {tool}"}

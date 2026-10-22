@@ -1454,6 +1454,41 @@ async def api_skills_uninstall(name: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/api/hid/duckyscript/analyze")
+async def api_hid_ducky(req: dict):
+    try:
+        from backend import hid_detect
+        text = req.get("text") or ""
+        return JSONResponse(hid_detect.analyze_duckyscript(text))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/hid/injectbin/analyze")
+async def api_hid_injectbin(req: dict):
+    try:
+        from backend import hid_detect
+        import base64
+        b64 = req.get("base64") or ""
+        try:
+            data = base64.b64decode(b64)
+        except Exception:
+            data = b""
+        return JSONResponse(hid_detect.analyze_inject_bin(data))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/forensics/telegram/parse")
+async def api_forensics_telegram(req: dict):
+    try:
+        from backend import forensics
+        text = req.get("text") or ""
+        return JSONResponse(forensics.parse_telegram_export(text))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/skills/supply-chain")
 async def api_skills_supply_chain():
     """

@@ -6068,7 +6068,8 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         pager:   { name: 'WiFi Pineapple Pager', icon: '📟', ext: 'sh', lang: 'bash',         desc: 'Portable wireless recon & alerting payloads' },
         keycroc: { name: 'Key Croc',          icon: '🐊', ext: 'sh',  lang: 'bash',          desc: 'Keystroke-logging with trigger-based payloads' },
         crab:    { name: 'Screen Crab',       icon: '🦀', ext: 'sh',  lang: 'bash',          desc: 'HDMI screen-capture implant payloads' },
-        unblocker: { name: 'O.MG UnBlocker',  icon: '🚫', ext: 'sh',  lang: 'bash',          desc: 'USB data-blocker / clean-power payloads' }
+        unblocker: { name: 'O.MG UnBlocker',  icon: '🚫', ext: 'sh',  lang: 'bash',          desc: 'USB data-blocker / clean-power payloads' },
+        ducky:   { name: 'USB Rubber Ducky', icon: '🦆', ext: 'bin', lang: 'ducky script', desc: 'Hak5 USB Rubber Ducky HID payloads (inject.bin)' }
     };
 
     // Spanish device descriptions (brand names stay the same).
@@ -6084,7 +6085,8 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         pager:     'Payloads portátiles de reconocimiento y alertas inalámbricas',
         keycroc:   'Keylogger con payloads disparados por teclas',
         crab:      'Payloads de captura de pantalla por HDMI',
-        unblocker: 'Payloads de bloqueo de datos USB / alimentación limpia'
+        unblocker: 'Payloads de bloqueo de datos USB / alimentación limpia',
+        ducky:     'Payloads HID USB Rubber Ducky (DuckyScript v3)'
     };
 
     function hak5Desc(deviceId) {
@@ -6140,6 +6142,10 @@ Use markdown formatting with code blocks for commands. Be thorough and technical
         ],
         unblocker: [
             { name: 'Status LED test', code: '#!/bin/bash\n# O.MG UnBlocker — quick self-test / status\nLED ATTACK\nsleep 1\nLED FINISH' }
+        ],
+        ducky: [
+            { name: 'Open Notepad + Hello', code: 'REM Open Notepad and type hello\nDELAY 1000\nGUI r\nDELAY 500\nSTRING notepad\nENTER\nDELAY 1000\nSTRING Hello from M.I.R.V.\nENTER' },
+            { name: 'Open Run cmd', code: 'REM Open cmd via Run\nDELAY 1000\nGUI r\nDELAY 500\nSTRING cmd\nENTER\nDELAY 800\nSTRING echo M.I.R.V. Ducky\nENTER' }
         ]
     };
     let currentHak5Device = 'bunny';
