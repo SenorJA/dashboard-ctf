@@ -104,6 +104,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/), auto-generated 
     `test_pack_purity.py`).
   - Tests: `backend/tests/test_skill_supply_chain.py` (46, incluye integridad de la allowlist contra
     `ARSENAL_GROUPS` del frontend). Suite completa **5514 passed**.
+- **feat(ducky-f7): Rubber Ducky + HID detect + parser Telegram** — soporte del 13º dispositivo Hak5.
+  - Payload Studio: añade **USB Rubber Ducky** (`ducky`, `ext: bin`, `lang: ducky script`), plantillas DuckyScript y validación.
+  - `backend/hid_detect.py`: análisis heurístico de `DuckyScript` / `inject.bin` con hallazgos.
+  - `backend/forensics.py`: `parse_telegram_export()` (JSON/HTML/texto) → timeline legible + hallazgos.
+  - Endpoints: `POST /api/hid/duckyscript/analyze`, `POST /api/hid/injectbin/analyze`, `POST /api/forensics/telegram/parse`.
 - **feat(browser-f6): navegador automatizado con Playwright MCP** — crawling/DOM con guardarraíles.
   - `docker/playwright-mcp.Dockerfile` + servicio `playwright-mcp:8931` en `docker/kali-mcp.yml`.
   - `backend/browser_automation.py`: `crawl()` con fallback si MCP no disponible, extracción de rutas/formularios,
