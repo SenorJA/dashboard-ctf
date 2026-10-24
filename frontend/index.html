@@ -591,6 +591,10 @@
                     <span class="tab-icon">🔒</span>
                     <span>VPN</span>
                 </button>
+                <button class="tab-btn" id="tab-btn-ooda" data-tab="ooda" role="tab" aria-selected="false" aria-controls="tab-ooda">
+                    <span class="tab-icon">🎯</span>
+                    <span>OODA / ATT&CK</span>
+                </button>
             </nav>
 
             <!-- ── STATS BAR ── -->
@@ -4393,6 +4397,58 @@ example.com
                 <div id="skills-supplychain-summary" class="text-[11px] text-gray-300 font-mono"></div>
                 <div id="skills-supplychain-list" class="bg-void border border-gray-800 rounded p-2 text-[10px] font-mono whitespace-pre-wrap max-h-[60vh] overflow-auto"></div>
             </div>
+        </div>
+    </div>
+
+            <!-- OODA / ATT&CK -->
+            <div id="tab-ooda" role="tabpanel" aria-labelledby="tab-btn-ooda" class="tab-pane p-4 pt-3 overflow-y-auto">
+                <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+                    <div>
+                        <h2 class="text-lg font-bold text-neon tracking-wider">🎯 OODA / ATT&CK</h2>
+                        <p class="text-[10px] text-gray-400">Observe–Orient–Decide–Act loop with MITRE ATT&CK mapping</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button data-action="ooda-refresh" class="bg-neon/10 hover:bg-neon/20 text-neon border border-neon/30 px-3 py-1.5 rounded text-[10px] font-semibold transition-all">⟳ Refresh</button>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div class="bg-deep rounded-lg border border-gray-800 p-4">
+                        <h4 class="text-[11px] text-cyber font-semibold tracking-wider uppercase mb-3">Create OODA Run</h4>
+                        <div class="space-y-2">
+                            <input id="ooda-target" class="w-full bg-void border border-gray-700 rounded px-2 py-1.5 text-[11px] text-gray-200" placeholder="Target (IP/Domain)">
+                            <input id="ooda-goal" class="w-full bg-void border border-gray-700 rounded px-2 py-1.5 text-[11px] text-gray-200" placeholder="Goal (optional)">
+                            <div class="flex gap-2">
+                                <select id="ooda-mode" class="flex-1 bg-void border border-gray-700 rounded px-2 py-1.5 text-[11px] text-gray-200">
+                                    <option value="pentest">pentest</option>
+                                    <option value="redteam">redteam</option>
+                                    <option value="ctf">ctf</option>
+                                </select>
+                                <button data-action="ooda-create" class="bg-neon/10 hover:bg-neon/20 text-neon border border-neon/30 px-3 py-1.5 rounded text-[10px] font-semibold">Create</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-deep rounded-lg border border-gray-800 p-4">
+                        <h4 class="text-[11px] text-cyber font-semibold tracking-wider uppercase mb-3">ATT&CK Techniques</h4>
+                        <input id="attack-q" class="w-full bg-void border border-gray-700 rounded px-2 py-1.5 text-[11px] text-gray-200 mb-2" placeholder="Search Txxxx / name">
+                        <div class="flex gap-2 mb-2">
+                            <button data-action="attack-search" class="bg-cyber/10 hover:bg-cyber/20 text-cyber border border-cyber/30 px-3 py-1.5 rounded text-[10px] font-semibold">Search</button>
+                            <button data-action="attack-coverage" class="bg-neon/10 hover:bg-neon/20 text-neon border border-neon/30 px-3 py-1.5 rounded text-[10px] font-semibold">Coverage</button>
+                        </div>
+                        <div id="attack-results" class="max-h-[200px] overflow-auto space-y-1 text-[10px]"></div>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+                    <div class="bg-deep rounded-lg border border-gray-800 p-4">
+                        <h4 class="text-[11px] text-cyber font-semibold tracking-wider uppercase mb-3">OODA Runs</h4>
+                        <div id="ooda-runs" class="space-y-2 max-h-[320px] overflow-auto"></div>
+                    </div>
+                    <div class="bg-deep rounded-lg border border-gray-800 p-4">
+                        <h4 class="text-[11px] text-cyber font-semibold tracking-wider uppercase mb-3">Run Detail</h4>
+                        <div id="ooda-detail" class="text-[10px] text-gray-300">Select a run...</div>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 

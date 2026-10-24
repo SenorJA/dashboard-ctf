@@ -4613,6 +4613,10 @@ ${bodyHtml}
         'vpn-refresh':           ()   => { if (window.refreshVpn) refreshVpn(); },
         'vpn-create':            ()   => { if (window.vpnCreate) vpnCreate(); },
         'vpn-howto':             ()   => { if (window.vpnHowto) vpnHowto(); },
+        'ooda-refresh':          ()   => { if (window.refreshOoda) refreshOoda(); },
+        'ooda-create':           ()   => { if (window.oodaCreate) oodaCreate(); },
+        'attack-search':         ()   => { if (window.attackSearch) attackSearch(); },
+        'attack-coverage':       ()   => { if (window.attackCoverage) attackCoverage(); },
     };
 
     function initEventListeners() {
@@ -15500,3 +15504,105 @@ window.usePrompt = async function(pid) {
         if (typeof showToast==='function') showToast('⚠️ '+e.message);
     }
 };
+
+// OODA / ATT&CK
+window.refreshOoda = async function(){
+    try {
+        const r = await fetch('/api/ooda/list');
+        const j = await r.json();
+        const runs = j.runs || [];
+        const el = document.getElementById('ooda-runs');
+        if (!el) return;
+        if (runs.length === 0) { el.innerHTML = '<div class="text-gray-500">No runs</div>'; return; }
+        el.innerHTML = runs.slice().reverse().map(run => {
+            return `<div class="border border-gray-800 rounded p-2 hover:border-neon/40 cursor-pointer" onclick="window.showOodaRun('${run.run_id}')">
+                <div class="text-neon text-[11px]">${run.run_id}</div>
+                <div class="text-gray-400 text-[9px]">${run.target||''} • ${run.mode||''} • ${run.status||''}</div>
+            </div>`;
+        }).join('');
+    } catch(e) { if (typeof showToast==='function') showToast('⚠️ '+e.message); }
+};
+
+window.oodaCreate = async function(){
+    try {
+        const target = document.getElementById('ooda-target')?.value || '';
+        const goal = document.getElementById('ooda-goal')?.value || '';
+        const mode = document.getElementById('ooda-mode')?.value || 'pentest';
+        if (!target) { if (typeof showToast==='function') showToast('⚠️ Target required'); return; }
+        const r = await fetch('/api/ooda/create', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({target,goal,mode})});
+        const j = await r.json();
+        if (!j.ok) throw new Error(j.error||'failed');
+        if (typeof showToast==='function') showToast('✓ OODA run created');
+        document.getElementById('ooda-target').value='';
+        document.getElementById('ooda-goal').value='';
+        refreshOoda();
+    } catch(e) { if (typeof showToast==='function') showToast('⚠️ '+e.message); }
+};
+
+window.showOodaRun = async function(runId){
+    try {
+        const r = await fetch('/api/ooda/'+encodeURIComponent(runId));
+        const j = await r.json();
+        const el = document.getElementById('ooda-detail');
+        if (!el) return;
+        if (!j.ok) { el.innerHTML = '<div class="text-red-400">Error</div>'; return; }
+        const run = j.run || {};
+        const steps = j.steps || [];
+        el.innerHTML = `<div class="text-neon">${run.run_id}</div>
+            <div class="text-gray-400 mb-2">${run.target} • ${run.mode} • ${run.status}</div>
+            <div class="space-y-1 max-h-[260px] overflow-auto">
+                ${steps.map(s=>`<div class="border border-gray-800 rounded p-1"><div class="text-cyber">${s.phase||''}</div><div class="text-gray-500">${s.action||''}</div></div>`).join('')}
+            </div>
+            <div class="flex gap-2 mt-2">
+                <button onclick="window.oodaAct('${runId}')" class="bg-neon/10 text-neon border border-neon/30 px-2 py-1 rounded text-[9px]">Run cycle</button>
+                <button onclick="window.oodaReport('${runId}')" class="bg-cyber/10 text-cyber border border-cyber/30 px-2 py-1 rounded text-[9px]">Report</button>
+            </div>`;
+    } catch(e) { if (typeof showToast==='function') showToast('⚠️ '+e.message); }
+};
+
+window.oodaAct = async function(runId){
+    try {
+        for (const phase of ['observe','orient','decide','act','done']){
+            await fetch('/api/ooda/'+encodeURIComponent(runId)+'/'+phase, {method:'POST'});
+        }
+        if (typeof showToast==='function') showToast('✓ OODA cycle completed');
+        refreshOoda();
+        showOodaRun(runId);
+    } catch(e) { if (typeof showToast==='function') showToast('⚠️ '+e.message); }
+};
+
+window.oodaReport = async function(runId){
+    try {
+        const r = await fetch('/api/ooda/'+encodeURIComponent(runId)+'/report');
+        const j = await r.json();
+        if (typeof showToast==='function') showToast('✓ Report fetched');
+        alert(j.report ? j.report.slice(0,800) : JSON.stringify(j));
+    } catch(e) { if (typeof showToast==='function') showToast('⚠️ '+e.message); }
+};
+
+window.attackSearch = async function(){
+    try {
+        const q = document.getElementById('attack-q')?.value || '';
+        const r = await fetch('/api/attack/techniques');
+        const j = await r.json();
+        const items = (j.techniques||[]).filter(t => !q || JSON.stringify(t).toLowerCase().includes(q.toLowerCase()));
+        const el = document.getElementById('attack-results');
+        if (!el) return;
+        el.innerHTML = items.slice(0,20).map(t=>`<div class="border border-gray-800 rounded p-1"><span class="text-neon">${t.technique_id||''}</span> <span class="text-gray-400">${t.name||''}</span></div>`).join('') || '<div class="text-gray-500">No results</div>';
+    } catch(e) { if (typeof showToast==='function') showToast('⚠️ '+e.message); }
+};
+
+window.attackCoverage = async function(){
+    try {
+        const r = await fetch('/api/attack/coverage');
+        const j = await r.json();
+        const el = document.getElementById('attack-results');
+        if (!el) return;
+        el.innerHTML = `<div class="text-neon">Coverage: ${(j.covered||[]).length} techniques</div><div class="text-gray-400">Gaps: ${(j.gaps||[]).length}</div>`;
+    } catch(e) { if (typeof showToast==='function') showToast('⚠️ '+e.message); }
+};
+
+document.addEventListener('click', function(e){
+    const btn = e.target.closest('.tab-btn[data-tab="ooda"]');
+    if (btn) { setTimeout(()=>{ if (window.refreshOoda) refreshOoda(); }, 200); }
+});
