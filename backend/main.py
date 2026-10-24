@@ -3393,6 +3393,7 @@ async def api_skills_create(request: Request):
 # ════════════════════════════════════════════════════════════════
 
 from backend import skill_router as routerlib
+from backend import prompts_library
 
 
 class RouterRouteRequest(BaseModel):
@@ -9471,3 +9472,26 @@ async def vpn_status():
     result = await asyncio.to_thread(vpn.status)
     return JSONResponse(result)
 
+
+# ════════════════════════════════════════════════════════════════
+#  PROMPT LIBRARY (awesome-chatgpt-prompts curated)
+# ════════════════════════════════════════════════════════════════
+
+@app.get("/api/prompts")
+async def api_prompts_list(q: str = "", tag: str = ""):
+    try:
+        items = prompts_library.list_prompts(q=q, tag=tag)
+        return JSONResponse({"ok": True, "items": items, "count": len(items), "total": prompts_library.count()})
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/prompts/{pid}")
+async def api_prompts_get(pid: str):
+    try:
+        item = prompts_library.get_prompt(pid)
+        if not item:
+            return JSONResponse({"ok": False, "error": "not found"}, status_code=404)
+        return JSONResponse({"ok": True, "prompt": item})
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)

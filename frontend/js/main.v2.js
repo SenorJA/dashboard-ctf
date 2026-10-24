@@ -4588,6 +4588,7 @@ ${bodyHtml}
         'personas-refresh':      ()   => { if (window.refreshPersonas) refreshPersonas(); },
         'personas-export':       ()   => { if (window.personaExport) personaExport(); },
         'personas-create':       ()   => { if (window.personaToggleForm) personaToggleForm(true); },
+        'prompts-open':           ()   => { if (window.openPromptsLibrary) window.openPromptsLibrary(); },
         'personas-cancel':       ()   => { if (window.personaToggleForm) personaToggleForm(false); },
         'personas-save':         ()   => { if (window.personaSave) personaSave(); },
         'personas-close':        ()   => { if (window.personaClose) personaClose(); },
@@ -15431,3 +15432,47 @@ Reglas:
             if (typeof showToast==='function') showToast('⚠️ ' + e.message);
         }
     }
+
+// ════════════════════════════════════════════════════════════════
+// PROMPT LIBRARY (awesome-chatgpt-prompts)
+// ════════════════════════════════════════════════════════════════
+
+window.openPromptsLibrary = async function() {
+    try {
+        const r = await fetch('/api/prompts');
+        const j = await r.json();
+        if (!j.ok) throw new Error(j.error||'failed');
+        let html = `<div style="max-height:60vh;overflow:auto"><div style="margin-bottom:8px;color:#9FEF00;font-size:11px">Prompt Library — ${j.count}/${j.total}</div>`;
+        (j.items||[]).forEach(it => {
+            html += `<div style="border:1px solid #333;padding:8px;margin-bottom:6px;border-radius:4px">
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                    <div style="color:#ccc;font-size:11px">${(it.title||'').replace(/</g,'&lt;')}</div>
+                    <button onclick="window.usePrompt('${it.id}')" style="background:#0a0a0a;color:#9FEF00;border:1px solid #9FEF0040;padding:4px 8px;font-size:10px">Use in AI Chat</button>
+                </div>
+                <div style="color:#666;font-size:9px;margin-top:2px">${(it.tags||[]).join(', ')}</div>
+            </div>`;
+        });
+        html += '</div>';
+        if (typeof showModal === 'function') showModal('Prompt Library', html);
+        else alert('Prompt Library: ' + (j.count||0) + ' prompts');
+    } catch(e) {
+        if (typeof showToast==='function') showToast('⚠️ '+e.message);
+    }
+};
+
+window.usePrompt = async function(pid) {
+    try {
+        const r = await fetch('/api/prompts/'+encodeURIComponent(pid));
+        const j = await r.json();
+        if (!j.ok || !j.prompt) throw new Error(j.error||'failed');
+        const p = j.prompt.prompt || '';
+        if (typeof showToast==='function') showToast('✓ Prompt loaded');
+        // Try to inject into AI writeup/system area
+        const ta = document.getElementById('ai-system') || document.getElementById('ai-prompt');
+        if (ta) { ta.value = p; if (typeof showModal==='function') showModal(null); return; }
+        // Fallback: copy
+        try { await navigator.clipboard.writeText(p); if (typeof showToast==='function') showToast('📋 Copied to clipboard'); } catch(e){}
+    } catch(e) {
+        if (typeof showToast==='function') showToast('⚠️ '+e.message);
+    }
+};
