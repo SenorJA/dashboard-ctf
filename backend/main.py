@@ -1057,6 +1057,7 @@ class AIChatRequest(BaseModel):
     api_key: str = ""
     model: str = ""
     messages: list = []  # [{"role":"user"/"assistant"/"system","content":"..."}]
+    base_url: str = ""
     # Pack 17 — optional AI persona (agency_agents registry). When a valid
     # slug is supplied, its prompt is injected as a leading system message
     # (redacted like every other message by _prepare_chat_messages).
