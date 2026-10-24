@@ -6,8 +6,8 @@
 
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-latest-009688?logo=fastapi)](https://fastapi.tiangolo.com)
-[![Endpoints](https://img.shields.io/badge/endpoints-377-9cf)](#-api-resumen)
-[![Tests](https://img.shields.io/badge/tests-5514_✔️-2ea44f?logo=pytest)](#-testing)
+[![Endpoints](https://img.shields.io/badge/endpoints-400-9cf)](#-api-resumen)
+[![Tests](https://img.shields.io/badge/tests-5531_✔️-2ea44f?logo=pytest)](#-testing)
 [![Coverage](https://img.shields.io/badge/coverage-~95%25-2ea44f)](#-testing)
 [![Tabs](https://img.shields.io/badge/frontend%20tabs-38-9cf)](#-features-principales)
 [![Kali](https://img.shields.io/badge/Kali-Linux-557C94?logo=kalilinux)](https://kali.org)
@@ -261,10 +261,11 @@ http://localhost:8000/redoc     # ReDoc
 ```bash
 cd backend
 python -m pytest tests/ -k "not test_slow_hook" -q
-# 5514 passed  (~460s, ~95% cobertura)
+# 5531 passed  (~460s, ~95% cobertura)
 ```
 
-- **120 archivos de test**, **5514 tests** recolectados (~95% cobertura)
+- **121 archivos de test**, **5531 tests** recolectados (~95% cobertura)
+- Fase A (Prompt Library): **17 tests nuevos** — carga/caché, filtros `q`/`tag`, fichero ausente/malformado, ≥500 prompts curados y endpoints `/api/prompts[/{id}]`
 - `main.py` = **100%** de cobertura (statement-level)
 - Pack 11 (Lab Sessions + flags + write-up): **89 tests nuevos** — detección de flags user/root (incl. transcripciones SSH y falsos positivos), recomputado al editar/borrar, invalidación de análisis obsoletos, escape XSS del HTML dark-mode, endpoints
 - Pack 18 (LLM Security Scanner): **48 tests nuevos** — 23 probes, detectores (DAN/refusal, goodside/WhoIsRiley, leak/ApiKey, DoNotAnswer, Crescendo-lite con topic/refusal), 8 buffs, resolution de prompts (prefix 220, hijack 15), pureza del módulo (sin `backend.database`/red), veredicto max elemento-wise y endpoints (`mode=stub` + patches de `db.save_finding`/`siem`/`audit`/`notify`)
@@ -352,7 +353,7 @@ mirv/
 │   ├── plugins/      # Sistema de plugins (hot-reload)
 │   ├── skills/       # 113 skill playbooks (Markdown + frontmatter) + router/ (routing.json, benchmarks.json)
 │   ├── burp_plugin/  # Plugin Jython para Burp Suite
-│   └── tests/        # 120 archivos, 5514 tests (~95% cobertura)
+│   └── tests/        # 121 archivos, 5531 tests (~95% cobertura)
 ├── frontend/         # SPA vanilla JS + Tailwind CDN (38 tabs)
 │   ├── index.html    # SPA principal (~4.300 líneas)
 │   └── js/           # main.v2.js (~15.200 líneas), dataservice, mobile, forensics, swarm
@@ -424,7 +425,7 @@ M.I.R.V. está diseñado para:
 
 <div align="center">
 
-**M.I.R.V. v3.5.0** — 398 endpoints · 5514 tests · ~95% cobertura · 38 tabs · 71 módulos — **F0–F9 completados** (Permission Gate, Ingest Guard, Supply-chain, OODA, ATT&CK, Skills Installer, Browser Automation, Ducky/HID, Drafter-Reviewer, Custom LLM base_url)
+**M.I.R.V. v3.5.0** — 400 endpoints · 5531 tests · ~95% cobertura · 38 tabs · 72 módulos — **F0–F9 completados** (Permission Gate, Ingest Guard, Supply-chain, OODA, ATT&CK, Skills Installer, Browser Automation, Ducky/HID, Drafter-Reviewer, Custom LLM base_url) + **Prompt Library** (500 prompts curados)
 
 [Reportar bug](https://github.com/SenorJA/dashboard-ctf/issues) · [Sugerir mejora](https://github.com/SenorJA/dashboard-ctf/issues) · [Documentación técnica](AGENTS.md)
 

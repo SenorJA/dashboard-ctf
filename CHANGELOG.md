@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file.
 Format based on [Keep a Changelog](https://keepachangelog.com/), auto-generated from Conventional Commits.
 
 ## [Unreleased]
+### Added
+- **feat(prompts-library)**: Fase A ampliada — `backend/prompts_library.py` sirve ahora **500 prompts curados**
+  (antes 150) filtrados de `f/awesome-chatgpt-prompts` por keywords de pentesting/blue team
+  (hacker, exploit, vuln, CTF, red team, SQLi/XSS, forensics, malware, recon, privesc, lateral…).
+  `GET /api/prompts` (+ `q`/`tag`) y `GET /api/prompts/{id}`; UI *Prompt Library* en la pestaña
+  AI Personas. Datos en `backend/data/prompts/pentesting_prompts.json`; tests `test_prompts_library.py` (17).
+
 ### Fixed
 - **fix(audit-2026-10-13)**: hallazgos de la auditoría de código (agentes `security` + `reviewer`):
   - `privacy.apply_proxy`: ya **no** marca el perfil como activo si algún paso falla (`ok=False`) —

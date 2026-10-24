@@ -28,7 +28,10 @@ nul
 *.swo
 
 # Runtime data (episodic memory, etc.)
-backend/data/
+backend/data/*
+# Curated prompt library is shipped with the app (data, no secrets)
+!backend/data/prompts/
+backend/data/prompts/prompts.csv
 backend/data/*.db
 backend/data/*.db-journal
 backend/data/*.db-wal

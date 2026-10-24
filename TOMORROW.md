@@ -1,6 +1,8 @@
 # 🔮 TOMORROW.md — Roadmap de trabajo pendiente
 
-> Última actualización: 22 Oct 2026 — MIRV v3.5.0 | 71 módulos | 398 endpoints | **5514 tests** | 38 tabs |
+> Última actualización: 24 Oct 2026 — MIRV v3.5.0 | 72 módulos | 400 endpoints | **5531 tests** | 38 tabs |
+>
+> ✅ **Fase A — Prompt Library ampliada a 500 prompts** (24 Oct 2026): `backend/prompts_library.py` sirve **500 prompts curados** (antes 150) filtrados de `f/awesome-chatgpt-prompts` por keywords de pentesting/blue team; tags `web/recon/vuln/malware/ctf/network/audit/security`; endpoints `GET /api/prompts` (`q`,`tag`) + `/api/prompts/{id}`; modal *Prompt Library* en AI Personas. Tests: `test_prompts_library.py` (**17**); suite **5531 passed**. ⬜ Mantenimiento: rotación de `~/.local/share/opencode/log/opencode.log` y revisión periódica del tamaño de `opencode.db` (tabla `event`) — **no** borrar sesiones de otros proyectos sin permiso del usuario.
 >
 > ✅ **F9 — Puertas abiertas (custom base_url + skills.sh)** (22 Oct 2026): soporte `provider="custom"` con `base_url` ya en backend; UI AI Writeup añade campo *Base URL (custom)* (`localStorage` `vulnforge_ai_base_url`), enviado a `/api/ai/chat`, resumen AI usa `custom` si hay base_url. Pestaña *Skills* añade enlace a [skills.sh](https://skills.sh/). **113 skills · 41 rutas en/es** | main.py 100% | **Pack 21 VPN real (WireGuard/OpenVPN en el host Kali)** | **Pack 20 Privacy / egress-IP (proxy en el host Kali)** | **Pack 19 Android Pentesting Skill + wireless-audit host-only** | **Pack 18 LLM Security Scanner cerrado — succionado en Docker (smoke + push findings real a Supabase 201 + SIEM + audit)** | **Login + activación token API (Pack 8) cerrado** | **Pack 9 Task Router cerrado — CI 4/4 verde (commit `1a991f2`)** | 4 workflows (CI + Deploy + Desktop Build) verdes
 
