@@ -9478,10 +9478,10 @@ async def vpn_status():
 # ════════════════════════════════════════════════════════════════
 
 @app.get("/api/prompts")
-async def api_prompts_list(q: str = "", tag: str = ""):
+async def api_prompts_list(q: str = "", tag: str = "", limit: int = 0, offset: int = 0):
     try:
-        items = prompts_library.list_prompts(q=q, tag=tag)
-        return JSONResponse({"ok": True, "items": items, "count": len(items), "total": prompts_library.count()})
+        items = prompts_library.list_prompts(q=q, tag=tag, limit=limit, offset=offset)
+        return JSONResponse({"ok": True, "items": items, "count": len(items), "total": prompts_library.count(), "limit": limit, "offset": offset})
     except Exception as e:
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 

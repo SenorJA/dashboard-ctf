@@ -15437,24 +15437,48 @@ Reglas:
 // PROMPT LIBRARY (awesome-chatgpt-prompts)
 // ════════════════════════════════════════════════════════════════
 
-window.openPromptsLibrary = async function() {
+window._promptsState = window._promptsState || { q:'', tag:'', limit:50, offset:0, total:0 };
+window.openPromptsLibrary = async function(q,tag,limit,offset) {
     try {
-        const r = await fetch('/api/prompts');
+        q = q !== undefined ? q : (window._promptsState.q||'');
+        tag = tag !== undefined ? tag : (window._promptsState.tag||'');
+        limit = limit !== undefined ? limit : (window._promptsState.limit||50);
+        offset = offset !== undefined ? offset : (window._promptsState.offset||0);
+        window._promptsState = {q,tag,limit,offset,total:window._promptsState.total||0};
+        const params = new URLSearchParams({q,tag,limit:String(limit),offset:String(offset)});
+        const r = await fetch('/api/prompts?'+params.toString());
         const j = await r.json();
         if (!j.ok) throw new Error(j.error||'failed');
-        let html = `<div style="max-height:60vh;overflow:auto"><div style="margin-bottom:8px;color:#9FEF00;font-size:11px">Prompt Library — ${j.count}/${j.total}</div>`;
+        window._promptsState.total = j.total||0;
+        const from = offset+1;
+        const to = Math.min(offset+limit, j.total||0);
+        let html = `<div>
+            <div style="display:flex;gap:6px;margin-bottom:8px">
+                <input id="pl-q" value="${(q||'').replace(/"/g,'&quot;')}" placeholder="Search..." style="flex:1;background:#0a0a0a;border:1px solid #333;color:#9FEF00;padding:4px 6px;font-size:10px">
+                <input id="pl-tag" value="${(tag||'').replace(/"/g,'&quot;')}" placeholder="Tag..." style="width:140px;background:#0a0a0a;border:1px solid #333;color:#9FEF00;padding:4px 6px;font-size:10px">
+                <button onclick="window.openPromptsLibrary(document.getElementById('pl-q').value,document.getElementById('pl-tag').value,${limit},0)" style="background:#0a0a0a;color:#9FEF00;border:1px solid #9FEF0040;padding:4px 8px;font-size:10px">Search</button>
+                <button onclick="window.openPromptsLibrary('','',${limit},0)" style="background:#0a0a0a;color:#aaa;border:1px solid #333;padding:4px 8px;font-size:10px">Clear</button>
+            </div>
+            <div style="margin-bottom:6px;color:#9FEF00;font-size:10px">Showing ${from}-${to} of ${j.total||0}</div>
+            <div style="max-height:52vh;overflow:auto">`;
         (j.items||[]).forEach(it => {
+            const tid = (it.id||'').replace(/'/g,"\\'");
             html += `<div style="border:1px solid #333;padding:8px;margin-bottom:6px;border-radius:4px">
-                <div style="display:flex;justify-content:space-between;align-items:center">
-                    <div style="color:#ccc;font-size:11px">${(it.title||'').replace(/</g,'&lt;')}</div>
-                    <button onclick="window.usePrompt('${it.id}')" style="background:#0a0a0a;color:#9FEF00;border:1px solid #9FEF0040;padding:4px 8px;font-size:10px">Use in AI Chat</button>
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+                    <div style="min-width:0"><div style="color:#ccc;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(it.title||'').replace(/</g,'&lt;')}</div><div style="color:#666;font-size:9px">${(it.tags||[]).join(', ')}</div></div>
+                    <button onclick="window.usePrompt('${tid}')" style="background:#0a0a0a;color:#9FEF00;border:1px solid #9FEF0040;padding:4px 8px;font-size:10px;white-space:nowrap">Use in AI Chat</button>
                 </div>
-                <div style="color:#666;font-size:9px;margin-top:2px">${(it.tags||[]).join(', ')}</div>
             </div>`;
         });
-        html += '</div>';
-        if (typeof showModal === 'function') showModal('Prompt Library', html);
-        else alert('Prompt Library: ' + (j.count||0) + ' prompts');
+        html += `</div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
+                <button onclick="window.openPromptsLibrary('${(q||'').replace(/'/g,"\\'")}','${(tag||'').replace(/'/g,"\\'")}',${limit},${Math.max(0,offset-limit)})" style="background:#0a0a0a;color:#aaa;border:1px solid #333;padding:4px 8px;font-size:10px" ${offset<=0?'disabled':''}>← Prev</button>
+                <div style="color:#666;font-size:9px">Page ${Math.floor(offset/limit)+1}</div>
+                <button onclick="window.openPromptsLibrary('${(q||'').replace(/'/g,"\\'")}','${(tag||'').replace(/'/g,"\\'")}',${limit},${offset+limit})" style="background:#0a0a0a;color:#aaa;border:1px solid #333;padding:4px 8px;font-size:10px" ${(offset+limit)>= (j.total||0)?'disabled':''}>Next →</button>
+            </div>
+        </div>`;
+        if (typeof showModal === 'function') showModal('Prompt Library ('+(j.total||0)+')', html);
+        else alert('Prompt Library: ' + (j.total||0) + ' prompts');
     } catch(e) {
         if (typeof showToast==='function') showToast('⚠️ '+e.message);
     }

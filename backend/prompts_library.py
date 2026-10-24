@@ -33,7 +33,7 @@ def _load() -> List[Dict[str, Any]]:
     return _CACHE
 
 
-def list_prompts(q: str = "", tag: str = "") -> List[Dict[str, Any]]:
+def list_prompts(q: str = "", tag: str = "", limit: int = 0, offset: int = 0) -> List[Dict[str, Any]]:
     items = _load()
     res = []
     ql = (q or '').lower()
@@ -44,6 +44,10 @@ def list_prompts(q: str = "", tag: str = "") -> List[Dict[str, Any]]:
         if tl and tl not in [t.lower() for t in it.get('tags',[])]:
             continue
         res.append({k: it[k] for k in ('id','title','tags','source') if k in it})
+    if limit and limit > 0:
+        return res[offset:offset + limit]
+    if offset and offset > 0:
+        return res[offset:]
     return res
 
 
