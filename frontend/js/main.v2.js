@@ -10425,9 +10425,24 @@ Reglas:
         // Alerts
         fetch('/api/siem/alerts?limit=10').then(r=>r.json()).then(d => {
             if (!d.ok) return;
+            const alerts = d.alerts || [];
+            // TTS for critical alerts (browser speech)
+            try {
+                const voiceOn = document.getElementById('siem-voice-toggle')?.checked !== false;
+                if (voiceOn && alerts.length && typeof window.speechSynthesis !== 'undefined') {
+                    const crit = alerts.filter(a=>!a.acknowledged && (a.severity==='critical' || a.severity==='high')).length;
+                    if (crit > (window._lastSiemAlertCount||0) && crit>0) {
+                        const u = new SpeechSynthesisUtterance('MIRV SIEM: '+crit+' critical or high severity alerts detected');
+                        u.rate = 0.95; u.volume = 0.8;
+                        window.speechSynthesis.cancel();
+                        window.speechSynthesis.speak(u);
+                    }
+                    window._lastSiemAlertCount = crit;
+                }
+            } catch(e){}
             const list = document.getElementById('siem-alerts-list');
             const empty = document.getElementById('siem-alerts-empty');
-            if (!d.alerts?.length) { empty?.classList.remove('hidden'); list.innerHTML = ''; return; }
+            if (!alerts.length) { empty?.classList.remove('hidden'); list.innerHTML = ''; return; }
             empty?.classList.add('hidden');
             list.innerHTML = d.alerts.map(a => `
                 <div class="bg-deep rounded-lg border border-blood/50 p-3">

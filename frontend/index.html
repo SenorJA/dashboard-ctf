@@ -2950,7 +2950,10 @@
 
                 <!-- Alerts panel -->
                 <div>
-                  <h3 class="text-neon font-semibold mb-2">🚨 Active Alerts</h3>
+                  <div class="flex items-center justify-between mb-2">
+                    <h3 class="text-neon font-semibold">🚨 Active Alerts</h3>
+                    <label class="flex items-center gap-1 text-[9px] text-gray-400"><input id="siem-voice-toggle" type="checkbox" checked> 🔊 Voice</label>
+                  </div>
                   <div id="siem-alerts-list" class="space-y-2 max-h-96 overflow-y-auto pr-1"></div>
                   <p id="siem-alerts-empty" class="text-center text-gray-400 py-4 italic">No alerts.</p>
                 </div>
