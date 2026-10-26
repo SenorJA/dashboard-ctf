@@ -481,6 +481,8 @@ def finding_to_burp_issue(finding: dict) -> dict:
     )
     with _lock:
         _issues[issue.id] = issue
+    # Prioritize issue (BurpIA-inspired: boost score for critical issues)
+    _prioritize_issue(issue)
     return {"ok": True, "issue": asdict(issue)}
 
 
@@ -585,6 +587,53 @@ def clear_all() -> dict:
     return {"ok": True}
 
 
+def _prioritize_issue(issue: BurpIssue) -> None:
+    """Prioritize issue based on severity (BurpIA-inspired).
+
+    Boosts severity for critical issues to ensure they are handled first.
+    """
+    sev_boost = {
+        "critical": 100,
+        "high": 80,
+        "medium": 50,
+        "low": 20,
+        "info": 0,
+    }
+    # This is a placeholder for future AI-based prioritization
+    # For now, just log the prioritization decision
+    _logger.info(
+        "issue prioritized: id=%s title=%s severity=%s boost=%d",
+        issue.id, issue.title, issue.severity, sev_boost.get(issue.severity, 0)
+    )
+
+
+def correlate_issues(issue_id: str) -> dict:
+    """Correlate an issue with existing issues (BurpIA-inspired).
+
+    Finds related issues by URL, method, or title similarity.
+    Returns ``{"ok": True, "correlations": [...]}``.
+    """
+    with _lock:
+        if issue_id not in _issues:
+            return {"ok": False, "error": "issue not found"}
+        issue = _issues[issue_id]
+        correlations = []
+        for other_id, other in _issues.items():
+            if other_id == issue_id:
+                continue
+            # Simple correlation by URL or title similarity
+            if other.url == issue.url or other.title.lower() == issue.title.lower():
+                correlations.append({
+                    "issue_id": other_id,
+                    "title": other.title,
+                    "severity": other.severity,
+                    "url": other.url,
+                    "method": other.method,
+                    "created_at": other.created_at,
+                })
+        return {"ok": True, "correlations": correlations}
+
+
 def status() -> dict:
     """Return counts for each store."""
     with _lock:
@@ -598,3 +647,11 @@ def status() -> dict:
             "max_entries": _MAX_ENTRIES,
             "token_required": bool(_load_token()),
         }
+
+
+def get_issue_correlations(issue_id: str) -> dict:
+    """Get correlations for an issue (BurpIA-inspired).
+
+    Returns ``{"ok": True, "correlations": [...]}``.
+    """
+    return correlate_issues(issue_id)

@@ -64,6 +64,32 @@ WEAK_CRYPTO = [
     r'(?i)SecretKeySpec\s*\(\s*[^,]+,\s*["\'](DES|DESede)["\']',
 ]
 
+# Defensive checks inspired by DragonJAR Android analysis best practices
+ROOT_INDICATORS = [
+    r'/system/app/Superuser\.apk',
+    r'/system/bin/su',
+    r'/system/xbin/su',
+    r'magisk',
+    r'supersu',
+    r'chainfire',
+    r'RootBeer',
+]
+
+DEBUGGING_INDICATORS = [
+    r'Debug\.isDebuggerConnected',
+    r'debuggable.*true',
+    r'os\.is_debuggable',
+    r'ro\.debuggable',
+]
+
+EMULATOR_INDICATORS = [
+    r'goldfish',
+    r'vbox86',
+    r'generic.*sdk',
+    r'emulator',
+    r'qemu',
+]
+
 # ── In-memory store for analyzed APKs ──
 _apk_store: dict = {}
 _work_dir: str = "/tmp/vulnforge_mobile"
@@ -471,6 +497,24 @@ def _check_ssl_pinning(smali_dir: str) -> list:
     return []
 
 
+def _check_cert_info(apk_path: str) -> dict:
+    """Extract APK signing certificate info (defensive)."""
+    try:
+        # Use keytool if available (requires JDK)
+        stdout, stderr = _run_cmd_local(["keytool", "-printcert", "-jarfile", apk_path], timeout=30)
+        if stdout:
+            lines = stdout.strip().split("\n")
+            for line in lines:
+                if line.startswith("SHA256:"):
+                    return {"sha256": line.replace("SHA256:", "").strip()}
+                elif line.startswith("SHA1:"):
+                    return {"sha1": line.replace("SHA1:", "").strip()}
+        # Fallback: return empty dict if keytool fails
+        return {}
+    except Exception:
+        return {}
+
+
 # ════════════════════════════════════════════════════════════════
 #  MAIN ANALYSIS PIPELINE
 # ════════════════════════════════════════════════════════════════
@@ -497,6 +541,7 @@ def analyze_apk(apk_path: str, apk_id: str = None) -> dict:
         "summary": {"critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0},
         "permissions": [],
         "components": {},
+        "signature": {},
         "error": None,
     }
 
@@ -507,6 +552,10 @@ def analyze_apk(apk_path: str, apk_id: str = None) -> dict:
         result["sha256"] = hashes["sha256"]
         result["size"] = os.path.getsize(apk_path)
         result["filename"] = os.path.basename(apk_path)
+        # Extract signing certificate info (defensive check)
+        cert_info = _check_cert_info(apk_path)
+        if cert_info:
+            result["signature"] = cert_info
     except Exception as e:
         result["error"] = f"Cannot read file: {e}"
         _apk_store[apk_id] = result
@@ -650,7 +699,13 @@ def analyze_apk(apk_path: str, apk_id: str = None) -> dict:
     # Step 12: SSL Pinning
     result["findings"].extend(_check_ssl_pinning(smali_dir))
 
-    # Step 13: Compute summary
+    # Step 13: Debugging indicators (defensive)
+    result["findings"].extend(_check_debugging_indicators(smali_dir))
+
+    # Step 14: Emulator detection (defensive)
+    result["findings"].extend(_check_emulator_detection(smali_dir))
+
+    # Step 15: Compute summary
     for f in result["findings"]:
         sev = f.get("severity", "info")
         if sev in result["summary"]:

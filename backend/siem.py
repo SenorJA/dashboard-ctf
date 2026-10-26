@@ -495,7 +495,35 @@ def _check_rule(
         _check_canary(rule, new_event)
     elif rule.condition == "dlp-leak":
         _check_dlp_leak(rule, new_event, all_events)
+    elif rule.condition == "php-suspicious":
+        _check_php_suspicious(rule, new_event, all_events)
     # "custom" rules are left for future expansion
+
+
+def _check_php_suspicious(
+    rule: SIEMRule,
+    new_event: SIEMEvent,
+    all_events: list[SIEMEvent],
+) -> None:
+    """PHP suspicious patterns: detect anomalous headers or request patterns."""
+    if "php" not in new_event.tags and "suspicious" not in new_event.tags:
+        return
+    if not new_event.ip:
+        return
+
+    threshold = rule.config.get("threshold", 3)
+    window_secs = rule.config.get("window_seconds", 300)
+    cutoff = datetime.now(timezone.utc) - timedelta(seconds=window_secs)
+
+    matching = []
+    for ev in all_events:
+        if ev.ip == new_event.ip and ev.timestamp >= cutoff:
+            # Check for suspicious patterns in title/message
+            if any(kw in (ev.title + ev.message).lower() for kw in ["shell", "exec", "system(", "eval(", "base64_decode", "assert("]):
+                matching.append(ev)
+
+    if len(matching) >= threshold:
+        _create_alert(rule, new_event, matching)
 
 
 def _check_brute_force(
