@@ -497,6 +497,67 @@ def _check_ssl_pinning(smali_dir: str) -> list:
     return []
 
 
+def _check_debugging_indicators(smali_dir: str) -> list:
+    """Check for debugging indicators in smali code (defensive)."""
+    findings = []
+    seen = set()
+    debug_patterns = [
+        (r'(?i)(Landroid/os/Debug;->isDebuggerConnected|wait_for_debugger)', "Debugger wait/connected check present"),
+        (r'(?i)(JDWP|Landroid/ddmlib)', "Debug protocol reference"),
+        (r'(?i)(WebView;?->setWebContentsDebuggingEnabled\s*\(\s*true)', "WebView contents debugging enabled"),
+    ]
+    log_count = 0
+    for _, rel, content in _walk_smali_files(smali_dir):
+        for pat, desc in debug_patterns:
+            if re.search(pat, content):
+                if "debug_markers" not in seen:
+                    seen.add("debug_markers")
+                    findings.append({
+                        "severity": "info",
+                        "title": f"Debugging Indicator: {desc}",
+                        "description": "Debugging hooks may ease dynamic analysis. Remove for release builds.",
+                        "category": "debugging",
+                        "file": rel,
+                    })
+                break
+        if "Landroid/util/Log;->d(" in content or "Landroid/util/Log;->v(" in content:
+            log_count += content.count("Landroid/util/Log;->")
+    if log_count > 500:
+        findings.append({
+            "severity": "info",
+            "title": "Excessive Verbose Logging",
+            "description": f"{log_count} Log.d/Log.v calls found. Verbose logs may leak sensitive data on release builds.",
+            "category": "debugging",
+            "file": "smali_analysis",
+        })
+    return findings
+
+
+def _check_emulator_detection(smali_dir: str) -> list:
+    """Check for emulator detection mechanisms (defensive)."""
+    findings = []
+    patterns = [
+        (r'(?i)(goldfish|ranchu|qemu|genymotion|bluestacks|x86\.fishbone)', "Emulator fingerprint reference"),
+        (r'(?i)(Build\.(MODEL|FINGERPRINT|HARDWARE|PRODUCT).*[\w]*(sdk|emulator))', "Runtime emulator property check"),
+        (r'(?i)(com\.hackathon\.robin|RootBeer|emulator)', "Generic anti-emulator marker"),
+    ]
+    seen = set()
+    for _, rel, content in _walk_smali_files(smali_dir):
+        for pat, desc in patterns:
+            if re.search(pat, content):
+                if "emulator_markers" not in seen:
+                    seen.add("emulator_markers")
+                    findings.append({
+                        "severity": "info",
+                        "title": f"Emulator Detection: {desc}",
+                        "description": "Anti-emulator checks may complicate dynamic analysis. Common in anti-tamper builds.",
+                        "category": "emulator_detection",
+                        "file": rel,
+                    })
+                break
+    return findings
+
+
 def _check_cert_info(apk_path: str) -> dict:
     """Extract APK signing certificate info (defensive)."""
     try:

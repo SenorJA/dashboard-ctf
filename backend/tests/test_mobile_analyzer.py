@@ -596,3 +596,58 @@ def test_delete_apk_remote_cleanup(tmp_path, monkeypatch):
     with patch.object(mobile, "_run_cmd_remote", return_value=("", "")) as remote:
         assert mobile.delete_apk("r1") is True
     assert remote.call_count == 2
+
+
+# --- Regression: every step function called in analyze_apk must exist ---
+def test_all_check_functions_defined():
+    """Every _check_* invoked via result["findings"].extend(...) must be defined.
+    Guards against NameError crashes in production when adding new steps."""
+    import ast as _ast
+    src = open(mobile.__file__, encoding="utf-8").read()
+    tree = _ast.parse(src)
+    defined = {node.name for node in tree.body if isinstance(node, _ast.FunctionDef)}
+    called = []
+    for node in _ast.walk(tree):
+        if isinstance(node, _ast.Call) and isinstance(node.func, _ast.Name):
+            if node.args and getattr(node.args[0], "id", "") == "result_findings_placeholder":
+                called.append(node.func.id)
+    steps = [n.func.id for n in _ast.walk(tree)
+             if isinstance(n, _ast.Call) and isinstance(n.func, _ast.Name) and n.func.id.startswith("_check_")]
+    for step in steps:
+        assert step in defined, f"Function {step} is called but never defined!"
+    assert "_check_debugging_indicators" in defined
+    assert "_check_emulator_detection" in defined
+
+
+def test_check_debugging_indicators(tmp_path):
+    d = tmp_path / "smali"
+    d.mkdir()
+    (d / "a.smali").write_text(
+        "invoke-virtual {p0}, Landroid/webkit/WebView;->setWebContentsDebuggingEnabled(true)I",
+        encoding="utf-8",
+    )
+    findings = mobile._check_debugging_indicators(str(d))
+    assert any("Debugging" in f["title"] for f in findings)
+    # clean dir -> no findings
+    clean = tmp_path / "clean"
+    clean.mkdir()
+    assert mobile._check_debugging_indicators(str(clean)) == []
+
+
+def test_check_debugging_indicators_missing_dir():
+    assert mobile._check_debugging_indicators(os.path.join("no", "such", "dir")) == []
+
+
+def test_check_emulator_detection(tmp_path):
+    d = tmp_path / "smali"
+    d.mkdir()
+    (d / "a.smali").write_text("const-string v0, \"ro.kernel.qemu\"", encoding="utf-8")
+    findings = mobile._check_emulator_detection(str(d))
+    assert any("Emulator" in f["title"] for f in findings)
+    clean = tmp_path / "clean_emu"
+    clean.mkdir()
+    assert mobile._check_emulator_detection(str(clean)) == []
+
+
+def test_check_emulator_detection_missing_dir():
+    assert mobile._check_emulator_detection(os.path.join("no", "such", "dir")) == []
