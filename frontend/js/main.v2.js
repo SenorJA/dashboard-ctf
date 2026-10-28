@@ -15621,3 +15621,100 @@ document.addEventListener('click', function(e){
     const btn = e.target.closest('.tab-btn[data-tab="ooda"]');
     if (btn) { setTimeout(()=>{ if (window.refreshOoda) refreshOoda(); }, 200); }
 });
+
+// AI CTF
+window._aictfSession = null;
+
+window.refreshAICTF = async function(){
+    try {
+        const [chRes, stRes] = await Promise.all([
+            fetch('/api/ai-ctf/challenges', {headers: {'X-MIRV-Token': window.MIRV_TOKEN||''}}),
+            fetch('/api/ai-ctf/stats', {headers: {'X-MIRV-Token': window.MIRV_TOKEN||''}})
+        ]);
+        const ch = await chRes.json();
+        const st = await stRes.json();
+        const list = document.getElementById('aictf-challenges');
+        if (list) {
+            list.innerHTML = (ch.challenges||[]).map(c => `
+                <div class="border border-gray-800 rounded p-2 hover:border-neon/40 cursor-pointer" onclick="window.startAICTF('${c.id}')">
+                    <div class="flex items-center justify-between">
+                        <span class="text-neon text-[11px]">${c.title}</span>
+                        <span class="text-[9px] text-gray-400">${c.difficulty} • ${c.points}pts</span>
+                    </div>
+                    <div class="text-[9px] text-gray-500 mt-1">${c.description}</div>
+                </div>
+            `).join('');
+        }
+        const stats = document.getElementById('aictf-stats');
+        if (stats) stats.textContent = `${st.total_challenges||0} challenges • ${st.active_sessions||0} sessions`;
+    } catch(e) { if (typeof showToast==='function') showToast('⚠️ '+e.message); }
+};
+
+window.startAICTF = async function(challengeId){
+    try {
+        const r = await fetch('/api/ai-ctf/start', {
+            method:'POST',
+            headers: {'Content-Type':'application/json', 'X-MIRV-Token': window.MIRV_TOKEN||''},
+            body: JSON.stringify({challenge_id: challengeId})
+        });
+        const j = await r.json();
+        if (!j.ok) throw new Error(j.error||'failed');
+        window._aictfSession = j.session_id;
+        const hist = document.getElementById('aictf-chat-history');
+        if (hist) hist.innerHTML = `<div class="text-neon text-xs">Started: ${j.challenge.title}</div><div class="text-gray-400 text-xs">${j.challenge.description}</div>`;
+        if (typeof showToast==='function') showToast('✓ AI CTF session started');
+    } catch(e) { if (typeof showToast==='function') showToast('⚠️ '+e.message); }
+};
+
+window.sendAICTFChat = async function(){
+    try {
+        if (!window._aictfSession) { if (typeof showToast==='function') showToast('⚠️ Start a challenge first'); return; }
+        const input = document.getElementById('aictf-chat-input');
+        const msg = input.value.trim();
+        if (!msg) return;
+        const hist = document.getElementById('aictf-chat-history');
+        if (hist) hist.innerHTML += `<div class="text-cyber text-xs"><b>You:</b> ${msg.replace(/</g,'&lt;')}</div>`;
+        input.value = '';
+        const r = await fetch('/api/ai-ctf/chat', {
+            method:'POST',
+            headers: {'Content-Type':'application/json', 'X-MIRV-Token': window.MIRV_TOKEN||''},
+            body: JSON.stringify({session_id: window._aictfSession, message: msg})
+        });
+        const j = await r.json();
+        if (hist) hist.innerHTML += `<div class="text-neon text-xs"><b>Bot:</b> ${(j.response||'').replace(/</g,'&lt;')}</div>`;
+        hist.scrollTop = hist.scrollHeight;
+    } catch(e) { if (typeof showToast==='function') showToast('⚠️ '+e.message); }
+};
+
+window.submitAICTFFlag = async function(){
+    try {
+        if (!window._aictfSession) { if (typeof showToast==='function') showToast('⚠️ Start a challenge first'); return; }
+        const input = document.getElementById('aictf-flag-input');
+        const flag = input.value.trim();
+        if (!flag) return;
+        const r = await fetch('/api/ai-ctf/submit', {
+            method:'POST',
+            headers: {'Content-Type':'application/json', 'X-MIRV-Token': window.MIRV_TOKEN||''},
+            body: JSON.stringify({session_id: window._aictfSession, flag})
+        });
+        const j = await r.json();
+        const res = document.getElementById('aictf-flag-result');
+        if (res) res.innerHTML = j.correct ? `<span class="text-neon">✓ ${j.message} (+${j.points} pts)</span>` : `<span class="text-red-400">✗ ${j.message}</span>`;
+        input.value = '';
+    } catch(e) { if (typeof showToast==='function') showToast('⚠️ '+e.message); }
+};
+
+window.getAICTFHints = async function(){
+    try {
+        if (!window._aictfSession) { if (typeof showToast==='function') showToast('⚠️ Start a challenge first'); return; }
+        const r = await fetch('/api/ai-ctf/hints?session_id='+encodeURIComponent(window._aictfSession), {headers: {'X-MIRV-Token': window.MIRV_TOKEN||''}});
+        const j = await r.json();
+        const h = document.getElementById('aictf-hints');
+        if (h) h.innerHTML = (j.hints||[]).map((x,i)=>`<div>💡 ${i+1}. ${x}</div>`).join('') || '<div>No hints available</div>';
+    } catch(e) { if (typeof showToast==='function') showToast('⚠️ '+e.message); }
+};
+
+document.addEventListener('click', function(e){
+    const btn = e.target.closest('.tab-btn[data-tab="aictf"]');
+    if (btn) { setTimeout(()=>{ if (window.refreshAICTF) refreshAICTF(); }, 200); }
+});

@@ -527,6 +527,10 @@
                     <span class="tab-icon">🤖</span>
                     <span>LLM</span>
                 </button>
+                <button class="tab-btn" id="tab-btn-aictf" data-tab="aictf" role="tab" aria-selected="false" aria-controls="tab-aictf">
+                    <span class="tab-icon">🎯</span>
+                    <span>AI CTF</span>
+                </button>
                 <button class="tab-btn" id="tab-btn-siem" data-tab="siem" role="tab" aria-selected="false" aria-controls="tab-siem" data-i18n="tabSiem">
                     <span class="tab-icon">📊</span>
                     <span>SIEM</span>
@@ -4024,6 +4028,47 @@
                 <!-- Proxy list -->
                 <h4 class="text-[11px] text-cyber font-semibold tracking-wider uppercase mb-2" data-i18n="privacyProfiles">Perfiles</h4>
                 <div id="privacy-proxies" class="space-y-2"></div>
+            </div>
+
+            <div id="tab-aictf" role="tabpanel" aria-labelledby="tab-btn-aictf" class="tab-pane p-4 pt-3 overflow-y-auto">
+                <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+                    <div>
+                        <h2 class="text-lg font-bold text-neon tracking-wider">🎯 AI CTF — Adversarial Chatbot</h2>
+                        <p class="text-[10px] text-gray-400">Prompt Injection challenges. Try to bypass the bot and extract the flag.</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span id="aictf-stats" class="px-2 py-1 rounded text-[10px] font-semibold bg-deep border border-gray-800 text-gray-400">—</span>
+                        <button onclick="if(window.refreshAICTF) refreshAICTF()" class="bg-neon/10 hover:bg-neon/20 text-neon border border-neon/30 px-3 py-1.5 rounded text-[10px] font-semibold transition-all">⟳ Refresh</button>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    <div class="lg:col-span-1 space-y-2">
+                        <h3 class="text-neon text-sm font-semibold">Challenges</h3>
+                        <div id="aictf-challenges" class="space-y-2"></div>
+                    </div>
+                    <div class="lg:col-span-2 space-y-2">
+                        <h3 class="text-neon text-sm font-semibold">Chat</h3>
+                        <div class="bg-deep border border-gray-800 rounded p-3">
+                            <div id="aictf-chat-history" class="space-y-2 max-h-[400px] overflow-y-auto mb-3"></div>
+                            <div class="flex gap-2">
+                                <input id="aictf-chat-input" type="text" class="flex-1 bg-void border border-gray-700 rounded px-2 py-1 text-xs text-gray-200" placeholder="Type your message..." onkeypress="if(event.key==='Enter'&&window.sendAICTFChat) sendAICTFChat()">
+                                <button onclick="if(window.sendAICTFChat) sendAICTFChat()" class="bg-neon/10 text-neon border border-neon/30 px-3 py-1 rounded text-xs">Send</button>
+                            </div>
+                        </div>
+                        <div class="bg-deep border border-gray-800 rounded p-3">
+                            <h4 class="text-cyber text-xs font-semibold mb-2">Submit Flag</h4>
+                            <div class="flex gap-2">
+                                <input id="aictf-flag-input" type="text" class="flex-1 bg-void border border-gray-700 rounded px-2 py-1 text-xs text-gray-200" placeholder="MIRV{...}">
+                                <button onclick="if(window.submitAICTFFlag) submitAICTFFlag()" class="bg-blood/10 text-red-400 border border-red-400/30 px-3 py-1 rounded text-xs">Submit</button>
+                            </div>
+                            <div id="aictf-flag-result" class="text-xs mt-2"></div>
+                        </div>
+                        <div class="bg-deep border border-gray-800 rounded p-3">
+                            <button onclick="if(window.getAICTFHints) getAICTFHints()" class="text-cyber text-xs">💡 Get Hints</button>
+                            <div id="aictf-hints" class="text-xs text-gray-400 mt-2"></div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <div id="tab-vpn" role="tabpanel" aria-labelledby="tab-btn-vpn" class="tab-pane p-4 pt-3 overflow-y-auto">
