@@ -165,6 +165,7 @@ from backend.burp_bridge import (
     report_to_mirv_findings as bb_report,
     ingest_snapshot as bb_snapshot,
     verify_token as bb_verify_token,
+    get_issue_correlations as bb_correlations,
 )
 from backend.burp_bridge import CapturedRequest as BBCapturedRequest
 
@@ -3394,6 +3395,7 @@ async def api_skills_create(request: Request):
 
 from backend import skill_router as routerlib
 from backend import prompts_library
+from backend import ai_ctf
 
 
 class RouterRouteRequest(BaseModel):
@@ -9493,5 +9495,68 @@ async def api_prompts_get(pid: str):
         if not item:
             return JSONResponse({"ok": False, "error": "not found"}, status_code=404)
         return JSONResponse({"ok": True, "prompt": item})
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+# ── AI CTF (Adversarial Chatbot Challenges) ──
+@app.get("/api/ai-ctf/challenges")
+async def api_ai_ctf_challenges():
+    try:
+        return JSONResponse({"ok": True, "challenges": ai_ctf.list_challenges()})
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/ai-ctf/stats")
+async def api_ai_ctf_stats():
+    try:
+        return JSONResponse(ai_ctf.get_stats())
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+class AICTFStartRequest(BaseModel):
+    challenge_id: str
+
+
+class AICTFChatRequest(BaseModel):
+    session_id: str
+    message: str
+
+
+class AICTFSubmitRequest(BaseModel):
+    session_id: str
+    flag: str
+
+
+@app.post("/api/ai-ctf/start")
+async def api_ai_ctf_start(req: AICTFStartRequest):
+    try:
+        return JSONResponse(ai_ctf.start_session(req.challenge_id))
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/ai-ctf/chat")
+async def api_ai_ctf_chat(req: AICTFChatRequest):
+    try:
+        return JSONResponse(ai_ctf.chat(req.session_id, req.message))
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/ai-ctf/submit")
+async def api_ai_ctf_submit(req: AICTFSubmitRequest):
+    try:
+        return JSONResponse(ai_ctf.submit_flag(req.session_id, req.flag))
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/ai-ctf/hints")
+async def api_ai_ctf_hints(session_id: str):
+    try:
+        return JSONResponse(ai_ctf.get_hints(session_id))
     except Exception as e:
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
